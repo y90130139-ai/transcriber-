@@ -310,3 +310,32 @@ does return `pov-relatable`). No spoken opening in this corpus has the shape.
 After deploy + `retag?all=1`: **real hooks on the screen branch 37 -> 43 of 87**,
 and 42 of the 65 screen items that actually carry on-screen text now have one.
 `cloud/scripts/povmeasure/state.mjs` reprints that from the live database.
+
+---
+
+## The repo is under git — 2026-09-08
+
+Baseline commit `8ab5af8` on branch `main`. **This file is no longer the only
+record of change.** Everything from here is recoverable with `git`, so a new
+entry below is only needed for something git cannot express — a change made
+before a commit exists to record it, or a deliberate copy kept for reading.
+
+Suffix `.pre-git-init`: `.gitignore`. The only file changed by the init, and it
+was changed *before* the first commit, so nothing could record the prior state.
+The change is two lines: a `# macOS` comment and `.DS_Store`.
+
+**The existing backups are kept, not deleted.** They cost 1.9 MB and the entries
+above them are the written reasoning for each change — that account is the
+valuable part and it is not reconstructible from a diff.
+
+**Verified before committing:** `config.json`, `secrets/`, `cloud/.env.local`
+and `cloud/.vercel` are all untracked, each checked individually with
+`git ls-files --error-unmatch`. Staged content was scanned for connection
+strings, private keys and secret-shaped literals; every hit was an environment
+variable *name* (`R2_SECRET_ACCESS_KEY` in `cloud/src/lib/r2.ts` and the portal
+docs), never a value. `vendor/` (1.2G) and `out/` (1.7G) stay out — `setup.sh`
+rebuilds the first and the second is generated data. `.git` is 1.8 MB.
+
+There is **no remote**. Nothing has been pushed anywhere; this is local history
+only. Adding a remote is a separate decision — the repo is private working
+material and pushing it is Geno's call.

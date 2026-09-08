@@ -82,6 +82,18 @@ body {
 }
 .tally b { color: var(--sc-bone); font-weight: 500; }
 
+/* The outperformance legend. Sits under the section head so the "×" on every
+   card has an explanation in the same viewport as the cards themselves.
+   Tokens only -- an undefined var() here would invalidate the whole property
+   rather than fall back. */
+.legend {
+  margin: 0 0 var(--sc-space-4);
+  max-width: 68ch;
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+  color: var(--sc-ink-300);
+}
+
 .search {
   background: transparent;
   border: 0;

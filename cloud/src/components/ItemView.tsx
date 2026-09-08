@@ -8,6 +8,7 @@ import {
   type Block, type LibraryItem, type TagRow,
 } from '@/lib/format'
 import { AXES } from '@/lib/taxonomy'
+import { OUTPERFORMANCE_LEGEND } from '@/lib/outperformance'
 
 type FullItem = LibraryItem & {
   caption: string | null
@@ -102,7 +103,7 @@ export default function ItemView({
           <button className="reader-close" onClick={onClose} aria-label="Close">Close</button>
           <h3>{displayName(item)}</h3>
           {link && <a className="source" href={link} target="_blank" rel="noreferrer">{link}</a>}
-          <p className="facts">
+          <p className="facts" title={OUTPERFORMANCE_LEGEND}>
             {[
               shown.upload_date,
               clock(shown.duration_sec),

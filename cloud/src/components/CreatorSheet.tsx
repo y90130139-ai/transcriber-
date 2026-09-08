@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { clock, compact, thumbUrl } from '@/lib/format'
 import { taxonomy } from '@/lib/taxonomy'
+import { explainOutperformance } from '@/lib/outperformance'
 
 type Profile = { handle: string; display_name: string | null; persona: string[]; note: string | null }
 type Post = {
@@ -162,7 +163,9 @@ export default function CreatorSheet({
                 )}
                 <div>
                   <p className="rung-figure">
-                    {post.outperformance ?? '—'}× {post.is_hot && <span>🔥</span>}
+                    <span title={post.outperformance ? explainOutperformance(post.outperformance) : undefined}>
+                      {post.outperformance ?? '—'}×
+                    </span> {post.is_hot && <span>🔥</span>}
                   </p>
                   <p className="rung-meta">
                     {[post.upload_date, `${compact(post.like_count)} likes`,

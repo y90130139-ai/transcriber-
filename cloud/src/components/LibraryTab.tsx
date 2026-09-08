@@ -4,6 +4,7 @@ import { useState } from 'react'
 import BulkAssign from './roster/BulkAssign'
 import FilterBar, { type Filters } from './FilterBar'
 import LibraryGrid from './LibraryGrid'
+import { OUTPERFORMANCE_LEGEND } from '@/lib/outperformance'
 import type { LibraryItem } from '@/lib/format'
 
 export default function LibraryTab({
@@ -98,6 +99,11 @@ export default function LibraryTab({
               : `${items.length} item${items.length === 1 ? '' : 's'}`}
         </span>
       </div>
+
+      {/* The multiplier was rendered in four places and explained in none.
+          A `title` tooltip is useless on a phone, which is where this gets
+          read, so the legend is visible copy rather than a hover. */}
+      <p className="legend">{OUTPERFORMANCE_LEGEND}</p>
 
       {items.length > 0 ? (
         <>

@@ -1,6 +1,7 @@
 'use client'
 
 import { clock, compact, displayName, thumbUrl, type LibraryItem } from '@/lib/format'
+import { explainOutperformance } from '@/lib/outperformance'
 
 function Frame({ item }: { item: LibraryItem }) {
   if (item.has_thumb) {
@@ -52,7 +53,9 @@ export default function LibraryGrid({
                 <span className="card-tag" data-corner="right">{clock(item.duration_sec)}</span>
               )}
               {item.outperformance !== null && item.outperformance !== undefined && (
-                <span className="card-tag">{item.outperformance}×</span>
+                <span className="card-tag" title={explainOutperformance(item.outperformance)}>
+                  {item.outperformance}×
+                </span>
               )}
             </span>
             <span className="card-handle">{displayName(item)}</span>

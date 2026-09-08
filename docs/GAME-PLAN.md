@@ -156,14 +156,20 @@ it is where that judgement enters the system. The plan deliberately keeps it.
 
 Ordered by value per hour, and by what unblocks what.
 
-**Now — unblocked, no dependency**
-1. **Multiplier legend in the UI.** ×1.4 = 40% above that creator's own median
-   (`score = likes + 10 × comments`). Geno has been reading his best signal
-   without knowing what it means. Minutes.
-2. **Scheduled auto-drafting** of every model's week into `draft`. She sees
-   nothing until sent. Converts his week from "build 18 plans" to "review and
-   send". Biggest single cut to manual work.
-3. **Intake form → profile tags**, and add *connect her IG account* to it.
+**Now — unblocked, no dependency. All three shipped 2026-09-08.**
+1. ~~**Multiplier legend in the UI.**~~ ✅ ×1.4 = 40% above that creator's own
+   median (`score = likes + 10 × comments`).
+2. ~~**Scheduled auto-drafting**~~ ✅ `bin/autodraft` + a Sunday-17:00 launchd
+   job, `com.geno.social-transcriber.autodraft`. Drafts only; a week is
+   invisible until a human sends it. First run opened 12 weeks, 204 cards.
+   → **Watch R2.** Every drafted card queues its video whether or not the week
+   is ever sent: ~8.3 MB × ~200 cards a week × 21-day retention ≈ 5 GB against
+   a free 10 GB. Fine at eighteen models, not at a hundred. The fix when it
+   bites is one line — scope `pendingUploads` to `p.status = 'sent'`.
+3. ~~**Intake form → profile tags**~~ ✅ `docs/INTAKE.md`. Rule-based, proposes
+   rather than saves, maps to nothing when unsure. `models.ig_account_type`
+   carries the *connect her IG account* question and is answerable today,
+   months before item 4.
 
 **Next — needs the Meta app**
 4. Meta app + App Review. Long pole, days to weeks, cannot be compressed.

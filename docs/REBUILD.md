@@ -557,7 +557,7 @@ build), `brief.ts` (drafting), `models.ts` (roster/plans + `isUntouchedDraft`),
 `r2.ts`/`r2queue.ts`, `auth.ts`, `decline.ts`, `timezones.ts`, `dates.ts`.
 
 **Entry points (`bin/`)** — `transcribe`, `serve`, `worker`, `relook`,
-`relisten`, `setup-cloud`.
+`relisten`, `setup-cloud`, `autodraft`.
 
 **Config** — `config.json`: `cloud_url`, `worker_secret`, `cookies_file`,
 `r2{...}`, optional `media_hostname`. App env: `DATABASE_URL`, `WORKER_SECRET`,
@@ -567,3 +567,19 @@ build), `brief.ts` (drafting), `models.ts` (roster/plans + `isUntouchedDraft`),
 remember that if you do, killing it by PID makes the supervisor relaunch it,
 so starting another by hand gives you two workers and two tunnels fighting over
 the same heartbeat row.
+
+**Put the drafter on a timer too.** `bin/autodraft` POSTs `/api/plans/autodraft`
+with the worker secret and builds every active model's week; a second launchd
+job (`com.geno.social-transcriber.autodraft`, Sunday 17:00, no keepalive and no
+`RunAtLoad`) is what turns a week from "build eighteen plans" into "review and
+send". It is safe on a timer because the route cannot produce anything but a
+draft, and safe to re-run because topping up an existing week is a no-op per
+reel. Logs to `~/Library/Logs/social-transcriber-autodraft.log`.
+
+> Watch the bucket if you do this. Every drafted card queues its video for R2 on
+> the Mac's next poll, whether or not the week is ever sent — measured at 8.3 MB
+> a video and ~200 cards a week, that is about 1.7 GB a week held for the 21-day
+> retention, so roughly 5 GB standing against R2's 10 GB free tier. Fine for
+> eighteen models and *not* fine for a hundred. The one-line fix when it
+> matters is to scope `pendingUploads` in `r2queue.ts` to `p.status = 'sent'`:
+> a draft is invisible to the model, so its bytes do not need to be anywhere yet.

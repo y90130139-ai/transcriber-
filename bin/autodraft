@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Draft next week for every active model, unattended.
+#
+# POSTs /api/plans/autodraft, which previews and writes in one pass and can
+# only ever produce drafts — nothing reaches a model until a human marks a
+# week sent. That is the whole safety argument for putting it on a timer.
+#
+# Run by launchd on Sunday evening (com.geno.social-transcriber.autodraft), so
+# the week is built before it starts and Sunday night is a review rather than
+# a build. Safe to run by hand at any time: topping up an existing week is a
+# no-op per reel because of the unique index on (plan_id, job_id).
+#
+# The week asked for is *tomorrow's* Monday. On Sunday that is next week; on
+# any other day `mondayOf` snaps it back to the week already running, so a run
+# that launchd deferred because the Mac was asleep still builds the right week.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+
+# `worker_secret` and `cloud_url` live in config.json, never in the environment.
+read -r CLOUD_URL WORKER_SECRET <<<"$(/usr/bin/python3 -c '
+import json, sys
+config = json.load(open("config.json"))
+url = (config.get("cloud_url") or "").rstrip("/")
+secret = config.get("worker_secret") or ""
+if not url or not secret:
+    sys.exit("config.json is missing cloud_url or worker_secret")
+print(url, secret)
+')"
+
+WEEK="$(date -v+1d +%Y-%m-%d)"
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') autodraft → week of $WEEK"
+
+BODY="$(curl --silent --show-error --fail-with-body --max-time 120 \
+  --request POST \
+  --header "Authorization: Bearer ${WORKER_SECRET}" \
+  --header 'Content-Type: application/json' \
+  "${CLOUD_URL}/api/plans/autodraft?week=${WEEK}")" || {
+    echo "  autodraft failed: ${BODY:-no response}"
+    exit 1
+  }
+
+# `short` is who the library ran out of things for — usually an unfilled
+# profile rather than a dry library, and the one thing worth reading here.
+/usr/bin/python3 -c '
+import json, sys
+result = json.loads(sys.stdin.read() or "{}")
+print("  %s models · %s weeks opened · %s cards added"
+      % (result.get("models", 0), result.get("opened", 0), result.get("added", 0)))
+short = result.get("short") or []
+for row in short:
+    print("  short %s for %s — check her formats and persona"
+          % (row.get("short"), row.get("name")))
+' <<<"$BODY"

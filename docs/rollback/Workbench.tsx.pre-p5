@@ -1,0 +1,151 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import ItemView from './ItemView'
+import CreatorsTab from './CreatorsTab'
+import LibraryTab from './LibraryTab'
+import QueueTab from './QueueTab'
+import RosterTab from './roster/RosterTab'
+import { EMPTY_FILTERS, toQuery, type Filters } from './FilterBar'
+import type { LibraryItem } from '@/lib/format'
+
+type Counts = { queued: number; running: number; done: number; failed: number }
+type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
+// `creators` is the Instagram accounts we research — the word the database and
+// /api/creators already use. `models` is our own people, who are a different
+// entity in a different table and get their own tab.
+type Tab = 'queue' | 'library' | 'creators' | 'models'
+
+// Poll hard while the Mac is chewing on something, gently when it is idle.
+const POLL_BUSY_MS = 2500
+const POLL_IDLE_MS = 15_000
+const SEARCH_DEBOUNCE_MS = 220
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'queue', label: 'Queue' },
+  { id: 'library', label: 'Library' },
+  { id: 'creators', label: 'Creators' },
+  { id: 'models', label: 'Models' },
+]
+
+export default function Workbench() {
+  const [tab, setTab] = useState<Tab>('library')
+  const [items, setItems] = useState<LibraryItem[]>([])
+  const [pending, setPending] = useState<LibraryItem[]>([])
+  const [counts, setCounts] = useState<Counts>({ queued: 0, running: 0, done: 0, failed: 0 })
+  const [worker, setWorker] = useState<Worker>({ online: false, secondsAgo: null, video: false })
+  const [creators, setCreators] = useState<{ handle: string; posts: number }[]>([])
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState<LibraryItem | null>(null)
+
+  const refresh = useCallback(async (current: Filters, search: string) => {
+    const response = await fetch(`/api/library?${toQuery(current, search)}`)
+    if (!response.ok) return
+    const body = await response.json()
+    setItems(body.items ?? [])
+    setPending(body.pending ?? [])
+    setCounts(body.counts ?? { queued: 0, running: 0, done: 0, failed: 0 })
+    setWorker(body.worker ?? { online: false, secondsAgo: null, video: false })
+    setLoading(false)
+  }, [])
+
+  // Search and filter changes are debounced so typing does not hammer the database.
+  useEffect(() => {
+    const timer = setTimeout(() => { void refresh(filters, query) }, query ? SEARCH_DEBOUNCE_MS : 0)
+    return () => clearTimeout(timer)
+  }, [filters, query, refresh])
+
+  useEffect(() => {
+    const active = counts.queued + counts.running > 0
+    const timer = setInterval(
+      () => { void refresh(filters, query) },
+      active ? POLL_BUSY_MS : POLL_IDLE_MS,
+    )
+    return () => clearInterval(timer)
+  }, [counts.queued, counts.running, filters, query, refresh])
+
+  useEffect(() => {
+    fetch('/api/creators')
+      .then((response) => (response.ok ? response.json() : { creators: [] }))
+      .then((body) => setCreators(body.creators ?? []))
+      .catch(() => setCreators([]))
+  }, [counts.done])
+
+  const reload = () => { void refresh(filters, query) }
+
+  return (
+    <>
+      <header className="masthead">
+        <h1 className="wordmark">Library<span className="dot">.</span></h1>
+
+        <nav className="tabs" aria-label="Sections">
+          {TABS.map((entry) => (
+            <button
+              key={entry.id}
+              className="tab"
+              data-on={tab === entry.id}
+              aria-current={tab === entry.id ? 'page' : undefined}
+              onClick={() => setTab(entry.id)}
+            >
+              {entry.label}
+              {entry.id === 'queue' && counts.queued + counts.running > 0 && (
+                <b> {counts.queued + counts.running}</b>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="masthead-meta">
+          <span className="tally">
+            <b>{counts.done}</b> held
+            {counts.failed > 0 && <> · <b>{counts.failed}</b> failed</>}
+          </span>
+          <span className="status" data-online={worker.online}>
+            <span className="beacon" aria-hidden />
+            {worker.online ? (worker.video ? 'Mac live' : 'Mac listening') : 'Mac asleep'}
+          </span>
+        </div>
+      </header>
+
+      <main className="page">
+        {tab === 'queue' && (
+          <QueueTab
+            pending={pending}
+            workerOnline={worker.online}
+            onChanged={reload}
+            onOpen={setOpen}
+          />
+        )}
+
+        {tab === 'library' && (
+          <LibraryTab
+            items={items}
+            creators={creators}
+            filters={filters}
+            query={query}
+            loading={loading}
+            onFilters={setFilters}
+            onQuery={setQuery}
+            onOpen={setOpen}
+          />
+        )}
+
+        {tab === 'creators' && (
+          <CreatorsTab
+            onFilterTo={(handle) => {
+              setFilters({ ...EMPTY_FILTERS, creator: handle })
+              setQuery('')
+              setTab('library')
+            }}
+          />
+        )}
+
+        {tab === 'models' && <RosterTab />}
+      </main>
+
+      {open && <ItemView item={open} onClose={() => setOpen(null)} onChanged={reload} />}
+    </>
+  )
+}

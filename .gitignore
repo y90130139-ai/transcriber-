@@ -1,0 +1,12 @@
+.venv/
+vendor/
+out/
+inbox/*
+!inbox/.gitkeep
+config.json
+__pycache__/
+*.pyc
+secrets/
+
+# macOS
+.DS_Store

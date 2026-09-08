@@ -1,0 +1,183 @@
+/* ============================================================
+   SINAURA COLLECTIVES — DESIGN TOKENS
+   Direction: Maison. Bone ground, ink type, ember spent once.
+   Every colour and size in any Sinaura surface comes from here.
+   ============================================================ */
+
+:root {
+  /* ---------- INK (type, rules, the mark) ----------
+     Warm-biased neutrals. They lean toward the ember rather than
+     sitting at pure grey — that is what makes them read as chosen. */
+  --sc-ink-900: #0A0A0A;   /* headlines, the mark, primary type       */
+  --sc-ink-700: #2B2926;   /* strong body                             */
+  --sc-ink-500: #45413C;   /* body copy on bone                       */
+  --sc-ink-300: #6B6660;   /* secondary, captions, metadata           */
+  --sc-ink-150: #B8B2A8;   /* hairlines, disabled, placeholder        */
+
+  /* ---------- GROUND ---------- */
+  --sc-bone:       #EDE9E3; /* the default ground. NOT white.         */
+  --sc-bone-light: #F4F1EB; /* raised surfaces, table stripes         */
+  --sc-paper:      #FBFAF8; /* print/PDF ground where bone reads dirty*/
+
+  /* ---------- EMBER (the accent) ----------
+     #C2410C — hue 17.5°, burnt orange. Fully inside CMYK gamut,
+     so it prints as it appears. Contrast on bone is 4.28:1, which
+     is fine for display and graphics but SHORT of the 4.5:1 body
+     minimum — hence ember-deep for anything small. */
+  --sc-ember:       #C2410C; /* THE accent. Display, marks, rules.    */
+  --sc-ember-deep:  #9A330A; /* links + small text on bone — 6.09:1   */
+  --sc-ember-light: #E8663A; /* the accent ON INK grounds — 6.03:1    */
+  --sc-ember-tint:  #F3E3DA; /* selected rows, quiet fills            */
+
+  /* ---------- SEMANTIC (data + UI only — never decorative) ----------
+     Deliberately desaturated so they never compete with ember. */
+  --sc-positive: #1F6F4A;
+  --sc-caution:  #8A6714;
+  --sc-critical: #A32B23;
+
+  /* ---------- TYPE FAMILIES ----------
+     Display and text are ONE grotesque. The serif appears only as a
+     small italic counterweight — never as a headline. That single
+     rule is what separates this from cream-and-terracotta wellness.
+     To license later: Neue Haas Grotesk Display (display + text).
+     Free substitute of equal character: Archivo. */
+  --sc-font-display: "Neue Haas Grotesk Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-text:    "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-counter: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --sc-font-mono:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---------- TYPE SCALE (1.25 modular) ---------- */
+  --sc-text-xs:   0.75rem;
+  --sc-text-sm:   0.875rem;
+  --sc-text-base: 1rem;
+  --sc-text-lg:   1.25rem;
+  --sc-text-xl:   1.5625rem;
+  --sc-text-2xl:  1.9531rem;
+  --sc-text-3xl:  2.4414rem;
+  --sc-text-4xl:  3.0518rem;
+  --sc-display:   clamp(2.5rem, 1rem + 7vw, 7rem);
+
+  /* ---------- TRACKING ----------
+     Non-negotiable. The tight negative tracking on uppercase display
+     IS the identity. Display set at 0 tracking breaks the brand. */
+  --sc-track-display: -0.055em;  /* SINAURA — short display lines     */
+  --sc-track-wide:    -0.045em;  /* COLLECTIVES — longer display lines*/
+  --sc-track-tight:   -0.022em;  /* subheads                          */
+  --sc-track-normal:  0;         /* body copy                         */
+  --sc-track-label:   0.16em;    /* mono uppercase labels             */
+  --sc-track-counter: 0.02em;    /* the italic serif counterweight    */
+
+  /* ---------- LEADING ---------- */
+  --sc-leading-display: 0.84;
+  --sc-leading-tight:   1.15;
+  --sc-leading-body:    1.55;
+
+  /* ---------- SPACE (4px base) ---------- */
+  --sc-space-1:  0.25rem;
+  --sc-space-2:  0.5rem;
+  --sc-space-3:  0.75rem;
+  --sc-space-4:  1rem;
+  /* The scale was missing this rung while six rules across plan.css and
+     library.css already referenced it. An undefined var() does not fall back
+     to the previous declaration — it invalidates the property, which reset
+     card padding to 0 and let every child spill to the card's edges. */
+  --sc-space-5:  1.25rem;
+  --sc-space-6:  1.5rem;
+  --sc-space-8:  2rem;
+  --sc-space-12: 3rem;
+  --sc-space-16: 4rem;
+  --sc-space-24: 6rem;
+  --sc-section:  clamp(3rem, 2rem + 5vw, 8rem);
+
+  /* ---------- RULES ---------- */
+  --sc-rule-hair: 1px solid var(--sc-ink-150);
+  --sc-rule-firm: 1px solid var(--sc-ink-900);
+  --sc-rule-lock: 2px solid var(--sc-ink-900);  /* under the lockup   */
+
+  /* ---------- GEOMETRY ----------
+     Maison is square. Rounded corners are off-brand — the single
+     easiest way to make Sinaura look like a template again. */
+  --sc-radius: 0;
+
+  /* ---------- MOTION ---------- */
+  --sc-dur-fast: 150ms;
+  --sc-dur:      240ms;
+  --sc-ease:     cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   INK GROUND — the inverse world (decks, social, app icons).
+   Same system, flipped. Ember gets LIGHTER here because
+   #C2410C on #0A0A0A is only 3.8:1.
+   ============================================================ */
+[data-sc-ground="ink"] {
+  --sc-ink-900: #EDE9E3;
+  --sc-ink-700: #D6D1C8;
+  --sc-ink-500: #A8A29A;
+  --sc-ink-300: #7C776F;
+  --sc-ink-150: #3A3733;
+
+  --sc-bone:       #0A0A0A;
+  --sc-bone-light: #151412;
+  --sc-paper:      #0A0A0A;
+
+  --sc-ember:      #E8663A;
+  --sc-ember-deep: #F08460;
+  --sc-ember-tint: #2A1710;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+body {
+  background: var(--sc-bone);
+  color: var(--sc-ink-500);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display type: uppercase, tight, ink. Never ember. */
+.sc-display {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: var(--sc-leading-display);
+  color: var(--sc-ink-900);
+}
+
+/* The counterweight: small, italic, serif. Never bold, never large. */
+.sc-counter {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  letter-spacing: var(--sc-track-counter);
+  color: var(--sc-ink-300);
+}
+
+/* Mono labels: uppercase, tracked open, small. */
+.sc-label {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+/* Figures always line up. */
+.sc-num { font-variant-numeric: tabular-nums; }
+
+/* The accent. Once per composition. */
+.sc-accent { color: var(--sc-ember); }
+
+a { color: var(--sc-ember-deep); text-underline-offset: 0.18em; }
+a:hover { color: var(--sc-ember); }
+:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

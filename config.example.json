@@ -1,0 +1,17 @@
+{
+  "_comment": "Copy to config.json. Cookies are only needed for private / login-walled posts; R2 only for the model portal's plan videos.",
+  "_cookies_from_browser": "chrome | safari | firefox | brave | edge",
+  "cookies_from_browser": "chrome",
+
+  "_cloud": "filled in by ./bin/setup-cloud",
+  "cloud_url": "https://your-app.vercel.app",
+  "worker_secret": "",
+
+  "_r2": "Only videos that land on a model's plan are uploaded. Omit this block and the plans simply fall back to the Instagram link.",
+  "r2": {
+    "account_id": "",
+    "access_key_id": "",
+    "secret_access_key": "",
+    "bucket": "transcriber-plans"
+  }
+}

@@ -1,0 +1,314 @@
+// Creates the transcriber schema. Safe to re-run.
+import { neon } from '@neondatabase/serverless'
+import { loadEnv } from './env.mjs'
+
+loadEnv()
+const sql = neon(process.env.DATABASE_URL)
+
+const statements = [
+  `create schema if not exists transcriber`,
+
+  `create table if not exists transcriber.jobs (
+     id            text primary key,
+     kind          text not null,
+     source        text not null,
+     source_key    text not null,
+     label         text not null,
+     batch_id      text,
+     status        text not null default 'queued',
+     stage         text,
+     error         text,
+     attempts      integer not null default 0,
+     claimed_at    timestamptz,
+     created_at    timestamptz not null default now(),
+     updated_at    timestamptz not null default now()
+   )`,
+
+  // One row per distinct source keeps a re-pasted link from re-transcribing.
+  `create unique index if not exists jobs_source_key_idx on transcriber.jobs (source_key)`,
+  `create index if not exists jobs_status_idx on transcriber.jobs (status, created_at)`,
+
+  `create table if not exists transcriber.transcripts (
+     job_id         text primary key references transcriber.jobs(id) on delete cascade,
+     platform       text,
+     author         text,
+     author_name    text,
+     title          text,
+     webpage_url    text,
+     caption        text,
+     upload_date    text,
+     duration_sec   real,
+     language       text,
+     speaker_count  integer,
+     word_count     integer,
+     thumbnail      text,
+     plain          text not null default '',
+     markdown       text not null default '',
+     srt            text,
+     blocks         jsonb,
+     speakers       jsonb,
+     transcribed_at timestamptz not null default now()
+   )`,
+
+  `create index if not exists transcripts_author_idx on transcriber.transcripts (author)`,
+
+  // Full-text search over what was actually said, plus who said it.
+  `create index if not exists transcripts_search_idx on transcriber.transcripts
+     using gin (to_tsvector('simple',
+       coalesce(plain,'') || ' ' || coalesce(author,'') || ' ' ||
+       coalesce(title,'') || ' ' || coalesce(caption,'')))`,
+
+  `create table if not exists transcriber.worker_pings (
+     id       integer primary key default 1,
+     seen_at  timestamptz not null default now(),
+     note     text
+   )`,
+
+  // The worker reports where its videos are reachable; a quick tunnel hands out
+  // a new hostname on every restart, so this is learned, not configured.
+  `alter table transcriber.worker_pings
+     add column if not exists media_url text`,
+
+  // ---------------------------------------------------------------- library
+
+  // Engagement. Only the fields Instagram actually returns: likes and comments
+  // are present on every stored post, view_count on one in forty-one and
+  // share_count on none. Columns for views and shares would be permanently null.
+  `alter table transcriber.transcripts
+     add column if not exists like_count    integer,
+     add column if not exists comment_count integer,
+     add column if not exists post_id       text,
+     add column if not exists folder        text,
+     add column if not exists tagged_at     timestamptz,
+     add column if not exists confirmed_at  timestamptz`,
+
+  // Hot ranking filters on upload_date and groups by author.
+  `create index if not exists transcripts_upload_idx on transcriber.transcripts (upload_date desc)`,
+
+  // Three independent axes, one row per applied tag. `origin` separates what
+  // the auto-tagger guessed from what a human actually stood behind, so a
+  // re-run can replace its own guesses without touching confirmed tags.
+  `create table if not exists transcriber.tags (
+     job_id text not null references transcriber.jobs(id) on delete cascade,
+     axis   text not null check (axis in ('persona','format','hook')),
+     tag    text not null,
+     origin text not null default 'auto' check (origin in ('auto','human')),
+     score  real,
+     primary key (job_id, axis, tag)
+   )`,
+
+  `create index if not exists tags_lookup_idx on transcriber.tags (axis, tag)`,
+
+  // A creator's persona is a property of the creator, not of each video, so it
+  // lives here and the Models tab reads it directly.
+  `create table if not exists transcriber.creators (
+     handle       text primary key,
+     display_name text,
+     persona      text[] not null default '{}',
+     note         text,
+     updated_at   timestamptz not null default now()
+   )`,
+
+  // ------------------------------------------------------------ model portal
+
+  // `transcriber.creators` above are the Instagram accounts we research. These
+  // are our own people, which is a different entity entirely — hence a second
+  // table rather than a flag on the first. The UI calls them Models and calls
+  // the researched accounts Creators.
+  `create table if not exists transcriber.models (
+     id               text primary key,
+     name             text not null,
+     handle           text,
+     photo_url        text,
+     persona          text[] not null default '{}',
+     status           text not null default 'active',
+     filming_days     int[]  not null default '{}',
+     weekly_target    integer not null default 21,
+     timezone         text not null default 'America/New_York',
+     standing_rules   text,
+     notes            text,
+     access_token     text unique not null,
+     token_revoked_at timestamptz,
+     created_at       timestamptz not null default now(),
+     updated_at       timestamptz not null default now()
+   )`,
+
+  `create table if not exists transcriber.plans (
+     id         text primary key,
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     week_of    date not null,
+     due_date   date,
+     title      text,
+     intro      text,
+     status     text not null default 'draft',
+     sent_at    timestamptz,
+     created_at timestamptz not null default now(),
+     updated_at timestamptz not null default now()
+   )`,
+
+  // One plan per model per week. The share link always resolves to the current
+  // week, so two plans for the same week would be a coin toss.
+  `create unique index if not exists plans_model_week_idx on transcriber.plans (model_id, week_of)`,
+
+  // A plan item points at a library job, so it inherits the Instagram link, the
+  // transcript, the tags, the engagement and the video for free. Nothing that
+  // already lives on the job is copied down here.
+  `create table if not exists transcriber.plan_items (
+     id            text primary key,
+     plan_id       text not null references transcriber.plans(id) on delete cascade,
+     job_id        text not null references transcriber.jobs(id) on delete cascade,
+     position      integer not null default 0,
+     notes         text,
+     editing_notes text,
+     filmed_at     timestamptz,
+     posted_at     timestamptz,
+     post_url      text,
+     -- Hers, not ours. Never overwritten from the console, and shown
+     -- unread-styled until seen_at says Geno has read it.
+     model_note    text,
+     model_note_at timestamptz,
+     seen_at       timestamptz,
+     -- The copy of the video that lives in R2 rather than on the Mac. A plan is
+     -- client-facing, and the tunnel dies whenever the Mac sleeps.
+     r2_key        text,
+     r2_bytes      bigint,
+     uploaded_at   timestamptz,
+     -- Set when retention has reclaimed the object, so a purged item is not
+     -- immediately re-queued for upload by the same query that found it.
+     r2_purged_at  timestamptz,
+     created_at    timestamptz not null default now()
+   )`,
+
+  `create unique index if not exists plan_items_unique_idx on transcriber.plan_items (plan_id, job_id)`,
+  `create index if not exists plan_items_upload_idx on transcriber.plan_items (uploaded_at, r2_purged_at)`,
+
+  // What she actually does, in the same vocabulary the library tags videos
+  // with. Uncapped on purpose: the autotagger caps its guesses about one video,
+  // but this is a human statement about a person.
+  `alter table transcriber.models
+     add column if not exists formats text[] not null default '{}',
+     add column if not exists hooks   text[] not null default '{}',
+     -- A hard exclusion, not a low score. Recommending gym content to someone
+     -- who has said no is worse than recommending nothing.
+     add column if not exists wont_do text[] not null default '{}'`,
+
+  // Keys whose row is already gone. Deleting a plan removes its rows instantly;
+  // the bytes in R2 can only be reclaimed by the Mac, which does it on its next
+  // poll. Without this list those objects would be billed forever.
+  `create table if not exists transcriber.r2_trash (
+     key        text primary key,
+     created_at timestamptz not null default now()
+   )`,
+
+  // Whether this video has anything worth running whisper over. Most of what
+  // gets added is a silent thirst trap or a text-overlay post, and a speech
+  // pass on those costs Mac time to produce an empty file. Default true so
+  // everything already in the library keeps the transcript it was added for;
+  // new rows say what they want explicitly.
+  `alter table transcriber.jobs
+     add column if not exists transcribe boolean not null default true`,
+
+  // What the speech pass actually heard, as against what was asked for.
+  // Measured 2026-09-03: whisper large-v3-turbo behind Silero VAD costs ~1s on
+  // a reel and returns zero segments on a music-only post, so the honest label
+  // comes from listening rather than guessing. `has_speech` is null until a
+  // pass has run — which is not the same statement as false.
+  `alter table transcriber.transcripts
+     add column if not exists has_speech boolean,
+     add column if not exists speech_ratio real`,
+
+  // A human disagreeing with the pass. Null means nobody has, so the machine's
+  // finding stands; same contract as a tag, where a confirmed value is never
+  // overwritten by a later suggestion.
+  `alter table transcriber.transcripts
+     add column if not exists speech_override boolean`,
+
+  // ------------------------------------------------ her answer on an item
+
+  // Whether she has taken the card on. Two nullable timestamps rather than one
+  // status column, because "not answered yet" is a real third state and the
+  // console has to be able to tell it apart from a decline. Both null is
+  // untouched; a decline carries the reason she gave, in her words.
+  `alter table transcriber.plan_items
+     add column if not exists accepted_at    timestamptz,
+     add column if not exists declined_at    timestamptz,
+     add column if not exists decline_reason text`,
+
+  `create index if not exists plan_items_verdict_idx
+     on transcriber.plan_items (declined_at) where declined_at is not null`,
+
+  // ------------------------------------------------------------ the thread
+
+  // Until now `plan_items.model_note` held one string she could overwrite, and
+  // there was nowhere for an answer to go — she could ask and never be told.
+  // This is that conversation, one row per message, either side.
+  //
+  // `seen_at` is always "read by the other side": on a model message it is
+  // Geno reading it, on an operator message it is her. That keeps one unread
+  // rule instead of two.
+  `create table if not exists transcriber.plan_messages (
+     id         text primary key,
+     item_id    text not null references transcriber.plan_items(id) on delete cascade,
+     author     text not null check (author in ('model','operator')),
+     body       text not null,
+     created_at timestamptz not null default now(),
+     seen_at    timestamptz
+   )`,
+
+  `create index if not exists plan_messages_item_idx
+     on transcriber.plan_messages (item_id, created_at)`,
+
+  `create index if not exists plan_messages_unread_idx
+     on transcriber.plan_messages (author, seen_at) where seen_at is null`,
+
+  // Carry every note she has already written into the thread, so switching to
+  // messages loses nothing she said. The id is derived from the item so a
+  // re-run cannot duplicate it, and `model_note` is deliberately left in place
+  // rather than dropped — it is still what the roster's existing unread count
+  // reads, and a column that is cheap to keep is not worth a destructive
+  // migration to remove.
+  `insert into transcriber.plan_messages (id, item_id, author, body, created_at, seen_at)
+   select 'seed_' || i.id, i.id, 'model', i.model_note,
+          coalesce(i.model_note_at, i.created_at), i.seen_at
+     from transcriber.plan_items i
+    where i.model_note is not null and length(trim(i.model_note)) > 0
+   on conflict (id) do nothing`,
+
+  // ------------------------------------------- the brief, un-flattened
+
+  // `lib/brief.ts` already worked all of this out and then joined it into one
+  // prose blob, so the console could only offer her a wall of text to read on a
+  // phone. These are the same facts as discrete fields. All nullable: an item
+  // whose fields are empty falls back to `notes`, which is still written on
+  // every insert and is still the only thing older items have.
+  //
+  // `caption` is genuinely new — nothing has ever drafted what she actually
+  // posts under the video.
+  `alter table transcriber.plan_items
+     add column if not exists wardrobe text,
+     add column if not exists camera   text,
+     add column if not exists takes    text,
+     add column if not exists sound    text,
+     add column if not exists hook     text,
+     add column if not exists caption  text`,
+
+  // Seed the rows that were already listened to, so they are not all re-run.
+  // `jobs.transcribe` is the record of whether a pass was asked for, and until
+  // 2026-09-03 it could be false — so true plus a finished job means whisper
+  // did run, and word_count is then a straight answer. Rows that were never
+  // asked stay null, which is what ./bin/relisten looks for. Guarded on null,
+  // so re-running this never overwrites a real finding.
+  `update transcriber.transcripts t
+      set has_speech = (t.word_count > 0)
+     from transcriber.jobs j
+    where j.id = t.job_id
+      and t.has_speech is null
+      and j.transcribe
+      and j.status = 'done'`,
+]
+
+for (const statement of statements) {
+  await sql.query(statement)
+  console.log('ok:', statement.split('\n')[0].trim().slice(0, 68))
+}
+console.log('\nschema ready')

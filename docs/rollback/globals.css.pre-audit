@@ -1,0 +1,759 @@
+@import './tokens.css';
+@import './library.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--sc-bone);
+  color: var(--sc-ink-500);
+  min-height: 100dvh;
+}
+
+::selection { background: var(--sc-ember); color: var(--sc-bone); }
+
+/* ============================================================
+   MASTHEAD — the one ink surface. Everything below reads on bone.
+   ============================================================ */
+.masthead {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-6) var(--sc-space-8) var(--sc-space-4);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: var(--sc-space-6);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.wordmark {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.84;
+  font-size: clamp(1.6rem, 1rem + 2vw, 2.6rem);
+  color: var(--sc-bone);
+  margin: 0;
+}
+.wordmark .dot { color: var(--sc-ember-light); }
+
+.masthead-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  flex-wrap: wrap;
+  justify-self: end;
+}
+
+.status {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  white-space: nowrap;
+}
+.status .beacon {
+  width: 7px; height: 7px;
+  background: #45413C;
+  display: block;
+}
+.status[data-online='true'] { color: var(--sc-bone); }
+.status[data-online='true'] .beacon {
+  background: var(--sc-ember-light);
+  animation: pulse 2.4s var(--sc-ease) infinite;
+}
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+.tally {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+  font-variant-numeric: tabular-nums;
+}
+.tally b { color: var(--sc-bone); font-weight: 500; }
+
+.search {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #3A3733;
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-2) 0;
+  width: 15ch;
+  transition: width var(--sc-dur) var(--sc-ease), border-color var(--sc-dur) var(--sc-ease);
+}
+.search::placeholder { color: #5C574F; }
+.search:focus { outline: none; border-bottom-color: var(--sc-ember-light); width: 26ch; }
+
+/* ============================================================
+   THE WELL — where links land.
+   ============================================================ */
+.page { padding: 0 var(--sc-space-8) var(--sc-space-24); max-width: 1560px; margin: 0 auto; }
+
+.well {
+  border-bottom: var(--sc-rule-lock);
+  padding: var(--sc-space-8) 0 var(--sc-space-6);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sc-space-6);
+  align-items: end;
+}
+
+.well-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  resize: vertical;
+  min-height: 4.5rem;
+  font-family: var(--sc-font-text);
+  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem);
+  line-height: 1.45;
+  color: var(--sc-ink-900);
+  letter-spacing: var(--sc-track-tight);
+}
+.well-input:focus { outline: none; }
+.well-input::placeholder { color: var(--sc-ink-150); }
+
+.well-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sc-space-3); }
+
+.btn {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-3) var(--sc-space-6);
+  border: var(--sc-rule-firm);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  cursor: pointer;
+  border-radius: var(--sc-radius);
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); }
+.btn:disabled { opacity: 0.35; cursor: default; }
+
+.btn-quiet {
+  background: transparent;
+  color: var(--sc-ink-500);
+  border: var(--sc-rule-hair);
+}
+.btn-quiet:hover:not(:disabled) { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+
+.hint {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+  letter-spacing: var(--sc-track-counter);
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  user-select: none;
+}
+.switch:hover { color: var(--sc-ink-900); }
+.switch input { accent-color: var(--sc-ember); width: 0.85rem; height: 0.85rem; cursor: pointer; margin: 0; }
+
+.hint[data-tone='bad'] { color: var(--sc-critical); font-style: normal; font-family: var(--sc-font-text); }
+
+/* ============================================================
+   QUEUE — live work, above the settled library.
+   ============================================================ */
+.queue { border-bottom: var(--sc-rule-hair); }
+
+/* Four columns now: the mark, the name, whether it is worth listening to, and
+   where it has got to. The row is no longer one button — the speech toggle has
+   to be clickable without opening the item. */
+.queue-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.2rem minmax(0, 1fr) auto auto;
+  gap: var(--sc-space-4);
+  align-items: baseline;
+  padding: var(--sc-space-3) 0;
+  border-bottom: 1px dotted var(--sc-ink-150);
+  font-size: var(--sc-text-sm);
+}
+.queue-row:last-child { border-bottom: 0; }
+
+.queue-mark {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  color: var(--sc-ink-150);
+}
+.queue-row[data-status='running'] .queue-mark { color: var(--sc-ember); }
+.queue-row[data-status='failed'] .queue-mark { color: var(--sc-critical); }
+
+.queue-label {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-label:hover { color: var(--sc-ink-900); }
+
+/* Reuses the tag chip so a decision here reads the same as a decision there. */
+.queue-speech { align-self: center; white-space: nowrap; font-size: 0.6rem; padding: 0.22rem 0.5rem; }
+.queue-stage {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+  white-space: nowrap;
+}
+.queue-row[data-status='failed'] .queue-stage { color: var(--sc-critical); font-style: normal; }
+
+/* ============================================================
+   LIBRARY — editorial grid. The newest item runs wide.
+   ============================================================ */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-12) 0 var(--sc-space-4);
+}
+.section-head h2 {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  font-size: var(--sc-text-2xl);
+  line-height: 1;
+  color: var(--sc-ink-900);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--sc-space-8) var(--sc-space-6);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.card-frame {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--sc-ink-900);
+}
+.card-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--sc-dur) var(--sc-ease), opacity var(--sc-dur) var(--sc-ease);
+  opacity: 0.92;
+}
+.card:hover .card-frame img { transform: scale(1.04); opacity: 1; }
+.card:focus-visible .card-frame img { transform: scale(1.04); opacity: 1; }
+
+/* No poster frame: set the handle large on ink instead of showing a grey box. */
+.card-frame-empty {
+  display: grid;
+  place-items: center;
+  padding: var(--sc-space-4);
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.9;
+  font-size: var(--sc-text-xl);
+  color: #3A3733;
+  text-align: center;
+  word-break: break-word;
+}
+
+.card-tag {
+  position: absolute;
+  left: 0; bottom: 0;
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: 0.35rem 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.card-tag[data-corner='right'] { left: auto; right: 0; background: var(--sc-ember); }
+
+.card-handle {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1.05;
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-line {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  line-height: 1.4;
+  color: var(--sc-ink-300);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+}
+
+.card-pending .card-frame { display: grid; place-items: center; }
+
+/* The newest finished item earns a wider frame — the grid should not read
+   as an undifferentiated wall of equal tiles. */
+@media (min-width: 900px) {
+  .card-feature { grid-column: span 2; }
+  .card-feature .card-frame { aspect-ratio: 16 / 10; }
+  .card-feature .card-handle { font-size: var(--sc-text-xl); letter-spacing: var(--sc-track-display); }
+  .card-feature .card-line { font-size: var(--sc-text-base); -webkit-line-clamp: 3; }
+}
+
+.empty {
+  padding: var(--sc-space-24) 0;
+  text-align: center;
+}
+.empty p {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-lg);
+}
+
+/* ============================================================
+   DRAG STATE — the whole page is the drop target.
+   ============================================================ */
+.dropveil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(10, 10, 10, 0.92);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.dropveil span {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  font-size: clamp(2rem, 1rem + 5vw, 5rem);
+  color: var(--sc-bone);
+  border-bottom: 4px solid var(--sc-ember-light);
+  padding-bottom: var(--sc-space-2);
+}
+
+/* ============================================================
+   READER — the transcript, set for actual reading.
+   ============================================================ */
+.reader-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(10, 10, 10, 0.55);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  animation: fade var(--sc-dur) var(--sc-ease);
+}
+@keyframes fade { from { opacity: 0; } }
+
+.reader {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  z-index: 50;
+  width: min(660px, 100vw);
+  background: var(--sc-bone-light);
+  border-left: var(--sc-rule-lock);
+  display: flex;
+  flex-direction: column;
+  animation: slide var(--sc-dur) var(--sc-ease);
+}
+@keyframes slide { from { transform: translateX(24px); opacity: 0; } }
+
+.reader-head {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-6);
+  display: grid;
+  gap: var(--sc-space-2);
+}
+.reader-head h3 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.92;
+  font-size: var(--sc-text-2xl);
+  color: var(--sc-bone);
+}
+.reader-head .source {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-head .facts {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  font-variant-numeric: tabular-nums;
+}
+
+.copybar {
+  display: flex;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-4) var(--sc-space-6);
+  border-bottom: var(--sc-rule-hair);
+  flex-wrap: wrap;
+  background: var(--sc-bone);
+  position: sticky;
+  top: 0;
+}
+
+.reader-body {
+  overflow-y: auto;
+  padding: var(--sc-space-6) var(--sc-space-6) var(--sc-space-24);
+  flex: 1;
+}
+
+.caption {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  border-left: 2px solid var(--sc-ink-150);
+  padding-left: var(--sc-space-4);
+  margin: 0 0 var(--sc-space-8);
+  white-space: pre-wrap;
+  font-size: var(--sc-text-sm);
+}
+
+.block { margin-bottom: var(--sc-space-6); }
+.block-head {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  margin-bottom: var(--sc-space-1);
+  font-variant-numeric: tabular-nums;
+}
+.block-head b { color: var(--sc-ember-deep); font-weight: 500; }
+.block p {
+  margin: 0;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+}
+
+.failbox {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  line-height: 1.6;
+  color: var(--sc-critical);
+  background: #F6E9E7;
+  padding: var(--sc-space-4);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================================
+   GATE
+   ============================================================ */
+.gate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: var(--sc-ink-900);
+  padding: var(--sc-space-8);
+}
+.gate form { display: grid; gap: var(--sc-space-4); width: min(340px, 100%); }
+.gate .wordmark { font-size: clamp(2.4rem, 1rem + 6vw, 4rem); }
+.gate input {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #3A3733;
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  letter-spacing: var(--sc-track-label);
+  padding: var(--sc-space-3) 0;
+  font-size: var(--sc-text-base);
+}
+.gate input:focus { outline: none; border-bottom-color: var(--sc-ember-light); }
+.gate .btn { background: var(--sc-bone); color: var(--sc-ink-900); border-color: var(--sc-bone); }
+.gate .btn:hover:not(:disabled) { background: var(--sc-ember-light); border-color: var(--sc-ember-light); color: var(--sc-ink-900); }
+.gate .hint[data-tone='bad'] { color: #F08460; }
+
+@media (max-width: 720px) {
+  .masthead { grid-template-columns: 1fr; align-items: start; gap: var(--sc-space-3); padding: var(--sc-space-4); }
+  .masthead-meta { justify-self: start; }
+  .page { padding: 0 var(--sc-space-4) var(--sc-space-16); }
+  .well { grid-template-columns: 1fr; }
+  .well-actions { align-items: stretch; }
+  .well-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .queue-row { grid-template-columns: 1.2rem minmax(0, 1fr) auto; }
+  .queue-stage { grid-column: 2 / -1; }
+  .reader { width: 100vw; border-left: 0; }
+  .card-feature { grid-column: auto; }
+}
+
+/* ============================================================
+   PHASE 6 — THE CONSOLE RESTYLE.
+
+   Same treatment as her plan page, and scoped the same way. `.plan` declares
+   its radius on itself so it cannot leak into the console; `.console` does the
+   reverse. tokens.css still says --sc-radius: 0 and every other Sinaura
+   surface still gets square corners.
+
+   Nothing below moves anything. It rounds what is already there, gives the
+   controls a real tap target on a phone, and — the part that did not exist at
+   all — teaches the console the ink ground.
+   ============================================================ */
+
+.console {
+  /* --sc-radius is already read by .btn, .pill, .chip, .field and .player, so
+     one override rounds every control in the console without touching a single
+     component rule. The rest are surfaces, listed below. */
+  --sc-radius: 8px;
+  --r:      12px;  /* panels, cards, frames                    */
+  --r-sm:    8px;  /* controls and small surfaces              */
+  --r-pill: 999px; /* counters and badges                      */
+}
+
+/* ---------------------------------------------------------- SURFACES */
+.console .masthead { border-radius: 0 0 var(--r) var(--r); }
+.console .card-frame,
+.console .model-frame,
+.console .form-photo-frame,
+.console .picker-grid,
+.console .planrow-said,
+.console .planrow-declined,
+.console .planstate,
+.console .sharelink,
+.console .failbox,
+.console .nospeech,
+.console .score,
+.console .sweeprow,
+.console .postcard,
+.console .rung img,
+.console .planrow img,
+.console .suggestrow img { border-radius: var(--r-sm); }
+
+.console .reader { border-radius: var(--r) 0 0 var(--r); overflow: hidden; }
+.console .reader-head { border-radius: 0; }
+.console .card-tag,
+.console .card-flame,
+.console .card-pick,
+.console .roster-unread { border-radius: 0; }
+.console .rosterflag,
+.console .sweeprow-tier { border-radius: var(--r-pill); }
+
+/* A tinted callout rather than a bordered strip, matching the hook box on her
+   card. The left rule stays — it is what carries ready / not ready. */
+.console .planstate { background: var(--sc-bone-light); }
+.console .planstate[data-ready='true'] { background: var(--sc-bone-light); }
+
+/* ------------------------------------------------------- TAP TARGETS
+   Geno approves and reviews on a phone. A 0.3rem chip is not something a
+   thumb can hit; on a pointer it stays exactly the size it was. */
+@media (max-width: 720px) {
+  .console .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .console .tabs::-webkit-scrollbar { display: none; }
+  .console .tab { flex: 0 0 auto; min-height: 32px; }
+
+  .console .chip,
+  .console .pill,
+  .console .btn,
+  .console .reader-close,
+  .console .axis-confirm {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .console .planrow-tools .chip { min-width: 44px; }
+  .console .daypicker .chip { min-width: 3rem; }
+  .console .reader-body { padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-24); }
+  .console .copybar { padding: var(--sc-space-3) var(--sc-space-4); }
+  .console .reader-head { padding: var(--sc-space-4); }
+  .console .section-head { padding-top: var(--sc-space-8); }
+
+  /* At this width the panel is the whole screen. A rounded edge against the
+     bezel reads as a rendering fault rather than as a card. */
+  .console .reader { border-radius: 0; }
+  .console .masthead { border-radius: 0; }
+}
+
+/* ============================================================
+   THE INK GROUND — the console in dark mode.
+
+   Until now the console could only ever render cream. Her page learned this in
+   phase 2b; this is the same block for the other half of the app.
+
+   The token values here are IDENTICAL to the ones in plan.css on purpose. Both
+   stylesheets load on /p/[token] — globals.css from the root layout, plan.css
+   from the route's own — and whichever ends up last in the bundle must not
+   change what her page looks like. If one of these is ever edited, edit both.
+
+   The trap, restated: a rule that paints a *surface* with --sc-ink-900, or
+   *text* with --sc-bone, inverts along with the token. Where that inversion is
+   what you want — a filled button becoming light-on-dark — it is left alone.
+   Where the surface has to stay ink whatever the theme, it is restated below.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sc-ink-900: #EDE9E3;
+    --sc-ink-700: #D6D1C8;
+    --sc-ink-500: #A8A29A;
+    --sc-ink-300: #7C776F;
+    --sc-ink-150: #33302C;
+
+    --sc-bone:       #060605;
+    --sc-bone-light: #1B1917;
+    --sc-paper:      #121110;
+
+    --sc-ember:      #E8663A;
+    --sc-ember-deep: #F08460;
+    --sc-ember-tint: #2A1710;
+
+    --sc-positive: #4E9E76;
+    --sc-caution:  #C0942A;
+    --sc-critical: #E0685E;
+
+    --sc-rule-hair: 1px solid #33302C;
+    --sc-rule-firm: 1px solid #EDE9E3;
+    --sc-rule-lock: 2px solid #EDE9E3;
+  }
+
+  body { background: var(--sc-bone); color: var(--sc-ink-500); }
+
+  /* --- the ink surfaces that stay ink ------------------------------- */
+  .masthead,
+  .reader-head,
+  .selectbar,
+  .gate { background: #000; }
+
+  /* …and everything inside them that painted its text with --sc-bone, which
+     on this ground is near-black. Left alone the wordmark disappears. */
+  .masthead,
+  .wordmark,
+  .reader-head h3,
+  .tab:hover,
+  .tab[data-on='true'],
+  .tally b,
+  .status[data-online='true'],
+  .search,
+  .gate input,
+  .dropveil span { color: var(--sc-ink-900); }
+  .search::placeholder { color: #5C574F; }
+
+  /* A filled button on the ink ground is light with dark type — the flip is
+     the right answer, but the dark half has to be a real colour and not the
+     bone token, which is now the ground. */
+  .gate .btn,
+  .selectbar .btn { background: var(--sc-ink-900); color: #0A0A0A; border-color: var(--sc-ink-900); }
+  .gate .btn:hover:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+  .btn { color: #0A0A0A; }
+  .btn:hover:not(:disabled) { color: #0A0A0A; }
+  .btn-quiet { color: var(--sc-ink-500); }
+  .btn-quiet:hover:not(:disabled) { color: #0A0A0A; }
+  .chip[data-on='true'],
+  .chip[data-origin='human'],
+  .pill[data-on='true'],
+  .picker-option[data-on='true'] b,
+  .roster-unread,
+  .sweeprow-tier,
+  .card-tag { color: #0A0A0A; }
+  .picker-option[data-on='true'] span,
+  .fitrail .chip[data-on='true'] em { color: #45413C; }
+  .card-tag[data-corner='right'] { color: #0A0A0A; }
+
+  /* --- media wells -------------------------------------------------
+     These paint ink-900 purely as the box behind a picture that has not
+     loaded. Flipped they become a bright rectangle on a dark page. */
+  .card-frame,
+  .model-frame,
+  .card-flame,
+  .player,
+  .rung img,
+  .planrow img,
+  .suggestrow img,
+  .postcard img,
+  .postcard-blank { background: #000; }
+
+  /* --- the light-tinted boxes -------------------------------------- */
+  .failbox { background: #2A1512; }
+  .card-pick { color: var(--sc-ink-900); }
+  .gate .hint[data-tone='bad'] { color: #F08460; }
+
+  /* The masthead sits on pure black, so the hairline under a live tab and the
+     beacon both need to stay above it to be seen at all. */
+  .status .beacon { background: #45413C; }
+}

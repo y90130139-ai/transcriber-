@@ -1,0 +1,318 @@
+# Model portal v2 — the gosian port
+
+GOSIAN (`~/gosian`, gosian.vercel.app) is **retired** as of 2026-09-05. It was a
+test build of what the transcriber's model portal already is. Nothing is being
+migrated from it and nothing there is being deleted — it just stops being built
+on. Its good ideas are ported here, listed below.
+
+Transcriber is not a subset of it. Four things exist here and never existed
+there: auto-drafted briefs from tags (`lib/brief.ts`), fit-scored suggestions
+(`api/models/[id]/suggestions`), R2 video delivery to her phone, and transcripts.
+
+## The rule for all of this
+
+**Additive only.** Nothing that works today gets removed, renamed away, or
+traded for something cleaner. Every item below either restyles what is already
+rendered or adds a field beside it. If a change would drop a feature, it is the
+wrong change.
+
+Palette is unchanged — `tokens.css` already *is* the gosian palette (bone
+`#EDE9E3`, ink `#0A0A0A`, ember `#C2410C`). Corners stay square per the maison
+rule; the app feel comes from layering and contrast, not radius.
+
+## Decisions taken
+
+- **Accepted is hers.** She accepts or declines each card. A decline offers Geno
+  a swap from the existing "Suggested for her" scoring rather than sending him
+  back to the library.
+- **Posted is tap-to-link.** Her handle's recent posts are ingested as metadata
+  only (`jobs.transcribe = false`, no speech pass) and shown as a strip in the
+  plan editor. Geno taps one to bind it to a card, filling `posted_at` and
+  `post_url`. No fuzzy auto-matching — her version of a reference shares no key
+  with it, and a wrong guess silently marks a card posted that never was.
+- **Both surfaces are responsive.** `/p/[token]` is mobile-first — she only ever
+  opens it on a phone. `/console` is desktop-first but must work on a phone,
+  because Geno approves and reviews on the go.
+
+## Known blockers
+
+- **Preview deploys do not build.** Every secret on the Vercel project is scoped
+  to Production and Development only, so a preview has no `DATABASE_URL` and
+  `/api/bundle` throws while collecting page data. Pre-existing, unrelated to
+  this work. Either add the vars to Preview or accept that the only deploy
+  target is production.
+- Only one model exists (`Test Dummy`, 4 items, plan sent). No real creator has
+  a live plan link yet, so production is currently low-risk to deploy to.
+
+## Checklist
+
+Nothing is started. Confirm each phase before it begins; tick only what is
+deployed and seen working.
+
+### Phase 1 — creator plan restyle (no schema)
+
+**Status: deployed to production 2026-09-05, verified by screenshot.**
+
+The first cut of this shipped broken and it is worth recording why. `plan.css`
+referenced `--sc-space-5` six times and **tokens.css never defined it** — the
+scale runs 1,2,3,4,6,8,12,16,24. An undefined `var()` does not fall back to the
+previous declaration; it invalidates the whole property, which reset
+`.plan-item` and `.plan-head` padding to **0**, so every child spilled to the
+card edges. Fixed by adding `--sc-space-5: 1.25rem` to the scale, which also
+repaired a pre-existing collapsed margin on `.form-row` in the console.
+
+Lesson worth keeping: audit `var(--token)` uses against the tokens file after
+touching a stylesheet. One line does it:
+
+```bash
+python3 - <<'EOF'
+import re, pathlib
+d = set(re.findall(r'^\s*(--sc-[a-z0-9-]+)\s*:', pathlib.Path('src/app/tokens.css').read_text(), re.M))
+for f in ['plan.css','library.css','globals.css']:
+    u = set(re.findall(r'var\((--sc-[a-z0-9-]+)', pathlib.Path('src/app/'+f).read_text()))
+    print(f, sorted(u - d) or 'ok')
+EOF
+```
+
+The header was also recomposed to the sample: the week is the headline, her name
+rides with the eyebrow, the facts are one mono line (the old `<dl>` folded into
+itself and rendered as `6 SEPTEMBERMON, THU1/4`), and the brief finally has a
+DIRECTION label. Rollback: `docs/rollback/plan.css.v1`
+plus the `.plan-bar` markup in `PlanView.tsx` — see `docs/rollback/README.md`.
+
+Corners: **rounded**, chosen 2026-09-05 over square and hybrid. This overrides
+`--sc-radius: 0` for this surface only; the radius is declared on `.plan` so it
+cannot leak into the console.
+- [ ] Narrow centred column, phone shape at every width
+- [ ] Dark header block: week, facts, progress
+- [ ] Segmented progress bar — one tick per item, countable
+- [ ] Uppercase mono micro-labels over a label/value grid
+- [ ] Tinted callouts: hook, editing notes, standing rules
+- [ ] Full-width primary FILMED button, secondary beside it with count badge
+- [ ] Mono numerals on every figure and id
+- [ ] Tap targets, no overflow at 320px
+
+### Phase 2 — accept/decline + the Ask thread (schema)
+
+**Status: migration run and deployed to production 2026-09-05.** The backfill
+was verified lossless — her one existing note came across as `seed_*` in
+`plan_messages`, still unread, with `plan_items.model_note` left in place.
+Files touched: `scripts/migrate.mjs`,
+`src/lib/plans.ts`, `src/app/api/plan/[token]/message/route.ts` (rewritten),
+`src/app/api/plan/[token]/verdict/route.ts` (new), `src/app/api/plans/[id]/route.ts`,
+`src/app/api/plans/[id]/items/route.ts`, `src/app/api/models/route.ts`,
+`src/components/plan/PlanItemCard.tsx` (rewritten), `src/components/roster/PlanEditor.tsx`,
+`src/components/roster/RosterTab.tsx`, `src/components/roster/types.ts`,
+`src/app/plan.css`, `src/app/library.css`.
+- [ ] `plan_items.accepted_at`, `declined_at`, `decline_reason`
+- [ ] Accept / can't-do control on her card
+- [ ] Threaded messages per item, replacing the single one-way note box
+- [ ] **Geno can reply** — today her note lands and there is nowhere for an
+      answer to go. This is the one thing in the current build that is broken
+      rather than merely plain.
+- [ ] Unread count badge on the Ask button, both directions
+- [ ] Declined card offers a scored replacement in the console
+
+### Phase 2b — dark mode (shipped 2026-09-05)
+
+The app had **no** `prefers-color-scheme` rule anywhere. The approved sample was
+theme-aware and rendered black on a dark-mode phone while the live page could
+only ever render cream, so the two "looked nothing alike" for a reason that had
+nothing to do with layout. `plan.css` now carries an ink-ground block, scoped to
+the `/p/[token]` route it is imported by; the console is untouched.
+
+Trap when working on it: `.plan-week`, `.plan-name` and `.plan-facts b` paint
+with `var(--sc-bone)`, which on the ink ground is near-black. Anything painting
+text with a *ground* token has to be restated inside the dark block or it
+renders black on black.
+
+- [x] Plan page follows the phone's theme
+- [ ] Console (phase 6) — still light only
+
+### Phase 3 — structured brief fields (small schema)
+
+**Status: deployed to production 2026-09-05, verified by screenshot in both
+themes and at 320px.** Files touched: `scripts/migrate.mjs`, `src/lib/brief.ts`,
+`src/lib/models.ts`, `src/lib/plans.ts`,
+`src/app/api/plans/[id]/route.ts`, `src/app/api/plans/[id]/items/route.ts`,
+`src/components/plan/PlanItemCard.tsx`, `src/components/roster/PlanEditor.tsx`,
+`src/components/roster/types.ts`, `src/app/plan.css`, `src/app/library.css`.
+Rollback copies are `*.pre-p3` in `docs/rollback/`.
+
+- [x] wardrobe / camera / takes / sound as discrete fields
+- [x] hook as its own quoted callout
+- [x] caption drafted for her, with a copy button
+- [x] `brief.ts` un-flattens — `draftFields()` is new beside `draftBrief()`,
+      which is untouched and still returns the whole blob. Keep the prose blob
+      as fallback for anything unfilled.
+- [x] The direction is prose again. `draftBrief` joined its lines with `\n`,
+      which rendered on her phone as a stack of disconnected fragments.
+
+Two decisions worth keeping:
+
+- **The caption is drafted only where something honest can be said.** The
+  obvious fallback for an unmapped format is the reference's own opening line,
+  and handing her their words as her caption is both a duplicate of the hook
+  two blocks above it and exactly the confidently-wrong draft `brief.ts` was
+  written to avoid. Unmapped formats get no caption and the field does not
+  render.
+- **"Draft the empty ones" only ever writes into a null.** The one exception is
+  the direction, which is replaced *only* when what is stored is still byte-for-
+  byte (whitespace-normalised) what `draftBrief` wrote for it — otherwise an
+  item drafted before phase 3 would say "Sound: …" twice, once in the prose and
+  once in the field. One character of Geno's in there and it is left alone.
+
+### Phase 4 — grouping and stable ids (small schema)
+
+**Status: deployed to production 2026-09-05, verified by screenshot in both
+themes and at 320px.** Rollback copies are `*.pre-p4` in `docs/rollback/`.
+
+- [x] `plan_items.location` — "In the car", "In the kitchen"
+- [x] Group the plan by location with a shot count per group and a dark bar
+- [x] `plan_items.card_no` — stable per-card id, rendered `V-7`
+- [x] `plan_items.title` ("Car GRWM") above the reference
+- [x] Console sets both; "Draft the empty ones" suggests a location and a title
+      from the format tag, and a `<datalist>` offers the locations already in
+      use so grouping does not split on a stray capital
+
+Three decisions worth keeping:
+
+- **Groups are runs, not buckets.** Consecutive cards with the same location
+  make a group. Sorting the week to collapse two visits to the kitchen into one
+  would silently rewrite the order Geno sent her.
+- **`card_no` is assigned once, per model, and is not writable from anywhere.**
+  An id you can edit is not a stable id. New items read
+  `max(card_no) + 1` across every week that model has ever had, inside the
+  insert, so a batch numbers itself in order. The backfill counts on from the
+  model's existing high-water mark, so a half-numbered roster cannot be handed
+  the same id twice.
+- **`i.title` is aliased `item_title` in the console query**, because `t.title`
+  on the same row is the reference's own title on Instagram.
+
+Grouping only turns on once a location has actually been set. A week with none
+renders exactly the flat list it always has.
+
+### Phase 5 — operator sweep + scoreboard
+
+**Status: deployed to production 2026-09-05, verified by screenshot at 1440
+and 390.** Rollback copies are `*.pre-p5` in `docs/rollback/`. New files:
+`src/lib/sweep.ts`, `src/app/api/sweep/route.ts`,
+`src/app/api/models/[id]/posts/route.ts`, `src/components/roster/SweepTab.tsx`,
+`src/components/roster/SweepFlags.tsx`.
+
+- [x] Daily sweep — a new **Today** tab. Six lists: our side, waiting on an
+      answer, filming slipped, overdue, silent, library health
+- [x] Exception flags on the roster card — why she is red, not just her count
+- [x] Due countdown on the card ("1 day left" / "due today" / "3 days over")
+- [x] Scoreboard: sent on time (us) · accepted · filmed · posted
+- [x] Tap-to-link strip for her posts
+- [x] Tier grouping on the roster
+
+**One schema addition, against the heading this section used to carry.**
+`models.tier` ('A' | 'B' | 'C', default 'B'). Tier cannot be derived: every plan
+item is a library reference, so nothing in the data distinguishes bespoke from
+library-only. It is a commercial fact about the arrangement and has to be
+stated. Everything else in phase 5 is computed from columns that already
+existed.
+
+Decisions worth keeping:
+
+- **Our side is the first list and it is marked as ours.** A card that reads
+  "4 this week · 0 filmed" says the same thing whether the brief went out on
+  Sunday or is still a draft, and the flag most likely to be read as her
+  failing is usually ours. The scoreboard puts supply next to delivery for the
+  same reason.
+- **Paused models are on no list.** Pausing someone is the operator saying "not
+  this week"; a sweep that keeps nagging is a sweep that stops being read.
+- **On time = the brief was in her hands before the week it is for started.**
+  `sent_at at time zone her tz <= week_of`. Sent on the Wednesday is late even
+  if she films it.
+- **Still no fuzzy post matching.** Her posts are ingested metadata-only
+  (`/api/links` now takes `transcribe: false`) and bound by tapping one. A bound
+  post is not offered to a second card. Binding carries the post's real
+  `upload_date` into `posted_at`, because that is almost never today.
+- **The roster fetches `/api/sweep` separately** rather than widening
+  `/api/models`, so nothing the grid already rendered can change shape.
+
+### Phase 6 — console restyle
+
+**Status: deployed to production 2026-09-05, verified by screenshot in both
+themes at 1440 and 390 — library grid, creators, roster, plan editor, item
+reader, Today and the gate.** Rollback copies are `*.pre-p6` in
+`docs/rollback/`. Files touched: `src/app/globals.css` (one appended block),
+`src/components/Workbench.tsx`, `src/components/Gate.tsx`.
+
+- [x] Same treatment as phase 1, desktop-first but working on a phone
+- [x] Console dark mode
+
+Three things worth keeping:
+
+- **`.console` is the scope.** Workbench and Gate are wrapped in one div, and
+  every phase-6 rule hangs off it — the mirror of what `.plan` does on her page.
+  `tokens.css` still says `--sc-radius: 0` and every other Sinaura surface is
+  still square.
+- **`--sc-radius` was already the right lever.** `.btn`, `.pill`, `.chip`,
+  `.field` and `.player` all read it, so overriding it once on `.console`
+  rounded every control without touching a single component rule. Only the
+  surfaces — frames, panels, callouts, the reader — needed rules of their own.
+- **The dark tokens in `globals.css` are byte-identical to the ones in
+  `plan.css`, deliberately.** Both stylesheets load on `/p/[token]` — globals
+  from the root layout, plan.css from the route's own — and whichever ends up
+  last in the bundle must not change what her page looks like. **If one is ever
+  edited, edit both.** Verified after the change: her page renders identically
+  in both themes.
+
+The flip rule, restated for the console: a rule painting a *surface* with
+`--sc-ink-900` or *text* with `--sc-bone` inverts along with the token. Where
+that inversion is what you want — a filled button becoming light-on-dark — it
+is left alone. Where the surface must stay ink whatever the theme (`.masthead`,
+`.reader-head`, `.selectbar`, `.gate`, and every media well that paints ink
+behind a picture that has not loaded) it is restated in the dark block.
+
+## Fixed after phase 6 — the decline button went green
+
+Reported 2026-09-06, deployed the same day. Rollback:
+`docs/rollback/plan.css.pre-verdict-fix`.
+
+`.plan-no` was two different things: the `V-1` badge in the card head, and the
+"Can't do this" button. A bare `.plan-no` rule reaches both, and
+`.plan-item[data-filmed] .plan-no` is (0,2,0) — which beats
+`.plan-verdict button` at (0,1,1). So ticking a card filmed painted its decline
+button `--sc-positive`. The one control on the page that must never be mistaken
+for a yes was green.
+
+Two changes:
+
+- **Every badge rule now goes through `.plan-item-head`**, so it cannot reach
+  the button. The class names are unchanged; only the scope is. If a badge rule
+  is ever added, add it scoped — a bare `.plan-no` will silently hit the
+  decline button again.
+- **Both answers now fill when chosen, in opposite colours** — ink for yes,
+  `--sc-critical` for no, restated in the dark block because both paint a
+  ground token as text. Outlines alone were too close to tell apart on a phone,
+  and a decline is the state that most needs Geno to do something about it.
+
+Verified on a card forced into declined *and* filmed at once, in both themes:
+red decline sitting directly above a green filmed button.
+
+## Verifying
+
+`docs/rollback/cdpshot.mjs` is the screenshotter these phases were checked with.
+It drives Chrome over the DevTools protocol, so the layout viewport and the
+capture are the same number by construction — the flaw the bare
+`--window-size` flag has, where a page lays out wider than it screenshots and a
+narrow shot looks fine while the phone is broken.
+
+```bash
+node cdpshot.mjs <url> <out.png> <0 dark|1 light> <width> <height> [cookie] [full] [steps]
+```
+
+`cookie` takes `tx_session=…` so the gated console can be seen; `steps` is a
+JSON array of expressions evaluated in the page with a pause after each, which
+is how a screen behind a tab and a button gets *looked at* rather than reasoned
+about:
+
+```bash
+node cdpshot.mjs http://localhost:3111/ shot.png 0 1440 1300 "tx_session=…" "" \
+  '["[...document.querySelectorAll(\"button\")].find(b=>b.textContent.trim()===\"Models\").click()"]'
+```

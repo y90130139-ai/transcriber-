@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Start the local drop-and-go web UI.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+PORT="${1:-8765}"
+( sleep 1; open "http://localhost:$PORT" >/dev/null 2>&1 || true ) &
+exec "$ROOT/.venv/bin/python" -c "from src.server import serve; serve(port=$PORT)"

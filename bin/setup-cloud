@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Point this Mac's worker at the hosted app.
+#   ./bin/setup-cloud https://your-app.vercel.app
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+
+URL="${1:-}"
+if [ -z "$URL" ]; then
+  echo "usage: ./bin/setup-cloud https://your-app.vercel.app" >&2
+  exit 1
+fi
+
+# The secret is whatever the deployed app has; read it straight from Vercel so
+# the two can never drift apart.
+SECRET="${WORKER_SECRET:-}"
+if [ -z "$SECRET" ] && [ -f "$ROOT/cloud/.env.local" ]; then
+  SECRET=$(grep -E '^WORKER_SECRET=' "$ROOT/cloud/.env.local" | head -1 | cut -d= -f2- | tr -d '"')
+fi
+if [ -z "$SECRET" ]; then
+  echo "No WORKER_SECRET found. Run 'vercel env pull .env.local' inside cloud/ first," >&2
+  echo "or set WORKER_SECRET=... in the environment." >&2
+  exit 1
+fi
+
+"$ROOT/.venv/bin/python" - "$URL" "$SECRET" <<'PY'
+import json, sys
+from pathlib import Path
+
+url, secret = sys.argv[1].rstrip("/"), sys.argv[2]
+path = Path(__file__).resolve().parent / "config.json" if False else Path("config.json")
+current = json.loads(path.read_text()) if path.exists() else {}
+current.update({"cloud_url": url, "worker_secret": secret})
+path.write_text(json.dumps(current, indent=2) + "\n")
+print(f"config.json now points the worker at {url}")
+PY
+echo "Start it with:  ./bin/worker"

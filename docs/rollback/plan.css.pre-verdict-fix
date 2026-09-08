@@ -1,0 +1,925 @@
+/* ============================================================
+   THE PLAN — what the model opens on her phone.
+   Maison palette throughout: bone ground, ink structure, ember
+   spent once. Never blue: the reference page used blue underlined
+   links and we do not.
+
+   CORNERS. tokens.css sets --sc-radius: 0 and the console keeps
+   it. This surface is the deliberate exception — Geno compared
+   square, hybrid and rounded side by side on 2026-09-05 and chose
+   rounded, because this is the one screen that has to read as an
+   app on a phone rather than as a printed page. The radius lives
+   on .plan below, so it is scoped to her plan and cannot leak into
+   the console.
+
+   Built mobile-first, because a phone is the only place this will
+   ever be read.
+   ============================================================ */
+
+.plan {
+  /* The exception, in one place. */
+  --r:      14px;   /* cards, the header block, media            */
+  --r-sm:   10px;   /* controls — anything she presses           */
+  --r-pill: 999px;  /* counters and the item badge               */
+
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-24);
+}
+
+/* ---------------------------------------------------------- HEADER
+   The one ink surface, a block rather than a full-bleed band — which is
+   what makes the page read as an app and not a document. */
+.plan-head {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-5) var(--sc-space-4) var(--sc-space-4);
+  border-radius: var(--r);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.plan-who {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+
+.plan-face {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: cover;
+  display: block;
+  flex: 0 0 auto;
+  background: #1F1D1B;
+  border-radius: var(--r-pill);
+}
+
+/* Her name rides with the eyebrow instead of being the headline. She knows
+   who she is; what she opens this to find out is which week it is. */
+.plan-eyebrow {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: #7C776F;
+}
+.plan-name {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--sc-bone);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-week {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  letter-spacing: var(--sc-track-display);
+  line-height: 1;
+  font-size: clamp(1.6rem, 1.1rem + 3vw, 2.2rem);
+  color: var(--sc-bone);
+  margin: var(--sc-space-4) 0 0;
+  text-wrap: balance;
+}
+
+.plan-title {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: #A8A29A;
+  margin: var(--sc-space-2) 0 0;
+  letter-spacing: var(--sc-track-tight);
+}
+
+/* ------------------------------------------------------- THE TICKS
+   One segment per video, so she can count what is left. A single
+   filling rule never let her do that — it only ever said "some". */
+.plan-bar {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+  margin: var(--sc-space-4) 0 var(--sc-space-3);
+  /* A 200-item target would otherwise push the header wider than the phone. */
+  overflow: hidden;
+}
+.plan-bar i {
+  flex: 1 1 0;
+  min-width: 0;
+  background: #2B2926;
+  border-radius: var(--r-pill);
+  transition: background var(--sc-dur) var(--sc-ease);
+}
+.plan-bar i[data-on='true'] { background: var(--sc-ember-light); }
+
+/* One wrapping mono line. The old three-column table folded into itself on a
+   narrow phone and read as a single run-on figure. */
+.plan-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sc-space-1) var(--sc-space-2);
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7C776F;
+  font-variant-numeric: tabular-nums;
+}
+.plan-facts b { color: var(--sc-bone); font-weight: 500; }
+.plan-facts [data-late] { color: #F08460; }
+.plan-facts [data-late] b { color: #F08460; }
+.plan-sep { color: #3A3733; }
+.plan-count b { color: var(--sc-ember-light); }
+
+/* ------------------------------------------------------------ BODY */
+.plan-body { padding: var(--sc-space-5) var(--sc-space-1) 0; }
+
+.plan-intro {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+  margin: 0 0 var(--sc-space-5);
+}
+
+.plan-label {
+  display: block;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  margin-bottom: var(--sc-space-1);
+}
+
+.plan-rules {
+  border-left: 3px solid var(--sc-ember);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.plan-rules p:last-child {
+  margin: 0;
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------- HOW IT WORKS */
+.plan-how {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  margin-bottom: var(--sc-space-6);
+  padding: 0 var(--sc-space-4);
+  background: var(--sc-paper);
+}
+.plan-how summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.plan-how summary::-webkit-details-marker { display: none; }
+.plan-how summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-how[open] summary::after { content: '–'; }
+.plan-how ol { list-style: none; margin: 0; padding: 0 0 var(--sc-space-4); }
+.plan-how li {
+  display: flex;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) 0;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+}
+.plan-step-no {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  color: var(--sc-ember);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 1.2rem;
+}
+
+/* ------------------------------------------------------------ ITEMS
+   Each item is a card. It used to be a slab separated by a rule,
+   which on a phone reads as one endless page rather than as a
+   countable stack of things to do. */
+.plan-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.plan-item {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-paper);
+  padding: var(--sc-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.plan-item[data-filmed] { border-color: var(--sc-positive); }
+.plan-item[data-filmed] .plan-player { opacity: 0.62; }
+
+.plan-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+/* The number as a badge, so it reads as this card's name rather
+   than as a heading in a document. */
+.plan-no {
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-1) var(--sc-space-3);
+  border-radius: var(--r-pill);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.plan-item[data-filmed] .plan-no { background: var(--sc-positive); }
+.plan-len {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-player {
+  width: 100%;
+  max-height: 70vh;
+  background: var(--sc-ink-900);
+  display: block;
+  border-radius: var(--r-sm);
+}
+
+.plan-nofile {
+  background: var(--sc-bone-light);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  padding: var(--sc-space-4);
+  margin: 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+}
+
+/* Stacked on a phone. Two buttons side by side at 320px gave each
+   of them about 130px, which is not a tap target, it is a dare. */
+.plan-links {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sc-space-2);
+}
+
+/* A filled rectangle, not an underlined link — the reference page's
+   blue links are exactly what this identity does not do. */
+.plan-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  min-height: 48px;
+  border: var(--sc-rule-firm);
+  border-radius: var(--r-sm);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-3);
+  font-family: var(--sc-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  line-height: 1.3;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-cta:active { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
+
+/* The second of the pair. Saving is optional; watching is not. */
+.plan-cta-quiet {
+  background: transparent;
+  color: var(--sc-ink-900);
+  border-color: var(--sc-ink-150);
+}
+.plan-cta-quiet:active { color: var(--sc-bone); }
+
+.plan-link {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+  text-decoration: none;
+  border-bottom: 1px solid var(--sc-ember-deep);
+  justify-self: start;
+  padding-bottom: 2px;
+}
+
+/* The direction, under its own label. This is the brief — it gets
+   the ink weight, and everything around it stays quieter. */
+.plan-notes {
+  margin: 0;
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+}
+
+.plan-editing {
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-left: 3px solid var(--sc-caution);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--sc-bone-light);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+  white-space: pre-wrap;
+}
+
+/* -------------------------------------------------------- TRANSCRIPT */
+.plan-transcript { border-top: var(--sc-rule-hair); }
+.plan-transcript summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.plan-transcript summary::-webkit-details-marker { display: none; }
+.plan-transcript summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-transcript[open] summary::after { content: '–'; }
+.plan-transcript div { padding-bottom: var(--sc-space-3); }
+.plan-transcript p {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+}
+.plan-transcript b { color: var(--sc-ember-deep); font-weight: 500; }
+.plan-quiet { color: var(--sc-ink-300); font-style: italic; }
+
+/* ------------------------------------------------------------ FILMED
+   Outlined until it is done, then filled green. The old button was
+   filled while undone and outlined once done, which read backwards:
+   the loud state belongs to the finished one. */
+.plan-filmed {
+  width: 100%;
+  min-height: 3.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  border: var(--sc-rule-firm);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: background var(--sc-dur) var(--sc-ease),
+              color var(--sc-dur) var(--sc-ease),
+              border-color var(--sc-dur) var(--sc-ease);
+}
+.plan-filmed::before {
+  content: '';
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-radius: var(--r-pill);
+  flex: 0 0 auto;
+}
+.plan-filmed:active { transform: translateY(1px); }
+.plan-filmed:disabled { opacity: 0.5; }
+.plan-item[data-filmed] .plan-filmed {
+  background: var(--sc-positive);
+  border-color: var(--sc-positive);
+  color: var(--sc-paper);
+}
+.plan-item[data-filmed] .plan-filmed::before { background: currentColor; }
+
+/* ------------------------------------------------------ WRITING BACK */
+.plan-say { display: flex; flex-direction: column; gap: var(--sc-space-1); }
+.plan-say textarea {
+  width: 100%;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  padding: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: 1.45;
+  color: var(--sc-ink-900);
+  resize: vertical;
+}
+.plan-say textarea:focus { outline: none; border-color: var(--sc-ember); }
+.plan-say textarea::placeholder { color: var(--sc-ink-150); }
+
+.plan-saystate {
+  min-height: 1.1rem;
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.plan-saystate[data-tone='bad'] { color: var(--sc-critical); }
+
+.plan-empty {
+  padding: var(--sc-space-16) 0;
+  text-align: center;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-300);
+}
+
+/* Two buttons fit side by side once there is room for both to stay
+   a real tap target. Past a phone the header gets more air, but the
+   column never widens — a plan is read one item at a time whatever
+   it is opened on. */
+@media (min-width: 430px) {
+  .plan-links { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 560px) {
+  .plan { padding: var(--sc-space-6) var(--sc-space-4) var(--sc-space-24); }
+  .plan-head { padding: var(--sc-space-8) var(--sc-space-6) var(--sc-space-6); }
+  .plan-body { padding: var(--sc-space-6) 0 0; }
+  .plan-face { width: 4.5rem; height: 4.5rem; }
+  .plan-item { padding: var(--sc-space-5); }
+}
+
+/* ============================================================
+   PHASE 2 — her answer, and the conversation about a card.
+   ============================================================ */
+
+/* ------------------------------------------------- ACCEPT / DECLINE */
+.plan-verdict { display: flex; gap: var(--sc-space-2); }
+.plan-verdict button {
+  flex: 1;
+  min-height: 48px;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease),
+              color var(--sc-dur-fast) var(--sc-ease),
+              background var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-verdict button[aria-pressed='true'] {
+  background: var(--sc-bone-light);
+  border-color: var(--sc-ink-900);
+  color: var(--sc-ink-900);
+  font-weight: 600;
+}
+.plan-verdict .plan-no[aria-pressed='true'] {
+  border-color: var(--sc-critical);
+  color: var(--sc-critical);
+}
+
+/* A turned-down card stays on the plan and stays legible. Greying it out
+   would hide the one card that most needs Geno to do something. */
+.plan-item[data-verdict='declined'] { border-color: var(--sc-critical); }
+.plan-item[data-verdict='accepted'] { border-color: var(--sc-ink-150); }
+
+.plan-why { display: flex; flex-direction: column; gap: var(--sc-space-1); }
+.plan-why textarea {
+  width: 100%;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  padding: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-900);
+  resize: vertical;
+}
+.plan-why textarea:focus { outline: none; border-color: var(--sc-ember); }
+
+/* ------------------------------------------------------------ THREAD */
+.plan-ask {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  padding: 0 var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+.plan-ask::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-ask[aria-expanded='true']::after { content: '–'; }
+.plan-ask-badge {
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 0 6px;
+  background: var(--sc-ember);
+  color: var(--sc-paper);
+  border-radius: var(--r-pill);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  padding-top: var(--sc-space-3);
+}
+.plan-msg p {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+}
+/* His answers carry the accent on the label, so a thread reads as two
+   voices at a glance rather than as one block of text. */
+.plan-msg[data-from='operator'] .plan-label { color: var(--sc-ember-deep); }
+
+.plan-send {
+  min-height: 44px;
+  align-self: flex-start;
+  padding: 0 var(--sc-space-5);
+  border: var(--sc-rule-firm);
+  border-radius: var(--r-sm);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+.plan-send:disabled { opacity: 0.4; cursor: default; }
+
+/* ============================================================
+   OVERFLOW GUARDS.
+   The first cut of this page rendered wider than the phone: the
+   header ran past the right edge, the two link buttons were cut
+   in half, and the direction text lost its last word on every
+   line. A flex or grid child defaults to min-width:auto, which
+   refuses to shrink below its content — one long unbroken word
+   in a brief or a caption is enough to push the whole column
+   out. These say: shrink, and break the word instead.
+   ============================================================ */
+.plan,
+.plan-body,
+.plan-items,
+.plan-item,
+.plan-item > *,
+.plan-links,
+.plan-direction,
+.plan-say,
+.plan-thread,
+.plan-group,
+.plan-group-bar,
+.plan-item-head,
+.plan-spec,
+.plan-spec-row,
+.plan-hook,
+.plan-caption,
+.plan-caption-top { min-width: 0; }
+
+.plan-notes,
+.plan-editing,
+.plan-transcript p,
+.plan-msg p,
+.plan-nofile { overflow-wrap: anywhere; }
+
+/* Media never sets the column width. */
+.plan-player,
+.plan-face { max-width: 100%; }
+
+/* The label above the direction, which the brief was missing entirely —
+   it read as a loose wall of sentences under the buttons. */
+.plan-direction { display: flex; flex-direction: column; gap: var(--sc-space-1); }
+.plan-direction .plan-notes { padding-top: 0; border-top: 0; }
+
+/* ============================================================
+   PHASE 3 — the brief, un-flattened.
+
+   `brief.ts` already worked out wardrobe, framing, takes and where the sound
+   comes from, then glued them into one paragraph. On a phone that paragraph is
+   a wall, and the one line she needs while the camera is already propped up is
+   four scrolls in. These are the same facts as a label/value grid, a quoted
+   hook, and a caption she can lift straight off the page.
+   ============================================================ */
+
+/* Label over value at phone width — a 5.5rem label column plus a sentence is
+   what folded the header's old <dl> into itself. It goes side by side only
+   once there is room for both to breathe. */
+.plan-spec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  margin: var(--sc-space-3) 0 0;
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+}
+.plan-spec-row { display: grid; gap: 2px; min-width: 0; }
+.plan-spec dt {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.plan-spec dd {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+
+/* The one part of the brief she has to rewrite rather than follow. Ember tint
+   rather than a rule, so it reads as a quotation and not as another note. */
+.plan-hook {
+  background: var(--sc-ember-tint);
+  border-radius: var(--r-sm);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  min-width: 0;
+}
+.plan-hook p {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  letter-spacing: var(--sc-track-tight);
+  overflow-wrap: anywhere;
+}
+.plan-hook-note {
+  display: block;
+  margin-top: var(--sc-space-2);
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+
+/* Drafted for her, and the only thing on the page that has to travel — hence
+   a real button rather than a long-press and a hope. */
+.plan-caption {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  min-width: 0;
+}
+.plan-caption-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+.plan-caption-top .plan-label { margin-bottom: 0; }
+.plan-caption p {
+  margin: var(--sc-space-2) 0 0;
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.plan-copy {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease),
+              background var(--sc-dur-fast) var(--sc-ease),
+              color var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-copy:active { background: var(--sc-ink-900); color: var(--sc-paper); border-color: var(--sc-ink-900); }
+
+@media (min-width: 430px) {
+  .plan-spec-row {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: var(--sc-space-3);
+    align-items: baseline;
+  }
+}
+
+/* ============================================================
+   PHASE 4 — grouped by where it is filmed, and named by an id
+   that survives the week being edited.
+   ============================================================ */
+
+/* One run of cards shot in the same place. Runs, not buckets — the order is
+   Geno's and collapsing two visits to the kitchen would rewrite his week. */
+.plan-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+.plan-group + .plan-group { margin-top: var(--sc-space-6); }
+
+/* The one other ink surface on the page, so the week reads as a handful of
+   trips rather than as one long list of videos. */
+.plan-group-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  background: var(--sc-ink-900);
+  border-radius: var(--r-sm);
+  min-width: 0;
+}
+.plan-group-name {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-bone);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.plan-group-no {
+  font-family: var(--sc-font-mono);
+  font-weight: 400;
+  color: var(--sc-ember-light);
+  margin-right: var(--sc-space-2);
+  font-variant-numeric: tabular-nums;
+}
+.plan-group-count {
+  flex: 0 0 auto;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Named before it is watched. "Car GRWM" reads as a job; "Video 3" reads as a
+   row number, which is what the badge beside it already is. */
+.plan-item-title {
+  font-weight: 600;
+  font-size: var(--sc-text-base);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* The duration keeps the far edge whatever else is on the row. */
+.plan-item-head { flex-wrap: wrap; }
+.plan-item-head .plan-len { margin-left: auto; }
+
+/* ============================================================
+   THE INK GROUND — her page in dark mode.
+
+   tokens.css carries a full flipped palette under
+   [data-sc-ground="ink"], but nothing ever switched to it, so
+   this page could only render bone. The sample Geno approved is
+   theme-aware and rendered black on his phone while the live
+   page stayed cream — which is the whole reason the two "looked
+   nothing like" each other.
+
+   Scoped to this stylesheet, which only the /p/[token] route
+   loads, so the console is untouched. Values are the ink ground
+   from tokens.css: ember lightens on black because #C2410C on
+   #0A0A0A is only 3.8:1.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sc-ink-900: #EDE9E3;
+    --sc-ink-700: #D6D1C8;
+    --sc-ink-500: #A8A29A;
+    --sc-ink-300: #7C776F;
+    --sc-ink-150: #33302C;
+
+    --sc-bone:       #060605;
+    --sc-bone-light: #1B1917;
+    --sc-paper:      #121110;
+
+    --sc-ember:      #E8663A;
+    --sc-ember-deep: #F08460;
+    --sc-ember-tint: #2A1710;
+
+    /* Desaturated so they read on black without shouting. */
+    --sc-positive: #4E9E76;
+    --sc-caution:  #C0942A;
+    --sc-critical: #E0685E;
+
+    --sc-rule-hair: 1px solid #33302C;
+    --sc-rule-firm: 1px solid #EDE9E3;
+  }
+
+  body { background: var(--sc-bone); color: var(--sc-ink-500); }
+
+  /* Anything that painted itself with ink-900 as a *surface* has to be
+     restated — that token is now light, and a header that flipped to bone
+     would put cream behind cream. */
+  /* These paint text with --sc-bone, which on the ink ground is near-black.
+     Left alone they render black on black — the week vanished entirely. */
+  .plan-head { background: #000; color: var(--sc-ink-900); }
+  .plan-week,
+  .plan-name,
+  .plan-facts b { color: var(--sc-ink-900); }
+  .plan-player { background: #000; }
+  .plan-no { background: var(--sc-ember); color: #0A0A0A; }
+  .plan-item[data-filmed] .plan-no { background: var(--sc-positive); color: #0A0A0A; }
+
+  .plan-cta {
+    background: var(--sc-ink-900);
+    color: #0A0A0A;
+    border-color: var(--sc-ink-900);
+  }
+  .plan-cta-quiet {
+    background: transparent;
+    color: var(--sc-ink-900);
+    border-color: #3A3733;
+  }
+  .plan-send { background: var(--sc-ink-900); color: #0A0A0A; }
+  .plan-filmed { color: var(--sc-ink-900); border-color: var(--sc-ink-900); }
+  .plan-item[data-filmed] .plan-filmed { color: #0A0A0A; }
+
+  /* The bar's unlit segments need to sit above pure black to stay countable. */
+  .plan-bar i { background: #2B2926; }
+
+  /* Phase 4. The group bar paints ink-900 as a *surface* and its name paints
+     bone as *text* — on the ink ground both of those have flipped, so left
+     alone it would put cream on cream. Same trap as .plan-head. */
+  /* #000 on the #060605 ground is very nearly no edge at all, and unlike the
+     header this band is only three lines tall. A hairline gives it one without
+     moving it off the ink. */
+  .plan-group-bar { background: #000; border: 1px solid #2B2926; }
+  .plan-group-name { color: var(--sc-ink-900); }
+
+  /* Phase 3. The hook tint is #2A1710 on the ink ground, so its type has to be
+     restated light — left alone it inherits ink-900's light value only because
+     the token flipped, and the copy button's active fill would still paint
+     paper-on-paper. */
+  .plan-copy:active {
+    background: var(--sc-ink-900);
+    color: #0A0A0A;
+    border-color: var(--sc-ink-900);
+  }
+}

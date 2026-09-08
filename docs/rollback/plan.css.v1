@@ -1,0 +1,385 @@
+/* ============================================================
+   THE PLAN — what the model opens on her phone.
+   Same maison rules as the console: bone ground, ink structure,
+   ember spent once, square corners. Never blue: the reference
+   page used blue underlined links and we do not.
+   Built mobile-first, because a phone is the only place this
+   will ever be read.
+   ============================================================ */
+
+.plan {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding-bottom: var(--sc-space-24);
+}
+
+/* ---------------------------------------------------------- HEADER
+   The one ink surface, exactly as in the console masthead. */
+.plan-head {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-6) var(--sc-space-4) var(--sc-space-4);
+}
+
+.plan-eyebrow {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+  margin: 0 0 var(--sc-space-4);
+}
+
+.plan-who { display: flex; align-items: center; gap: var(--sc-space-4); }
+
+.plan-face {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  display: block;
+  flex: 0 0 auto;
+  background: #1F1D1B;
+  border-radius: var(--sc-radius);
+}
+
+.plan-name {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.9;
+  font-size: clamp(1.9rem, 1.2rem + 4vw, 2.6rem);
+  color: var(--sc-bone);
+  margin: 0;
+}
+
+.plan-week {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-base);
+  color: #A8A29A;
+  margin: var(--sc-space-1) 0 0;
+}
+
+.plan-title {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  color: var(--sc-bone);
+  margin: var(--sc-space-4) 0 0;
+  letter-spacing: var(--sc-track-tight);
+}
+
+.plan-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-6);
+  margin: var(--sc-space-6) 0 var(--sc-space-3);
+}
+.plan-facts div { margin: 0; }
+.plan-facts dt {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+}
+.plan-facts dd {
+  margin: 2px 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-bone);
+  font-variant-numeric: tabular-nums;
+}
+.plan-facts dd[data-late] { color: #F08460; }
+.plan-count b { color: var(--sc-ember-light); font-weight: 500; }
+
+/* One ember rule that fills as the week gets done. */
+.plan-bar { height: 3px; background: #2B2926; display: block; }
+.plan-bar span {
+  display: block;
+  height: 100%;
+  background: var(--sc-ember-light);
+  transition: width var(--sc-dur) var(--sc-ease);
+}
+
+/* ------------------------------------------------------------ BODY */
+.plan-body { padding: var(--sc-space-6) var(--sc-space-4) 0; }
+
+.plan-intro {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+  margin: 0 0 var(--sc-space-6);
+}
+
+.plan-label {
+  display: block;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  margin-bottom: var(--sc-space-1);
+}
+
+.plan-rules {
+  border-left: 2px solid var(--sc-ember);
+  padding: var(--sc-space-1) 0 var(--sc-space-1) var(--sc-space-4);
+  margin-bottom: var(--sc-space-6);
+}
+.plan-rules p:last-child {
+  margin: 0;
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------- HOW IT WORKS */
+.plan-how {
+  border-top: var(--sc-rule-hair);
+  border-bottom: var(--sc-rule-hair);
+  margin-bottom: var(--sc-space-8);
+}
+.plan-how summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--sc-space-4) 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.plan-how summary::-webkit-details-marker { display: none; }
+.plan-how summary::after { content: ' +'; color: var(--sc-ember); }
+.plan-how[open] summary::after { content: ' –'; }
+.plan-how ol { list-style: none; margin: 0; padding: 0 0 var(--sc-space-5); }
+.plan-how li {
+  display: flex;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) 0;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+}
+.plan-step-no {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  color: var(--sc-ember);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 1.2rem;
+}
+
+/* ------------------------------------------------------------ ITEMS */
+.plan-items { list-style: none; margin: 0; padding: 0; }
+
+.plan-item {
+  border-top: var(--sc-rule-lock);
+  padding: var(--sc-space-5) 0 var(--sc-space-8);
+}
+.plan-item[data-filmed] { border-top-color: var(--sc-ember); }
+.plan-item[data-filmed] .plan-player,
+.plan-item[data-filmed] .plan-notes { opacity: 0.62; }
+
+.plan-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-3);
+}
+.plan-no {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-xl);
+  line-height: 1;
+  color: var(--sc-ink-900);
+}
+.plan-item[data-filmed] .plan-no::after { content: ' ✓'; color: var(--sc-ember); }
+.plan-len {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-player {
+  width: 100%;
+  max-height: 70vh;
+  background: var(--sc-ink-900);
+  display: block;
+  border-radius: var(--sc-radius);
+}
+
+.plan-nofile {
+  background: var(--sc-bone-light);
+  border: 1px dashed var(--sc-ink-150);
+  padding: var(--sc-space-4);
+  margin: 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+}
+
+.plan-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-3);
+}
+
+/* A bordered rectangle, not an underlined link — the reference page's blue
+   links are exactly what this identity does not do. */
+.plan-cta {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  border: var(--sc-rule-firm);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-3) var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  line-height: 1.3;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-cta:active { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
+
+/* The second of the pair. Saving is optional; watching is not. */
+.plan-cta-quiet { background: transparent; color: var(--sc-ink-900); }
+.plan-cta-quiet:active { color: var(--sc-bone); }
+
+.plan-link {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+  text-decoration: none;
+  border-bottom: 1px solid var(--sc-ember-deep);
+  justify-self: start;
+  padding-bottom: 2px;
+}
+
+.plan-notes {
+  margin: var(--sc-space-5) 0 0;
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+}
+
+.plan-editing {
+  margin: var(--sc-space-4) 0 0;
+  padding-left: var(--sc-space-4);
+  border-left: 1px solid var(--sc-ink-150);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-500);
+  white-space: pre-wrap;
+}
+
+/* -------------------------------------------------------- TRANSCRIPT */
+.plan-transcript { margin-top: var(--sc-space-4); border-top: 1px dotted var(--sc-ink-150); }
+.plan-transcript summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--sc-space-3) 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.plan-transcript summary::-webkit-details-marker { display: none; }
+.plan-transcript summary::after { content: ' +'; color: var(--sc-ember); }
+.plan-transcript[open] summary::after { content: ' –'; }
+.plan-transcript div { padding-bottom: var(--sc-space-4); }
+.plan-transcript p {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+}
+.plan-transcript b { color: var(--sc-ember-deep); font-weight: 500; }
+.plan-quiet { color: var(--sc-ink-300); font-style: italic; }
+
+/* ------------------------------------------------------------ FILMED */
+.plan-filmed {
+  width: 100%;
+  min-height: 3.4rem;
+  margin-top: var(--sc-space-5);
+  border: var(--sc-rule-firm);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  border-radius: var(--sc-radius);
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-filmed:active { transform: translateY(1px); }
+.plan-filmed:disabled { opacity: 0.5; }
+.plan-item[data-filmed] .plan-filmed {
+  background: transparent;
+  color: var(--sc-ember-deep);
+  border: 2px solid var(--sc-ember);
+}
+.plan-item[data-filmed] .plan-filmed::before { content: '✓  '; }
+
+/* ------------------------------------------------------ WRITING BACK */
+.plan-say { margin-top: var(--sc-space-4); }
+.plan-say textarea {
+  width: 100%;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  padding: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: 1.45;
+  color: var(--sc-ink-900);
+  resize: vertical;
+}
+.plan-say textarea:focus { outline: none; border-color: var(--sc-ember); }
+.plan-say textarea::placeholder { color: var(--sc-ink-150); }
+
+.plan-saystate {
+  min-height: 1.1rem;
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.plan-saystate[data-tone='bad'] { color: var(--sc-critical); }
+
+.plan-empty {
+  padding: var(--sc-space-16) 0;
+  text-align: center;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-300);
+}
+
+/* Past a phone the header gets room, but the column never widens — a plan is
+   read one item at a time whatever it is opened on. */
+@media (min-width: 560px) {
+  .plan-head { padding: var(--sc-space-8) var(--sc-space-6) var(--sc-space-5); }
+  .plan-body { padding: var(--sc-space-8) var(--sc-space-6) 0; }
+  .plan-face { width: 5.5rem; height: 5.5rem; }
+}

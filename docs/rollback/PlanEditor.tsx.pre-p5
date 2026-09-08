@@ -1,0 +1,566 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
+import { clock, thumbUrl } from '@/lib/format'
+import { labelOf } from '@/lib/taxonomy'
+import {
+  UPLOAD_LABEL, uploadStateOf,
+  type PlanHead, type PlanItemRow, type PlanSummary, type Suggestion,
+} from './types'
+
+const COPY_RESET_MS = 1600
+
+/** Phase 3. The brief as discrete fields, in the order her card renders them.
+ *  `notes` stays the prose direction above these and is not in this list. */
+const BRIEF_FIELDS: { key: BriefKey; label: string; placeholder: string }[] = [
+  { key: 'wardrobe', label: 'Wardrobe', placeholder: 'What she puts on' },
+  { key: 'camera', label: 'Camera', placeholder: 'How the phone is held' },
+  { key: 'takes', label: 'Takes', placeholder: 'How many goes' },
+  { key: 'sound', label: 'Sound', placeholder: 'Where the audio comes from' },
+  { key: 'hook', label: 'Hook', placeholder: 'The opening line, quoted on her card' },
+  { key: 'caption', label: 'Caption', placeholder: 'What she posts under it' },
+]
+
+type BriefKey = 'wardrobe' | 'camera' | 'takes' | 'sound' | 'hook' | 'caption'
+
+/** One week of one model's plan: what is on it, in what order, with what
+ *  direction — and whether every video is actually reachable from her phone. */
+export default function PlanEditor({
+  modelId,
+  modelName,
+  onClose,
+}: {
+  modelId: string
+  modelName: string
+  onClose: () => void
+}) {
+  const [weeks, setWeeks] = useState<PlanSummary[]>([])
+  const [planId, setPlanId] = useState<string | null>(null)
+  const [plan, setPlan] = useState<PlanHead | null>(null)
+  const [items, setItems] = useState<PlanItemRow[]>([])
+  const [suggested, setSuggested] = useState<Suggestion[]>([])
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const thisWeek = currentWeekOf()
+
+  const loadWeeks = useCallback(async () => {
+    const response = await fetch(`/api/models/${modelId}`)
+    if (!response.ok) return
+    const body = await response.json()
+    const list: PlanSummary[] = body.plans ?? []
+    setWeeks(list)
+    setPlanId((current) => current ?? list.find((week) => week.week_of === thisWeek)?.id ?? list[0]?.id ?? null)
+  }, [modelId, thisWeek])
+
+  const loadPlan = useCallback(async () => {
+    if (!planId) { setPlan(null); setItems([]); return }
+    const response = await fetch(`/api/plans/${planId}`)
+    if (!response.ok) return
+    const body = await response.json()
+    setPlan(body.plan ?? null)
+    setItems(body.items ?? [])
+  }, [planId])
+
+  const loadSuggested = useCallback(async () => {
+    const response = await fetch(`/api/models/${modelId}/suggestions`)
+    if (response.ok) setSuggested((await response.json()).items ?? [])
+  }, [modelId])
+
+  useEffect(() => { void loadWeeks() }, [loadWeeks])
+  useEffect(() => { void loadPlan() }, [loadPlan])
+  useEffect(() => { void loadSuggested() }, [loadSuggested])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  /** Create-or-get the plan for a week and switch to it. */
+  async function openWeek(weekOf: string) {
+    setBusy(true)
+    const response = await fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: modelId, week_of: weekOf }),
+    })
+    const body = await response.json().catch(() => ({}))
+    setBusy(false)
+    if (body.plan?.id) {
+      setPlanId(String(body.plan.id))
+      void loadWeeks()
+    }
+  }
+
+  async function patchPlan(patch: Record<string, unknown>) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    if (response.ok) {
+      const body = await response.json()
+      setPlan((current) => (current ? { ...current, ...body.plan } : current))
+      void loadWeeks()
+    }
+  }
+
+  async function patchItem(id: string, patch: Record<string, unknown>) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...patch }),
+    })
+    if (response.ok) {
+      const body = await response.json()
+      setItems((current) => current.map((item) => (item.id === id ? { ...item, ...body.item } : item)))
+    }
+  }
+
+  /** Answer her on one card. Posting also marks everything she has said on
+   *  that card read — answering something is reading it. */
+  async function sendReply(itemId: string, reply: string) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId, reply }),
+    })
+    if (!response.ok) return
+    await loadPlan()
+    void loadWeeks()
+  }
+
+  /** Fill whichever brief fields this item does not have yet, from the same
+   *  rules that draft them on assignment. Never overwrites one that is set, so
+   *  it is safe on an item that has already been edited by hand. */
+  async function draftFields(id: string) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, draft: true }),
+    })
+    if (!response.ok) return
+    const body = await response.json()
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...body.item } : item)))
+  }
+
+  async function move(index: number, direction: -1 | 1) {
+    const next = [...items]
+    const target = index + direction
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setItems(next)
+    await fetch(`/api/plans/${planId}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: next.map((item) => item.id) }),
+    })
+  }
+
+  /** Put a suggested item on the open week and drop it out of the list. */
+  async function addSuggested(jobId: string) {
+    if (!planId) return
+    await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId }),
+    })
+    await loadPlan()
+    await loadSuggested()
+    void loadWeeks()
+  }
+
+  async function removeItem(id: string) {
+    setItems((current) => current.filter((item) => item.id !== id))
+    await fetch(`/api/plans/${planId}/items?item=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    void loadWeeks()
+  }
+
+  async function deletePlan() {
+    if (!planId || !confirm('Delete this whole week?')) return
+    await fetch(`/api/plans/${planId}`, { method: 'DELETE' })
+    setPlanId(null)
+    setPlan(null)
+    setItems([])
+    void loadWeeks()
+  }
+
+  const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
+  const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
+  const filmed = items.filter((item) => item.filmed_at).length
+  const shareUrl =
+    plan && !plan.token_revoked_at && typeof window !== 'undefined'
+      ? `${window.location.origin}/p/${plan.access_token}`
+      : null
+
+  const knownWeeks = new Set(weeks.map((week) => week.week_of))
+  const nextWeek = addDays(thisWeek, 7)
+
+  return (
+    <>
+      <button className="reader-scrim" onClick={onClose} aria-label="Close" />
+      <aside className="reader reader-wide" aria-label={`${modelName}'s plan`}>
+        <header className="reader-head">
+          <button className="reader-close" onClick={onClose} aria-label="Close">Close</button>
+          <h3>{modelName}</h3>
+          <p className="facts">
+            {plan
+              ? `Week of ${formatDate(plan.week_of)} · ${items.length} item${items.length === 1 ? '' : 's'} · ${filmed} filmed`
+              : 'No week open'}
+          </p>
+        </header>
+
+        <div className="reader-body">
+          <div className="weekrail" role="group" aria-label="Weeks">
+            {!knownWeeks.has(thisWeek) && (
+              <button className="pill" disabled={busy} onClick={() => openWeek(thisWeek)}>
+                + This week
+              </button>
+            )}
+            {!knownWeeks.has(nextWeek) && (
+              <button className="pill" disabled={busy} onClick={() => openWeek(nextWeek)}>
+                + Next week
+              </button>
+            )}
+            {weeks.map((week) => (
+              <button
+                key={week.id}
+                className="pill"
+                data-on={week.id === planId}
+                onClick={() => setPlanId(week.id)}
+              >
+                {formatDate(week.week_of)}
+                <b> {week.filmed}/{week.items}</b>
+                {week.status === 'draft' && ' · draft'}
+                {week.unread > 0 && <> · <b>{week.unread} new</b></>}
+              </button>
+            ))}
+          </div>
+
+          {!plan ? (
+            <div className="empty"><p>Open a week, then tag videos to her from the library.</p></div>
+          ) : (
+            <>
+              <div className="form-pair">
+                <div className="form-row">
+                  <label className="axis-name" htmlFor="plan-title">Title</label>
+                  <input
+                    id="plan-title"
+                    className="field"
+                    defaultValue={plan.title ?? ''}
+                    placeholder="Optional"
+                    onBlur={(event) => patchPlan({ title: event.target.value })}
+                  />
+                </div>
+                <div className="form-row">
+                  <label className="axis-name" htmlFor="plan-due">Due</label>
+                  <input
+                    id="plan-due"
+                    className="field"
+                    type="date"
+                    defaultValue={plan.due_date ?? ''}
+                    onBlur={(event) => patchPlan({ due_date: event.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <label className="axis-name" htmlFor="plan-intro">Intro — the first thing she reads</label>
+                <textarea
+                  id="plan-intro"
+                  className="field"
+                  rows={2}
+                  defaultValue={plan.intro ?? ''}
+                  onBlur={(event) => patchPlan({ intro: event.target.value })}
+                />
+              </div>
+
+              <div className="planstate" data-ready={waiting === 0 && missing === 0}>
+                {waiting === 0 && missing === 0 ? (
+                  <span>Every video is on R2. Safe to send.</span>
+                ) : (
+                  <span>
+                    {waiting > 0 && `${waiting} still uploading — the Mac has to be awake. `}
+                    {missing > 0 && `${missing} have no video on disk and will show the Instagram link only.`}
+                  </span>
+                )}
+              </div>
+
+              <div className="copybar" style={{ position: 'static' }}>
+                <button
+                  className="btn"
+                  onClick={() => patchPlan({ status: plan.status === 'sent' ? 'draft' : 'sent' })}
+                >
+                  {plan.status === 'sent' ? 'Unsend' : 'Mark sent'}
+                </button>
+                <button
+                  className="btn btn-quiet"
+                  disabled={!shareUrl}
+                  onClick={async () => {
+                    if (!shareUrl) return
+                    await navigator.clipboard.writeText(shareUrl)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), COPY_RESET_MS)
+                  }}
+                >
+                  {copied ? 'Copied' : 'Copy her link'}
+                </button>
+                <button className="btn btn-quiet" onClick={deletePlan}>Delete week</button>
+                {plan.status !== 'sent' && (
+                  <span className="hint">A draft is invisible to her until it is marked sent.</span>
+                )}
+              </div>
+
+              {items.length === 0 ? (
+                <div className="empty">
+                  <p>Nothing on this week. Open a video in the library and tag it to her.</p>
+                </div>
+              ) : (
+                <ol className="planlist">
+                  {items.map((item, index) => {
+                    const state = uploadStateOf(item)
+                    return (
+                      <li key={item.id} className="planrow" data-state={state}>
+                        <div className="planrow-top">
+                          {/* Its own id, not its position. Reordering the week
+                              used to rename every card under the one moved. */}
+                          <span className="planrow-no">
+                            {item.card_no ? `V-${item.card_no}` : index + 1}
+                          </span>
+                          {item.has_thumb && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={thumbUrl(item.job_id)} alt="" width={56} height={70} loading="lazy" />
+                          )}
+                          <div className="planrow-id">
+                            <p className="planrow-who">
+                              {item.item_title && <b className="planrow-title">{item.item_title} · </b>}
+                              {item.author ?? item.title ?? item.job_id}
+                            </p>
+                            <p className="planrow-meta">
+                              {[clock(item.duration_sec), UPLOAD_LABEL[state],
+                                item.filmed_at ? 'filmed' : null].filter(Boolean).join(' · ')}
+                            </p>
+                            {item.preview && <p className="planrow-line">{item.preview}</p>}
+                          </div>
+                          <span className="planrow-tools">
+                            <button className="chip" onClick={() => move(index, -1)} aria-label="Move up">↑</button>
+                            <button className="chip" onClick={() => move(index, 1)} aria-label="Move down">↓</button>
+                            <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
+                          </span>
+                        </div>
+
+                        {item.declined_at && (
+                          <div className="planrow-declined">
+                            <p className="axis-name">She turned this one down</p>
+                            {item.decline_reason && <p>{item.decline_reason}</p>}
+                            <p className="hint">
+                              Take it off and put something else on from Suggested
+                              for her, below — the slot is empty until you do.
+                            </p>
+                          </div>
+                        )}
+
+                        {item.accepted_at && !item.declined_at && (
+                          <p className="planrow-accepted">She has taken this one on.</p>
+                        )}
+
+                        {/* The conversation. Reading it is not enough — this is
+                            where an answer goes, which until now had nowhere. */}
+                        {(item.messages.length > 0 || item.unread > 0) && (
+                          <div className="planrow-said" data-unread={item.unread > 0 || undefined}>
+                            <p className="axis-name">
+                              Thread{item.unread > 0 && ` · ${item.unread} new`}
+                            </p>
+                            {item.messages.map((message) => (
+                              <p key={message.id} className="planrow-msg" data-from={message.author}>
+                                <b>{message.author === 'model' ? 'She' : 'You'}</b>
+                                {message.body}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        <label className="axis-name" htmlFor={`reply-${item.id}`}>
+                          Reply to her — she sees this on the card
+                        </label>
+                        <textarea
+                          id={`reply-${item.id}`}
+                          className="field"
+                          rows={2}
+                          placeholder="Back camera, same setup as the last one…"
+                          onBlur={(event) => {
+                            const reply = event.target.value.trim()
+                            if (!reply) return
+                            event.target.value = ''
+                            void sendReply(item.id, reply)
+                          }}
+                        />
+
+                        <label className="axis-name" htmlFor={`notes-${item.id}`}>
+                          Direction — drafted from the reference, edit before sending
+                        </label>
+                        <textarea
+                          id={`notes-${item.id}`}
+                          className="field"
+                          rows={5}
+                          defaultValue={item.notes ?? ''}
+                          onBlur={(event) => patchItem(item.id, { notes: event.target.value })}
+                        />
+
+                        {/* Phase 4. Where it gets filmed and what the card is
+                            called. Location is what groups her plan, so two
+                            cards typed the same way group together — the
+                            drafted values keep that spelling consistent. */}
+                        <div className="form-pair">
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`loc-${item.id}`}>
+                              Location — groups her plan
+                            </label>
+                            <input
+                              id={`loc-${item.id}`}
+                              className="field"
+                              list="plan-locations"
+                              key={`loc-${item.location ?? ''}`}
+                              defaultValue={item.location ?? ''}
+                              placeholder="In the car"
+                              onBlur={(event) => patchItem(item.id, { location: event.target.value })}
+                            />
+                          </div>
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`title-${item.id}`}>
+                              Title — what the card is called
+                            </label>
+                            <input
+                              id={`title-${item.id}`}
+                              className="field"
+                              key={`title-${item.item_title ?? ''}`}
+                              defaultValue={item.item_title ?? ''}
+                              placeholder="Car GRWM"
+                              onBlur={(event) => patchItem(item.id, { item_title: event.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Phase 3. The same brief as fields, which is what her
+                            card renders as a label/value grid, a quoted hook and
+                            a caption with a copy button. Empty ones simply do
+                            not render on her side. */}
+                        <div className="briefhead">
+                          <span className="axis-name">The brief, as fields</span>
+                          <button
+                            className="chip"
+                            onClick={() => draftFields(item.id)}
+                            title="Fills only the ones that are empty"
+                          >
+                            Draft the empty ones
+                          </button>
+                        </div>
+                        <div className="briefgrid">
+                          {BRIEF_FIELDS.map((field) => (
+                            <div key={field.key} className="form-row">
+                              <label className="axis-name" htmlFor={`${field.key}-${item.id}`}>
+                                {field.label}
+                              </label>
+                              <textarea
+                                id={`${field.key}-${item.id}`}
+                                className="field"
+                                // Three, because at two the last words of a
+                                // camera note sit below the fold of the box.
+                                rows={3}
+                                // Keyed on the value so a draft that arrives from
+                                // the server lands in a box she is not typing in.
+                                key={`${field.key}-${item[field.key] ?? ''}`}
+                                defaultValue={item[field.key] ?? ''}
+                                placeholder={field.placeholder}
+                                onBlur={(event) => patchItem(item.id, { [field.key]: event.target.value })}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <label className="axis-name" htmlFor={`editing-${item.id}`}>Editing notes</label>
+                        <textarea
+                          id={`editing-${item.id}`}
+                          className="field"
+                          rows={2}
+                          defaultValue={item.editing_notes ?? ''}
+                          placeholder="Optional"
+                          onBlur={(event) => patchItem(item.id, { editing_notes: event.target.value })}
+                        />
+
+                        {item.webpage_url && (
+                          <a className="planrow-src" href={item.webpage_url} target="_blank" rel="noreferrer">
+                            The reference on Instagram
+                          </a>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
+
+              {/* Every location already on this week. Grouping is by exact
+                  string, so offering what is in use is what stops "In the car"
+                  and "in the car" becoming two separate trips. */}
+              <datalist id="plan-locations">
+                {[...new Set(items.map((item) => item.location).filter(Boolean))].map((where) => (
+                  <option key={where as string} value={where as string} />
+                ))}
+              </datalist>
+
+              <div className="section-head">
+                <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Suggested for her</h2>
+                <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
+                  {suggested.length > 0 ? `${suggested.length} not on a plan yet` : ''}
+                </span>
+              </div>
+
+              {suggested.length === 0 ? (
+                <p className="hint">
+                  Nothing scores yet. Tick the formats she does in her profile — an
+                  untagged model matches nothing rather than everything.
+                </p>
+              ) : (
+                <ul className="suggestlist">
+                  {suggested.map((item) => (
+                    <li key={item.id} className="suggestrow">
+                      {item.has_thumb && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={thumbUrl(item.id)} alt="" width={44} height={55} loading="lazy" />
+                      )}
+                      <div className="suggestrow-id">
+                        <p className="planrow-who">
+                          {item.author ?? item.id}
+                          {item.is_hot && <span className="flame"> 🔥</span>}
+                        </p>
+                        <p className="planrow-meta">
+                          {[clock(item.duration_sec),
+                            item.outperformance ? `${item.outperformance}×` : null,
+                            `fit ${Math.round(item.fit)}`].filter(Boolean).join(' · ')}
+                        </p>
+                        <p className="suggestrow-why">
+                          {item.matched.map((tag) => (
+                            <span key={tag}>{labelOf('format', tag)}</span>
+                          ))}
+                        </p>
+                      </div>
+                      <button className="btn btn-small" onClick={() => addSuggested(item.id)}>
+                        Add
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </aside>
+    </>
+  )
+}

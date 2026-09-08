@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcriber</title>
+<style>
+  :root {
+    --ink: oklch(96% 0.01 85);
+    --ink-dim: oklch(72% 0.02 85);
+    --ink-faint: oklch(52% 0.02 85);
+    --bg: oklch(17% 0.012 60);
+    --surface: oklch(22% 0.014 60);
+    --surface-hi: oklch(26% 0.016 60);
+    --line: oklch(32% 0.014 60);
+    --ember: oklch(72% 0.16 55);
+    --ember-dim: oklch(58% 0.13 55);
+    --good: oklch(74% 0.14 155);
+    --bad: oklch(66% 0.17 25);
+    --radius: 14px;
+    --pad: clamp(1.25rem, 0.8rem + 1.6vw, 2.5rem);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    padding: var(--pad) var(--pad) 0;
+    display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;
+  }
+  h1 {
+    margin: 0; font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.1rem);
+    letter-spacing: -0.02em; font-weight: 620;
+  }
+  .tag {
+    font: 600 11px/1 var(--mono); letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--ember); border: 1px solid var(--ember-dim);
+    padding: 0.35em 0.6em; border-radius: 999px;
+  }
+  .lede { margin: 0.4rem 0 0; color: var(--ink-dim); max-width: 62ch; }
+  main {
+    padding: var(--pad); display: grid; gap: var(--pad);
+    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 1.15rem;
+  }
+  .panel + .panel { margin-top: 1rem; }
+  h2 {
+    margin: 0 0 0.75rem; font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint); font-family: var(--mono);
+  }
+
+  #drop {
+    border: 1.5px dashed var(--line); border-radius: var(--radius);
+    padding: 2.4rem 1.25rem; text-align: center; cursor: pointer;
+    transition: border-color 180ms var(--ease), background 180ms var(--ease),
+                transform 180ms var(--ease);
+  }
+  #drop:hover, #drop:focus-visible { border-color: var(--ember-dim); background: var(--surface-hi); }
+  #drop.hot { border-color: var(--ember); background: var(--surface-hi); transform: scale(1.015); }
+  #drop strong { display: block; font-size: 1.05rem; margin-bottom: 0.3rem; }
+  #drop span { color: var(--ink-faint); font-size: 13px; }
+
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical;
+    background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; padding: 0.7rem; font: 13px/1.5 var(--mono);
+    transition: border-color 160ms var(--ease);
+  }
+  textarea:focus { outline: none; border-color: var(--ember-dim); }
+
+  button {
+    font: 600 14px var(--sans); color: var(--bg); background: var(--ember);
+    border: none; border-radius: 10px; padding: 0.62rem 1.1rem; cursor: pointer;
+    margin-top: 0.6rem;
+    transition: filter 150ms var(--ease), transform 150ms var(--ease);
+  }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.ghost {
+    background: transparent; color: var(--ink-dim);
+    border: 1px solid var(--line); font-weight: 500;
+  }
+  button.ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  ol { list-style: none; margin: 0; padding: 0; }
+  .job {
+    display: flex; align-items: center; gap: 0.7rem; width: 100%;
+    padding: 0.62rem 0.7rem; border-radius: 10px; border: 1px solid transparent;
+    background: none; color: inherit; text-align: left; margin: 0 0 2px;
+    font: inherit; cursor: default;
+    transition: background 150ms var(--ease);
+  }
+  .job.clickable { cursor: pointer; }
+  .job.clickable:hover, .job.selected { background: var(--surface-hi); border-color: var(--line); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ink-faint); }
+  .dot.running { background: var(--ember); animation: pulse 1.1s ease-in-out infinite; }
+  .dot.done { background: var(--good); }
+  .dot.failed { background: var(--bad); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .job-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-stage { font: 11px var(--mono); color: var(--ink-faint); flex: none; }
+  .empty { color: var(--ink-faint); font-size: 13px; padding: 0.4rem 0; }
+
+  #viewer { min-height: 60vh; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin-bottom: 1rem; }
+  .meta-row span { font: 12px var(--mono); color: var(--ink-faint); }
+  .meta-row b { color: var(--ink-dim); font-weight: 500; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 1.4rem; font-size: 13px; }
+  th, td { text-align: left; padding: 0.42rem 0.7rem 0.42rem 0; border-bottom: 1px solid var(--line); }
+  th { font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+  .turn { margin-bottom: 1.15rem; }
+  .turn-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.2rem; }
+  .who { font-weight: 640; color: var(--ember); }
+  .at { font: 11px var(--mono); color: var(--ink-faint); }
+  .turn p { margin: 0; color: var(--ink); }
+  .placeholder { color: var(--ink-faint); display: grid; place-items: center; min-height: 50vh; text-align: center; }
+  .err { color: var(--bad); font: 12px/1.5 var(--mono); }
+  .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+  .toolbar button { margin-top: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Transcriber</h1>
+  <span class="tag">on-device</span>
+  <p class="lede">Drop videos anywhere on this page, or paste links. Nothing is uploaded — everything runs on this Mac.</p>
+</header>
+
+<main>
+  <section aria-label="Add work">
+    <div class="panel">
+      <h2>Drop videos</h2>
+      <div id="drop" tabindex="0" role="button" aria-label="Choose or drop video files">
+        <strong>Drop clips here</strong>
+        <span>or click to choose — mp4, mov, m4a, wav</span>
+      </div>
+      <input id="file" type="file" multiple accept="video/*,audio/*" hidden>
+    </div>
+
+    <div class="panel">
+      <h2>Or paste links</h2>
+      <textarea id="links" placeholder="Paste Instagram or TikTok links — messy lists are fine, notes and tracking junk are ignored."></textarea>
+      <button id="addLinks">Add links</button>
+      <p id="linkErr" class="err" hidden></p>
+    </div>
+
+    <div class="panel">
+      <h2>Queue</h2>
+      <ol id="jobs"><li class="empty">Nothing yet.</li></ol>
+    </div>
+  </section>
+
+  <section class="panel" id="viewer" aria-live="polite">
+    <div class="placeholder"><p>Select a finished item to read its transcript.</p></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let selected = null, lastSignature = "";
+
+async function postLinks() {
+  const text = $("links").value.trim();
+  if (!text) return;
+  $("addLinks").disabled = true;
+  try {
+    const res = await fetch("/api/link", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "could not add links");
+    $("links").value = ""; $("linkErr").hidden = true;
+    refresh();
+  } catch (err) {
+    $("linkErr").textContent = err.message; $("linkErr").hidden = false;
+  } finally {
+    $("addLinks").disabled = false;
+  }
+}
+
+async function uploadFiles(files) {
+  for (const file of files) {
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST", headers: { "X-Filename": file.name }, body: file,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      refresh();
+    } catch (err) {
+      $("linkErr").textContent = err.message; $("linkErr").hidden = false;
+    }
+  }
+}
+
+function renderJobs(jobs) {
+  const list = $("jobs");
+  if (!jobs.length) { list.innerHTML = '<li class="empty">Nothing yet.</li>'; return; }
+  list.innerHTML = "";
+  for (const job of jobs) {
+    const li = document.createElement("li");
+    const row = document.createElement(job.status === "done" ? "button" : "div");
+    row.className = "job" + (job.status === "done" ? " clickable" : "")
+                  + (job.id === selected ? " selected" : "");
+    row.innerHTML =
+      `<span class="dot ${job.status}"></span>` +
+      `<span class="job-name"></span><span class="job-stage"></span>`;
+    row.querySelector(".job-name").textContent = job.label;
+    row.querySelector(".job-stage").textContent =
+      job.status === "failed" ? "failed" : (job.status === "done" ? "ready" : job.stage);
+    if (job.status === "done") row.onclick = () => showTranscript(job.id);
+    if (job.status === "failed" && job.error) row.title = job.error;
+    li.appendChild(row);
+    if (job.status === "failed" && job.error) {
+      const p = document.createElement("p");
+      p.className = "err"; p.style.margin = "0 0 6px 26px"; p.textContent = job.error;
+      li.appendChild(p);
+    }
+    list.appendChild(li);
+  }
+}
+
+async function showTranscript(id) {
+  selected = id;
+  const res = await fetch("/api/transcript/" + id);
+  const data = await res.json();
+  const view = $("viewer");
+  if (!res.ok) { view.innerHTML = `<p class="err">${data.error}</p>`; return; }
+
+  const m = data.meta || {};
+  const bits = [
+    m.platform && `<span><b>${m.platform}</b></span>`,
+    m.author && `<span>@${m.author}</span>`,
+    data.language && `<span>lang <b>${data.language}</b></span>`,
+    (data.speakers || []).length && `<span><b>${data.speakers.length}</b> speakers</span>`,
+  ].filter(Boolean).join("");
+
+  const rows = (data.speakers || []).map(s =>
+    `<tr><td>${s.label}</td><td>${Math.round(s.talk_seconds)}s</td>` +
+    `<td>${Math.round(s.share * 100)}%</td><td>${s.relative_pitch || "—"}</td></tr>`).join("");
+
+  const clock = (t) => {
+    const total = Math.floor(t), mm = Math.floor(total / 60), ss = total % 60;
+    return mm + ":" + String(ss).padStart(2, "0");
+  };
+  const turns = (data.blocks || []).map(b =>
+    `<article class="turn"><div class="turn-head">` +
+    `<span class="who">${b.speaker || "Speech"}</span><span class="at">${clock(b.start)}</span>` +
+    `</div><p></p></article>`).join("");
+
+  view.innerHTML =
+    `<h2>${m.title || "Transcript"}</h2><div class="meta-row">${bits}</div>` +
+    `<div class="toolbar">` +
+    `<button id="copy">Copy transcript</button>` +
+    `<button class="ghost" id="copyMd">Copy markdown</button>` +
+    `</div>` +
+    (rows ? `<table><thead><tr><th>Speaker</th><th>Talk</th><th>Share</th><th>Pitch</th></tr></thead><tbody>${rows}</tbody></table>` : "") +
+    turns;
+
+  // set text via textContent so transcript content can never inject markup
+  view.querySelectorAll(".turn p").forEach((p, i) => { p.textContent = data.blocks[i].text; });
+
+  const plain = (data.blocks || [])
+    .map(b => `[${clock(b.start)}] ${b.speaker ? b.speaker + ": " : ""}${b.text}`).join("\n\n");
+  $("copy").onclick = () => navigator.clipboard.writeText(plain);
+  $("copyMd").onclick = () => navigator.clipboard.writeText(data.markdown);
+  refresh();
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/jobs");
+    const { jobs } = await res.json();
+    const signature = JSON.stringify(jobs) + selected;
+    if (signature !== lastSignature) { lastSignature = signature; renderJobs(jobs); }
+  } catch { /* server restarting; next tick retries */ }
+}
+
+$("drop").onclick = () => $("file").click();
+$("drop").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
+$("file").onchange = (e) => uploadFiles(e.target.files);
+$("addLinks").onclick = postLinks;
+
+["dragenter", "dragover"].forEach(evt =>
+  document.addEventListener(evt, (e) => { e.preventDefault(); $("drop").classList.add("hot"); }));
+["dragleave", "drop"].forEach(evt =>
+  document.addEventListener(evt, (e) => {
+    e.preventDefault();
+    if (evt === "drop" || e.relatedTarget === null) $("drop").classList.remove("hot");
+  }));
+document.addEventListener("drop", (e) => {
+  if (e.dataTransfer?.files?.length) uploadFiles(e.dataTransfer.files);
+});
+
+refresh();
+setInterval(refresh, 1200);
+</script>
+</body>
+</html>

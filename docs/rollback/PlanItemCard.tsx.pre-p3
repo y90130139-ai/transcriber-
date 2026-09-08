@@ -1,0 +1,270 @@
+'use client'
+
+import { useState } from 'react'
+import { clock } from '@/lib/format'
+import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
+
+const SAVED_RESET_MS = 2400
+
+export default function PlanItemCard({
+  token,
+  item,
+  number,
+  filmed,
+  onFilmed,
+}: {
+  token: string
+  item: PlanItem
+  number: number
+  filmed: boolean
+  onFilmed: (next: boolean) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [state, setState] = useState<SaveState>('idle')
+  const [messages, setMessages] = useState<PlanMessage[]>(item.messages)
+  const [verdict, setVerdict] = useState<Verdict>(item.verdict)
+  const [reason, setReason] = useState(item.decline_reason ?? '')
+  const [openThread, setOpenThread] = useState(item.unread > 0)
+  const [unread, setUnread] = useState(item.unread)
+
+  async function toggleFilmed() {
+    if (busy) return
+    const next = !filmed
+    onFilmed(next) // optimistic — the counter at the top has to move on tap
+    setBusy(true)
+    const response = await fetch(`/api/plan/${token}/filmed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: item.id, filmed: next }),
+    }).catch(() => null)
+    setBusy(false)
+    if (!response?.ok) onFilmed(!next) // roll back only on a real refusal
+  }
+
+  /** Taking a card on, or turning it down. Tapping the same answer twice puts
+   *  it back to unanswered — she is allowed to change her mind. */
+  async function answer(next: Verdict) {
+    const chosen = verdict === next ? 'open' : next
+    const previous = verdict
+    setVerdict(chosen) // optimistic; a decline has to feel instant
+    const response = await fetch(`/api/plan/${token}/verdict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        item_id: item.id,
+        verdict: chosen,
+        reason: chosen === 'declined' ? reason : null,
+      }),
+    }).catch(() => null)
+    if (!response?.ok) setVerdict(previous)
+  }
+
+  /** Opening the thread is what marks his answers read — not the page load, so
+   *  a badge she never looked at is still there when she comes back. */
+  async function openAndRead() {
+    const next = !openThread
+    setOpenThread(next)
+    if (!next || unread === 0) return
+    setUnread(0)
+    setMessages((current) => current.map((message) => ({ ...message, seen: true })))
+    await fetch(`/api/plan/${token}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: item.id, seen: true }),
+    }).catch(() => null)
+  }
+
+  /** Send what she typed. This box is the only thing on the page she authors,
+   *  so a failure must never quietly swallow it — the text stays put. */
+  async function send() {
+    const body = note.trim()
+    if (!body || state === 'saving') return
+    setState('saving')
+    const response = await fetch(`/api/plan/${token}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: item.id, note: body }),
+    }).catch(() => null)
+
+    if (!response?.ok) {
+      setState('failed')
+      return
+    }
+    const payload = await response.json().catch(() => null)
+    if (payload?.message) setMessages((current) => [...current, payload.message])
+    setNote('')
+    setState('saved')
+    setTimeout(() => setState((current) => (current === 'saved' ? 'idle' : current)), SAVED_RESET_MS)
+  }
+
+  const words = item.blocks.length > 0
+    ? item.blocks.map((block, index) => (
+        <p key={index}>
+          {block.speaker && <b>{block.speaker}: </b>}
+          {block.text}
+        </p>
+      ))
+    : item.transcript
+      ? <p>{item.transcript}</p>
+      : <p className="plan-quiet">No words in this one.</p>
+
+  return (
+    <li className="plan-item" data-filmed={filmed || undefined} data-verdict={verdict}>
+      <div className="plan-item-head">
+        <span className="plan-no">Video {number}</span>
+        {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
+      </div>
+
+      {item.media ? (
+        <video
+          className="plan-player"
+          controls
+          playsInline
+          preload="metadata"
+          src={item.media.video}
+        />
+      ) : (
+        <p className="plan-nofile">
+          The video is not ready on this device yet — open it in Instagram below.
+        </p>
+      )}
+
+      {/* Two buttons, not a button and a sentence. The long explainer that used
+          to sit here read as instructions rather than as something to tap; how
+          the sound works is already beat four of "How your plan works". */}
+      <div className="plan-links">
+        {item.webpage_url && (
+          <a className="plan-cta" href={item.webpage_url} target="_blank" rel="noreferrer">
+            Open in Instagram
+          </a>
+        )}
+        {item.media && (
+          <a className="plan-cta plan-cta-quiet" href={item.media.download}>Save video</a>
+        )}
+      </div>
+
+      {item.notes && (
+        <div className="plan-direction">
+          <span className="plan-label">Direction</span>
+          <p className="plan-notes">{item.notes}</p>
+        </div>
+      )}
+
+      {item.editing_notes && (
+        <p className="plan-editing">
+          <span className="plan-label">Editing</span>
+          {item.editing_notes}
+        </p>
+      )}
+
+      <details className="plan-transcript">
+        <summary>What they say, word for word</summary>
+        <div>{words}</div>
+      </details>
+
+      {/* Hers to answer. A card nobody has answered is a card nobody has
+          decided about, which is different from one she has turned down. */}
+      <div className="plan-verdict" role="group" aria-label={`Will you do video ${number}`}>
+        <button
+          type="button"
+          className="plan-yes"
+          aria-pressed={verdict === 'accepted'}
+          onClick={() => answer('accepted')}
+        >
+          I&rsquo;ll do this
+        </button>
+        <button
+          type="button"
+          className="plan-no"
+          aria-pressed={verdict === 'declined'}
+          onClick={() => answer('declined')}
+        >
+          Can&rsquo;t do this
+        </button>
+      </div>
+
+      {verdict === 'declined' && (
+        <div className="plan-why">
+          <label className="plan-label" htmlFor={`why-${item.id}`}>
+            What got in the way? — it helps me swap it for something better
+          </label>
+          <textarea
+            id={`why-${item.id}`}
+            value={reason}
+            rows={2}
+            maxLength={500}
+            placeholder="Nowhere to film this one…"
+            onChange={(event) => setReason(event.target.value)}
+            onBlur={() => answer('declined')}
+          />
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="plan-filmed"
+        onClick={toggleFilmed}
+        aria-pressed={filmed}
+        disabled={busy}
+      >
+        {filmed ? `Filmed — video ${number}` : `Mark video ${number} filmed`}
+      </button>
+
+      {/* The conversation about this card. It used to be one box she could
+          write in and nothing that could come back. */}
+      <div className="plan-say">
+        <button
+          type="button"
+          className="plan-ask"
+          aria-expanded={openThread}
+          onClick={openAndRead}
+        >
+          <span>
+            {messages.length === 0
+              ? 'Ask about this one'
+              : `${messages.length} message${messages.length === 1 ? '' : 's'}`}
+          </span>
+          {unread > 0 && <span className="plan-ask-badge">{unread}</span>}
+        </button>
+
+        {openThread && (
+          <div className="plan-thread">
+            {messages.map((message) => (
+              <div key={message.id} className="plan-msg" data-from={message.author}>
+                <span className="plan-label">{message.author === 'model' ? 'You' : 'Me'}</span>
+                <p>{message.body}</p>
+              </div>
+            ))}
+
+            <textarea
+              id={`note-${item.id}`}
+              value={note}
+              rows={2}
+              maxLength={2000}
+              placeholder="Couldn't do this one, need a different outfit…"
+              onChange={(event) => {
+                setNote(event.target.value)
+                setState('idle')
+              }}
+            />
+            <button
+              type="button"
+              className="plan-send"
+              onClick={send}
+              disabled={!note.trim() || state === 'saving'}
+            >
+              {state === 'saving' ? 'Sending…' : 'Send'}
+            </button>
+            <p className="plan-saystate" role="status" data-tone={state === 'failed' ? 'bad' : undefined}>
+              {state === 'saved' && 'Sent.'}
+              {state === 'failed' && 'That did not send — your words are still here, tap Send again.'}
+            </p>
+          </div>
+        )}
+      </div>
+    </li>
+  )
+}

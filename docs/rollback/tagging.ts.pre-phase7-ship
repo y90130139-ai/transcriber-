@@ -1,0 +1,114 @@
+/** Reading and writing the three tag axes. */
+import { firstLineOf, suggestTags } from './autotag'
+import { sql } from './db'
+import { AXES, isValidTag, type Axis } from './taxonomy'
+
+export type TagRow = { axis: Axis; tag: string; origin: 'auto' | 'human'; score: number | null }
+
+export async function tagsFor(jobId: string): Promise<TagRow[]> {
+  return (await sql.query(
+    `select axis, tag, origin, score from transcriber.tags where job_id = $1 order by axis, score desc nulls last`,
+    [jobId],
+  )) as TagRow[]
+}
+
+/** Tags for many items at once, so a grid of sixty is one query, not sixty. */
+export async function tagsForMany(jobIds: string[]): Promise<Map<string, TagRow[]>> {
+  const grouped = new Map<string, TagRow[]>()
+  if (jobIds.length === 0) return grouped
+  const rows = (await sql.query(
+    `select job_id, axis, tag, origin, score
+       from transcriber.tags
+      where job_id = any($1::text[])
+      order by axis, score desc nulls last`,
+    [jobIds],
+  )) as (TagRow & { job_id: string })[]
+  for (const row of rows) {
+    const list = grouped.get(row.job_id) ?? []
+    list.push({ axis: row.axis, tag: row.tag, origin: row.origin, score: row.score })
+    grouped.set(row.job_id, list)
+  }
+  return grouped
+}
+
+/** Guess this job's tags and store the guesses, leaving confirmed tags alone. */
+export async function autoTag(jobId: string): Promise<number> {
+  const [item] = await sql.query(
+    `select t.plain, t.caption, t.blocks, t.speaker_count, t.word_count, t.duration_sec, t.author,
+            t.on_screen_text
+       from transcriber.transcripts t where t.job_id = $1`,
+    [jobId],
+  )
+  if (!item) return 0
+
+  // Persona belongs to the creator, so it is read from everything they have in
+  // the library rather than from this one clip.
+  let creatorText = ''
+  let creatorPersona: string[] = []
+  if (item.author) {
+    const [creator] = await sql.query(
+      `select persona from transcriber.creators where handle = $1`,
+      [item.author],
+    )
+    creatorPersona = (creator?.persona as string[] | undefined) ?? []
+    if (creatorPersona.length === 0) {
+      const body = await sql.query(
+        `select string_agg(coalesce(plain,'') || ' ' || coalesce(caption,''), ' ') as text
+           from transcriber.transcripts where author = $1`,
+        [item.author],
+      )
+      creatorText = (body[0]?.text as string | null) ?? ''
+    }
+  }
+
+  const suggestions = suggestTags({
+    plain: item.plain ?? '',
+    caption: item.caption ?? null,
+    firstLine: firstLineOf(item.blocks, item.plain ?? ''),
+    onScreenText: (item.on_screen_text as string | null) ?? null,
+    speakerCount: item.speaker_count ?? null,
+    wordCount: item.word_count ?? null,
+    durationSec: item.duration_sec ?? null,
+    creatorText,
+    creatorPersona,
+  }).filter((suggestion) => isValidTag(suggestion.axis, suggestion.tag))
+
+  // A re-run replaces its own previous guesses and nothing else.
+  await sql.query(`delete from transcriber.tags where job_id = $1 and origin = 'auto'`, [jobId])
+  if (suggestions.length > 0) {
+    await sql.query(
+      `insert into transcriber.tags (job_id, axis, tag, origin, score)
+       select * from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::real[])
+       on conflict (job_id, axis, tag) do nothing`,
+      [
+        suggestions.map(() => jobId),
+        suggestions.map((s) => s.axis),
+        suggestions.map((s) => s.tag),
+        suggestions.map(() => 'auto'),
+        suggestions.map((s) => s.score),
+      ],
+    )
+  }
+  await sql.query(`update transcriber.transcripts set tagged_at = now() where job_id = $1`, [jobId])
+  return suggestions.length
+}
+
+/** Replace one axis with what a human chose. Their choice is final. */
+export async function setTags(jobId: string, axis: Axis, tags: string[]): Promise<void> {
+  const clean = [...new Set(tags)].filter((tag) => isValidTag(axis, tag))
+  await sql.query(`delete from transcriber.tags where job_id = $1 and axis = $2`, [jobId, axis])
+  if (clean.length > 0) {
+    await sql.query(
+      `insert into transcriber.tags (job_id, axis, tag, origin, score)
+       select chosen.job_id, chosen.axis, chosen.tag, 'human', 1
+         from unnest($1::text[], $2::text[], $3::text[]) as chosen(job_id, axis, tag)`,
+      [clean.map(() => jobId), clean.map(() => axis), clean],
+    )
+  }
+  await sql.query(
+    `update transcriber.transcripts set confirmed_at = now() where job_id = $1`,
+    [jobId],
+  )
+}
+
+export { AXES }

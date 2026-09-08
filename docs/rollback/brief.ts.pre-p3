@@ -1,0 +1,158 @@
+/** Draft the direction for a plan item from what the library already knows.
+ *
+ * An item must never land on a plan with an empty brief — an empty brief is a
+ * plan that quietly does not get filmed. So assignment drafts one, and Geno
+ * edits it before sending.
+ *
+ * Built the way the tagger was built: deterministic, rule-based, no API key. A
+ * wrong draft is then a rule you can read and fix, not a model you can only
+ * shrug at. The rules say less rather than inventing detail the library does not
+ * support — a draft that is obviously a draft is fine, a draft that is
+ * confidently wrong is not.
+ */
+
+/** The shape of the video, keyed by format tag. First match in this order wins,
+ *  because a clip tagged both `talking-head` and `rant` is a rant. */
+const SHAPE: [string, string][] = [
+  ['grwm', 'Film it while you actually get ready — start bare, end done.'],
+  ['try-on', 'Several outfits back to back. Cut on the change, not after it.'],
+  ['fit-check', 'One outfit, head to toe, then the details close up.'],
+  ['gym', 'Film mid-set. A real working set, not a posed rep.'],
+  ['dance', 'Choreography-led. Learn it properly before the camera is on.'],
+  ['lip-sync', 'Lip sync to the original audio. The timing has to be exact.'],
+  ['pov-skit', 'POV — you are speaking to the viewer in character. Set the scenario in the first line.'],
+  ['comedy', 'Play the bit straight. Undersold lands harder.'],
+  ['skit', 'A scripted bit. Play it out; do not narrate it.'],
+  ['street-interview', 'Question-and-answer, out in public.'],
+  ['reaction', 'React on camera to what is on screen. Your face is the content.'],
+  ['storytime', 'Tell it the way you would tell a friend. One take.'],
+  ['q-and-a', 'Put the question on screen, then answer it.'],
+  ['advice', 'Teach one thing. One thing only.'],
+  ['rant', 'Take a position and hold it. No hedging.'],
+  ['rage-bait', 'Say the thing people will argue with, then stop talking.'],
+  ['day-in-life', 'Short clips across the day, cut together.'],
+  ['bts', 'Show the setup, not the finished thing.'],
+  ['teaser', 'Show enough to want it. Not enough to have it.'],
+  ['promo', 'One clear ask, at the end. Everything before it earns the ask.'],
+  ['collab', 'Two people on camera together.'],
+  ['snap-banner', 'Snapchat banner across the middle, the video running under it.'],
+  ['text-overlay', 'The on-screen text is the payload. Audio is secondary.'],
+  ['thirst-trap', 'Body-forward, no dialogue. The framing does the work.'],
+  ['talking-head', 'Straight to camera. What you say carries it.'],
+]
+
+/** How the first three seconds work, keyed by hook tag. */
+const OPENING: Record<string, string> = {
+  'direct-address': 'Talk straight to camera from the first frame. No intro.',
+  question: 'Open on a question.',
+  'text-claim': 'Put the claim on screen inside the first second.',
+  transition: 'Open on the before, cut hard to the after.',
+  contrast: 'Open on something that does not fit. The mismatch is the hook.',
+  'trending-audio': 'The audio is the hook — take it from the original post.',
+  'in-media-res': 'Start mid-scene. No hello, no setup.',
+  none: 'Their opening is slow. Give yours a real first line.',
+}
+
+/** Formats that put her face on camera, and so are the only ones where a
+ *  no-face rule needs restating as an actual framing instruction. */
+const FACE_FORWARD = new Set([
+  'talking-head', 'storytime', 'q-and-a', 'advice', 'rant', 'reaction', 'street-interview', 'grwm',
+])
+
+const QUOTE_MAX = 120
+const RULE_MAX = 200
+const SHORTEST_TARGET_SEC = 10
+
+export type BriefInput = {
+  formats: string[]
+  hooks: string[]
+  /** The opening line of the reference transcript, which is its hook. */
+  firstLine: string | null
+  durationSec: number | null
+  speakerCount: number | null
+  wordCount: number | null
+  standingRules: string | null
+}
+
+/** Does she have a standing rule against being on camera? */
+function isFaceless(rules: string | null): boolean {
+  if (!rules) return false
+  return /\b(no|never|without|avoid|don'?t\s+show)\b[^.]{0,24}\bface\b/i.test(rules)
+    || /\bfaceless\b/i.test(rules)
+}
+
+/** A quotable opening line, or nothing. Long ones are cut rather than trimmed
+ *  mid-sentence into something she would misread as the whole hook. */
+function quotable(line: string | null): string | null {
+  const clean = (line ?? '').replace(/\s+/g, ' ').trim()
+  if (!clean || clean.length > QUOTE_MAX) return null
+  return clean.replace(/["“”]/g, '')
+}
+
+function lengthLine(durationSec: number | null): string | null {
+  if (!durationSec || durationSec <= 0) return null
+  const target = Math.max(SHORTEST_TARGET_SEC, Math.round(durationSec / 5) * 5)
+  return `Run it around ${target} seconds.`
+}
+
+function castLine(speakerCount: number | null, wordCount: number | null): string | null {
+  if ((wordCount ?? 0) < 4) return 'Nobody speaks in the original — it is carried on screen.'
+  if ((speakerCount ?? 0) >= 2) {
+    return 'Two voices in the original. Bring someone, or split it across two shots.'
+  }
+  if (speakerCount === 1) return 'One person, one setup.'
+  return null
+}
+
+/**
+ * The draft direction for one item. Short, imperative, and honest about being
+ * a draft — wardrobe and location are hers to decide, because the library does
+ * not know what she owns or where she films.
+ */
+export function draftBrief(input: BriefInput): string {
+  const faceless = isFaceless(input.standingRules)
+  const lines: string[] = []
+
+  const shape = SHAPE.find(([tag]) => input.formats.includes(tag))
+  if (shape) lines.push(shape[1])
+
+  // The no-face instruction is worth one line, not two. It goes wherever it is
+  // most actionable — rewriting the opening if that is what would put her on
+  // camera, otherwise as its own framing note — and never in both places.
+  let facelessSaid = false
+
+  const hook = input.hooks.find((tag) => tag in OPENING)
+  if (hook) {
+    if (faceless && hook === 'direct-address') {
+      lines.push('Open on the first line immediately — no intro — framed from the chin down.')
+      facelessSaid = true
+    } else {
+      lines.push(OPENING[hook])
+    }
+  }
+
+  const quote = quotable(input.firstLine)
+  if (quote) lines.push(`Theirs opens: “${quote}” — write your own version of that line.`)
+
+  const cast = castLine(input.speakerCount, input.wordCount)
+  if (cast) lines.push(cast)
+
+  const length = lengthLine(input.durationSec)
+  if (length) lines.push(length)
+
+  lines.push('Sound: open the original in Instagram and take the audio from there.')
+
+  if (faceless && !facelessSaid && shape && FACE_FORWARD.has(shape[0])) {
+    lines.push('No face — frame from the chin down, or carry it with text on screen.')
+  }
+  if (input.standingRules?.trim()) {
+    lines.push(`Your standing rules still apply: ${input.standingRules.trim().slice(0, RULE_MAX)}`)
+  }
+
+  // Something always lands here, but never trust that: an item with no tags and
+  // no transcript must still arrive with a brief she can act on.
+  if (lines.length === 1) {
+    lines.unshift('Watch the reference and make your own version of it.')
+  }
+  return lines.join('\n')
+}

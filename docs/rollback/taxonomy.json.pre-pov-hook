@@ -1,0 +1,346 @@
+{
+  "note": "Tag vocabulary for the content library. Three independent axes: a creator is positioned in a persona niche, a video takes a format, and it opens with a hook. Tag all three.",
+  "persona": {
+    "label": "Persona / niche",
+    "hint": "How the creator is positioned. Usually stable per creator, so this drives the Models tab.",
+    "tags": [
+      {
+        "id": "faceless",
+        "label": "Faceless",
+        "desc": "Face never shown — body, hands or POV only. Rarely speaks, so it is set on the creator rather than inferred."
+      },
+      {
+        "id": "girl-next-door",
+        "label": "Girl next door",
+        "desc": "Approachable, low-glam, relatable"
+      },
+      {
+        "id": "latina",
+        "label": "Latina",
+        "desc": "Latina identity is part of the positioning, not incidental"
+      },
+      {
+        "id": "alt-goth",
+        "label": "Alt / goth",
+        "desc": "Dark alt aesthetic, alt-scene coded"
+      },
+      {
+        "id": "e-girl",
+        "label": "E-girl",
+        "desc": "Online-native, gamer/streamer adjacent"
+      },
+      {
+        "id": "fitness",
+        "label": "Fitness",
+        "desc": "Gym, physique, training-led identity"
+      },
+      {
+        "id": "cosplay-gaming",
+        "label": "Cosplay / gaming",
+        "desc": "Character cosplay, anime, gaming"
+      },
+      {
+        "id": "milf-mature",
+        "label": "MILF / mature",
+        "desc": "Older, experienced positioning"
+      },
+      {
+        "id": "pregnant",
+        "label": "Pregnant",
+        "desc": "Pregnancy-forward positioning, bump-led"
+      },
+      {
+        "id": "postpartum",
+        "label": "Postpartum / new mom",
+        "desc": "Post-birth body, recovery, newborn era"
+      },
+      {
+        "id": "lactation",
+        "label": "Lactation",
+        "desc": "Milk-focused positioning"
+      },
+      {
+        "id": "petite",
+        "label": "Petite",
+        "desc": "Small-frame positioning"
+      },
+      {
+        "id": "curvy-bbw",
+        "label": "Curvy / BBW",
+        "desc": "Fuller-figure positioning"
+      },
+      {
+        "id": "big-boobs",
+        "label": "Big boobs",
+        "desc": "Bust-forward positioning"
+      },
+      {
+        "id": "big-booty",
+        "label": "Big booty",
+        "desc": "Glute-forward positioning"
+      },
+      {
+        "id": "bimbo-hyperfem",
+        "label": "Bimbo / hyperfeminine",
+        "desc": "Exaggerated glam femininity"
+      },
+      {
+        "id": "tomboy",
+        "label": "Tomboy",
+        "desc": "Androgynous, sporty-casual"
+      },
+      {
+        "id": "domme",
+        "label": "Domme / femdom",
+        "desc": "Dominant, commanding"
+      },
+      {
+        "id": "brat-sub",
+        "label": "Brat / submissive",
+        "desc": "Playful-defiant or submissive"
+      },
+      {
+        "id": "findom",
+        "label": "Findom",
+        "desc": "Financial domination"
+      },
+      {
+        "id": "gfe",
+        "label": "Girlfriend experience",
+        "desc": "Intimacy, attentiveness, parasocial warmth"
+      },
+      {
+        "id": "toxic-gf",
+        "label": "Toxic girlfriend",
+        "desc": "Jealous, possessive, drama-led \u2014 the inverse of GFE warmth"
+      },
+      {
+        "id": "amateur",
+        "label": "Amateur / homemade",
+        "desc": "Deliberately unpolished, real"
+      },
+      {
+        "id": "luxury-glam",
+        "label": "Luxury / glam",
+        "desc": "High production, wealth signalling"
+      },
+      {
+        "id": "soft-cottagecore",
+        "label": "Soft / cottagecore",
+        "desc": "Gentle, pastel, domestic"
+      },
+      {
+        "id": "inked",
+        "label": "Inked / pierced",
+        "desc": "Tattoo- and piercing-forward"
+      },
+      {
+        "id": "sports-cheer",
+        "label": "Sports / cheer",
+        "desc": "Athlete or cheer coded"
+      },
+      {
+        "id": "uniform-roleplay",
+        "label": "Uniform / roleplay",
+        "desc": "Nurse, teacher, secretary personas"
+      },
+      {
+        "id": "feet",
+        "label": "Feet",
+        "desc": "Foot-focused positioning"
+      },
+      {
+        "id": "asmr",
+        "label": "ASMR",
+        "desc": "Audio-led, whisper/trigger content"
+      },
+      {
+        "id": "couples",
+        "label": "Couples",
+        "desc": "Duo account"
+      },
+      {
+        "id": "trans",
+        "label": "Trans",
+        "desc": "Trans creator positioning"
+      }
+    ]
+  },
+  "format": {
+    "label": "Content format",
+    "hint": "What this specific video does. Varies per video.",
+    "tags": [
+      {
+        "id": "thirst-trap",
+        "label": "Thirst trap",
+        "desc": "Body-forward, no dance or dialogue hook"
+      },
+      {
+        "id": "grwm",
+        "label": "GRWM",
+        "desc": "Get ready with me"
+      },
+      {
+        "id": "storytime",
+        "label": "Storytime",
+        "desc": "Narrated personal story"
+      },
+      {
+        "id": "q-and-a",
+        "label": "Q&A",
+        "desc": "Answering audience questions"
+      },
+      {
+        "id": "day-in-life",
+        "label": "Day in the life",
+        "desc": "Vlog-style"
+      },
+      {
+        "id": "fit-check",
+        "label": "Fit check",
+        "desc": "Outfit showcase"
+      },
+      {
+        "id": "try-on",
+        "label": "Try-on haul",
+        "desc": "Multiple outfits, hauled items"
+      },
+      {
+        "id": "gym",
+        "label": "Gym / workout",
+        "desc": "Training footage"
+      },
+      {
+        "id": "pov-skit",
+        "label": "POV / roleplay skit",
+        "desc": "Scripted scenario, second-person framing"
+      },
+      {
+        "id": "comedy",
+        "label": "Comedy skit",
+        "desc": "Bit or joke led"
+      },
+      {
+        "id": "reaction",
+        "label": "Reaction / duet",
+        "desc": "Responding to other content"
+      },
+      {
+        "id": "lip-sync",
+        "label": "Lip sync / trend",
+        "desc": "Trending audio participation"
+      },
+      {
+        "id": "bts",
+        "label": "Behind the scenes",
+        "desc": "Shoot or process footage"
+      },
+      {
+        "id": "promo",
+        "label": "Promo / CTA",
+        "desc": "Explicit funnel push"
+      },
+      {
+        "id": "advice",
+        "label": "Advice / tutorial",
+        "desc": "Teaching something"
+      },
+      {
+        "id": "rant",
+        "label": "Rant / opinion",
+        "desc": "Take-driven talking head"
+      },
+      {
+        "id": "collab",
+        "label": "Collab / feature",
+        "desc": "Appearing with another creator"
+      },
+      {
+        "id": "teaser",
+        "label": "Teaser",
+        "desc": "Preview of paid content"
+      },
+      {
+        "id": "talking-head",
+        "label": "Talking head",
+        "desc": "Straight to camera, dialogue carries it"
+      },
+      {
+        "id": "skit",
+        "label": "Skit",
+        "desc": "Scripted bit with characters or a scenario"
+      },
+      {
+        "id": "text-overlay",
+        "label": "Text overlay",
+        "desc": "On-screen text is the payload; audio secondary"
+      },
+      {
+        "id": "street-interview",
+        "label": "Street interview",
+        "desc": "Man-on-the-street Q&A format"
+      },
+      {
+        "id": "rage-bait",
+        "label": "Rage bait",
+        "desc": "Engineered to provoke argument in comments"
+      },
+      {
+        "id": "snap-banner",
+        "label": "Snapchat banner",
+        "desc": "Snapchat-style banner overlaid mid-video"
+      },
+      {
+        "id": "dance",
+        "label": "Dance",
+        "desc": "Choreography-led"
+      }
+    ]
+  },
+  "hook": {
+    "label": "Hook type",
+    "hint": "How the first ~3 seconds grab attention. The highest-signal field for figuring out why something performed.",
+    "tags": [
+      {
+        "id": "direct-address",
+        "label": "Direct address",
+        "desc": "Talks straight to camera immediately"
+      },
+      {
+        "id": "question",
+        "label": "Question",
+        "desc": "Opens on a question"
+      },
+      {
+        "id": "text-claim",
+        "label": "Text overlay claim",
+        "desc": "On-screen text carries the hook"
+      },
+      {
+        "id": "transition",
+        "label": "Transition reveal",
+        "desc": "Before/after or outfit switch"
+      },
+      {
+        "id": "contrast",
+        "label": "Shock / contrast",
+        "desc": "Unexpected juxtaposition"
+      },
+      {
+        "id": "trending-audio",
+        "label": "Trending audio",
+        "desc": "Audio itself is the draw"
+      },
+      {
+        "id": "in-media-res",
+        "label": "In media res",
+        "desc": "Drops mid-scene, no setup"
+      },
+      {
+        "id": "none",
+        "label": "No clear hook",
+        "desc": "Slow or absent opening"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1303 @@
+/* ============================================================
+   LIBRARY SURFACES — tabs, filters, tags, player, models.
+   Same maison rules as globals.css: bone ground, ink structure,
+   ember spent once per view, square corners throughout.
+   ============================================================ */
+
+/* ---------------------------------------------------------- TABS */
+.tabs {
+  display: flex;
+  gap: var(--sc-space-6);
+  align-self: end;
+}
+
+.tab {
+  background: none;
+  border: 0;
+  padding: 0 0 var(--sc-space-2);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+  border-bottom: 2px solid transparent;
+  transition: color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.tab:hover { color: var(--sc-bone); }
+.tab[data-on='true'] { color: var(--sc-bone); border-bottom-color: var(--sc-ember-light); }
+.tab b { color: var(--sc-ember-light); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------ SEARCH LINE */
+.searchline {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  border-bottom: var(--sc-rule-lock);
+  padding: var(--sc-space-8) 0 var(--sc-space-4);
+}
+.searchline-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  font-family: var(--sc-font-text);
+  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+  padding: var(--sc-space-2) 0;
+}
+.searchline-input:focus { outline: none; }
+.searchline-input::placeholder { color: var(--sc-ink-150); }
+
+/* --------------------------------------------------------- FILTERS */
+.filters { padding: var(--sc-space-4) 0 0; }
+
+.filter-rail {
+  display: flex;
+  gap: var(--sc-space-2);
+  overflow-x: auto;
+  padding-bottom: var(--sc-space-2);
+  scrollbar-width: none;
+}
+.filter-rail::-webkit-scrollbar { display: none; }
+
+.pill {
+  flex: 0 0 auto;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  background: transparent;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.pill:hover { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.pill[data-on='true'] {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  border-color: var(--sc-ink-900);
+}
+.pill b { color: var(--sc-ember); font-weight: 500; }
+.pill[data-on='true'] b { color: var(--sc-ember-light); }
+
+.pill-select {
+  appearance: none;
+  padding-right: var(--sc-space-6);
+  background-image: linear-gradient(45deg, transparent 50%, var(--sc-ink-500) 50%),
+                    linear-gradient(135deg, var(--sc-ink-500) 50%, transparent 50%);
+  background-position: right 12px center, right 7px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+/* A search box wearing the rail's clothes, so it sits in line with the pills. */
+.pill-input {
+  cursor: text;
+  min-width: 11rem;
+  background: var(--sc-bone-light);
+}
+.pill-input::placeholder { color: var(--sc-ink-150); text-transform: none; letter-spacing: 0; }
+.pill-input:focus-visible { outline: none; border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+
+.pill-clear { color: var(--sc-ember-deep); border-color: var(--sc-ember-deep); }
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-4) 0;
+  border-top: 1px dotted var(--sc-ink-150);
+  margin-top: var(--sc-space-2);
+}
+
+/* ------------------------------------------------------------ CHIPS */
+.chips { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: center; }
+
+.chip {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--sc-ink-150);
+  background: transparent;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+  border-radius: var(--sc-radius);
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.chip:hover { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.chip[data-on='true'] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+
+/* A guess and a decision must not look alike: suggested tags stay outlined and
+   dotted, confirmed ones are filled. */
+.chip[data-origin='auto'] {
+  border-style: dashed;
+  border-color: var(--sc-ember);
+  color: var(--sc-ember-deep);
+}
+.chip[data-origin='auto']::before { content: '· '; }
+.chip[data-origin='human'] {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  border-color: var(--sc-ink-900);
+}
+.chip-add { border-style: dotted; }
+.chip-static { cursor: default; }
+.chip-static b { color: var(--sc-ember-deep); font-weight: 500; }
+
+/* -------------------------------------------------------- TAG AXES */
+.axes { display: grid; gap: var(--sc-space-4); margin-bottom: var(--sc-space-6); }
+
+.axis { border-top: 1px dotted var(--sc-ink-150); padding-top: var(--sc-space-3); }
+.axis-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-2);
+}
+.axis-name {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.axis-confirm {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+  padding: 0;
+}
+.axis-confirm:hover { color: var(--sc-ember); }
+
+.picker { margin-top: var(--sc-space-3); border-top: 1px dotted var(--sc-ink-150); padding-top: var(--sc-space-3); }
+.picker-search {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--sc-rule-hair);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-2) 0;
+  color: var(--sc-ink-900);
+}
+.picker-search:focus { outline: none; border-bottom-color: var(--sc-ember); }
+.picker-hint {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+  margin: var(--sc-space-2) 0;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--sc-ink-150);
+  border: var(--sc-rule-hair);
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.picker-option {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  background: var(--sc-bone-light);
+  border: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  cursor: pointer;
+  font: inherit;
+}
+.picker-option b {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+  font-weight: 500;
+}
+.picker-option span {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  line-height: 1.3;
+}
+.picker-option:hover { background: var(--sc-ember-tint); }
+.picker-option[data-on='true'] { background: var(--sc-ink-900); }
+.picker-option[data-on='true'] b { color: var(--sc-bone); }
+.picker-option[data-on='true'] span { color: #A8A29A; }
+
+/* ----------------------------------------------------------- PLAYER */
+.player {
+  width: 100%;
+  max-height: 62vh;
+  background: var(--sc-ink-900);
+  display: block;
+  margin-bottom: var(--sc-space-6);
+  border-radius: var(--sc-radius);
+}
+
+.reader-close {
+  justify-self: end;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  padding: 0;
+}
+.reader-close:hover { color: var(--sc-ember-light); }
+
+.flame { font-size: 0.9em; }
+
+/* -------------------------------------------------------- CARD EXTRAS */
+.card { position: relative; }
+.card-open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+.card[data-picked='true'] .card-frame { outline: 3px solid var(--sc-ember); outline-offset: -3px; }
+
+.card-pick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 10, 10, 0.72);
+  color: var(--sc-bone);
+  border: 0;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.card:hover .card-pick,
+.card:focus-within .card-pick,
+.card[data-picked='true'] .card-pick { opacity: 1; }
+.card[data-picked='true'] .card-pick { background: var(--sc-ember); }
+@media (hover: none) { .card-pick { opacity: 1; } }
+
+.card-flame {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.3rem 0.5rem;
+  background: var(--sc-ink-900);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+.card-tags span {
+  border: 1px solid var(--sc-ink-150);
+  padding: 0.1rem 0.35rem;
+  color: var(--sc-ink-300);
+}
+.card-tags span[data-origin='human'] { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+
+/* -------------------------------------------------------- SELECT BAR */
+.selectbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-3) var(--sc-space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  flex-wrap: wrap;
+  border-top: 2px solid var(--sc-ember);
+  animation: rise var(--sc-dur) var(--sc-ease);
+}
+@keyframes rise { from { transform: translateY(100%); } }
+.selectbar .tally b { color: var(--sc-ember-light); }
+.selectbar .btn { background: var(--sc-bone); color: var(--sc-ink-900); border-color: var(--sc-bone); }
+.selectbar .btn-quiet { background: transparent; color: #A8A29A; border-color: #3A3733; }
+
+/* The bulk assign, inside the selection bar. It wraps rather than compressing:
+   at 1280 the bar already holds a tally, a zip button and a clear, and a model
+   picker squeezed in beside them is a picker nobody can read.
+
+   Nothing here restyles `.btn`: the buttons are inside `.selectbar`, which
+   already states what a filled button looks like on that ground in both
+   themes. Two rules for one button is how they drift apart. */
+.bulkassign {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* The bar is an ink surface in BOTH themes — light theme paints it ink-900,
+   the dark block in globals.css pins it to #000 — so a select inheriting
+   `.pill`'s ink-500 type is dark on dark and effectively invisible. Its arrow
+   is drawn in ink-500 too and has the same problem. */
+.selectbar .pill-select {
+  background-color: transparent;
+  color: var(--sc-bone);
+  border-color: #3A3733;
+  background-image: linear-gradient(45deg, transparent 50%, var(--sc-bone) 50%),
+                    linear-gradient(135deg, var(--sc-bone) 50%, transparent 50%);
+}
+/* The menu itself is drawn by the OS on its own ground, so it has to be told
+   a real pair of colours rather than inheriting the bar's. */
+.selectbar .pill-select option { color: var(--sc-ink-900); background: var(--sc-paper); }
+
+.bulkassign-clash {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------ MODELS */
+.models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sc-space-8) var(--sc-space-6);
+}
+
+.model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.model-frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--sc-ink-900);
+  display: block;
+}
+.model-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.9;
+  transition: transform var(--sc-dur) var(--sc-ease), opacity var(--sc-dur) var(--sc-ease);
+}
+.model:hover .model-frame img { transform: scale(1.04); opacity: 1; }
+
+.model-handle {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1;
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-name {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+.model-persona { display: flex; flex-wrap: wrap; gap: var(--sc-space-1); }
+.model-persona span {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  border: 1px solid var(--sc-ink-900);
+  padding: 0.1rem 0.35rem;
+  color: var(--sc-ink-900);
+}
+.model-persona span[data-empty='true'] {
+  border-color: var(--sc-ink-150);
+  color: var(--sc-ink-150);
+  border-style: dashed;
+}
+.model-figures {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.model-figures b { color: var(--sc-ink-900); font-weight: 500; }
+
+/* ------------------------------------------------------------ LADDER */
+.ladder { list-style: none; margin: 0; padding: 0; }
+
+.rung {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-3) 0;
+  border-bottom: 1px dotted var(--sc-ink-150);
+  align-items: start;
+}
+.rung img { width: 72px; height: 90px; object-fit: cover; display: block; background: var(--sc-ink-900); }
+.rung-figure {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1;
+  color: var(--sc-ink-150);
+  margin: 0 0 var(--sc-space-1);
+  font-variant-numeric: tabular-nums;
+}
+.rung[data-hot='true'] .rung-figure { color: var(--sc-ember); }
+.rung-meta {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.rung-line {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+  margin: var(--sc-space-1) 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ MOBILE */
+@media (max-width: 720px) {
+  .tabs { gap: var(--sc-space-4); }
+  .searchline { padding-top: var(--sc-space-6); }
+  .selectbar { padding: var(--sc-space-3) var(--sc-space-4); }
+  .picker-grid { grid-template-columns: 1fr 1fr; max-height: 50vh; }
+  .player { max-height: 52vh; }
+}
+
+/* ============================================================
+   MODEL PORTAL — the roster, the sheet, the plan editor.
+   Our own people, as opposed to the researched Creators above.
+   Reuses .models / .model, which were already the right shape.
+   ============================================================ */
+
+.roster-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+}
+
+.roster-card[data-paused='true'] .model-frame img { opacity: 0.45; filter: grayscale(1); }
+
+.roster-frame {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.roster-unread {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--sc-ember);
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: 0.25rem 0.45rem;
+}
+
+.roster-actions { display: flex; gap: var(--sc-space-2); margin-top: var(--sc-space-1); }
+
+.btn-small { padding: var(--sc-space-2) var(--sc-space-4); }
+
+/* ------------------------------------------------------------- FORMS */
+.form-row { display: grid; gap: var(--sc-space-2); margin-bottom: var(--sc-space-5); }
+.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sc-space-4); }
+
+.field {
+  width: 100%;
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  padding: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  line-height: 1.45;
+  color: var(--sc-ink-900);
+}
+.field:focus { outline: none; border-color: var(--sc-ember); }
+.field::placeholder { color: var(--sc-ink-150); }
+textarea.field { resize: vertical; }
+
+.form-photo { grid-template-columns: 110px minmax(0, 1fr); align-items: start; gap: var(--sc-space-4); }
+.form-photo-frame { width: 110px; }
+/* The name stands in for a missing photo, so it has to fit a small square. */
+.form-photo-frame .card-frame-empty { font-size: var(--sc-text-sm); letter-spacing: var(--sc-track-tight); }
+.form-photo-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.daypicker { display: flex; gap: var(--sc-space-1); flex-wrap: wrap; }
+.daypicker .chip { min-width: 2.6rem; text-align: center; }
+
+.sharelink {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+  word-break: break-all;
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  margin: 0 0 var(--sc-space-3);
+}
+
+/* -------------------------------------------------------- PLAN EDITOR */
+.reader-wide { width: min(820px, 100vw); }
+
+.weekrail {
+  display: flex;
+  gap: var(--sc-space-2);
+  overflow-x: auto;
+  padding-bottom: var(--sc-space-4);
+  margin-bottom: var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+  scrollbar-width: none;
+}
+.weekrail::-webkit-scrollbar { display: none; }
+
+/* Before a link goes out, the one thing worth knowing is whether every video is
+   actually reachable from her phone. */
+.planstate {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-3);
+  border-left: 2px solid var(--sc-caution);
+  background: var(--sc-bone);
+  color: var(--sc-ink-500);
+  margin-bottom: var(--sc-space-4);
+  line-height: 1.5;
+}
+.planstate[data-ready='true'] { border-left-color: var(--sc-positive); }
+/* A short week. Its own line rather than folded into the upload state above —
+   they are different questions and one is not a reason to ignore the other. */
+.planstate-short { border-left-color: var(--sc-ember); }
+
+.planlist { list-style: none; margin: var(--sc-space-6) 0 0; padding: 0; }
+
+.planrow {
+  border-top: var(--sc-rule-lock);
+  padding: var(--sc-space-4) 0 var(--sc-space-6);
+  display: grid;
+  gap: var(--sc-space-2);
+}
+.planrow[data-state='waiting'] { border-top-color: var(--sc-caution); }
+.planrow[data-state='no-video'] { border-top-color: var(--sc-critical); }
+
+.planrow-top {
+  display: grid;
+  grid-template-columns: 1.6rem 56px minmax(0, 1fr) auto;
+  gap: var(--sc-space-3);
+  align-items: start;
+}
+
+.planrow-no {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  line-height: 1;
+  color: var(--sc-ink-150);
+  font-variant-numeric: tabular-nums;
+}
+.planrow img { width: 56px; height: 70px; object-fit: cover; display: block; background: var(--sc-ink-900); }
+.planrow-id { min-width: 0; }
+.planrow-who {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planrow-meta {
+  margin: 2px 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.planrow[data-state='waiting'] .planrow-meta { color: var(--sc-caution); }
+.planrow[data-state='no-video'] .planrow-meta { color: var(--sc-critical); }
+.planrow-line {
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.planrow-tools { display: flex; gap: var(--sc-space-1); }
+.planrow-src {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  justify-self: start;
+}
+
+/* What she wrote back. Unread until it has been read — a note under a tick is
+   the easiest thing in the whole system to miss. */
+.planrow-said {
+  border-left: 2px solid var(--sc-ink-150);
+  padding: var(--sc-space-2) 0 var(--sc-space-2) var(--sc-space-4);
+  background: var(--sc-bone);
+}
+.planrow-said[data-unread] { border-left-color: var(--sc-ember); background: var(--sc-ember-tint); }
+.planrow-said p { margin: 0; color: var(--sc-ink-900); font-size: var(--sc-text-sm); white-space: pre-wrap; }
+.planrow-said .axis-name { margin-bottom: var(--sc-space-1); }
+.planrow-said[data-unread] .axis-name { color: var(--sc-ember-deep); }
+
+/* ------------------------------------------------------------ ASSIGN */
+.assignbar {
+  display: grid;
+  gap: var(--sc-space-2);
+  border-top: 1px dotted var(--sc-ink-150);
+  padding-top: var(--sc-space-3);
+  margin-bottom: var(--sc-space-6);
+}
+.assignbar-row { display: flex; gap: var(--sc-space-2); flex-wrap: wrap; align-items: center; }
+.assignbar-row .pill-select { max-width: 17rem; }
+
+@media (max-width: 720px) {
+  .reader-wide { width: 100vw; }
+  .form-pair { grid-template-columns: 1fr; }
+  .planrow-top { grid-template-columns: 1.4rem minmax(0, 1fr); }
+  .planrow img { display: none; }
+  .planrow-tools { grid-column: 1 / -1; }
+}
+
+/* ------------------------------------------------- MODEL TAGS + MATCHING */
+
+/* A refusal has to look unlike a preference, or the sheet reads as one long
+   list of things she does. */
+.axis[data-tone='refuse'] .axis-name { color: var(--sc-critical); }
+.axis[data-tone='refuse'] .axis-confirm { color: var(--sc-critical); }
+.chip[data-refuse] {
+  border-color: var(--sc-critical);
+  color: var(--sc-critical);
+  border-style: dashed;
+}
+.chip[data-refuse]::before { content: '✕ '; }
+
+/* Which of our models this video suits. Tapping one selects her; adding marks
+   it done rather than clearing, because a video often belongs on two weeks. */
+.fitrail {
+  display: flex;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+  padding-bottom: var(--sc-space-1);
+}
+.fitrail .chip em {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--sc-ink-300);
+  margin-left: 0.35rem;
+}
+.fitrail .chip[data-on='true'] em { color: #A8A29A; }
+.fitrail .chip[data-done] { border-color: var(--sc-positive); color: var(--sc-positive); }
+.fitrail .chip[data-done] em { color: var(--sc-positive); }
+
+.suggestlist { list-style: none; margin: 0; padding: 0; }
+.suggestrow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: var(--sc-space-3);
+  align-items: center;
+  padding: var(--sc-space-3) 0;
+  border-bottom: 1px dotted var(--sc-ink-150);
+}
+.suggestrow img { width: 44px; height: 55px; object-fit: cover; display: block; background: var(--sc-ink-900); }
+.suggestrow-id { min-width: 0; }
+.suggestrow-why {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+  margin: var(--sc-space-1) 0 0;
+}
+/* Name the tags that caused the score — a recommendation you cannot explain is
+   one that stops being trusted. */
+.suggestrow-why span {
+  font-family: var(--sc-font-mono);
+  font-size: 0.55rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  border: 1px solid var(--sc-ember);
+  color: var(--sc-ember-deep);
+  padding: 0.05rem 0.3rem;
+}
+
+@media (max-width: 720px) {
+  .suggestrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .suggestrow img { display: none; }
+}
+
+/* A video added for its numbers and its picture, with the audio never read.
+   Says so plainly, and offers the one action that changes it. */
+.nospeech {
+  margin-top: var(--sc-space-6);
+  padding: var(--sc-space-4);
+  border: 1px dotted var(--sc-ink-150);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+}
+.nospeech p {
+  margin: 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+}
+
+/* ---------------------------------------- PHASE 2 — verdict and thread */
+.roster-declined { color: var(--sc-critical); }
+
+.planrow-declined {
+  border-left: 3px solid var(--sc-critical);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  margin: var(--sc-space-2) 0;
+}
+.planrow-declined p { margin: var(--sc-space-1) 0 0; color: var(--sc-ink-900); }
+.planrow-declined .hint { color: var(--sc-ink-300); }
+
+.planrow-accepted {
+  margin: var(--sc-space-2) 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-positive);
+}
+
+.planrow-msg {
+  margin: var(--sc-space-2) 0 0;
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  white-space: pre-wrap;
+}
+.planrow-msg b {
+  display: block;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--sc-ink-300);
+}
+.planrow-msg[data-from='operator'] b { color: var(--sc-ember-deep); }
+
+/* ============================================================
+   PHASE 3 — the brief as fields, in the plan editor.
+
+   The direction box above these stays exactly what it was. These are the same
+   facts held apart, which is what her card needs to render a label/value grid
+   instead of a paragraph.
+   ============================================================ */
+.briefhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sc-space-2);
+}
+.briefhead .axis-name { margin: 0; }
+
+.briefgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--sc-space-4);
+  margin-bottom: var(--sc-space-2);
+}
+.briefgrid .form-row { margin-bottom: var(--sc-space-4); min-width: 0; }
+.briefgrid textarea.field { resize: vertical; }
+
+/* One column on a phone. Geno approves on the go, and two 8rem boxes side by
+   side at 390px is two boxes nobody can type in. */
+@media (max-width: 720px) {
+  .briefgrid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   PHASE 4 — the card's own id and name, in the plan editor.
+   ============================================================ */
+
+/* It holds V-112 now rather than a single digit, so it needs the mono face to
+   stay legible at that size and a promise not to break across two lines. */
+.planrow-no {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding-top: 2px;
+}
+
+.planrow-title { color: var(--sc-ink-900); font-weight: 600; }
+
+/* ============================================================
+   PHASE 5 — the daily sweep, the scoreboard, and her posts.
+
+   The console could always say how many videos someone had this week and never
+   whether anyone was stuck. A four is the same number whether the brief went
+   out on Sunday or is still a draft, and those are opposite situations.
+   ============================================================ */
+
+/* ------------------------------------------------------- SCOREBOARD
+   Supply and delivery on one row, always. Ours carries the ember so the half
+   that is actually our fault cannot be skimmed past. */
+.score {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  background: var(--sc-paper);
+  padding: var(--sc-space-5) var(--sc-space-6);
+  margin-bottom: var(--sc-space-8);
+}
+.score-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.score-cell b {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-2xl);
+  line-height: 1;
+  letter-spacing: var(--sc-track-display);
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.score-cell[data-side='ours'] b { color: var(--sc-ember); }
+.score-cell[data-side='ours'] .axis-name { color: var(--sc-ember-deep); }
+.score-of {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.score-foot {
+  grid-column: 1 / -1;
+  margin: var(--sc-space-2) 0 0;
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+
+/* ------------------------------------------------------------ THE LISTS */
+.sweeplist { margin-bottom: var(--sc-space-8); }
+.sweephead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  border-bottom: var(--sc-rule-lock);
+  padding-bottom: var(--sc-space-2);
+}
+.sweephead h3 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-900);
+}
+.sweeplist[data-tone='ours'] .sweephead { border-bottom-color: var(--sc-ember); }
+.sweeplist[data-tone='ours'] .sweephead h3 { color: var(--sc-ember-deep); }
+.sweeplist[data-tone='bad'] .sweephead { border-bottom-color: var(--sc-critical); }
+.sweeplist .hint { margin: var(--sc-space-2) 0 var(--sc-space-3); }
+
+.sweepclear {
+  margin: 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+}
+
+.sweeprows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.sweeprow {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  background: var(--sc-paper);
+  color: var(--sc-ink-500);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.sweeprow:hover { border-color: var(--sc-ink-900); }
+
+/* A collision row opens nothing — there is no single model to open, which is
+   the whole point of it. Same row, without the affordance that would say
+   otherwise. */
+/* ------------------------------------------------------ PERSONA BACKFILL
+
+   A creator at a time, with the words that fired under each proposal. It sits
+   above the creator grid because it is a job to finish, not a view to browse —
+   and it collapses back to one button once it is done. */
+/* Her own brief lines. Stacked on a narrow sheet and only side by side once
+   there is room — three controls and a value field in one row at 380px is four
+   things nobody can read. */
+.overrides {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.override {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--sc-space-2);
+  align-items: center;
+  min-width: 0;
+}
+/* Placed by element, never by `:nth-of-type` on the shared `.field` class —
+   that counts per element type, so the value input and the first select both
+   answered to "the first one" and the row came apart into three. The two
+   pickers sit on one line; the sentence gets the whole width under them,
+   because it is the part that has something to say. */
+.override > select { grid-row: 1; min-width: 0; }
+.override > select:first-of-type { grid-column: 1; }
+.override > select:last-of-type { grid-column: 2; }
+.override > input { grid-row: 2; grid-column: 1 / span 3; min-width: 0; }
+.override > .chip { grid-row: 1; grid-column: 3; }
+
+/* What she has turned down, on her own sheet. A count column so three of the
+   same reason reads as three, at a glance, without arithmetic. */
+.declines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+.declines li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.declines b {
+  font-family: var(--sc-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5rem;
+  text-align: right;
+  color: var(--sc-critical);
+}
+
+.backfill-open { padding: var(--sc-space-4) 0 0; }
+
+.backfill {
+  border: var(--sc-rule-hair);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-4);
+  margin-bottom: var(--sc-space-6);
+}
+.backfill-rows {
+  list-style: none;
+  margin: var(--sc-space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.backfill-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  background: var(--sc-paper);
+}
+/* Approved. Kept on screen rather than removed — a row that vanishes on tap
+   gives no way to see what was just agreed to. */
+.backfill-row[data-done] { border-left: 3px solid var(--sc-positive); }
+
+.backfill-who {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+}
+.backfill-who b {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+.backfill-why {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+  color: var(--sc-ink-300);
+  overflow-wrap: anywhere;
+}
+.backfill-why b { color: var(--sc-ink-500); }
+/* The picks behind one model's row, when they are asked for. A plain list —
+   the review that matters happens in the plan editor once they are drafts. */
+.batchpicks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.batchpicks li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  min-width: 0;
+}
+.batchpicks b { font-family: var(--sc-font-mono); color: var(--sc-ink-500); }
+
+.backfill-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+}
+
+.sweeprow[role='note'] { cursor: default; }
+.sweeprow[role='note']:hover { border-color: var(--sc-ink-150); }
+.sweeprow-tier {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-bone);
+  background: var(--sc-ink-900);
+  padding: 2px var(--sc-space-2);
+  flex: 0 0 auto;
+}
+.sweeprow-name {
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  letter-spacing: var(--sc-track-tight);
+}
+.sweeprow-why { color: var(--sc-ink-300); }
+.sweeprow-due {
+  margin-left: auto;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+
+.healthrows {
+  list-style: none;
+  margin: var(--sc-space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sc-space-2);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.healthrows b {
+  color: var(--sc-ink-900);
+  font-family: var(--sc-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------- FLAGS ON THE CARD */
+.rosterflags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+  margin-top: var(--sc-space-1);
+}
+.rosterflag {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: 2px var(--sc-space-2);
+  border: 1px solid var(--sc-ink-150);
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+/* Ours is the one most likely to be misread as hers, so it is the loud one. */
+.rosterflag[data-tone='ours'] { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.rosterflag[data-tone='warn'] { border-color: var(--sc-caution); color: var(--sc-caution); }
+.rosterflag[data-tone='bad'] { border-color: var(--sc-critical); color: var(--sc-critical); }
+
+/* ------------------------------------------------------ TIER HEADINGS */
+.tiergroup { margin-bottom: var(--sc-space-8); }
+.tierhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin: 0 0 var(--sc-space-4);
+  padding-bottom: var(--sc-space-2);
+  border-bottom: var(--sc-rule-hair);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+/* ---------------------------------------------------------- HER POSTS */
+.poststrip {
+  list-style: none;
+  margin: 0 0 var(--sc-space-4);
+  padding: 0 0 var(--sc-space-2);
+  display: flex;
+  gap: var(--sc-space-2);
+  overflow-x: auto;
+}
+.postcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-1);
+  border: var(--sc-rule-hair);
+  background: var(--sc-paper);
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.postcard:hover { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.postcard img { width: 54px; height: 68px; object-fit: cover; display: block; background: var(--sc-ink-900); }
+.postcard-blank { width: 54px; height: 68px; display: block; background: var(--sc-bone-light); }
+.postcard-when {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+/* Already the delivery of a card, so it is not offered for a second one. */
+.postcard[data-bound] { border-color: var(--sc-positive); color: var(--sc-positive); }
+
+.planrow-link summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.planrow-link summary::-webkit-details-marker { display: none; }
+.planrow-link summary::after { content: ' +'; }
+.planrow-link[open] summary::after { content: ' –'; }
+
+.planrow-posted {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: var(--sc-text-sm);
+}
+.planrow-posted .axis-name { margin: 0; }
+.planrow-posted a { color: var(--sc-ember-deep); }
+
+@media (max-width: 720px) {
+  .score { grid-template-columns: 1fr 1fr; padding: var(--sc-space-4); }
+}

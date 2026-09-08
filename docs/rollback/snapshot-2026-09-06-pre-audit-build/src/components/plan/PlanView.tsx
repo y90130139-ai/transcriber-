@@ -1,0 +1,191 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import PlanItemCard from './PlanItemCard'
+import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
+import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
+
+/** The standing instructions, in the order she does them. Five beats, no more —
+ *  anything longer stops being read after the first week. */
+/** One run of consecutive cards filmed in the same place. Runs, not buckets:
+ *  the order on the plan is Geno's, and re-sorting it to collapse two visits to
+ *  the kitchen into one would silently rewrite the week he sent her. */
+type Group = { location: string | null; items: PlanItem[] }
+
+function groupByLocation(items: PlanItem[]): Group[] {
+  const groups: Group[] = []
+  for (const item of items) {
+    const location = item.location ?? null
+    const last = groups[groups.length - 1]
+    if (last && last.location === location) last.items.push(item)
+    else groups.push({ location, items: [item] })
+  }
+  return groups
+}
+
+const STEPS = [
+  'Watch the example. Once through, no notes.',
+  'Read the directions under it. That is the whole brief.',
+  'Make it yours — copy the structure, not the person.',
+  'Get the sound from Instagram, off the original post.',
+  'Tick it off as filmed. If something will not work, say so in the box.',
+]
+
+export default function PlanView({
+  token,
+  model,
+  plan,
+  items,
+}: {
+  token: string
+  model: PlanModel
+  plan: Plan
+  items: PlanItem[]
+}) {
+  const [filmed, setFilmed] = useState<Set<string>>(
+    () => new Set(items.filter((item) => item.filmed).map((item) => item.id)),
+  )
+
+  const overdue = useMemo(() => isOverdue(plan.due_date, model.timezone), [plan.due_date, model.timezone])
+  const done = filmed.size
+  const total = items.length
+
+  // Grouping only turns on once somewhere has actually been named. A week with
+  // no locations set renders exactly the flat list it always has.
+  const groups = useMemo(() => groupByLocation(items), [items])
+  const grouped = groups.some((group) => group.location)
+
+  function mark(id: string, next: boolean) {
+    setFilmed((current) => {
+      const copy = new Set(current)
+      if (next) copy.add(id)
+      else copy.delete(id)
+      return copy
+    })
+  }
+
+  return (
+    <main className="plan">
+      {/* The week is the headline, not her name — she knows who she is, and
+          what she opens this to find out is which week she is looking at. */}
+      <header className="plan-head">
+        <div className="plan-who">
+          {model.photo_url && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img className="plan-face" src={model.photo_url} alt="" width={104} height={104} />
+          )}
+          <p className="plan-eyebrow">
+            Your content plan
+            <b className="plan-name">{model.name}</b>
+          </p>
+        </div>
+
+        <h1 className="plan-week">Week of {formatDate(plan.week_of)}</h1>
+
+        {plan.title && <p className="plan-title">{plan.title}</p>}
+
+        {/* One segment per video rather than one filling rule. A continuous
+            bar only ever says "some of it"; a countable strip lets her see
+            how many are left without doing the arithmetic. */}
+        <div
+          className="plan-bar"
+          role="progressbar"
+          aria-valuenow={done}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-label="Videos filmed"
+        >
+          {items.map((item, index) => (
+            <i key={item.id} data-on={index < done || undefined} />
+          ))}
+        </div>
+
+        {/* One mono line rather than a three-column table. The table wrapped
+            into itself on a narrow phone and read as one run-on figure. */}
+        <p className="plan-facts">
+          <span className="plan-count"><b>{done}</b>/{total} filmed</span>
+          <span className="plan-sep" aria-hidden="true">·</span>
+          <span data-late={overdue || undefined}>
+            Due {formatDate(plan.due_date)}{overdue && ' · overdue'}
+          </span>
+          <span className="plan-sep" aria-hidden="true">·</span>
+          <span>Filming {filmingDaysLabel(model.filming_days)}</span>
+        </p>
+      </header>
+
+      <div className="plan-body">
+        {plan.intro && <p className="plan-intro">{plan.intro}</p>}
+
+        {model.standing_rules && (
+          <section className="plan-rules" aria-label="Your standing rules">
+            <p className="plan-label">Always</p>
+            <p>{model.standing_rules}</p>
+          </section>
+        )}
+
+        <details className="plan-how">
+          <summary>How your plan works</summary>
+          <ol>
+            {STEPS.map((step, index) => (
+              <li key={step}>
+                <span className="plan-step-no">{index + 1}</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </details>
+
+        {items.length === 0 ? (
+          <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>
+        ) : grouped ? (
+          /* Grouped by where it gets filmed, so everything shot in the car is
+             shot in one trip to the car. Each group is its own list, which
+             keeps the ordinal that screen readers announce honest. */
+          groups.map((group, groupIndex) => (
+            <section className="plan-group" key={`${group.location ?? 'anywhere'}-${groupIndex}`}>
+              {group.location && (
+                <h2 className="plan-group-bar">
+                  <span className="plan-group-name">
+                    <span className="plan-group-no">
+                      {String(groups.filter((g, i) => g.location && i <= groupIndex).length)
+                        .padStart(2, '0')}
+                    </span>
+                    {group.location}
+                  </span>
+                  <span className="plan-group-count">
+                    {group.items.length} shot{group.items.length === 1 ? '' : 's'}
+                  </span>
+                </h2>
+              )}
+              <ol className="plan-items">
+                {group.items.map((item) => (
+                  <PlanItemCard
+                    key={item.id}
+                    token={token}
+                    item={item}
+                    number={items.indexOf(item) + 1}
+                    filmed={filmed.has(item.id)}
+                    onFilmed={(next) => mark(item.id, next)}
+                  />
+                ))}
+              </ol>
+            </section>
+          ))
+        ) : (
+          <ol className="plan-items">
+            {items.map((item, index) => (
+              <PlanItemCard
+                key={item.id}
+                token={token}
+                item={item}
+                number={index + 1}
+                filmed={filmed.has(item.id)}
+                onFilmed={(next) => mark(item.id, next)}
+              />
+            ))}
+          </ol>
+        )}
+      </div>
+    </main>
+  )
+}

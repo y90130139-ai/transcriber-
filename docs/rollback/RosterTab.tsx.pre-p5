@@ -1,0 +1,117 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import ModelSheet from './ModelSheet'
+import PlanEditor from './PlanEditor'
+import { formatDate } from '@/lib/dates'
+import { labelOf } from '@/lib/taxonomy'
+import type { RosterModel } from './types'
+
+/** Our own people — as opposed to the Creators tab, which is the Instagram
+ *  accounts we research. Different entity, different table, different tab. */
+export default function RosterTab() {
+  const [models, setModels] = useState<RosterModel[]>([])
+  const [weekOf, setWeekOf] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
+  const [planning, setPlanning] = useState<RosterModel | null>(null)
+
+  const load = useCallback(async () => {
+    const response = await fetch('/api/models')
+    if (response.ok) {
+      const body = await response.json()
+      setModels(body.models ?? [])
+      setWeekOf(body.weekOf ?? '')
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { void load() }, [load])
+
+  return (
+    <>
+      <div className="section-head">
+        <h2>Models</h2>
+        <div className="roster-head-actions">
+          <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
+            {loading ? 'Loading' : weekOf ? `Week of ${formatDate(weekOf)}` : ''}
+          </span>
+          <button className="btn" onClick={() => setEditing('new')}>Add a model</button>
+        </div>
+      </div>
+
+      {models.length === 0 && !loading ? (
+        <div className="empty">
+          <p>No models yet. Add one, then tag videos to her from the library.</p>
+        </div>
+      ) : (
+        <div className="models">
+          {models.map((model) => (
+            <div key={model.id} className="model roster-card" data-paused={model.status === 'paused'}>
+              <button
+                className="model-frame roster-frame"
+                onClick={() => setEditing(model)}
+                aria-label={`Edit ${model.name}`}
+              >
+                {model.photo_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={model.photo_url} alt="" width={420} height={420} loading="lazy" />
+                ) : (
+                  <span className="card-frame-empty">{model.name}</span>
+                )}
+                {model.unread_notes > 0 && (
+                  <span className="roster-unread">{model.unread_notes} unread</span>
+                )}
+              </button>
+
+              <span className="model-handle">{model.name}</span>
+              {model.handle && <span className="model-name">@{model.handle}</span>}
+
+              <span className="model-persona">
+                {model.persona.length > 0 ? (
+                  model.persona.map((tag) => <span key={tag}>{labelOf('persona', tag)}</span>)
+                ) : (
+                  <span data-empty="true">No persona set</span>
+                )}
+              </span>
+
+              <span className="model-figures">
+                <b>{model.week_items}</b> this week · <b>{model.week_filmed}</b> filmed
+                {model.week_waiting > 0 && <> · <b>{model.week_waiting}</b> uploading</>}
+                {model.week_declined > 0 && (
+                  <> · <b className="roster-declined">{model.week_declined}</b> turned down</>
+                )}
+                {model.status === 'paused' && ' · paused'}
+              </span>
+
+              <span className="roster-actions">
+                <button className="btn btn-small" onClick={() => setPlanning(model)}>
+                  {model.plan_status === 'sent' ? 'Plan · sent' : 'Plan'}
+                </button>
+                <button className="btn btn-quiet btn-small" onClick={() => setEditing(model)}>
+                  Edit
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <ModelSheet
+          model={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); void load() }}
+        />
+      )}
+
+      {planning && (
+        <PlanEditor
+          modelId={planning.id}
+          modelName={planning.name}
+          onClose={() => { setPlanning(null); void load() }}
+        />
+      )}
+    </>
+  )
+}

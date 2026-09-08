@@ -1,0 +1,542 @@
+/** Draft the direction for a plan item from what the library already knows.
+ *
+ * An item must never land on a plan with an empty brief — an empty brief is a
+ * plan that quietly does not get filmed. So assignment drafts one, and Geno
+ * edits it before sending.
+ *
+ * Built the way the tagger was built: deterministic, rule-based, no API key. A
+ * wrong draft is then a rule you can read and fix, not a model you can only
+ * shrug at. The rules say less rather than inventing detail the library does not
+ * support — a draft that is obviously a draft is fine, a draft that is
+ * confidently wrong is not.
+ */
+import type { OnScreenCaption } from './autotag'
+
+
+/** The shape of the video, keyed by format tag. First match in this order wins,
+ *  because a clip tagged both `talking-head` and `rant` is a rant. */
+const SHAPE: [string, string][] = [
+  ['grwm', 'Film it while you actually get ready — start bare, end done.'],
+  ['try-on', 'Several outfits back to back. Cut on the change, not after it.'],
+  ['fit-check', 'One outfit, head to toe, then the details close up.'],
+  ['gym', 'Film mid-set. A real working set, not a posed rep.'],
+  ['dance', 'Choreography-led. Learn it properly before the camera is on.'],
+  ['lip-sync', 'Lip sync to the original audio. The timing has to be exact.'],
+  ['pov-skit', 'POV — you are speaking to the viewer in character. Set the scenario in the first line.'],
+  ['comedy', 'Play the bit straight. Undersold lands harder.'],
+  ['skit', 'A scripted bit. Play it out; do not narrate it.'],
+  ['street-interview', 'Question-and-answer, out in public.'],
+  ['reaction', 'React on camera to what is on screen. Your face is the content.'],
+  ['storytime', 'Tell it the way you would tell a friend. One take.'],
+  ['q-and-a', 'Put the question on screen, then answer it.'],
+  ['advice', 'Teach one thing. One thing only.'],
+  ['rant', 'Take a position and hold it. No hedging.'],
+  ['rage-bait', 'Say the thing people will argue with, then stop talking.'],
+  ['day-in-life', 'Short clips across the day, cut together.'],
+  ['bts', 'Show the setup, not the finished thing.'],
+  ['teaser', 'Show enough to want it. Not enough to have it.'],
+  ['promo', 'One clear ask, at the end. Everything before it earns the ask.'],
+  ['collab', 'Two people on camera together.'],
+  ['snap-banner', 'Snapchat banner across the middle, the video running under it.'],
+  ['text-overlay', 'The on-screen text is the payload. Audio is secondary.'],
+  ['thirst-trap', 'Body-forward, no dialogue. The framing does the work.'],
+  ['talking-head', 'Straight to camera. What you say carries it.'],
+]
+
+/** How the first three seconds work, keyed by hook tag. */
+const OPENING: Record<string, string> = {
+  'direct-address': 'Talk straight to camera from the first frame. No intro.',
+  question: 'Open on a question.',
+  'text-claim': 'Put the claim on screen inside the first second.',
+  'pov-relatable': 'Name the situation on screen in the first second — POV, or "me when...". Then just be in it.',
+  transition: 'Open on the before, cut hard to the after.',
+  contrast: 'Open on something that does not fit. The mismatch is the hook.',
+  'trending-audio': 'The audio is the hook — take it from the original post.',
+  'in-media-res': 'Start mid-scene. No hello, no setup.',
+  none: 'Their opening is slow. Give yours a real first line.',
+}
+
+/** Formats that put her face on camera, and so are the only ones where a
+ *  no-face rule needs restating as an actual framing instruction. */
+const FACE_FORWARD = new Set([
+  'talking-head', 'storytime', 'q-and-a', 'advice', 'rant', 'reaction', 'street-interview', 'grwm',
+])
+
+const QUOTE_MAX = 120
+/** A one-word reading off a frame is a watermark, a handle or OCR debris —
+ *  `ONE`, `PICTURE`, `LEW:`, `20001` all came back from real reels. Measured
+ *  over the library, this floor drops those nine and keeps every genuine
+ *  opening, the shortest of which are `guess my height` and `Proof giants
+ *  existed`. It applies to the screen only: a spoken first line is already a
+ *  sentence somebody said. */
+const SCREEN_QUOTE_MIN_WORDS = 2
+const RULE_MAX = 200
+const SHORTEST_TARGET_SEC = 10
+
+/** The fields a model can have her own standing answer for. `direction` and
+ *  `hook` are absent on purpose: the direction is drafted per item and the hook
+ *  is quoted from the reference, so neither is a standing fact about her. */
+export const OVERRIDE_FIELDS = ['wardrobe', 'camera', 'takes', 'sound', 'caption'] as const
+export type OverrideField = (typeof OVERRIDE_FIELDS)[number]
+
+/** The format key meaning "every format of hers". */
+export const ANY_FORMAT = '*'
+
+/**
+ * One model's own answers, keyed `${format}|${field}` — with `*` as the format
+ * for anything that holds across all of her work.
+ *
+ * The lookup tables below are global, so two creators shooting the same format
+ * get byte-identical wardrobe lines. This is the layer in front of them, and
+ * the resolution order is: model override → format default → global default.
+ */
+export type BriefOverrides = Record<string, string>
+
+export const overrideKey = (format: string, field: OverrideField) => `${format}|${field}`
+
+export type BriefInput = {
+  formats: string[]
+  hooks: string[]
+  /** The opening line of the reference transcript, which is its hook. */
+  firstLine: string | null
+  /** What the screen said, joined, for a reference nobody speaks in. */
+  onScreenText?: string | null
+  /** The same readings still in beats. The first beat is the opening in exactly
+   *  the sense `firstLine` is: it is what the viewer met first. */
+  onScreenCaptions?: OnScreenCaption[] | null
+  durationSec: number | null
+  speakerCount: number | null
+  wordCount: number | null
+  standingRules: string | null
+  /** Hers, if she has any. Only ever consulted while drafting — an override
+   *  must never rewrite a card that has already been authored, which is the
+   *  same contract phase 3 set for the direction. */
+  overrides?: BriefOverrides
+}
+
+/** Does she have a standing rule against being on camera? */
+function isFaceless(rules: string | null): boolean {
+  if (!rules) return false
+  return /\b(no|never|without|avoid|don'?t\s+show)\b[^.]{0,24}\bface\b/i.test(rules)
+    || /\bfaceless\b/i.test(rules)
+}
+
+/** A quotable opening line, or nothing. Long ones are cut rather than trimmed
+ *  mid-sentence into something she would misread as the whole hook. */
+function quotable(line: string | null): string | null {
+  const clean = (line ?? '').replace(/\s+/g, ' ').trim()
+  if (!clean || clean.length > QUOTE_MAX) return null
+  return clean.replace(/["“”]/g, '')
+}
+
+/**
+ * The opening of the reference, and whether it was said or shown.
+ *
+ * 88% of the videos nobody speaks in carry their opening stamped on the frame,
+ * so before the visual pass every one of those briefs went out with the hook
+ * field empty and a direction that never quoted anything — the two places a
+ * model actually looks. `firstLine` still wins where there is one: what she
+ * said is a better opening than what was behind her.
+ *
+ * `null` when neither exists, which is the whole point. This fills a gap the
+ * library can now honestly fill; it is not licence to put something in the
+ * field when the library still knows nothing.
+ */
+function openingOf(input: BriefInput): { quote: string; onScreen: boolean } | null {
+  const spoken = quotable(input.firstLine)
+  if (spoken) return { quote: spoken, onScreen: false }
+
+  // The beats as they were read. Beat one is what the viewer met first; the
+  // joined column is the fallback for a reading that arrived without them.
+  // Pipes are our own join for a wrapped line, so they collapse to spaces
+  // rather than being quoted onto her card.
+  const flatten = (value: string | null | undefined) =>
+    (value ?? '').replace(/\s*\|\s*/g, ' ')
+  const beats = (input.onScreenCaptions ?? [])
+    .map((caption) => flatten(caption?.text).trim())
+    .filter(Boolean)
+  const screen = quotable(beats[0] ?? flatten(input.onScreenText))
+  if (!screen) return null
+  if (screen.split(/\s+/).filter(Boolean).length < SCREEN_QUOTE_MIN_WORDS) return null
+  return { quote: screen, onScreen: true }
+}
+
+/** How to introduce the quote. Saying which one it was matters: "write your own
+ *  version of that line" means a different thing for a line she has to deliver
+ *  than for one she has to put on screen. */
+function opensWith(opening: { quote: string; onScreen: boolean }): string {
+  const where = opening.onScreen ? 'Theirs opens on screen' : 'Theirs opens'
+  return `${where}: \u201C${opening.quote}\u201D \u2014 write your own version of that line.`
+}
+
+function lengthLine(durationSec: number | null): string | null {
+  if (!durationSec || durationSec <= 0) return null
+  const target = Math.max(SHORTEST_TARGET_SEC, Math.round(durationSec / 5) * 5)
+  return `Run it around ${target} seconds.`
+}
+
+function castLine(speakerCount: number | null, wordCount: number | null): string | null {
+  if ((wordCount ?? 0) < 4) return 'Nobody speaks in the original — it is carried on screen.'
+  if ((speakerCount ?? 0) >= 2) {
+    return 'Two voices in the original. Bring someone, or split it across two shots.'
+  }
+  if (speakerCount === 1) return 'One person, one setup.'
+  return null
+}
+
+/**
+ * The draft direction for one item. Short, imperative, and honest about being
+ * a draft — wardrobe and location are hers to decide, because the library does
+ * not know what she owns or where she films.
+ */
+export function draftBrief(input: BriefInput): string {
+  const faceless = isFaceless(input.standingRules)
+  const lines: string[] = []
+
+  const shape = SHAPE.find(([tag]) => input.formats.includes(tag))
+  if (shape) lines.push(shape[1])
+
+  // The no-face instruction is worth one line, not two. It goes wherever it is
+  // most actionable — rewriting the opening if that is what would put her on
+  // camera, otherwise as its own framing note — and never in both places.
+  let facelessSaid = false
+
+  const hook = input.hooks.find((tag) => tag in OPENING)
+  if (hook) {
+    if (faceless && hook === 'direct-address') {
+      lines.push('Open on the first line immediately — no intro — framed from the chin down.')
+      facelessSaid = true
+    } else {
+      lines.push(OPENING[hook])
+    }
+  }
+
+  const opening = openingOf(input)
+  if (opening) lines.push(opensWith(opening))
+
+  const cast = castLine(input.speakerCount, input.wordCount)
+  if (cast) lines.push(cast)
+
+  const length = lengthLine(input.durationSec)
+  if (length) lines.push(length)
+
+  lines.push('Sound: open the original in Instagram and take the audio from there.')
+
+  if (faceless && !facelessSaid && shape && FACE_FORWARD.has(shape[0])) {
+    lines.push('No face — frame from the chin down, or carry it with text on screen.')
+  }
+  if (input.standingRules?.trim()) {
+    lines.push(`Your standing rules still apply: ${input.standingRules.trim().slice(0, RULE_MAX)}`)
+  }
+
+  // Something always lands here, but never trust that: an item with no tags and
+  // no transcript must still arrive with a brief she can act on.
+  if (lines.length === 1) {
+    lines.unshift('Watch the reference and make your own version of it.')
+  }
+  // Flowing prose. This used to join with a newline, which rendered on her
+  // phone as a stack of short disconnected lines rather than as a direction.
+  return lines.join(' ')
+}
+
+/* ============================================================
+   PHASE 3 — the same facts, un-flattened.
+
+   Everything above already worked out wardrobe, framing, how many takes and
+   where the sound comes from, and then joined all of it into one paragraph.
+   On a phone that paragraph is a wall, and the one line she actually needs
+   while the camera is already propped up is four scrolls in.
+
+   `draftBrief` above is untouched and still returns the whole blob — it is
+   what every item written before today holds, and it stays the fallback for
+   anything these fields leave empty.
+   ============================================================ */
+
+/** What to put on, keyed by format. Deliberately not a wardrobe list: the
+ *  library has no idea what she owns, so these say how it has to behave. */
+const WARDROBE: Record<string, string> = {
+  grwm: 'Start in whatever you actually woke up in. End in the finished look.',
+  'try-on': 'Three or four outfits, hung ready so the changes are quick.',
+  'fit-check': 'One outfit you would actually leave the house in.',
+  gym: 'Gym kit you already train in — not something bought for the video.',
+  dance: 'Something that moves. Nothing you have to hold in place.',
+  'lip-sync': 'Something that moves. Nothing you have to hold in place.',
+  'thirst-trap': 'The framing is built on the outfit. Pick it first, film second.',
+  promo: 'Whatever the post is selling, worn properly.',
+  teaser: 'Whatever the post is selling, worn properly.',
+  bts: 'Whatever you would really be wearing while setting this up.',
+  'day-in-life': 'Whatever the day actually calls for. Change on camera if it does.',
+  'talking-head': 'Top half only — that is all that is in frame. Nothing that rustles.',
+  storytime: 'Top half only — that is all that is in frame. Nothing that rustles.',
+  advice: 'Top half only — that is all that is in frame. Nothing that rustles.',
+  rant: 'Top half only — that is all that is in frame. Nothing that rustles.',
+  'q-and-a': 'Top half only — that is all that is in frame. Nothing that rustles.',
+  reaction: 'Top half only — that is all that is in frame. Nothing that rustles.',
+  skit: 'Whatever the character would wear. It is doing half the work.',
+  'pov-skit': 'Whatever the character would wear. It is doing half the work.',
+  comedy: 'Whatever the character would wear. It is doing half the work.',
+  'text-overlay': 'Plain. Nothing busy — the text has to stay readable over you.',
+  'street-interview': 'Something you would be comfortable being stopped in.',
+  collab: 'Something that reads as yours next to theirs. Do not match.',
+  'rage-bait': 'Plain. Nothing anyone can argue with instead of the point.',
+  'snap-banner': 'Plain across the middle — the banner sits there.',
+}
+
+const WARDROBE_DEFAULT = 'Your call — pick it before the camera is up, not after.'
+
+/** How the phone is held, keyed by format. */
+const CAMERA: Record<string, string> = {
+  grwm: 'Propped against the mirror or the counter. Fixed, never handheld.',
+  'try-on': 'Back camera, full length, phone leaning on something solid.',
+  'fit-check': 'Back camera, full length, then move in for the details.',
+  gym: 'Back camera on a tripod, wide enough to hold the whole set.',
+  dance: 'Back camera, full body, nothing cut off at the top of the frame.',
+  'lip-sync': 'Front camera, chest up. Your mouth has to be readable.',
+  'street-interview': 'Back camera, handheld, whoever is asking stays off frame.',
+  reaction: 'Front camera, chest up, with the thing you are reacting to on screen.',
+  'talking-head': 'Front camera, propped at eye height. You in the middle third.',
+  storytime: 'Front camera, propped at eye height. You in the middle third.',
+  advice: 'Front camera, propped at eye height. You in the middle third.',
+  rant: 'Front camera, propped at eye height. You in the middle third.',
+  'q-and-a': 'Front camera, propped at eye height, with room above you for the question.',
+  'text-overlay': 'Back camera. Leave the top third empty for the text.',
+  'snap-banner': 'Back camera. Leave the middle band clear for the banner.',
+  'thirst-trap': 'Back camera, propped low and fixed. Move in the frame, not the frame.',
+  'day-in-life': 'Handheld as you go. Prop it any time you are in the shot yourself.',
+  'pov-skit': 'Front camera at arm\u2019s length, eye height. The lens is the person you are talking to.',
+  skit: 'Propped and wide enough to hold the whole bit. Do not move it mid-take.',
+  comedy: 'Propped and wide enough to hold the whole bit. Do not move it mid-take.',
+  bts: 'Handheld is right here — it is meant to look grabbed, not set up.',
+  promo: 'Propped steady, chest up. Nothing moving while you make the ask.',
+  teaser: 'Back camera, close in. One part of the frame at a time.',
+  collab: 'Propped wide enough for both of you, at the taller one\u2019s eye height.',
+  'rage-bait': 'Front camera at eye height. Straight down the lens the whole way.',
+}
+
+const CAMERA_DEFAULT = 'Back camera. Phone steady on something — not in your hand.'
+const CAMERA_FACELESS = 'Chin down. Frame it so your face never enters, and check the frame before you start.'
+
+/** How many attempts this shape actually wants. */
+const TAKES: Record<string, string> = {
+  storytime: 'One take, straight through. A second run always sounds rehearsed.',
+  rant: 'One take, straight through. A second run always sounds rehearsed.',
+  'talking-head': 'One take, straight through. A second run always sounds rehearsed.',
+  advice: 'One take. If you fluff the one thing, start again rather than patch it.',
+  'try-on': 'One per outfit. Cut on the change, not after it.',
+  grwm: 'Short clips across the whole routine — bare, halfway, done.',
+  'day-in-life': 'Short clips across the day. Film more than you think you need.',
+  dance: 'As many as it takes to get the timing exact.',
+  'lip-sync': 'As many as it takes to get the timing exact.',
+  'pov-skit': 'Two or three. Play it straight each time and pick the flattest one.',
+  skit: 'Two or three. Play it straight each time and pick the flattest one.',
+  comedy: 'Two or three. Play it straight each time and pick the flattest one.',
+  'thirst-trap': 'Several short ones from the same setup. The angle is the work.',
+  'q-and-a': 'One per question. Keep them separate so a weak answer costs one clip.',
+  'fit-check': 'One full-length take, then the close-ups on their own.',
+  gym: 'Film the whole set once. Do not re-rack and redo it for the camera.',
+  reaction: 'One take. The first time you see it is the only honest one.',
+  bts: 'Grab clips as you go. Do not set anything up twice for this.',
+  promo: 'Two or three, and keep the one where the ask sounds easy.',
+  collab: 'Two or three. Check you are both in frame before the first one.',
+  teaser: 'Several short ones. You only need the best few seconds.',
+  'text-overlay': 'One clean take of the visual. The words go on afterwards.',
+  'street-interview': 'Ask everyone who says yes. Most will not make the cut.',
+  'rage-bait': 'One take, straight through. Say it once and stop talking.',
+  'snap-banner': 'Two or three. Check the middle band is clear on every one.',
+}
+
+const TAKES_DEFAULT = 'Two or three. Keep the first one unless it is unusable.'
+
+const SOUND_DEFAULT = 'Open the original in Instagram and take the audio from there.'
+const SOUND_TRENDING = 'The audio is the hook. Take it off the original post — do not re-record it.'
+const SOUND_SILENT = 'Nobody speaks in the original. Take its audio from Instagram and let it carry.'
+
+/** What she posts under it. Only where something honest can be said — a wrong
+ *  caption she has to delete every week is worse than an empty field. */
+const CAPTION: Record<string, string> = {
+  grwm: 'get ready with me',
+  'try-on': 'which one',
+  'fit-check': "today's fit",
+  gym: "today's session",
+  storytime: 'so this happened',
+  'q-and-a': 'you asked',
+  advice: 'save this one',
+  rant: 'saying what everyone is already thinking',
+  'rage-bait': 'go on then, tell me I am wrong',
+  'day-in-life': 'a day with me',
+  bts: 'how it actually gets made',
+  teaser: 'there is more',
+  promo: 'link in bio',
+  reaction: 'I had to say something',
+  'street-interview': 'I asked, they answered',
+  comedy: 'no notes',
+  skit: 'we all know one',
+  'pov-skit': 'we all know one',
+  'talking-head': 'had to say it',
+  'thirst-trap': 'posting this and logging off',
+  'lip-sync': 'this sound has me',
+  dance: 'had to learn this one',
+  'text-overlay': 'read it twice',
+  'snap-banner': 'it is on the banner',
+  // `collab` is deliberately absent. Every honest caption for one names the
+  // other person, and the library does not know who they are — the field
+  // returning null and not rendering is the correct answer, not a licence to
+  // write something she has to delete every time.
+}
+
+
+/** The brief as fields rather than as a paragraph. `direction` is what is left
+ *  once the discrete facts have been lifted out of it — never a repeat of them. */
+export type BriefFields = {
+  direction: string
+  wardrobe: string | null
+  camera: string | null
+  takes: string | null
+  sound: string | null
+  hook: string | null
+  caption: string | null
+}
+
+/**
+ * What she posts under it, or nothing.
+ *
+ * Nothing, deliberately, where the format says nothing: the obvious fallback
+ * is the reference's own opening line, and handing her their words as her
+ * caption is both a duplicate of the hook two blocks above it and exactly the
+ * kind of confidently wrong draft these rules exist to avoid.
+ */
+function captionFor(format: string | null): string | null {
+  return (format && CAPTION[format]) || null
+}
+
+/**
+ * Draft one item's brief as discrete fields.
+ *
+ * Same inputs and same rules as `draftBrief`; the difference is only that the
+ * facts arrive separately instead of glued together. Anything this cannot say
+ * comes back null, and her card falls through to the prose blob for it.
+ */
+export function draftFields(input: BriefInput): BriefFields {
+  const faceless = isFaceless(input.standingRules)
+  const shape = SHAPE.find(([tag]) => input.formats.includes(tag))
+  const format = shape?.[0] ?? null
+
+  /** Her own answer for this field, most specific first: the one she set for
+   *  this format, then the one she set for everything. */
+  const hers = (field: OverrideField): string | null => {
+    const held = input.overrides
+    if (!held) return null
+    return (format ? held[overrideKey(format, field)] : undefined)
+      ?? held[overrideKey(ANY_FORMAT, field)]
+      ?? null
+  }
+  const opening = openingOf(input)
+  const hookTag = input.hooks.find((tag) => tag in OPENING) ?? null
+
+  // What is left for the prose: the shape, how it opens, who is in it and how
+  // long it runs. Everything else has become a field of its own.
+  const lines: string[] = []
+  if (shape) lines.push(shape[1])
+  if (hookTag) lines.push(OPENING[hookTag])
+
+  const cast = castLine(input.speakerCount, input.wordCount)
+  if (cast) lines.push(cast)
+
+  const length = lengthLine(input.durationSec)
+  if (length) lines.push(length)
+
+  // Her standing rules are NOT restated here. `PlanView` already renders them
+  // in the ALWAYS block at the top of the page, so appending them to every
+  // card printed "Never show face. No gym content." twice on one screen,
+  // ninety pixels apart — sixty restatements a week across a roster of five.
+  //
+  // `draftBrief` above still pushes that line and must keep doing so: for any
+  // item written before phase 3 the prose blob is the entire brief, and
+  // "draft the empty ones" only replaces a stored direction when it is still
+  // byte-for-byte what `draftBrief` wrote. Change that string and the drafter
+  // stops recognising its own output, stranding every pre-existing item.
+  if (lines.length === 0) {
+    lines.push('Watch the reference and make your own version of it.')
+  }
+
+  const sound = hookTag === 'trending-audio'
+    ? SOUND_TRENDING
+    : (input.wordCount ?? 0) < 4
+      ? SOUND_SILENT
+      : SOUND_DEFAULT
+
+  return {
+    direction: lines.join(' '),
+    wardrobe: hers('wardrobe') ?? ((format && WARDROBE[format]) || WARDROBE_DEFAULT),
+    // The no-face rule is a framing instruction before it is anything else, so
+    // it lands here rather than being said twice in prose.
+    //
+    // It is also the one field an override does NOT win: a standing rule
+    // against being on camera is why this field exists for her at all, and the
+    // cost of getting the precedence wrong is her face in frame. Remove the
+    // standing rule if the override is meant to apply.
+    camera: faceless
+      ? CAMERA_FACELESS
+      : hers('camera') ?? ((format && CAMERA[format]) || CAMERA_DEFAULT),
+    takes: hers('takes') ?? ((format && TAKES[format]) || TAKES_DEFAULT),
+    sound: hers('sound') ?? sound,
+    hook: opening?.quote ?? null,
+    // Still null where neither she nor the table has anything honest to say.
+    caption: hers('caption') ?? captionFor(format),
+  }
+}
+
+/**
+ * The field-form direction exactly as `draftFields` used to write it.
+ *
+ * Between phase 3 and the audit build it appended her standing rules to every
+ * card, which `PlanView` was already rendering in the ALWAYS block ninety
+ * pixels above — the same sentence twice on one screen. That line is gone from
+ * `draftFields`, but every item drafted while it was there still holds it, and
+ * "draft the empty ones" only rewrites a direction it recognises as its own.
+ *
+ * So the drafter has to keep being able to recognise the version it used to
+ * write. This reconstructs it, and nothing else consults it: a direction Geno
+ * has touched by a single character still fails the comparison and stays his.
+ */
+export function legacyFieldsDirection(
+  direction: string,
+  standingRules: string | null,
+): string | null {
+  const rules = standingRules?.trim()
+  if (!rules) return null
+  return `${direction} Your standing rules still apply: ${rules.slice(0, RULE_MAX)}`
+}
+
+/* ============================================================
+   PHASE 4 — where it is filmed, and what the card is called.
+   ============================================================ */
+
+/** Where this shape is usually shot, keyed by format. Only where the format
+ *  actually implies somewhere: guessing "In the kitchen" off a talking head
+ *  would group her whole week under a room she never went into. */
+const LOCATION: Record<string, string> = {
+  gym: 'At the gym',
+  grwm: 'Getting ready',
+  'try-on': 'At the mirror',
+  'fit-check': 'At the mirror',
+  'street-interview': 'Out in public',
+  'day-in-life': 'Across the day',
+  dance: 'Somewhere with space',
+  bts: 'On set',
+  collab: 'Wherever you are both free',
+}
+
+/** What the card is called before anything has been watched. `Video 3` is a
+ *  row number; `GRWM` is a job. */
+export function draftLocation(formats: string[]): string | null {
+  const shape = SHAPE.find(([tag]) => formats.includes(tag))
+  return (shape && LOCATION[shape[0]]) || null
+}
+
+/** The format's own label, which is already written for humans. Passed in
+ *  rather than looked up, so this file keeps having no imports. */
+export function draftTitle(formats: string[], labelFor: (tag: string) => string): string | null {
+  const shape = SHAPE.find(([tag]) => formats.includes(tag))
+  return shape ? labelFor(shape[0]) : null
+}

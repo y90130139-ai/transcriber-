@@ -787,3 +787,45 @@ body {
      beacon both need to stay above it to be seen at all. */
   .status .beacon { background: #45413C; }
 }
+
+/* The shot scaffold in the item reader: the reference's structure, laid out so
+   it can be rebuilt. Tokens only — an undefined var() invalidates the whole
+   property here rather than falling back. */
+.scaffold {
+  margin: var(--sc-space-4) 0;
+  padding: var(--sc-space-4);
+  border: var(--sc-rule-hair);
+}
+
+.scaffold h4 {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+
+.scaffold-why {
+  margin: 0 0 var(--sc-space-2);
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+  color: var(--sc-ink-300);
+}
+
+.scaffold-beats { margin: 0; padding-left: var(--sc-space-4); }
+
+.scaffold-beats li { margin-bottom: var(--sc-space-3); }
+
+.scaffold-beats span { display: block; }
+
+.scaffold-at {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.scaffold-ref { font-style: italic; margin: 2px 0; }
+
+.scaffold-do { font-size: var(--sc-text-xs); line-height: 1.5; color: var(--sc-ink-300); }

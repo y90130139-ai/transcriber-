@@ -5,10 +5,12 @@ import { upload } from '@vercel/blob/client'
 import { ANY_FORMAT, OVERRIDE_FIELDS, type OverrideField } from '@/lib/brief'
 import { DAY_SHORT } from '@/lib/dates'
 import { DECLINE_LABEL, isDeclineCode } from '@/lib/decline'
+import { taxonomy } from '@/lib/taxonomy'
 import {
   DEFAULT_ZONE, REGIONS, displayPlace, isKnownZone, placeFor, timeIn, zoneForPlace,
 } from '@/lib/timezones'
-import { taxonomy, type Axis } from '@/lib/taxonomy'
+import AxisPicker from './AxisPicker'
+import IntakeDrop, { type IntakePick } from './IntakeDrop'
 import type { Model } from './types'
 
 const COPY_RESET_MS = 1600
@@ -33,72 +35,6 @@ type Override = { format: string; field: OverrideField; value: string }
 const DELIVERY_NOTE_DEFAULT =
   'Drop the finished videos in your Drive folder. If it will not open, send them in the Telegram channel.'
 
-/** One axis of the taxonomy, ticked off against a model. Same vocabulary the
- *  library tags videos with, which is the whole point — it is what lets the two
- *  sides find each other. Uncapped: as many as actually apply. */
-function AxisPicker({
-  title,
-  axis,
-  chosen,
-  hint,
-  tone,
-  onChange,
-}: {
-  title: string
-  axis: Axis
-  chosen: string[]
-  hint: string
-  tone?: 'refuse'
-  onChange: (next: string[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const options = taxonomy[axis].tags
-  const toggle = (id: string) =>
-    onChange(chosen.includes(id) ? chosen.filter((tag) => tag !== id) : [...chosen, id])
-
-  return (
-    <div className="axis" data-tone={tone}>
-      <div className="axis-head">
-        <span className="axis-name">{title}</span>
-        <button className="axis-confirm" onClick={() => setOpen((shown) => !shown)}>
-          {open ? 'Done' : chosen.length > 0 ? `Edit · ${chosen.length}` : 'Choose'}
-        </button>
-      </div>
-      <div className="chips">
-        {chosen.map((tag) => (
-          <button
-            key={tag}
-            className="chip"
-            data-origin={tone === 'refuse' ? undefined : 'human'}
-            data-refuse={tone === 'refuse' || undefined}
-            onClick={() => toggle(tag)}
-          >
-            {options.find((option) => option.id === tag)?.label ?? tag}
-          </button>
-        ))}
-        {chosen.length === 0 && !open && <span className="hint">{hint}</span>}
-      </div>
-      {open && (
-        <div className="picker">
-          <div className="picker-grid">
-            {options.map((tag) => (
-              <button
-                key={tag.id}
-                className="picker-option"
-                data-on={chosen.includes(tag.id)}
-                onClick={() => toggle(tag.id)}
-              >
-                <b>{tag.label}</b>
-                <span>{tag.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 const BLANK = {
   name: '',
   handle: '',
@@ -119,6 +55,9 @@ const BLANK = {
   notes: '',
   drive_url: '',
   delivery_note: DELIVERY_NOTE_DEFAULT,
+  // Unknown until somebody has looked at her account, which is not the same
+  // as personal. Only a professional account can ever hand back Insights.
+  ig_account_type: 'unknown' as 'unknown' | 'personal' | 'professional',
 }
 
 /** Add or edit one of our models, and hold the one link she ever gets. */
@@ -154,6 +93,7 @@ export default function ModelSheet({
           // worth preserving.
           drive_url: model.drive_url ?? '',
           delivery_note: model.delivery_note ?? DELIVERY_NOTE_DEFAULT,
+          ig_account_type: model.ig_account_type ?? 'unknown',
         }
       : BLANK,
   )
@@ -166,6 +106,10 @@ export default function ModelSheet({
   const [declines, setDeclines] = useState<{ code: string | null; n: number }[]>([])
   // Her own answers for the brief's fields, in front of the global tables.
   const [defaults, setDefaults] = useState<Override[]>([])
+  // The intake form this sheet was filled from, stamped once the save lands so
+  // a form that was read and then ignored stays distinguishable from one that
+  // actually became her profile.
+  const [fromIntake, setFromIntake] = useState<string | null>(null)
 
   useEffect(() => {
     if (!model) return
@@ -204,6 +148,41 @@ export default function ModelSheet({
       setNote({ text: error instanceof Error ? error.message : 'Upload failed.', bad: true })
     }
     setBusy(false)
+  }
+
+  /**
+   * Fold a read intake form into the sheet.
+   *
+   * Added to what is already here rather than replacing it — a form arrives
+   * after somebody has usually typed something, and losing that is worse than
+   * a duplicate tag. Scalar answers only overwrite when they were ticked, and
+   * a refusal beats a format on the same tag for the reason `match.ts` states:
+   * recommending what she has said no to is the worse error.
+   */
+  function applyIntake(picked: IntakePick) {
+    const union = (held: string[], added: string[]) => [...new Set([...held, ...added])]
+    setForm((current) => {
+      const wontDo = union(current.wont_do, picked.wont_do)
+      const { fields } = picked
+      return {
+        ...current,
+        persona: union(current.persona, picked.persona),
+        formats: union(current.formats, picked.formats).filter((tag) => !wontDo.includes(tag)),
+        hooks: union(current.hooks, picked.hooks),
+        wont_do: wontDo,
+        ...(fields.name ? { name: fields.name } : {}),
+        ...(fields.handle ? { handle: fields.handle } : {}),
+        // The zone rides with the place, never on its own — the clock below
+        // the picker is what proves the right half of a shared name was taken.
+        ...(fields.place ? { place: fields.place, timezone: fields.timezone ?? current.timezone } : {}),
+        ...(fields.filming_days ? { filming_days: fields.filming_days } : {}),
+        ...(fields.weekly_target ? { weekly_target: fields.weekly_target } : {}),
+        ...(fields.ig_account_type ? { ig_account_type: fields.ig_account_type } : {}),
+        ...(fields.drive_url ? { drive_url: fields.drive_url } : {}),
+        ...(fields.standing_rules ? { standing_rules: fields.standing_rules } : {}),
+      }
+    })
+    setFromIntake(picked.intakeId)
   }
 
   async function save(tokenAction?: 'rotate' | 'revoke') {
@@ -250,6 +229,15 @@ export default function ModelSheet({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaults }),
+      }).catch(() => null)
+    }
+
+    // Only now is the form the thing her profile was actually built from.
+    if (id && fromIntake) {
+      await fetch(`/api/models/${id}/intake`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fromIntake }),
       }).catch(() => null)
     }
 
@@ -326,6 +314,43 @@ export default function ModelSheet({
               placeholder="without the @"
             />
           </div>
+
+          {/* Only a professional (Business or Creator) account can ever
+              authorise Insights, which is where views, saves and watch time
+              come from. Asked at intake and answerable today — knowing which
+              of the roster is still on a personal account is what makes the
+              day the Meta app clears an afternoon's work rather than a survey.
+              `unknown` is a real answer and stays the default: nobody has
+              looked is not the same as no. */}
+          <div className="form-row">
+            <span className="axis-name">Her Instagram account</span>
+            <div className="chips" role="group" aria-label="Instagram account type">
+              {([
+                ['unknown', 'Not checked'],
+                ['professional', 'Professional'],
+                ['personal', 'Personal'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  className="chip"
+                  data-on={form.ig_account_type === value}
+                  aria-pressed={form.ig_account_type === value}
+                  onClick={() => set('ig_account_type', value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="hint">
+              {form.ig_account_type === 'professional'
+                ? 'Her numbers are readable once the app is approved — views, saves, watch time.'
+                : form.ig_account_type === 'personal'
+                  ? 'Switch her to a Creator account, or we never see how her posts did.'
+                  : 'Ask her, or look: a professional account shows a category under the handle.'}
+            </span>
+          </div>
+
+          <IntakeDrop modelId={model?.id ?? null} onApply={applyIntake} />
 
           <AxisPicker
             title="Persona"

@@ -23,6 +23,10 @@ export type Model = {
    *  alternative. Null on any row saved before delivery existed. */
   drive_url: string | null
   delivery_note: string | null
+  /** Whether Instagram will ever hand us her numbers: only a professional
+   *  (Business or Creator) account can authorise Insights. `unknown` on every
+   *  row saved before intake asked the question. */
+  ig_account_type: 'unknown' | 'personal' | 'professional'
   access_token: string
   token_revoked_at: string | null
   created_at: string

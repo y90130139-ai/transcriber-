@@ -152,7 +152,11 @@ export const REGIONS: Region[] = [
   { region: 'Rest of the world', places: REST },
 ]
 
-const ALL = REGIONS.flatMap((entry) => entry.places)
+/** Every place the picker offers, flattened. Exported because `intake.ts`
+ *  has to read a place out of a sentence she typed rather than off a select. */
+export const ALL_PLACES: Place[] = REGIONS.flatMap((entry) => entry.places)
+
+const ALL = ALL_PLACES
 
 /** Is this zone one the picker can represent? A model saved before the picker
  *  existed — or by hand — must not have her zone silently rewritten. */

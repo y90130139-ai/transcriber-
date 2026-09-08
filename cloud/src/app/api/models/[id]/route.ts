@@ -81,7 +81,7 @@ export async function PUT(request: Request, { params }: Params) {
             wont_do = $8::text[], status = $9,
             filming_days = $10::int[], weekly_target = $11, timezone = $12,
             standing_rules = $13, notes = $14, tier = $18, place = $19,
-            drive_url = $20, delivery_note = $21,
+            drive_url = $20, delivery_note = $21, ig_account_type = $22,
             access_token = case when $15 then $16 else access_token end,
             token_revoked_at = case when $15 then null
                                     when $17 then now()
@@ -96,7 +96,7 @@ export async function PUT(request: Request, { params }: Params) {
       input.standing_rules, input.notes, rotate, newToken(), revoke,
       // Appended rather than slotted in, for the reason stated above.
       input.tier, input.place,
-      input.drive_url, input.delivery_note,
+      input.drive_url, input.delivery_note, input.ig_account_type,
     ],
   )
   if (!model) return notFound()

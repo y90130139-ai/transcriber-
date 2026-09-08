@@ -76,9 +76,9 @@ export async function POST(request: Request) {
     `insert into transcriber.models
        (id, name, handle, photo_url, persona, formats, hooks, wont_do,
         status, filming_days, weekly_target, timezone, standing_rules, notes,
-        access_token, tier, place, drive_url, delivery_note)
+        access_token, tier, place, drive_url, delivery_note, ig_account_type)
      values ($1,$2,$3,$4,$5::text[],$6::text[],$7::text[],$8::text[],
-             $9,$10::int[],$11,$12,$13,$14,$15,$16,$17,$18,$19)
+             $9,$10::int[],$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      returning ${MODEL_COLUMNS}`,
     [
       newId(), input.name, input.handle, input.photo_url,
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       input.standing_rules, input.notes, newToken(), input.tier, input.place,
       // Appended at the end, the way `tier` and `place` were. The PUT below
       // explains why nothing in either list is ever renumbered.
-      input.drive_url, input.delivery_note,
+      input.drive_url, input.delivery_note, input.ig_account_type,
     ],
   )
   return NextResponse.json({ model })

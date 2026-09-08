@@ -84,7 +84,7 @@ const boundaries = new Map<string, RegExp>()
 
 /** Whole-word matching. Without it `ink` fires on "thinking" and every talking
  *  video in the library gets tagged as a tattooed creator. */
-function mentions(haystack: string, phrase: string): boolean {
+export function mentions(haystack: string, phrase: string): boolean {
   let pattern = boundaries.get(phrase)
   if (!pattern) {
     const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

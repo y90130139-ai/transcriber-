@@ -1301,3 +1301,32 @@ textarea.field { resize: vertical; }
 @media (max-width: 720px) {
   .score { grid-template-columns: 1fr 1fr; padding: var(--sc-space-4); }
 }
+
+/* --------------------------------------------------- HER INTAKE FORM
+   A read form is a proposal, not a finding, so it is laid out as a stack of
+   small groups rather than as filled fields: everything is one tap from off.
+   Inference keeps the dashed ember treatment `.chip[data-origin='auto']`
+   already gives an autotagger's guess — the same distinction, in the same
+   place, meaning the same thing. */
+.intake-proposal {
+  display: grid;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-3);
+  padding-top: var(--sc-space-3);
+  border-top: 1px dotted var(--sc-ink-150);
+}
+.intake-group { display: grid; gap: var(--sc-space-2); }
+.intake-group > .axis-name { margin: 0; }
+.intake-group summary { cursor: pointer; }
+.intake-group summary::-webkit-details-marker { display: none; }
+.intake-group summary::after { content: ' +'; }
+.intake-group[open] summary::after { content: ' –'; }
+
+.intake-unmapped {
+  margin: var(--sc-space-2) 0 0;
+  padding-left: var(--sc-space-4);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+  line-height: var(--sc-leading-body);
+}
+.intake-unmapped b { color: var(--sc-ink-500); font-weight: 500; }

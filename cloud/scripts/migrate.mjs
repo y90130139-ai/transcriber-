@@ -438,6 +438,48 @@ const statements = [
 
   `create index if not exists model_brief_defaults_model_idx
      on transcriber.model_brief_defaults (model_id)`,
+
+  // ------------------------------------------- is her account one we can read
+
+  // Views, saves, watch time and follows-from-post are all readable through
+  // the Insights API — but only for a *professional* (Business or Creator)
+  // account that has authorised our app. Everything the measurement half of
+  // the plan needs turns on this one fact about each model, and it is a fact
+  // nothing in the data can derive: it has to be asked and written down.
+  //
+  // Asked at intake, and answerable long before the Meta app exists — knowing
+  // which five of eighteen are still on a personal account is what makes the
+  // day App Review clears a connect-them-all afternoon instead of a survey.
+  // The token and the IG user id land with that app; this column is the
+  // prerequisite, not the connection.
+  `alter table transcriber.models
+     add column if not exists ig_account_type text not null default 'unknown'
+       check (ig_account_type in ('unknown', 'personal', 'professional'))`,
+
+  // ------------------------------------------------------- her intake form
+
+  // The form she filled in, kept whole beside what was made of it. Onboarding
+  // used to end with somebody re-typing her answers into the sheet; `raw` is
+  // what the mapper read and `parsed` is what it proposed, so a mapping can be
+  // re-run against better rules later without asking her for the form again —
+  // the same reason ./bin/relisten keeps the audio.
+  `create table if not exists transcriber.model_intake (
+     id         text primary key,
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     -- The original document in Blob storage, when one was uploaded. Null when
+     -- the answers were pasted in, which is the path a PDF takes.
+     source_url text,
+     filename   text,
+     raw        text not null,
+     parsed     jsonb not null,
+     -- Stamped when the profile was actually saved from this form, so a form
+     -- that was read and then ignored is distinguishable from one that landed.
+     applied_at timestamptz,
+     created_at timestamptz not null default now()
+   )`,
+
+  `create index if not exists model_intake_model_idx
+     on transcriber.model_intake (model_id, created_at desc)`,
 ]
 
 for (const statement of statements) {

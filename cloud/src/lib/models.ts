@@ -26,7 +26,7 @@ const MAX_DELIVERY_NOTE = 600
 export const MODEL_COLUMNS = `
   id, name, handle, photo_url, persona, formats, hooks, wont_do,
   status, tier, filming_days, weekly_target, timezone, place, standing_rules, notes,
-  drive_url, delivery_note,
+  drive_url, delivery_note, ig_account_type,
   access_token, token_revoked_at, created_at
 `
 
@@ -60,6 +60,11 @@ export type ModelInput = {
    *  a plan, and a model with neither renders no delivery block at all. */
   drive_url: string | null
   delivery_note: string | null
+  /** Whether Instagram will ever hand us her numbers. Only a professional
+   *  (Business or Creator) account can authorise Insights, so this is the
+   *  gate on views, saves and watch time for her — asked at intake, and
+   *  `unknown` until somebody has actually checked rather than assumed. */
+  ig_account_type: 'unknown' | 'personal' | 'professional'
 }
 
 const text = (value: unknown, limit: number): string | null => {
@@ -134,6 +139,10 @@ export function readModelInput(body: Record<string, unknown>): ModelInput | { er
     notes: text(body.notes, MAX_TEXT),
     drive_url: httpUrl(body.drive_url, 2000),
     delivery_note: text(body.delivery_note, MAX_DELIVERY_NOTE),
+    ig_account_type:
+      body.ig_account_type === 'professional' || body.ig_account_type === 'personal'
+        ? body.ig_account_type
+        : 'unknown',
   }
 }
 

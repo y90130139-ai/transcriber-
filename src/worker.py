@@ -69,6 +69,10 @@ class Cloud:
     def report_r2(self, payload: dict) -> None:
         self._quietly("/api/worker/r2", payload)
 
+    def reconcile_r2(self, payload: dict) -> dict:
+        """Hand the app a full bucket listing and get back what it made of it."""
+        return self.post("/api/worker/r2/reconcile", payload)
+
     def progress(self, job_id: str, stage: str) -> None:
         self._quietly("/api/worker/progress", {"id": job_id, "stage": stage})
 
@@ -227,6 +231,65 @@ def run_job(cloud: Cloud, job: dict, options: pipeline.Options, user_config: dic
 
 _warned_no_r2 = False
 
+# How often the bucket is checked against the app's ledger. Rare on purpose:
+# nothing here is urgent, one sweep is a handful of requests, and the cost of
+# an orphan sitting for another six hours is nothing at all.
+RECONCILE_EVERY_SEC = 6 * 60 * 60
+# None rather than 0.0: `time.monotonic()` counts from boot, so a zero here
+# means the first sweep lands immediately on a Mac that has been up a while and
+# six hours late on one that just started. Sweeping once at worker start is the
+# behaviour worth having, so it is stated rather than inherited from uptime.
+_last_reconcile: float | None = None
+
+
+def run_r2_reconcile(cloud: Cloud, bucket: r2.Bucket | None) -> None:
+    """Check what the bucket actually holds against what the app thinks.
+
+    The app's orphan list is only ever as complete as its own delete routes.
+    Anything that removed a row another way — a cascade, a hand-run DELETE, a
+    bug — leaves an object nothing will ever ask about again, and R2 bills for
+    it forever. This is the sweep that finds those, and the reverse: rows
+    claiming an object the bucket does not have, which is what a creator sees
+    as a card marked ready with a dead player.
+
+    Listing is the Mac's job for the same reason uploading is — this is the
+    only side holding credentials that can. It does not delete anything: the
+    strays go onto the same `r2_trash` list the delete routes use and are
+    reclaimed by the same batched path on a later poll.
+    """
+    global _last_reconcile
+    if bucket is None:
+        return
+    now = time.monotonic()
+    if _last_reconcile is not None and now - _last_reconcile < RECONCILE_EVERY_SEC:
+        return
+    _last_reconcile = now
+
+    try:
+        stored = r2.list_keys(bucket)
+    except r2.R2Error as exc:
+        print(f"    R2 listing failed: {exc}")
+        return
+    # None means the listing ran past its page ceiling and is not the whole
+    # bucket. The app answers a listing with deletions, so a partial one is
+    # never sent — it is simply skipped until next time.
+    if stored is None:
+        print("    R2 listing did not finish — skipping this reconcile.")
+        return
+
+    try:
+        result = cloud.reconcile_r2({
+            "complete": True,
+            "objects": [{"key": item.key, "modified": item.modified} for item in stored],
+        })
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        print(f"    R2 reconcile could not reach the app ({exc})")
+        return
+
+    queued = int(result.get("queued") or 0)
+    requeued = int(result.get("requeued") or 0)
+    print(f"    R2 reconcile: {len(stored)} objects · {queued} orphaned · {requeued} missing")
+
 
 def run_r2_errands(cloud: Cloud, bucket: r2.Bucket | None, work: dict) -> bool:
     """Move plan videos into R2, and reclaim the ones whose week has closed.
@@ -360,6 +423,8 @@ def serve(*, model: str = "best") -> None:
             # Plan videos ride along on the same poll — this Mac holds both the
             # files and the R2 credentials, so it is the only side that can.
             moved = run_r2_errands(cloud, bucket, work)
+            # And every six hours, what the bucket holds that no row claims.
+            run_r2_reconcile(cloud, bucket)
 
             if not jobs:
                 if not moved and idle_notice:

@@ -140,6 +140,26 @@ A reclaimed item is stamped `r2_purged_at` rather than merely blanked. Without
 the stamp the very next poll would queue it for re-upload and retention would
 loop forever.
 
+**And every six hours, the bucket is checked against the ledger.** `r2_trash`
+is only ever as complete as the delete routes that fill it — anything that
+removed a row another way leaves an object nothing will ever ask about again,
+and R2 bills for it forever. So the Mac lists the bucket (it is the only side
+with credentials that can) and posts the listing to
+`/api/worker/r2/reconcile`, which answers in both directions:
+
+- an object no row and no trash entry claims goes onto `r2_trash`, to be
+  reclaimed by the same batched path everything else uses — there is exactly
+  one way an object leaves R2;
+- a row claiming an object the bucket does not have is set back to
+  un-uploaded, so `pendingUploads` sends it again. That is the hole a creator
+  actually sees: a card marked ready with a dead player.
+
+Two guards, both load-bearing. Anything touched in the last hour is left alone
+in both directions, because the Mac uploads and *then* reports and either race
+read literally deletes a live video. And a listing that did not finish is never
+sent at all — the app answers a listing with deletions, so half a bucket
+presented as a whole one is a request to delete the other half.
+
 ### Setting it up
 
 R2 is optional, and its absence is a normal state rather than an error: the plan
@@ -176,7 +196,8 @@ transcriber.plan_items  points at a jobs row, so the Instagram link, transcript,
                         tags, engagement and video are inherited, never copied
                         + notes, editing_notes, filmed_at, model_note
                         + r2_key, r2_bytes, uploaded_at, r2_purged_at
-transcriber.r2_trash    keys whose row is gone, waiting on the Mac
+transcriber.r2_trash    keys whose row is gone, waiting on the Mac — filled by
+                        the delete routes and by the six-hourly reconcile
 ```
 
 ```bash

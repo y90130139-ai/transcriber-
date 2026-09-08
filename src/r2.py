@@ -16,6 +16,9 @@ in `ps` output.
 from __future__ import annotations
 
 import subprocess
+import tempfile
+import urllib.parse
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +27,16 @@ from . import config
 # Generous: a 10 MB clip over a slow uplink, not a hung socket forever.
 UPLOAD_TIMEOUT_SEC = 300.0
 DELETE_TIMEOUT_SEC = 60.0
+LIST_TIMEOUT_SEC = 60.0
 SIGV4 = "aws:amz:auto:s3"
+
+# One page of a bucket listing, and the most pages one sweep will walk. Ten
+# thousand objects is far more than this bucket will ever hold; the ceiling is
+# there so a paging bug cannot spin forever.
+LIST_PAGE = 1000
+LIST_MAX_PAGES = 10
+
+S3_NS = "{http://s3.amazonaws.com/doc/2006-03-01/}"
 
 
 class R2Error(RuntimeError):
@@ -64,11 +76,20 @@ def from_config(user_config: dict) -> Bucket | None:
     return Bucket(account, key_id, secret, bucket)
 
 
-def _curl(bucket: Bucket, url: str, *options: str, timeout: float) -> int:
+def _curl(
+    bucket: Bucket,
+    url: str,
+    *options: str,
+    timeout: float,
+    out: Path | None = None,
+) -> int:
     """Run one signed request, returning its HTTP status code.
 
     Every option lives in the config file on stdin so that nothing sensitive is
     visible to another process on this machine.
+
+    `out` is where the response body goes. Uploads and deletes want it thrown
+    away; a listing is the one request whose answer is the body.
     """
     lines = [
         f'--aws-sigv4 "{SIGV4}"',
@@ -77,7 +98,7 @@ def _curl(bucket: Bucket, url: str, *options: str, timeout: float) -> int:
         "--silent",
         "--show-error",
         "--location",
-        "--output /dev/null",
+        f'--output "{out}"' if out else "--output /dev/null",
         '--write-out "%{http_code}"',
         f'--url "{url}"',
     ]
@@ -127,6 +148,63 @@ def delete(bucket: Bucket, key: str) -> None:
     )
     if status not in (200, 202, 204, 404):
         raise R2Error(f"R2 answered {status} deleting {key}")
+
+
+@dataclass(frozen=True)
+class Stored:
+    """One object as the bucket describes it."""
+
+    key: str
+    modified: str
+    size: int
+
+
+def list_keys(bucket: Bucket, prefix: str = "plans/") -> list[Stored] | None:
+    """Every object under `prefix`, or None if the listing could not be finished.
+
+    None rather than a short list, on purpose. The app reads a listing as the
+    whole truth about the bucket and answers with deletions, so half a listing
+    presented as a whole one is a request to delete the other half. Any failure
+    — a refused request, unparseable XML, more pages than the ceiling allows —
+    comes back as None and the sweep is simply skipped until next time.
+    """
+    found: list[Stored] = []
+    token: str | None = None
+
+    for _ in range(LIST_MAX_PAGES):
+        query = {"list-type": "2", "prefix": prefix, "max-keys": str(LIST_PAGE)}
+        if token:
+            query["continuation-token"] = token
+        url = f"{bucket.endpoint}/{bucket.name}?{urllib.parse.urlencode(query)}"
+
+        with tempfile.NamedTemporaryFile(suffix=".xml") as body:
+            status = _curl(bucket, url, timeout=LIST_TIMEOUT_SEC, out=Path(body.name))
+            if status != 200:
+                raise R2Error(f"R2 answered {status} listing {prefix}")
+            try:
+                root = ElementTree.parse(body.name).getroot()
+            except ElementTree.ParseError as exc:
+                raise R2Error(f"unreadable listing: {exc}") from exc
+
+        for entry in root.findall(f"{S3_NS}Contents"):
+            key = entry.findtext(f"{S3_NS}Key") or ""
+            if not key:
+                continue
+            found.append(Stored(
+                key=key,
+                modified=entry.findtext(f"{S3_NS}LastModified") or "",
+                size=int(entry.findtext(f"{S3_NS}Size") or 0),
+            ))
+
+        if (root.findtext(f"{S3_NS}IsTruncated") or "").lower() != "true":
+            return found
+        token = root.findtext(f"{S3_NS}NextContinuationToken")
+        if not token:
+            return found
+
+    # More pages than the ceiling. Not an error worth raising — just not a
+    # listing anything is allowed to act on.
+    return None
 
 
 VIDEO_NAMES = ("source.mp4", "source.mov", "source.m4v", "source.webm")

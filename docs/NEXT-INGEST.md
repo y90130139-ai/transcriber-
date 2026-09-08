@@ -130,3 +130,45 @@ is realistic and removes most of the manual work he described.
 Build cost is real: recent sessions ran $114, $160, $211, and 2026-09-08 hit ~$30
 on research alone. Budget the build, and per [[cost-guard-preference]] hand off
 to a fresh session rather than pushing through a guard.
+
+---
+
+## Addendum — the one idea from the Amor Content Vault teardown (2026-09-08)
+
+Source: `~/Desktop/AmorContentVaultTeardown.md`, a gosian teardown of
+amorcontentvault.com. Its own sections 8-9 already do the comparison correctly
+and the conclusion is right: **do not rebuild Amor.** Almost everything it
+flags as a defect is already solved better here.
+
+**Verified already handled in this build — do not "add" these:**
+- Its P0 (indexable private site) is a non-issue here. Checked live
+  2026-09-08: the app emits a global `<meta name="robots" content="noindex">`
+  and `cloud/src/app/p/[token]/layout.tsx:7` sets
+  `robots: { index: false, follow: false, nocache: true }` on the creator
+  portal specifically. No robots.txt, but the meta tag does the job.
+- Shared email+password → we use revocable per-creator tokens with no login.
+- Saves trapped in `localStorage` → we have server-side per-item state.
+- No feedback loop → we have two-way per-card threads, verdicts, filmed marks.
+- Hotlinked thumbnails that rot → we mirror posters and R2 the plan videos.
+
+**The gold, and it is one thing.** Amor lets the creator *browse* the reference
+library herself and heart what she likes — then writes those hearts to
+`localStorage` and throws them away. For us a heart is not a bookmark, it is a
+**labelled positive from the person the recommendation is for.** That is exactly
+the signal `match.ts` has no source of today: FIT is computed from tag overlap
+and engagement, with nothing from the model herself. A
+`/p/<token>/library` route filtered to her persona, with saves written
+server-side, turns her browsing into training data for the suggestion rail.
+
+Sizing: smaller than it sounds. `plans.ts` is already the isolation boundary,
+the token is already her identity, persona tags and `match.ts` already exist.
+Roughly one session plus a saves table.
+
+**Also worth taking, both trivial:** sort the niche/filter nav by item count
+descending (zero curation overhead), and the *tone* — "invitation only" reads
+better to talent than "your assignments".
+
+> **Sequencing warning.** This does **not** advance Geno's stated goal. He asked
+> to stop doing manual work; a self-serve library adds a surface for *her* and
+> removes nothing from *him*. It is genuinely good and it is not Track A or
+> Track B. If the weekend deadline is real, this waits until ingest is solved.

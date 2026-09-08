@@ -16,9 +16,10 @@
  *      which is the entire reason that item came first. A batch builder without
  *      it hands the same reel to every creator in one click.
  */
-import { currentWeekOf } from './dates'
+import { addDays, currentWeekOf } from './dates'
 import { sql } from './db'
 import { suggestionsFor } from './match'
+import { appendItems, newId } from './models'
 
 /** How deep into a model's ranked suggestions to look for something nobody
  *  else in this batch has taken. Three times what she needs is enough of a
@@ -154,4 +155,76 @@ export async function previewBatch(weekOf?: string): Promise<Batch> {
   }
 
   return { weekOf: week, rows }
+}
+
+
+/** The last day of the week a plan belongs to — the same offset a week opened
+ *  by hand gets. */
+const DUE_OFFSET_DAYS = 6
+
+/** Ceilings on one pass, so nothing can ask for the whole library. */
+const MAX_MODELS = 60
+const MAX_PER_MODEL = 60
+
+export type BatchWriteResult = {
+  weekOf: string
+  opened: number
+  added: number
+  built: { model_id: string; plan_id: string; added: number }[]
+}
+
+/**
+ * Write drafts for a set of {model_id, job_ids} picks.
+ *
+ * Lifted out of `POST /api/plans/batch` so the console and the scheduler write
+ * through exactly one path — a second copy of this loop would drift, and the
+ * thing it would drift on is whether a week can be sent, which must stay
+ * impossible.
+ *
+ * **Every week this opens is a draft.** There is deliberately no parameter
+ * that could send one. A draft is invisible to the model until a human marks
+ * it sent, and that is the property that makes unattended drafting safe.
+ */
+export async function writeBatch(weekOf: string, offered: unknown[]): Promise<BatchWriteResult> {
+  let opened = 0
+  let added = 0
+  const built: { model_id: string; plan_id: string; added: number }[] = []
+
+  for (const entry of offered.slice(0, MAX_MODELS)) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const row = entry as Record<string, unknown>
+    const modelId = typeof row.model_id === 'string' ? row.model_id : ''
+    const jobIds = Array.isArray(row.job_ids)
+      ? row.job_ids
+          .filter((jobId: unknown): jobId is string => typeof jobId === 'string' && jobId.length > 0)
+          .slice(0, MAX_PER_MODEL)
+      : []
+    if (!modelId || jobIds.length === 0) continue
+
+    // Active only, and proven to exist, before anything is created for it.
+    const [model] = await sql.query(
+      `select id from transcriber.models where id = $1 and status = 'active'`,
+      [modelId],
+    )
+    if (!model) continue
+
+    // Create-or-get, exactly as opening a week by hand does. `do update` keeps
+    // an existing week — a batch tops a week up, it never replaces one.
+    const [plan] = await sql.query(
+      `insert into transcriber.plans (id, model_id, week_of, due_date)
+       values ($1, $2, $3::date, $4::date)
+       on conflict (model_id, week_of) do update set updated_at = now()
+       returning id, (xmax = 0) as created`,
+      [newId(), modelId, weekOf, addDays(weekOf, DUE_OFFSET_DAYS)],
+    )
+    if (plan.created) opened += 1
+
+    // Drafts the brief on the way in, and the unique index makes a reel that
+    // is already on her week a no-op rather than a second card.
+    const wrote = await appendItems(String(plan.id), modelId, jobIds)
+    added += wrote
+    built.push({ model_id: modelId, plan_id: String(plan.id), added: wrote })
+  }
+
+  return { weekOf, opened, added, built }
 }

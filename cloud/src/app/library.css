@@ -252,7 +252,21 @@
   border-radius: var(--sc-radius);
 }
 
+/* Pinned to the corner rather than carried by the head.
+ *
+ * The head scrolls away now, and a close button that scrolls away with it
+ * leaves a phone with no way out of the panel at all — there is no Escape key
+ * there, and at this width the panel covers the scrim that would otherwise
+ * dismiss it. Fixed rather than sticky because a sticky child cannot outlive
+ * the box it is written in, which is the head. The panel is flush right, so
+ * this lands exactly where it was already drawn. */
 .reader-close {
+  position: fixed;
+  top: var(--sc-space-6);
+  /* Clear of the panel's own scrollbar where the platform draws a solid one.
+     macOS and iOS overlay theirs and this is simply an inset. */
+  right: var(--sc-space-8);
+  z-index: 60;
   justify-self: end;
   background: none;
   border: 0;

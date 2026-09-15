@@ -456,6 +456,41 @@ const statements = [
      add column if not exists ig_account_type text not null default 'unknown'
        check (ig_account_type in ('unknown', 'personal', 'professional'))`,
 
+  // ------------------------------------------------------ where she is online
+
+  // Every account of hers we might open, in one place, so reviewing her
+  // content is a tap rather than a search. A jsonb array rather than a table:
+  // it is read whole, written whole, and never queried across models, which is
+  // the same reasoning `plan_messages` did NOT qualify for.
+  //
+  // `handle` is kept beside `url` on purpose. The URL is what a tap opens; the
+  // handle is what gets typed into a search box when a link rots, and rebuilding
+  // one from the other guesses wrong on every platform that allows a vanity
+  // path. Shape: [{ platform, handle, url }].
+  `alter table transcriber.models
+     add column if not exists socials jsonb not null default '[]'::jsonb`,
+
+  // Her reach, per account, as a series rather than a number.
+  //
+  // A single `followers` column would answer "how big is she" and nothing else.
+  // The question worth asking is whether the weeks we plan are moving her, and
+  // that needs two readings and a date between them. Source is stamped because
+  // a figure somebody typed off a phone and a figure Instagram handed back are
+  // not the same evidence, and the day App Review clears we want to be able to
+  // tell which rows were which.
+  `create table if not exists transcriber.model_followers (
+     id        text primary key,
+     model_id  text not null references transcriber.models(id) on delete cascade,
+     platform  text not null,
+     followers bigint not null check (followers >= 0),
+     source    text not null default 'manual'
+       check (source in ('manual', 'insights')),
+     taken_at  timestamptz not null default now()
+   )`,
+
+  `create index if not exists model_followers_idx
+     on transcriber.model_followers (model_id, platform, taken_at desc)`,
+
   // ------------------------------------------------------- her intake form
 
   // The form she filled in, kept whole beside what was made of it. Onboarding

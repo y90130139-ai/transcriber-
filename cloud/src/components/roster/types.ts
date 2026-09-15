@@ -1,4 +1,5 @@
 /** Shapes shared by the console's model portal screens. */
+import type { Social } from '@/lib/socials'
 
 export type Model = {
   id: string
@@ -27,6 +28,10 @@ export type Model = {
    *  (Business or Creator) account can authorise Insights. `unknown` on every
    *  row saved before intake asked the question. */
   ig_account_type: 'unknown' | 'personal' | 'professional'
+  /** Every account of hers worth opening, in the order the buttons render.
+   *  Empty on any row saved before the column existed — her `handle` still
+   *  renders an Instagram button, see `withImpliedInstagram`. */
+  socials: Social[]
   access_token: string
   token_revoked_at: string | null
   created_at: string

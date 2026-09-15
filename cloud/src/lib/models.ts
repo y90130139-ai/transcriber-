@@ -9,6 +9,7 @@ import {
 import type { OnScreenCaption } from './autotag'
 import { sql } from './db'
 import { isDateString, mondayOf } from './dates'
+import { readSocials, type Social } from './socials'
 import { isValidTag, labelOf } from './taxonomy'
 import { isKnownPlace } from './timezones'
 
@@ -26,7 +27,7 @@ const MAX_DELIVERY_NOTE = 600
 export const MODEL_COLUMNS = `
   id, name, handle, photo_url, persona, formats, hooks, wont_do,
   status, tier, filming_days, weekly_target, timezone, place, standing_rules, notes,
-  drive_url, delivery_note, ig_account_type,
+  drive_url, delivery_note, ig_account_type, socials,
   access_token, token_revoked_at, created_at
 `
 
@@ -65,6 +66,9 @@ export type ModelInput = {
    *  gate on views, saves and watch time for her — asked at intake, and
    *  `unknown` until somebody has actually checked rather than assumed. */
   ig_account_type: 'unknown' | 'personal' | 'professional'
+  /** Every account of hers worth opening. Ordered — the order is the order the
+   *  buttons render in, and it is stated rather than sorted. */
+  socials: Social[]
 }
 
 const text = (value: unknown, limit: number): string | null => {
@@ -143,6 +147,11 @@ export function readModelInput(body: Record<string, unknown>): ModelInput | { er
       body.ig_account_type === 'professional' || body.ig_account_type === 'personal'
         ? body.ig_account_type
         : 'unknown',
+    // Rows that will not parse are dropped rather than stored, the same way a
+    // non-http Drive URL is: a button that opens nothing is worse on a phone
+    // than no button, because there is no way to tell the two apart until it
+    // has already cost a tap.
+    socials: readSocials(body.socials),
   }
 }
 

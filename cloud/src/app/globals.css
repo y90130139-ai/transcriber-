@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './library.css';
+@import './profile.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -435,9 +436,29 @@ body {
 }
 @keyframes fade { from { opacity: 0; } }
 
+/* The panel is the scroll container, not a frame around one.
+ *
+ * It used to be a flex column with a fixed head and `.reader-body` as the only
+ * scroller, and that produced the bug Geno reported on every panel in the app:
+ * the black head is the biggest thing on a phone screen and the most natural
+ * place to put a thumb, and dragging it did nothing — the gesture found no
+ * scroller under it, chained out to the page behind, and scrolled that instead.
+ * The panel sat still while the background moved, which reads exactly as "it
+ * will not let me scroll past the thing at the top".
+ *
+ * Making the panel itself the scroller fixes it because the head is now a child
+ * of a scrollable box: a drag anywhere in the panel, head included, moves the
+ * panel. `overscroll-behavior: contain` stops the gesture leaking to the page
+ * even at the ends of the scroll.
+ *
+ * `100dvh` rather than `bottom: 0`: on iOS a fixed element is laid out against
+ * the large viewport, so `bottom: 0` put the last ~90px of every panel behind
+ * Safari's toolbar — which is the other half of "I cannot see what is
+ * underneath". The dynamic unit tracks the toolbar. */
 .reader {
   position: fixed;
-  top: 0; right: 0; bottom: 0;
+  top: 0; right: 0;
+  height: 100dvh;
   z-index: 50;
   width: min(660px, 100vw);
   background: var(--sc-bone-light);
@@ -445,6 +466,8 @@ body {
   display: flex;
   flex-direction: column;
   animation: slide var(--sc-dur) var(--sc-ease);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
 
@@ -454,6 +477,10 @@ body {
   padding: var(--sc-space-6);
   display: grid;
   gap: var(--sc-space-2);
+  /* Scrolls away with everything else, the way a profile header does. What
+     replaces it is the copybar below, which pins in its place. Close does not
+     go with it — see `.reader-close`. */
+  flex: 0 0 auto;
 }
 .reader-head h3 {
   margin: 0;
@@ -487,18 +514,24 @@ body {
 .copybar {
   display: flex;
   gap: var(--sc-space-2);
-  padding: var(--sc-space-4) var(--sc-space-6);
+  /* Clears the close button, which is pinned to the same corner. */
+  padding: var(--sc-space-4) calc(var(--sc-space-6) + 4.5rem)
+           var(--sc-space-4) var(--sc-space-6);
   border-bottom: var(--sc-rule-hair);
   flex-wrap: wrap;
   background: var(--sc-bone);
   position: sticky;
   top: 0;
+  z-index: 2;
 }
 
 .reader-body {
-  overflow-y: auto;
-  padding: var(--sc-space-6) var(--sc-space-6) var(--sc-space-24);
-  flex: 1;
+  /* Not a scroller any more — `.reader` is. Left as one, the panel had two
+     nested scroll regions and a drag near their boundary picked whichever the
+     browser felt like. */
+  padding: var(--sc-space-6) var(--sc-space-6)
+           calc(var(--sc-space-24) + env(safe-area-inset-bottom));
+  flex: 0 0 auto;
 }
 
 .caption {
@@ -623,7 +656,16 @@ body {
 .console .planrow img,
 .console .suggestrow img { border-radius: var(--r-sm); }
 
-.console .reader { border-radius: var(--r) 0 0 var(--r); overflow: hidden; }
+/* `overflow: hidden` here is what clipped the rounded edge — and, once the
+   panel itself became the scroller, what stopped it scrolling at all. This rule
+   is more specific than `.reader`, so it won silently and the symptom was
+   exactly the bug the change was meant to fix. Clip the axis that needs
+   clipping; leave the one that has to scroll. */
+.console .reader {
+  border-radius: var(--r) 0 0 var(--r);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .console .reader-head { border-radius: 0; }
 .console .card-tag,
 .console .card-flame,
@@ -662,7 +704,12 @@ body {
   .console .planrow-tools .chip { min-width: 44px; }
   .console .daypicker .chip { min-width: 3rem; }
   .console .reader-body { padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-24); }
-  .console .copybar { padding: var(--sc-space-3) var(--sc-space-4); }
+  /* Right padding still clears the pinned close button — see `.copybar`. */
+  .console .copybar {
+    padding: var(--sc-space-3) calc(var(--sc-space-4) + 4.5rem)
+             var(--sc-space-3) var(--sc-space-4);
+  }
+  .console .reader-close { top: var(--sc-space-4); right: var(--sc-space-5); }
   .console .reader-head { padding: var(--sc-space-4); }
   .console .section-head { padding-top: var(--sc-space-8); }
 

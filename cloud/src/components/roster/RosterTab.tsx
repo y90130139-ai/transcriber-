@@ -1,17 +1,49 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import ModelSheet from './ModelSheet'
+import ModelProfile from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
 import SweepFlags from './SweepFlags'
 import { formatDate } from '@/lib/dates'
+import { displayHandle, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
 import { labelOf } from '@/lib/taxonomy'
 import type { RosterModel } from './types'
 import type { Sweep, SweepRow } from '@/lib/sweep'
 
 /** Our own people — as opposed to the Creators tab, which is the Instagram
  *  accounts we research. Different entity, different table, different tab. */
+/** Every account of hers, as tap targets on the card.
+ *
+ *  Capped: a card is a card, and a model on nine platforms would push her
+ *  figures off the bottom of it. The rest are one tap away in the sheet. */
+function CardLinks({ model }: { model: RosterModel }) {
+  const links = withImpliedInstagram(model.socials ?? [], model.handle)
+  if (links.length === 0) return null
+  return (
+    <span className="card-links">
+      {links.slice(0, CARD_LINKS).map((link) => (
+        <a
+          key={link.url}
+          className="card-link"
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={displayHandle(link)}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {shortOfPlatform(link.platform)}
+        </a>
+      ))}
+      {links.length > CARD_LINKS && (
+        <span className="card-link" aria-hidden="true">+{links.length - CARD_LINKS}</span>
+      )}
+    </span>
+  )
+}
+
+const CARD_LINKS = 5
+
 /** A tier is a heading here, not a badge. The roster's whole job is to answer
  *  "who needs me" and bespoke people need answering first. */
 const TIERS: { key: 'A' | 'B' | 'C'; label: string }[] = [
@@ -159,6 +191,12 @@ export default function RosterTab({
                 {model.status === 'paused' && ' · paused'}
               </span>
 
+              {/* Her accounts, on the grid. The common case — open her
+                  Instagram and look at what she posted — should not need the
+                  profile opened at all, which is the whole point of the ask.
+                  `stopPropagation` because the card behind opens the sheet. */}
+              <CardLinks model={model} />
+
               {/* Why she is red, not just that she is. A count alone reads the
                   same whether the week was never sent or she is filming it. */}
               <SweepFlags row={sweepFor(model.id)} />
@@ -178,7 +216,7 @@ export default function RosterTab({
       )))}
 
       {editing && (
-        <ModelSheet
+        <ModelProfile
           model={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); void load() }}

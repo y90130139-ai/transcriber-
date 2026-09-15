@@ -1,0 +1,569 @@
+/* ============================================================
+   THE MODEL PROFILE — a page about a person, not a form about a row.
+
+   The side panel this replaces was a stack of twenty labelled fields. It held
+   everything and said nothing: you could not look at it and know who she was,
+   which accounts she ran, or whether last week moved her. This is the same data
+   arranged the way a profile is arranged anywhere — a cover, a face over it,
+   the name at display size, and every account of hers as a button you can
+   actually hit.
+
+   Shared with the slide-out panels: chips, fields, axis pickers, the hint
+   idiom. Not shared: the scroll shell. This one owns its own, because a modal
+   centred in the viewport and a panel pinned to the right edge want different
+   answers at the top and the bottom.
+   ============================================================ */
+
+:root { --sheet-topbar-h: 56px; }
+
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(10, 10, 10, 0.62);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  animation: fade var(--sc-dur) var(--sc-ease);
+}
+
+/* One scroll region, and the whole thing is it — so a drag anywhere, the cover
+   included, moves the sheet. That is the bug this build exists to end. */
+.sheet {
+  position: fixed;
+  z-index: 50;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(880px, 100% - var(--sc-space-8));
+  max-height: min(92dvh, 1040px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-lock);
+  animation: rise var(--sc-dur) var(--sc-ease);
+}
+@keyframes rise {
+  from { transform: translate(-50%, calc(-50% + 18px)); opacity: 0; }
+}
+
+/* ------------------------------------------------------------ THE COVER */
+
+/* An ink band with her name on it at display size. The scale jump from this to
+   the mono labels below is what gives the sheet a hierarchy the old panel had
+   none of — everything there was set at the same weight. */
+.sheet-cover {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  padding: var(--sc-space-2) var(--sc-space-8) var(--sc-space-8);
+  display: grid;
+  gap: var(--sc-space-2);
+}
+.sheet-kicker {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-light);
+}
+.sheet-cover h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.9;
+  font-size: var(--sc-text-3xl);
+  color: var(--sc-bone);
+  overflow-wrap: anywhere;
+}
+
+/* Its own strip, pinned, above the cover.
+   Inside the cover it was a grid child and stretched to the full column; as a
+   floated child it could not stay pinned once the cover scrolled away, and a
+   sheet on a phone with no visible close and no Escape key is a trap. The strip
+   is the same ink as the cover, so at the top of the scroll the two read as one
+   band and only separate once you move. */
+.sheet-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* A stated height, because the tabs below pin underneath it and there is no
+     CSS way to ask how tall a sticky sibling ended up. It holds one button, so
+     the height is knowable rather than guessed. */
+  height: var(--sheet-topbar-h);
+  padding: 0 var(--sc-space-3);
+  background: var(--sc-ink-900);
+}
+.sheet-close {
+  background: none;
+  border: 1px solid #45413C;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  min-height: 40px;
+}
+.sheet-close:hover { color: var(--sc-ember-light); border-color: var(--sc-ember-light); }
+
+/* ------------------------------------------------------- FACE AND NAME */
+
+/* The face overlaps the band it sits on. That overlap is the only depth in the
+   sheet and it is doing real work: it ties the ink header to the bone body so
+   the two read as one object rather than as two stacked strips. */
+.sheet-id {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sc-space-4) var(--sc-space-5);
+  align-items: end;
+  padding: 0 var(--sc-space-8) var(--sc-space-5);
+  margin-top: calc(-1 * var(--sc-space-8));
+}
+.sheet-avatar {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  overflow: hidden;
+  background: var(--sc-ink-700);
+  border: 3px solid var(--sc-bone-light);
+  display: block;
+  padding: 0;
+  cursor: pointer;
+}
+.sheet-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sheet-avatar:hover img { opacity: 0.72; }
+.sheet-avatar-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-bone);
+  padding: var(--sc-space-2);
+  text-align: center;
+}
+/* Only over the photo, only on hover — a permanent "replace" label on a face
+   reads as a broken image. */
+.sheet-avatar-swap {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: rgba(10, 10, 10, 0.78);
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  padding: var(--sc-space-1) 0;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sheet-avatar:hover .sheet-avatar-swap,
+.sheet-avatar:focus-visible .sheet-avatar-swap { opacity: 1; }
+
+.sheet-names { display: grid; gap: var(--sc-space-1); padding-bottom: var(--sc-space-2); min-width: 0; }
+.sheet-names span {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+.sheet-flags { display: flex; flex-wrap: wrap; gap: var(--sc-space-1); margin-top: var(--sc-space-1); }
+.sheet-flags span {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  border: 1px solid var(--sc-ink-900);
+  padding: 0.1rem 0.35rem;
+  color: var(--sc-ink-900);
+}
+.sheet-flags span[data-tone='paused'] { border-color: var(--sc-caution); color: var(--sc-caution); }
+.sheet-flags span[data-tone='quiet'] { border-color: var(--sc-ink-150); color: var(--sc-ink-300); border-style: dashed; }
+
+/* ------------------------------------------------------- HER ACCOUNTS */
+
+/* The reason this screen was asked for. Every account of hers, as a button,
+   one tap from a content review. Told apart by a mono abbreviation rather than
+   by brand colour: the house palette is bone, ink and ember, and a row of
+   platform logos would put blue back on the page.
+
+   `flex-wrap` rather than a scroller — a hidden account is an account nobody
+   reviews, and there are never more than a dozen. */
+.sheet-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  padding: 0 var(--sc-space-8) var(--sc-space-5);
+}
+.sheet-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  border: 1px solid var(--sc-ink-900);
+  background: none;
+  color: var(--sc-ink-900);
+  text-decoration: none;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  min-height: 40px;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease),
+              color var(--sc-dur-fast) var(--sc-ease),
+              transform var(--sc-dur-fast) var(--sc-ease);
+}
+.sheet-link:hover,
+.sheet-link:focus-visible {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  transform: translateY(-1px);
+}
+.sheet-link b {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: var(--sc-track-label);
+  border-right: 1px solid currentColor;
+  padding-right: var(--sc-space-2);
+  opacity: 0.75;
+}
+.sheet-link span {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Open-them-all. Deliberately last and deliberately quiet: it is a power move,
+   not the default, and browsers will block it unless the tap is trusted. */
+.sheet-link[data-all='true'] {
+  border-style: dashed;
+  border-color: var(--sc-ember-deep);
+  color: var(--sc-ember-deep);
+}
+.sheet-link[data-all='true']:hover { background: var(--sc-ember-deep); color: var(--sc-bone); }
+.sheet-links-empty {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+
+/* ------------------------------------------------------------- FIGURES */
+
+.sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-top: var(--sc-rule-hair);
+  border-bottom: var(--sc-rule-hair);
+  background: var(--sc-bone);
+}
+.sheet-stat {
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border-right: 1px dotted var(--sc-ink-150);
+  display: grid;
+  gap: var(--sc-space-1);
+  align-content: start;
+}
+.sheet-stat:last-child { border-right: 0; }
+.sheet-stat u {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  text-decoration: none;
+}
+.sheet-stat b {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-xl);
+  line-height: 1;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+/* Ember means movement, here and nowhere else on the sheet. */
+.sheet-delta {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-delta[data-way='up'] { color: var(--sc-positive); }
+.sheet-delta[data-way='down'] { color: var(--sc-critical); }
+
+/* Six bars and a date. Not a chart — a chart of six hand-typed readings would
+   claim a precision the readings do not have. */
+.sheet-spark { display: flex; align-items: flex-end; gap: 2px; height: 24px; }
+.sheet-spark i {
+  flex: 1 1 0;
+  /* ink-150 is the hairline token and on the dark ground it is nearly the
+     ground itself — the bars were there and unreadable. */
+  background: var(--sc-ink-300);
+  min-height: 2px;
+  display: block;
+}
+.sheet-spark i:last-child { background: var(--sc-ember); }
+
+/* ---------------------------------------------------------------- TABS */
+
+/* Pinned, so the sheet can be long without losing its own navigation — and
+   because it is what replaces the cover at the top once that scrolls away. */
+.sheet-tabs {
+  position: sticky;
+  top: var(--sheet-topbar-h);
+  z-index: 6;
+  display: flex;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-2) var(--sc-space-6);
+  background: var(--sc-bone-light);
+  border-bottom: var(--sc-rule-firm);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sheet-tabs::-webkit-scrollbar { display: none; }
+.sheet-tab {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  padding: var(--sc-space-3) var(--sc-space-3);
+  min-height: 40px;
+}
+.sheet-tab:hover { color: var(--sc-ink-900); }
+.sheet-tab[data-on='true'] { color: var(--sc-ink-900); border-bottom-color: var(--sc-ember); }
+.sheet-tab em {
+  font-style: normal;
+  color: var(--sc-ember-deep);
+  margin-left: var(--sc-space-1);
+}
+
+.sheet-panel {
+  padding: var(--sc-space-6) var(--sc-space-8)
+           calc(var(--sc-space-8) + env(safe-area-inset-bottom));
+  display: grid;
+  gap: var(--sc-space-5);
+}
+
+/* ------------------------------------------------------- THE SAVE BAR */
+
+/* Bottom rather than top: it is where a thumb already is, and a sheet this
+   long should never need scrolling back to the start to be saved. */
+.sheet-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  padding: var(--sc-space-4) var(--sc-space-8)
+           calc(var(--sc-space-4) + env(safe-area-inset-bottom));
+  background: var(--sc-bone);
+  border-top: var(--sc-rule-firm);
+}
+.sheet-bar .hint { margin-left: auto; }
+
+/* ------------------------------------------------- THE ACCOUNTS EDITOR */
+
+.sociallist { display: grid; gap: var(--sc-space-2); margin: 0; padding: 0; list-style: none; }
+.socialrow {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr auto;
+  gap: var(--sc-space-2);
+  align-items: center;
+}
+.socialrow .field { min-width: 0; }
+.socialrow-open {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  text-decoration: none;
+  border: 1px solid var(--sc-ink-150);
+  padding: var(--sc-space-2);
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+}
+.socialrow-open:hover { color: var(--sc-ember-deep); border-color: var(--sc-ember-deep); }
+
+/* The readings behind the figure. Shaped like `.declines` but not that class:
+   a decline count is painted critical red, and a follower reading is not bad
+   news. */
+.readings { list-style: none; margin: var(--sc-space-3) 0 0; padding: 0; display: grid; gap: var(--sc-space-1); }
+.readings li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.readings b {
+  font-family: var(--sc-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 4rem;
+  text-align: right;
+  color: var(--sc-ink-900);
+  font-weight: 500;
+}
+.readings .axis-confirm { margin-left: auto; }
+
+/* -------------------------------------------------------- HER OWN POSTS */
+
+.topposts { display: grid; gap: var(--sc-space-2); margin: 0; padding: 0; list-style: none; }
+.toppost {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: var(--sc-space-3);
+  align-items: center;
+  border: 1px solid var(--sc-ink-150);
+  padding: var(--sc-space-2);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.toppost:hover { border-color: var(--sc-ink-900); }
+.toppost img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  display: block;
+  background: var(--sc-ink-150);
+}
+.toppost-none {
+  width: 56px;
+  height: 56px;
+  background: var(--sc-ink-150);
+  display: block;
+}
+.toppost-figures {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.toppost-figures b { color: var(--sc-ink-900); font-weight: 500; }
+.toppost-when {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+.toppost-rank {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-150);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------- THE BUTTONS ON A ROSTER CARD */
+
+/* The same accounts, on the grid, so the common case — open her Instagram,
+   look at what she posted — never needs the sheet opened at all. */
+.card-links { display: flex; flex-wrap: wrap; gap: var(--sc-space-1); }
+.card-link {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  border: 1px solid var(--sc-ink-150);
+  color: var(--sc-ink-300);
+  text-decoration: none;
+  padding: 0.2rem 0.4rem;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  transition: background var(--sc-dur-fast) var(--sc-ease),
+              color var(--sc-dur-fast) var(--sc-ease),
+              border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.card-link:hover,
+.card-link:focus-visible {
+  background: var(--sc-ink-900);
+  border-color: var(--sc-ink-900);
+  color: var(--sc-bone);
+}
+
+/* ------------------------------------------------------------ ON A PHONE
+
+   The sheet becomes a sheet: anchored to the bottom, full width, thumb-sized
+   everything. A centred modal on a 390px screen is a postage stamp with
+   margins, and the margins are the part you hit by accident. */
+@media (max-width: 720px) {
+  .sheet {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: auto;
+    max-height: 94dvh;
+    border: 0;
+    border-top: var(--sc-rule-lock);
+    animation: sheetup var(--sc-dur) var(--sc-ease);
+  }
+  @keyframes sheetup { from { transform: translateY(24px); opacity: 0; } }
+
+  /* Every tap target grows to 44px here, the close button included, so the
+     strip the tabs pin under grows with it. */
+  :root { --sheet-topbar-h: 60px; }
+  .sheet-cover { padding: var(--sc-space-1) var(--sc-space-4) var(--sc-space-8); }
+  .sheet-topbar { padding: 0 var(--sc-space-2); }
+  .sheet-cover h2 { font-size: var(--sc-text-2xl); }
+  .sheet-id {
+    padding: 0 var(--sc-space-4) var(--sc-space-4);
+    grid-template-columns: auto 1fr;
+    gap: var(--sc-space-3);
+  }
+  .sheet-avatar { width: 96px; height: 96px; }
+  .sheet-links { padding: 0 var(--sc-space-4) var(--sc-space-4); }
+  .sheet-link, .sheet-close, .sheet-tab, .socialrow-open { min-height: 44px; }
+  .sheet-panel { padding: var(--sc-space-5) var(--sc-space-4)
+                          calc(var(--sc-space-8) + env(safe-area-inset-bottom)); }
+  .sheet-tabs { padding: var(--sc-space-1) var(--sc-space-3); }
+  .sheet-bar { padding: var(--sc-space-3) var(--sc-space-4)
+                        calc(var(--sc-space-3) + env(safe-area-inset-bottom)); }
+  .sheet-stat { padding: var(--sc-space-3) var(--sc-space-4); }
+  /* Three columns of label-over-number at 390px is four characters a column. */
+  .socialrow { grid-template-columns: 1fr auto; }
+  .socialrow .field:first-child { grid-column: 1 / -1; }
+}
+
+/* ------------------------------------------------------------ ON INK
+
+   The console's dark ground redefines --sc-bone to near-black, so anything
+   that painted itself bone on an ink surface disappears. Same block, same
+   reason, as the one globals.css keeps for the panels. */
+@media (prefers-color-scheme: dark) {
+  .sheet-cover, .sheet-topbar { background: #000; }
+  .sheet-cover h2 { color: var(--sc-ink-900); }
+  .sheet-close { background: #000; border-color: #33302C; }
+  .sheet-avatar { border-color: var(--sc-bone-light); background: var(--sc-ink-150); }
+  .sheet-avatar-empty { color: var(--sc-ink-900); }
+  .sheet-link:hover,
+  .sheet-link:focus-visible,
+  .card-link:hover,
+  .card-link:focus-visible { color: var(--sc-bone); }
+}

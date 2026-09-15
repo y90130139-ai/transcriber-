@@ -117,43 +117,51 @@ export default function ItemView({
           </p>
         </header>
 
-      {/* The shot scaffold. Structure only — what the reference did and where,
-          never words for her to say. Renders nothing when the reel has no
-          beats to read, which is the honest answer for a single long take. */}
-      {(() => {
-        const scaffold = buildScaffold({
-          hooks: tags.filter((t) => t.axis === 'hook').map((t) => t.tag),
-          formats: tags.filter((t) => t.axis === 'format').map((t) => t.tag),
-          firstLine: firstLineOf(blocks, plain),
-          onScreenCaptions: (shown as { on_screen_captions?: unknown }).on_screen_captions as
-            | { t?: number | null; text?: string | null }[]
-            | null
-            | undefined,
-          durationSec: shown.duration_sec,
-          outperformance: shown.outperformance,
-        })
-        if (!scaffold) return null
-        return (
-          <section className="scaffold" aria-label="How to rebuild this">
-            <h4>How to rebuild this</h4>
-            <p className="scaffold-why">{scaffold.mechanism}</p>
-            {scaffold.evidence && <p className="scaffold-why">{scaffold.evidence}</p>}
-            <ol className="scaffold-beats">
-              {scaffold.beats.map((beat, index) => (
-                <li key={index}>
-                  <span className="scaffold-at">
-                    {beat.at !== null ? clock(beat.at) : '—'} · {beat.role}
-                  </span>
-                  <span className="scaffold-ref">&ldquo;{beat.reference}&rdquo;</span>
-                  <span className="scaffold-do">{beat.instruction}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
-        )
-      })()}
-
         <div className="reader-body">
+          {/* The shot scaffold. Structure only — what the reference did and where,
+              never words for her to say. Renders nothing when the reel has no
+              beats to read, which is the honest answer for a single long take.
+
+              It used to sit between the head and the body rather than inside
+              it, which made it the one thing in the panel that could not be
+              scrolled past: a fixed slab under the header, squeezing the
+              transcript into whatever was left, which on a phone was almost
+              nothing. That is the bug Geno reported. The shell fix in
+              globals.css makes its position harmless either way; this puts it
+              where it reads from and gives it the body's own margins. */}
+          {(() => {
+            const scaffold = buildScaffold({
+              hooks: tags.filter((t) => t.axis === 'hook').map((t) => t.tag),
+              formats: tags.filter((t) => t.axis === 'format').map((t) => t.tag),
+              firstLine: firstLineOf(blocks, plain),
+              onScreenCaptions: (shown as { on_screen_captions?: unknown }).on_screen_captions as
+                | { t?: number | null; text?: string | null }[]
+                | null
+                | undefined,
+              durationSec: shown.duration_sec,
+              outperformance: shown.outperformance,
+            })
+            if (!scaffold) return null
+            return (
+              <section className="scaffold" aria-label="How to rebuild this">
+                <h4>How to rebuild this</h4>
+                <p className="scaffold-why">{scaffold.mechanism}</p>
+                {scaffold.evidence && <p className="scaffold-why">{scaffold.evidence}</p>}
+                <ol className="scaffold-beats">
+                  {scaffold.beats.map((beat, index) => (
+                    <li key={index}>
+                      <span className="scaffold-at">
+                        {beat.at !== null ? clock(beat.at) : '—'} · {beat.role}
+                      </span>
+                      <span className="scaffold-ref">&ldquo;{beat.reference}&rdquo;</span>
+                      <span className="scaffold-do">{beat.instruction}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )
+          })()}
+
           {media ? (
             <video
               className="player"

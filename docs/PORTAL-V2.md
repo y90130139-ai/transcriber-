@@ -955,8 +955,8 @@ not wanted.
 
 ## Standing: priority and heat — 2026-09-17
 
-**Status: built and verified. Migration run on production (additive). Not yet
-deployed.** Design reasoning: `docs/NEXT-TIERS.md`.
+**Status: deployed to production 2026-09-17** (`dpl_6dLNcurzRt3AUxReTneNyVZtmNmm`, commit `3a2df1e`). Migration run first (additive). Both aliases serve the new stylesheet; `/api/standing`, `/api/models/[id]/standing` and carry answer 401, a bad token on her filmed route 404, an unknown `/p/` 404; `.env.local` unchanged; worker healthy; 0 events at deploy — they start with her next visit.
+Design reasoning: `docs/NEXT-TIERS.md`.
 
 Geno's ask: tier creators **S/A/B/C** by **revenue** and **how proactive they
 are**, prioritise the top, see who actually uses the plan (opens, taps *I'll do

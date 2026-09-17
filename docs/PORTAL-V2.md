@@ -719,7 +719,14 @@ node cdpshot.mjs http://localhost:3111/ shot.png 0 1440 1300 "tx_session=…" ""
 
 ## Phase 9 — one visual system, and life in it
 
-**Status: built and verified locally 2026-09-16. Not yet deployed.** Rollback is
+**Status: deployed to production 2026-09-17** (`dpl_68thqgnvkd1VWwYKeASVUEiABwyj`,
+merged to `main` as a fast-forward at `9243b36`). Both aliases verified serving
+the new stylesheet (`--sc-spring`, `--sc-lift-3`, `--sc-press` present), the
+preview route answering 401 not 404, an unknown `/p/` token still 404,
+`.env.local` byte-identical before and after, worker heartbeat 2s. No real
+`/p/<token>` was loaded against production: a first load stamps `opened_at`,
+and a fake open would corrupt the one signal that distinguishes never-opened
+from ignored. Rollback is
 git — the tree was clean at `08c1d53` when this started, so `git diff` is the
 change and `git checkout -- .` is the undo. (The note at the top of
 `docs/rollback/README.md` saying this repo is not under git is **stale**; it is,
@@ -837,12 +844,15 @@ leave all 26 cards visible rather than hidden. Every card confirmed visible
 after both a gradual scroll and an instant jump to the bottom of a 36,000px
 page.
 
-**One pre-existing bug found and deliberately not fixed:** `.rosterflag` sets
-`white-space: nowrap` (phase 5, `library.css`), so a long exception flag cannot
-wrap and overflows the roster card at 390 — the console's document is 407px wide
-against a 390px window. It is untouched by this work and folding an unrelated
-one-line fix into a phase-9 diff would muddy the rollback story. Worth doing on
-its own.
+**One pre-existing bug found, kept out of this diff, fixed separately after
+deploy:** the console's document was 407px wide against a 390px window. It was
+first blamed on `.rosterflag`'s `white-space: nowrap` — **that diagnosis was
+wrong.** Measured element by element, every flag ends by x=190; the overflow was
+`.roster-head-actions` (the week label plus "Add a model" held on one line, right
+edge 407 at both 320 and 390). The fix lets that row wrap, right-aligned, with
+`min-width: 0`. Document now equals the window at 320/375/390/768/1440, with no
+mutating requests during the check. At 320 the "Today" tab runs past the edge
+inside the tab bar without widening the page — unchanged, and not this bug.
 
 ### Two checks to run after touching either stylesheet
 

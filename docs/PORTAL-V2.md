@@ -1047,6 +1047,8 @@ meaning something after two sent weeks each.** Sending weeks is the lever.
 
 ## Trend: who is heading up, who is heading down — 2026-09-17
 
+**Status: deployed to production 2026-09-17** (`dpl_HnBPoJpzoKuneAdvAVgjVginMDhM`, commit `edb3c57`). No schema change. Both aliases serve the new stylesheet, standing routes 401, unknown `/p/` 404, `.env.local` unchanged, worker healthy.
+
 Geno's ask: see a down arrow on a creator trending down and an up arrow on one
 trending up because she is more active, on the corner of her picture on the
 roster and on her profile, and be able to see who is the most active.

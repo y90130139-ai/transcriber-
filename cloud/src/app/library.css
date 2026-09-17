@@ -655,6 +655,16 @@ textarea.field { resize: vertical; }
 /* A short week. Its own line rather than folded into the upload state above —
    they are different questions and one is not a reason to ignore the other. */
 .planstate-short { border-left-color: var(--sc-ember); }
+/* A past week that still holds videos. Its own row with the action in it, so
+   the fix sits beside the problem instead of somewhere else on the sheet. */
+.planstate-carry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2) var(--sc-space-4);
+  border-left-color: var(--sc-ember);
+}
 
 .planlist { list-style: none; margin: var(--sc-space-6) 0 0; padding: 0; }
 

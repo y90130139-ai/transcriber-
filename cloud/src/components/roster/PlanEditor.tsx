@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
+import { carryTarget, isPastWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
@@ -57,6 +58,8 @@ export default function PlanEditor({
    *  exactly when a save succeeds — so this cannot fall behind by forgetting
    *  to bump it in a tenth. */
   const [revision, setRevision] = useState(0)
+  /** Tied to the week it is about, so it does not follow you to another one. */
+  const [carryNote, setCarryNote] = useState<{ planId: string; text: string } | null>(null)
 
   const thisWeek = currentWeekOf()
 
@@ -253,6 +256,36 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  /** Move this past week's videos onto the week her link shows, then follow
+   *  them there. The emptied week is deleted by the server, not here. */
+  async function carryForward(toWeek: string) {
+    if (!planId) return
+    const count = items.length
+    const ok = confirm(
+      `Move ${count} video${count === 1 ? '' : 's'} to the week of ${formatDate(toWeek)}?\n\n` +
+      'Her replies, accepts and filmed marks move with them, and this empty week is deleted.',
+    )
+    if (!ok) return
+    setBusy(true)
+    setCarryNote(null)
+    const response = await fetch(`/api/plans/${planId}/carry`, { method: 'POST' })
+    const body = await response.json().catch(() => ({}))
+    setBusy(false)
+    if (!response.ok || !body.plan?.id) {
+      setCarryNote({ planId, text: body.error ?? 'That did not move. Nothing was changed.' })
+      void loadWeeks()
+      return
+    }
+    if (body.left > 0) {
+      setCarryNote({
+        planId: String(body.plan.id),
+        text: `${body.left} stayed behind on the week of ${formatDate(plan?.week_of ?? '')} — already on this one.`,
+      })
+    }
+    setPlanId(String(body.plan.id))
+    void loadWeeks()
+  }
+
   const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
   const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
   const filmed = items.filter((item) => item.filmed_at).length
@@ -266,6 +299,14 @@ export default function PlanEditor({
   const unbound = posts.filter((post) => !post.item_id && post.webpage_url)
 
   const knownWeeks = new Set(weeks.map((week) => week.week_of))
+  // Only offered on a week that has gone by and still has something on it —
+  // the one case where videos sit where her link does not show them.
+  // In her timezone, which is how the server decides — otherwise the button can
+  // appear a day early near midnight on a Sunday and be refused when clicked.
+  const herWeek = plan ? currentWeekOf(plan.timezone) : thisWeek
+  const carryTo = plan && planId && items.length > 0 && isPastWeek(plan.week_of, herWeek)
+    ? carryTarget(weeks, planId, herWeek)
+    : null
   const nextWeek = addDays(thisWeek, 7)
 
   return (
@@ -318,6 +359,20 @@ export default function PlanEditor({
             <div className="empty"><p>Open a week, then tag videos to her from the library.</p></div>
           ) : (
             <>
+              {carryTo && (
+                <div className="planstate planstate-carry">
+                  <span>
+                    This week has passed. Move its {items.length} video{items.length === 1 ? '' : 's'} to
+                    {' '}the week of {formatDate(carryTo.week_of)}
+                    {carryTo.kind === 'new' ? ' (starts it)' : ''} so everything is on one link.
+                  </span>
+                  <button className="btn btn-small" disabled={busy} onClick={() => carryForward(carryTo.week_of)}>
+                    Move to {formatDate(carryTo.week_of)}
+                  </button>
+                </div>
+              )}
+              {carryNote?.planId === planId && <p className="hint" role="status">{carryNote.text}</p>}
+
               <div className="form-pair">
                 <div className="form-row">
                   <label className="axis-name" htmlFor="plan-title">Title</label>

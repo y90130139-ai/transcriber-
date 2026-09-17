@@ -878,3 +878,77 @@ def decls(p):
 print('dark :root identical:', decls('src/app/globals.css') == decls('src/app/plan.css'))
 EOF
 ```
+
+## Carry a past week forward — 2026-09-17
+
+**Status: built and verified locally. Not deployed.** Rollback is git.
+
+Reported by Geno: videos were split across the week of 7 September and the week
+of 14 September. Her link shows **one** week — the nearest *sent* one — so
+whatever sits on the other week is invisible to her, and sending a second link
+does not help. On the day this was built, 8 of 20 creators had videos on two
+weeks.
+
+### What was built
+
+- **A banner on any past week that still has videos:** "This week has passed.
+  Move its N videos to the week of X", with the button inside it. Only on past
+  weeks; never on the current or a future one.
+- **`POST /api/plans/[id]/carry`**, which re-points every item onto the target
+  week in one transaction, then deletes the emptied week.
+- **`lib/carry.ts`**, the target rule, pure and shared by the button label and
+  the route so they cannot disagree.
+
+### Decisions (Geno's answers, 2026-09-17)
+
+- **A move, not a copy.** The item keeps its id, so her thread, accept/decline,
+  filmed/posted, the R2 video and the `V-` card number all come with it. No R2
+  object is trashed.
+- **Target = her latest week that has not passed.** Among those, a *sent* one
+  wins (the nearest sent, because that is what her link resolves to); otherwise
+  the latest draft; with none, this week is created. For Blair Banks that means
+  her sent week of 21 September, not the 14th.
+- **The target ends up sent if either week was, and opened if she opened
+  either.** Without this, moving Milky Sins' sent, opened week (3 accepted, 3
+  filmed) into her draft of the 14th would have blanked her link.
+- **Moved videos go to the top** of the target week: they were due first.
+- **Title and intro:** the target's own win; the source's fill a blank.
+- **The empty week is deleted** — but only if it really is empty. A video that
+  is already on the target week stays behind rather than being doubled, the old
+  week is kept, and the editor says how many stayed.
+- **Per plan, not roster-wide.** One button per past week, inside that week.
+
+### Verified
+
+- The target rule against every real shape on the roster, plus sent-vs-draft
+  ties and other past weeks never being picked.
+- **The real route, bundled with only the db, auth and `next/server` swapped,
+  against in-memory Postgres (PGlite):** sent+opened past week into a draft
+  current week (items first, progress, R2 key, card number and messages kept;
+  target sent and opened; source deleted); draft into a sent next week (stays
+  sent, `sent_at` unchanged); a duplicate video staying behind with the old week
+  kept; no current week (created, with a due date); a current week refused 409;
+  unknown 404.
+- Typecheck, production build, the two stylesheet checks.
+- The banner in the real console against live data at 1440 and 390, **with every
+  non-GET request aborted at the browser** — zero were attempted. It shows on
+  Elizabeth's week of 7 September, not on her 14th. No overflow at either width.
+- **Not done: a real move against production.** That is the first click.
+
+### Fixed after code review
+
+- **A week whose every video is already on the target is refused (409)** before
+  anything runs. Otherwise its sent/opened state would still have been merged
+  onto her live week, repeatably.
+- **The button decides "past" in her timezone**, as the server does, not the
+  console's default Eastern — no offer the server then refuses near midnight.
+- **The result note belongs to one week** and does not follow you to another.
+- **A second click or tab after a move** gets "already moved" or 404, never a
+  false "nothing was changed". Both cases are in the PGlite run (8 tests).
+
+### Worth knowing before clicking
+
+Moving a full week onto a full week doubles it — Elizabeth's 21 + 21 would be 42
+on the 14th. The week's short-of-target warning only warns when *under*; nothing
+flags over. Trim after moving, or delete the old week instead if its videos are
+not wanted.

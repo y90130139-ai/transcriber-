@@ -881,7 +881,7 @@ EOF
 
 ## Carry a past week forward — 2026-09-17
 
-**Status: built and verified locally. Not deployed.** Rollback is git.
+**Status: deployed to production 2026-09-17** (`dpl_J74iiGXs7CYat4SRGD4Z4CrBFA8h`, commit `2ef7d4e`, together with the roster-header fix `afd8d22`). Both aliases serve the new stylesheet, `/api/plans/[id]/carry` answers 401 not 404, `.env.local` unchanged, worker healthy. No move has been run in production yet. Rollback is git.
 
 Reported by Geno: videos were split across the week of 7 September and the week
 of 14 September. Her link shows **one** week — the nearest *sent* one — so

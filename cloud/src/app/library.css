@@ -1438,3 +1438,34 @@ textarea.field { resize: vertical; }
 }
 .standing-weeks li b { color: var(--sc-ink-900); }
 .standing-weeks li[data-cleared] b { color: var(--sc-ember-deep); }
+
+/* ------------------------------------------------------------ TREND */
+/* Up is ember (the brand's one warm signal), down is ink on bone — a fall is
+   worth noticing, not an alarm. Top-left on the card: top-right is unread. */
+.trendchip {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: var(--sc-track-label);
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
+}
+.trendchip[data-variant='photo'] { position: absolute; top: 0; left: 0; z-index: 1; }
+.trendchip[data-direction='up'] { background: var(--sc-ember); color: var(--sc-bone); }
+.trendchip[data-direction='down'] { background: var(--sc-bone); color: var(--sc-ink-900); border: 1px solid var(--sc-ink-900); }
+.trendchip[data-direction='flat'] { background: transparent; color: var(--sc-ink-500); border: 1px solid var(--sc-ink-150); }
+
+.standing-trend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); margin: var(--sc-space-3) 0 0; font-size: var(--sc-text-sm); color: var(--sc-ink-700); }
+
+.trendline { margin: var(--sc-space-2) 0 0; max-width: 320px; }
+.trendline svg { display: block; width: 100%; height: auto; overflow: visible; }
+.trendline figcaption b { color: var(--sc-ink-900); }
+.trendline-path { fill: none; stroke: var(--sc-ink-900); stroke-width: 2; }
+.trendline-dot { fill: var(--sc-ink-900); }
+.trendline[data-direction='up'] .trendline-dot[data-last] { fill: var(--sc-ember); }
+.trendline figcaption {
+  display: flex; justify-content: space-between;
+  font-family: var(--sc-font-mono); font-size: 0.58rem; letter-spacing: var(--sc-track-label);
+  text-transform: uppercase; color: var(--sc-ink-300);
+}

@@ -4,8 +4,8 @@
 import { sql } from './db'
 import { currentWeekOf } from './dates'
 import {
-  WINDOW_WEEKS, engagementOf, suggestPriority,
-  type Engagement, type Priority, type RevenueBand, type SentWeek, type Suggestion,
+  WINDOW_WEEKS, SERIES_POINTS, engagementOf, previousSuggestion, suggestPriority, trendOf,
+  type Engagement, type Priority, type RevenueBand, type SentWeek, type Suggestion, type Trend,
 } from './engagement'
 
 export type Standing = {
@@ -16,6 +16,11 @@ export type Standing = {
   revenue_set_at: string | null
   engagement: Engagement
   suggestion: Suggestion
+  /** Which way her score moved since one sent week ago, with its history.
+   *  Null under two sent weeks. */
+  trend: Trend | null
+  /** What the suggestion was one sent week ago, when it can be known. */
+  previous_suggestion: Priority | null
   /** Her most recent act of any kind: a visit, a tap, a message. */
   last_active: string | null
   /** Cards carried forward from an earlier week and still not filmed. */
@@ -24,9 +29,10 @@ export type Standing = {
   weeks: SentWeek[]
 }
 
-/** Far enough back to find WINDOW_WEEKS sent weeks for someone sent every
- *  other week, near enough that last spring does not decide this autumn. */
-const LOOKBACK_WEEKS = WINDOW_WEEKS * 3
+/** Far enough back to roll the four-week read back SERIES_POINTS times for
+ *  someone sent most weeks, near enough that last spring does not decide this
+ *  autumn. */
+const LOOKBACK_WEEKS = (WINDOW_WEEKS + SERIES_POINTS) * 2
 
 const iso = (value: unknown): string | null =>
   value ? new Date(value as string).toISOString() : null
@@ -111,7 +117,8 @@ export async function loadStanding(modelId?: string): Promise<Map<string, Standi
   return new Map(models.map((row) => {
     const id = String(row.id)
     const sent = weeksBy.get(id) ?? []
-    const engagement = engagementOf(sent, now, Boolean(row.posting_tracked))
+    const posting = Boolean(row.posting_tracked)
+    const engagement = engagementOf(sent, now, posting)
     const revenue = (row.revenue_band as RevenueBand | null) ?? null
     const facts = activityBy.get(id)
     return [id, {
@@ -122,6 +129,8 @@ export async function loadStanding(modelId?: string): Promise<Map<string, Standi
       revenue_set_at: iso(row.revenue_set_at),
       engagement,
       suggestion: suggestPriority(revenue, engagement),
+      trend: trendOf(sent, now, posting),
+      previous_suggestion: previousSuggestion(revenue, sent, now, posting),
       last_active: iso(facts?.last_active),
       backlog: Number(facts?.backlog ?? 0),
       weeks: sent.slice(0, WINDOW_WEEKS),

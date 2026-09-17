@@ -117,6 +117,18 @@ const HEAT_LISTS: {
     pick: (standing) => standing.suggestion.situation === 'rising',
   },
   {
+    key: 'up',
+    title: '▲ Trending up',
+    blurb: 'Her score rose 8 or more since her previous sent week. More active than she was.',
+    pick: (standing) => standing.trend?.direction === 'up',
+  },
+  {
+    key: 'down',
+    title: '▼ Trending down',
+    blurb: 'Her score fell 8 or more since her previous sent week. Worth a look before it turns cold.',
+    pick: (standing) => standing.trend?.direction === 'down',
+  },
+  {
     key: 'cold',
     title: '🧊 Cold',
     blurb: 'A sent week unopened for 3+ days, or a low score across several. Drafts never count.',

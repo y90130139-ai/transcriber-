@@ -5,6 +5,7 @@ import ModelProfile from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
 import StandingBadge from './StandingBadge'
+import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
 import { formatDate } from '@/lib/dates'
@@ -77,6 +78,15 @@ export default function RosterTab({
   const [planning, setPlanning] = useState<RosterModel | null>(null)
   const { standing, reload: loadStanding } = useStanding()
   const groupOf = (model: RosterModel): Group => standing[model.id]?.priority ?? 'none'
+  /** Name order, or most active first: score, then the size of the move up. */
+  const [activeFirst, setActiveFirst] = useState(false)
+  const inGroup = (key: Group) => {
+    const members = models.filter((model) => groupOf(model) === key)
+    if (!activeFirst) return members
+    const score = (model: RosterModel) => standing[model.id]?.engagement.score ?? -1
+    const delta = (model: RosterModel) => standing[model.id]?.trend?.delta ?? 0
+    return [...members].sort((a, b) => score(b) - score(a) || delta(b) - delta(a))
+  }
 
   const load = useCallback(async () => {
     const response = await fetch('/api/models')
@@ -135,6 +145,14 @@ export default function RosterTab({
           <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
             {loading ? 'Loading' : weekOf ? `Week of ${formatDate(weekOf)}` : ''}
           </span>
+          <button
+            className="chip"
+            aria-pressed={activeFirst}
+            data-on={activeFirst}
+            onClick={() => setActiveFirst((on) => !on)}
+          >
+            {activeFirst ? 'Most active first' : 'A–Z'}
+          </button>
           <button className="btn" onClick={() => setEditing('new')}>Add a model</button>
         </div>
       </div>
@@ -154,7 +172,7 @@ export default function RosterTab({
             </span>
           </h3>
         <div className="models">
-          {models.filter((model) => groupOf(model) === group.key).map((model) => (
+          {inGroup(group.key).map((model) => (
             <div key={model.id} className="model roster-card" data-paused={model.status === 'paused'}>
               <button
                 className="model-frame roster-frame"
@@ -170,6 +188,7 @@ export default function RosterTab({
                 {model.unread_notes > 0 && (
                   <span className="roster-unread">{model.unread_notes} unread</span>
                 )}
+                <TrendChip trend={standing[model.id]?.trend} />
               </button>
 
               <span className="model-handle">{model.name}</span>
@@ -234,6 +253,7 @@ export default function RosterTab({
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); void load(); void loadStanding() }}
           onStanding={() => void loadStanding()}
+          standing={editing === 'new' ? undefined : standing[editing.id]}
         />
       )}
 

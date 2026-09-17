@@ -216,3 +216,69 @@ export function suggestPriority(revenue: RevenueBand | null, engagement: Engagem
 }
 
 export const HEAT_MARK: Record<Heat, string> = { fire: '🔥', cold: '🧊', steady: '', new: '' }
+
+// ------------------------------------------------------------------ trend
+
+/** Points of score that count as a move. Under this is week-to-week noise. */
+export const TREND_MIN = 8
+/** How many weeks of history the sparkline shows. */
+export const SERIES_POINTS = 6
+
+export type TrendPoint = { week_of: string; score: number }
+
+export type Trend = {
+  direction: 'up' | 'down' | 'flat'
+  /** Score now minus score one sent week ago. */
+  delta: number
+  previous: number
+  /** Her score as it stood at each of her recent sent weeks, oldest first. */
+  series: TrendPoint[]
+}
+
+/**
+ * Which way she is heading.
+ *
+ * Her score is rolled back one sent week at a time: the score "as of" a week is
+ * the same four-week read, with everything newer removed. Trend is now against
+ * one week ago. No projection is made — with a handful of weeks per creator a
+ * forecast would be a straight line through noise, drawn with false confidence.
+ *
+ * Null under two sent weeks: one point has no direction.
+ */
+export function trendOf(sentWeeks: readonly SentWeek[], now: number, postingTracked: boolean): Trend | null {
+  const weeks = [...sentWeeks]
+    .filter((week) => week.items > 0)
+    .sort((a, b) => b.week_of.localeCompare(a.week_of))
+  if (weeks.length < 2) return null
+
+  const points = Math.min(SERIES_POINTS, weeks.length)
+  const series: TrendPoint[] = Array.from({ length: points }, (_, back) => ({
+    week_of: weeks[back].week_of,
+    score: engagementOf(weeks.slice(back), now, postingTracked).score ?? 0,
+  })).reverse()
+
+  const current = series[series.length - 1].score
+  const previous = series[series.length - 2].score
+  const delta = current - previous
+  return {
+    direction: delta >= TREND_MIN ? 'up' : delta <= -TREND_MIN ? 'down' : 'flat',
+    delta,
+    previous,
+    series,
+  }
+}
+
+/** The priority the console would have suggested one sent week ago, so a move
+ *  from B to A can be seen as a move rather than only as a letter. */
+export function previousSuggestion(
+  revenue: RevenueBand | null,
+  sentWeeks: readonly SentWeek[],
+  now: number,
+  postingTracked: boolean,
+): Priority | null {
+  const weeks = [...sentWeeks]
+    .filter((week) => week.items > 0)
+    .sort((a, b) => b.week_of.localeCompare(a.week_of))
+  if (weeks.length < 2) return null
+  return suggestPriority(revenue, engagementOf(weeks.slice(1), now, postingTracked)).priority
+}

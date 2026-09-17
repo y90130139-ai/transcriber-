@@ -13,6 +13,7 @@ import WeekTab from './profile/WeekTab'
 import { BLANK, fromModel, type ProfileForm } from './profile/form'
 import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
+import type { Standing } from '@/lib/standing'
 
 type Tab = 'profile' | 'tags' | 'week' | 'standing' | 'access'
 
@@ -51,6 +52,7 @@ export default function ModelProfile({
   onClose,
   onSaved,
   onStanding,
+  standing,
 }: {
   model: RosterModel | null
   onClose: () => void
@@ -58,6 +60,8 @@ export default function ModelProfile({
   /** Her priority or revenue band changed. Saved on the spot, so the roster
    *  behind the sheet can regroup without waiting for Save. */
   onStanding?: () => void
+  /** Her heat, priority and trend, for the corner of her photo. */
+  standing?: Standing
 }) {
   const [form, setForm] = useState<ProfileForm>(() => (model ? fromModel(model) : BLANK))
   const [tab, setTab] = useState<Tab>('profile')
@@ -285,6 +289,7 @@ export default function ModelProfile({
         aria-label={model ? `${model.name}'s profile` : 'Add a model'}
       >
         <ProfileHead
+          standing={standing}
           form={form}
           isNew={!model}
           busy={busy}

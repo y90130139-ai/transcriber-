@@ -3,6 +3,9 @@
 import { displayHandle, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
 import type { Social } from '@/lib/socials'
 import type { ProfileForm } from './form'
+import { HEAT_MARK } from '@/lib/engagement'
+import type { Standing } from '@/lib/standing'
+import TrendChip from '../TrendChip'
 
 /** Opening more than this at once is how a browser decides you are a popup ad,
  *  and how an operator decides they have lost their tabs. */
@@ -17,6 +20,7 @@ const OPEN_ALL_CAP = 6
  * and from the roster card too.
  */
 export default function ProfileHead({
+  standing,
   form,
   isNew,
   busy,
@@ -24,6 +28,7 @@ export default function ProfileHead({
   onClose,
   onAddLinks,
 }: {
+  standing?: Standing
   form: ProfileForm
   isNew: boolean
   busy: boolean
@@ -62,6 +67,7 @@ export default function ProfileHead({
       </div>
 
       <div className="sheet-id">
+        <div className="sheet-avatar-wrap">
         <label className="sheet-avatar" aria-label={form.photo_url ? 'Replace her photo' : 'Add a photo'}>
           {form.photo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -78,10 +84,19 @@ export default function ProfileHead({
             onChange={(event) => onPhoto(event.target.files?.[0])}
           />
         </label>
+        {/* Outside the circle, which clips anything inside it. */}
+        <TrendChip trend={standing?.trend} />
+        </div>
 
         <div className="sheet-names">
           <span>{form.handle ? `@${form.handle}` : 'No handle yet'}</span>
           <span className="sheet-flags">
+            {standing?.priority && <span data-tone="priority">Priority {standing.priority}</span>}
+            {standing && HEAT_MARK[standing.engagement.heat] && (
+              <span title={standing.engagement.why}>
+                {HEAT_MARK[standing.engagement.heat]} {standing.engagement.heat === 'fire' ? 'On fire' : 'Cold'}
+              </span>
+            )}
             <span>{form.tier} · {TIER_WORD[form.tier]}</span>
             {form.status === 'paused' && <span data-tone="paused">Paused</span>}
             {form.ig_account_type === 'professional' && <span>Professional</span>}

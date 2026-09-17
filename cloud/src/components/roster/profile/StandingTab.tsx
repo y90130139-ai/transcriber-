@@ -7,6 +7,8 @@ import {
   type Priority, type RevenueBand,
 } from '@/lib/engagement'
 import type { Standing } from '@/lib/standing'
+import TrendChip from '../TrendChip'
+import TrendLine from '../TrendLine'
 
 const PRIORITIES: Priority[] = ['S', 'A', 'B', 'C']
 const BANDS: { key: RevenueBand; label: string }[] = [
@@ -88,6 +90,19 @@ export default function StandingTab({
           {engagement.score !== null && <b> · {engagement.score}</b>}
         </p>
         <p className="hint">{engagement.why}. Last active {ago(standing.last_active)}.</p>
+        {standing.trend ? (
+          <>
+            <p className="standing-trend">
+              <TrendChip trend={standing.trend} variant="inline" />
+              <span>
+                {standing.trend.previous} → {standing.trend.previous + standing.trend.delta} since her previous sent week
+              </span>
+            </p>
+            <TrendLine trend={standing.trend} />
+          </>
+        ) : (
+          <p className="hint">A trend appears once she has two sent weeks.</p>
+        )}
         {standing.backlog > 0 && (
           <p className="hint">
             {standing.backlog} card{standing.backlog === 1 ? '' : 's'} carried from an earlier
@@ -133,7 +148,13 @@ export default function StandingTab({
         </div>
         <p className="hint">
           {suggestion.priority
-            ? <>Suggested <b>{suggestion.priority}</b> · {SITUATION_LABEL[suggestion.situation]} — {suggestion.why}.</>
+            ? <>
+                Suggested <b>{suggestion.priority}</b>
+                {standing.previous_suggestion && standing.previous_suggestion !== suggestion.priority && (
+                  <> (was {standing.previous_suggestion} a week ago)</>
+                )}
+                {' '}· {SITUATION_LABEL[suggestion.situation]} — {suggestion.why}.
+              </>
             : suggestion.why + '.'}
           {standing.priority && standing.priority_set_at && ` Set ${ago(standing.priority_set_at)}.`}
         </p>

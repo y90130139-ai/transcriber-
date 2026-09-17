@@ -1044,3 +1044,50 @@ meaning something after two sent weeks each.** Sending weeks is the lever.
 - **Re-sending the same verdict records nothing**, the same rule as filming.
 - Known and accepted: two visits within the same instant can both pass the
   30-minute throttle. It changes no score; `last_active` is a max.
+
+## Trend: who is heading up, who is heading down — 2026-09-17
+
+Geno's ask: see a down arrow on a creator trending down and an up arrow on one
+trending up because she is more active, on the corner of her picture on the
+roster and on her profile, and be able to see who is the most active.
+
+### What was built
+
+- **`trendOf()` in `lib/engagement.ts`.** Her score is rolled back one sent
+  week at a time (the same four-week read with everything newer removed), up
+  to 6 points. Trend = now vs one sent week ago: **▲ at +8 or more, ▼ at −8 or
+  less**, otherwise flat. Null under two sent weeks.
+- **`previousSuggestion()`**: the priority the console would have suggested a
+  sent week ago, so a move shows as "Suggested A (was B a week ago)".
+- **No projection.** With a handful of weeks per creator a forecast is a
+  straight line through noise drawn with false confidence. The arrow and the
+  line show direction; add a forecast once there are ~8 sent weeks each.
+- **Roster card:** the arrow and points in the photo's top-left corner (unread
+  stays top-right), shown only for a real move. **A–Z / Most active first**
+  toggle sorts inside each priority group by score, then by the size of the
+  move up.
+- **Her profile:** the arrow beside her photo (outside the circle, which
+  clips), plus *Priority X* and 🔥/🧊 in her flags.
+- **Heat tab:** arrow, "52 → 38 since her previous sent week", and a line of
+  her score by sent week, scaled to her own range (never tighter than 30
+  points, so a wobble is not drawn as a cliff) with first and last scores
+  printed.
+- **Today:** ▲ Trending up and ▼ Trending down lists, after the existing lists.
+- Lookback for the loader widened to 20 weeks so six rolled-back reads each have
+  their four weeks.
+
+### Verified
+
+- 6 trend tests (none under two weeks; up; down; flat; 6-point cap, oldest
+  first, empty weeks ignored; B → A move), plus the 10 engagement, 10 standing
+  (real migration + routes on PGlite) and 8 carry tests still passing.
+- No real creator has two sent weeks yet, so the screens were checked by
+  layering display-only trends onto the **real** `/api/standing` response
+  inside the browser, with every non-GET aborted: 1440, 390 light, 390 dark.
+  Arrows on the right cards, Most active first ordering, the profile corner,
+  the Heat line, both Today lists; no attempted writes, no page errors, no
+  overflow.
+- Typecheck, production build, both stylesheet checks.
+
+**What it will show today: nothing.** Every creator has at most one sent week.
+The first arrows appear when creators get their second sent week.

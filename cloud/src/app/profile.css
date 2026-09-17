@@ -567,3 +567,8 @@
   .card-link:hover,
   .card-link:focus-visible { color: var(--sc-bone); }
 }
+
+/* The trend arrow beside her photo, outside the circle that would clip it. */
+.sheet-avatar-wrap { position: relative; width: fit-content; }
+.sheet-avatar-wrap .trendchip[data-variant='photo'] { top: 4px; left: auto; right: -6px; }
+.sheet-flags [data-tone='priority'] { color: var(--sc-ink-900); border-color: var(--sc-ink-900); font-weight: 700; }

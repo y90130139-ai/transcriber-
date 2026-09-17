@@ -9,6 +9,9 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
 const SAVED_RESET_MS = 2400
 const COPIED_RESET_MS = 1600
+/** How long the card wears its confirm. Long enough to be seen finishing,
+ *  short enough that a run of four ticks does not leave four cards pulsing. */
+const CONFIRMED_RESET_MS = 700
 
 /** The brief as a label/value grid, in the order she works through it: what to
  *  put on, how the phone is held, how many goes, where the sound comes from. */
@@ -26,6 +29,7 @@ export default function PlanItemCard({
   filmed,
   folder,
   onFilmed,
+  preview = false,
 }: {
   token: string
   item: PlanItem
@@ -37,6 +41,19 @@ export default function PlanItemCard({
    *  page rather than restated under all twelve cards. */
   folder: string | null
   onFilmed: (next: boolean) => void
+  /**
+   * Rendered inside the console as "what she sees", not opened by her.
+   *
+   * Every control still works and still feels the way it will on her phone —
+   * that is the entire point of showing it — but **nothing is written**. Each
+   * mutation below returns before its fetch.
+   *
+   * This is a hard safety requirement, not a nicety. The console renders this
+   * against a real creator's live plan; a preview that posted would tick her
+   * cards filmed, answer her verdicts and send her messages from Geno's
+   * screen, silently, while he was only looking.
+   */
+  preview?: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -50,6 +67,9 @@ export default function PlanItemCard({
   const [openThread, setOpenThread] = useState(item.unread > 0)
   const [unread, setUnread] = useState(item.unread)
   const [copied, setCopied] = useState(false)
+  /** Set only by a real tap, never by the card arriving already filmed — a
+   *  page that celebrates last week's work every time she opens it is noise. */
+  const [justFilmed, setJustFilmed] = useState(false)
 
   /** The caption is the one thing on this page she has to move somewhere else,
    *  so it gets a button rather than a long-press and a hope. */
@@ -64,6 +84,14 @@ export default function PlanItemCard({
     if (busy) return
     const next = !filmed
     onFilmed(next) // optimistic — the counter at the top has to move on tap
+    // The confirm rides the optimistic update, not the response. It is
+    // feedback that the tap landed; waiting on the network to celebrate would
+    // put the applause half a second after the thing it applauds.
+    if (next) {
+      setJustFilmed(true)
+      setTimeout(() => setJustFilmed(false), CONFIRMED_RESET_MS)
+    }
+    if (preview) return
     setBusy(true)
     const response = await fetch(`/api/plan/${token}/filmed`, {
       method: 'POST',
@@ -87,6 +115,7 @@ export default function PlanItemCard({
   async function save(chosen: Verdict, withCode: DeclineCode | null, why: string) {
     const previous = verdict
     setVerdict(chosen) // optimistic; a decline has to feel instant
+    if (preview) return
     const response = await fetch(`/api/plan/${token}/verdict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -116,6 +145,9 @@ export default function PlanItemCard({
     if (!next || unread === 0) return
     setUnread(0)
     setMessages((current) => current.map((message) => ({ ...message, seen: true })))
+    // Marking his answers read is a write like any other. In the console this
+    // would clear her unread badge because he looked at his own preview.
+    if (preview) return
     await fetch(`/api/plan/${token}/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,6 +160,14 @@ export default function PlanItemCard({
   async function send() {
     const body = note.trim()
     if (!body || state === 'saving') return
+    // A message sent from the preview would arrive in Geno's own inbox as if
+    // she had written it. The box still types; it just does not post.
+    if (preview) {
+      setNote('')
+      setState('saved')
+      setTimeout(() => setState((current) => (current === 'saved' ? 'idle' : current)), SAVED_RESET_MS)
+      return
+    }
     setState('saving')
     const response = await fetch(`/api/plan/${token}/message`, {
       method: 'POST',
@@ -166,7 +206,18 @@ export default function PlanItemCard({
       : <p className="plan-quiet">No words in this one.</p>
 
   return (
-    <li className="plan-item" data-filmed={filmed || undefined} data-verdict={verdict}>
+    /* `data-reveal` is rendered EMPTY on purpose. `useReveal` looks for the
+       attribute and is the only thing that ever writes "out" or "in" into it,
+       and only after confirming IntersectionObserver exists and reduced motion
+       is off. The CSS hides `[data-reveal='out']` and nothing else, so with the
+       script broken or absent every card renders visible, exactly as before. */
+    <li
+      className="plan-item"
+      data-reveal=""
+      data-filmed={filmed || undefined}
+      data-just-filmed={justFilmed || undefined}
+      data-verdict={verdict}
+    >
       <div className="plan-item-head">
         {/* The card's own id, not its position. The list used to be numbered
             1..N by where each card sat, so moving one renumbered every card

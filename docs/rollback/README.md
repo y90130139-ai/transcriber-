@@ -1,7 +1,13 @@
 # Rollback
 
-This repo is not under git, so anything replaced wholesale gets a copy here
-before the change lands.
+**This is no longer true as of the phase 8 work: the repo IS under git.** The
+copies below are kept because the phases that predate the repository being
+initialised have no commits to go back to, and the table further down is still
+the only map of which copy restores which file. Anything from phase 8 onward
+rolls back with git and does not get a copy here.
+
+The original note, for context: this repo was not under git, so anything
+replaced wholesale got a copy here before the change landed.
 
 - `plan.css.v1` — the creator plan stylesheet as it stood before the Phase 1
   restyle on 2026-09-05. To undo the restyle:

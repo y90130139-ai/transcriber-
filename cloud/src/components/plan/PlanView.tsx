@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
+import { useReveal } from '@/hooks/useReveal'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 
@@ -49,11 +50,25 @@ export default function PlanView({
   model,
   plan,
   items,
+  preview = false,
 }: {
   token: string
   model: PlanModel
   plan: Plan
   items: PlanItem[]
+  /**
+   * Rendered inside the console as "what she sees" rather than opened by her.
+   *
+   * The console imports this exact component for its preview instead of
+   * keeping a second look-alike in sync by hand. That is the whole design:
+   * the two surfaces cannot drift apart, because there is only one of them.
+   *
+   * The flag is passed straight down to every card, where it stops each
+   * mutation before its fetch. See PlanItemCard's own note — the console
+   * previews REAL creators' live plans, so a preview that wrote would edit
+   * her week from Geno's screen while he was only looking at it.
+   */
+  preview?: boolean
 }) {
   const [filmed, setFilmed] = useState<Set<string>>(
     () => new Set(items.filter((item) => item.filmed).map((item) => item.id)),
@@ -73,6 +88,11 @@ export default function PlanView({
   // no locations set renders exactly the flat list it always has.
   const groups = useMemo(() => groupByLocation(items), [items])
   const grouped = groups.some((group) => group.location)
+
+  // Cards arrive as she scrolls to them. The ref goes on the body rather than
+  // on each list, so a grouped week staggers across its groups in reading
+  // order instead of restarting the count at every location bar.
+  const body = useReveal<HTMLDivElement>([items.length, grouped])
 
   function mark(id: string, next: boolean) {
     setFilmed((current) => {
@@ -132,7 +152,7 @@ export default function PlanView({
         </p>
       </header>
 
-      <div className="plan-body">
+      <div className="plan-body" ref={body}>
         {plan.intro && <p className="plan-intro">{plan.intro}</p>}
 
         {model.standing_rules && (
@@ -185,6 +205,7 @@ export default function PlanView({
                     number={items.indexOf(item) + 1}
                     filmed={filmed.has(item.id)}
                     folder={folder}
+                    preview={preview}
                     onFilmed={(next) => mark(item.id, next)}
                   />
                 ))}
@@ -201,6 +222,7 @@ export default function PlanView({
                 number={index + 1}
                 filmed={filmed.has(item.id)}
                 folder={folder}
+                preview={preview}
                 onFilmed={(next) => mark(item.id, next)}
               />
             ))}

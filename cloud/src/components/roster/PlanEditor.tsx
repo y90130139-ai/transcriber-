@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import CollisionFlag from './CollisionFlag'
+import PlanPreview from './PlanPreview'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
@@ -46,6 +47,16 @@ export default function PlanEditor({
   const [ingesting, setIngesting] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  /** Her page, beside the form. On by default: the reason it exists is that
+   *  nobody remembers to go and look, and a preview behind a click is a
+   *  preview nobody opens. */
+  const [showPreview, setShowPreview] = useState(true)
+  /** Bumped whenever the stored plan changes, which tells the preview to
+   *  refetch. Keyed off `plan` and `items` rather than instrumented into each
+   *  of the nine mutations below, because both are replaced by reference
+   *  exactly when a save succeeds — so this cannot fall behind by forgetting
+   *  to bump it in a tenth. */
+  const [revision, setRevision] = useState(0)
 
   const thisWeek = currentWeekOf()
 
@@ -81,6 +92,7 @@ export default function PlanEditor({
   useEffect(() => { void loadWeeks() }, [loadWeeks])
   useEffect(() => { void loadPlan() }, [loadPlan])
   useEffect(() => { void loadSuggested() }, [loadSuggested])
+  useEffect(() => { setRevision((n) => n + 1) }, [plan, items])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -259,7 +271,10 @@ export default function PlanEditor({
   return (
     <>
       <button className="reader-scrim" onClick={onClose} aria-label="Close" />
-      <aside className="reader reader-wide" aria-label={`${modelName}'s plan`}>
+      <aside
+        className={`reader reader-wide${showPreview ? ' reader-preview' : ''}`}
+        aria-label={`${modelName}'s plan`}
+      >
         <header className="reader-head">
           <button className="reader-close" onClick={onClose} aria-label="Close">Close</button>
           <h3>{modelName}</h3>
@@ -271,6 +286,8 @@ export default function PlanEditor({
         </header>
 
         <div className="reader-body">
+          <div className="planpane" data-preview={showPreview && planId ? 'true' : undefined}>
+            <div className="planpane-main">
           <div className="weekrail" role="group" aria-label="Weeks">
             {!knownWeeks.has(thisWeek) && (
               <button className="pill" disabled={busy} onClick={() => openWeek(thisWeek)}>
@@ -737,6 +754,33 @@ export default function PlanEditor({
               )}
             </>
           )}
+            </div>
+
+            {/* Not a mock-up of her page — her page. See PlanPreview. */}
+            {planId && (
+              <div className="planpane-side">
+                <div className="planpane-head">
+                  <span className="axis-name">What she sees</span>
+                  <button
+                    className="chip"
+                    aria-pressed={showPreview}
+                    onClick={() => setShowPreview((on) => !on)}
+                  >
+                    {showPreview ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {showPreview && (
+                  <>
+                    <PlanPreview planId={planId} revision={revision} />
+                    <p className="planpane-note">
+                      Live, and safe to touch — nothing here writes to her week.
+                      {plan?.status === 'draft' && ' This week is still a draft, so her link does not show it yet.'}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </aside>
     </>

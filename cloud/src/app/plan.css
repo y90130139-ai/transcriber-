@@ -929,6 +929,165 @@
 .plan-item-head .plan-len { margin-left: auto; }
 
 /* ============================================================
+   PHASE 9 — depth, and something that answers back.
+
+   Everything above this line is composition: where things sit and
+   how big they are. That was already right. What the page had no
+   version of was DEPTH — every surface sat flat on the ground at
+   exactly the same height, so a card, a callout and the page
+   itself all read as the same plane — and it had no version of
+   RESPONSE: nothing on it moved when she touched it, which on a
+   phone is the only confirmation a tap ever gets.
+
+   The shared half of the response lives in motion.css, which both
+   this page and the console load. What is here is only what is
+   true of HER page: the elevation, the atmosphere in the header,
+   and the confirm on the one control that matters.
+
+   Radius is untouched. 14/10/999 was chosen on 2026-09-05 by
+   comparison and is not being re-litigated.
+   ============================================================ */
+
+/* ---------------------------------------------------------- ELEVATION
+
+   Three planes, and the page reads in that order: the header floats above
+   everything, cards sit just off the ground, callouts stay flat ON the card
+   because they belong to it. Flattening any of those back out is what made
+   the old page read as a document. */
+.plan-head {
+  box-shadow: var(--sc-lift-2);
+  /* The atmosphere. A single warm wash bled in from the top-right corner, at
+     an alpha low enough that it reads as light falling on the block rather
+     than as a second colour — the maison rule is ember once per composition,
+     and the ticks below already spend it. Painted with a gradient on the
+     element itself rather than a pseudo-element so it cannot sit above the
+     type or intercept a tap. */
+  background-image: radial-gradient(
+    120% 100% at 100% 0%,
+    rgba(232, 102, 58, 0.16) 0%,
+    rgba(232, 102, 58, 0.04) 42%,
+    transparent 70%
+  );
+}
+
+.plan-item {
+  box-shadow: var(--sc-lift-1);
+  transition:
+    box-shadow var(--sc-dur) var(--sc-ease),
+    border-color var(--sc-dur) var(--sc-ease),
+    transform var(--sc-dur) var(--sc-ease);
+}
+
+/* Pointer only. On her phone a card that lifts on tap and stays lifted is a
+   card that looks selected when nothing is. */
+@media (hover: hover) {
+  .plan-item:hover {
+    box-shadow: var(--sc-lift-2);
+    border-color: var(--sc-ink-300);
+  }
+}
+
+/* The one other floating slab. It is a heading for the cards under it, so it
+   sits above them but below the header. */
+.plan-group-bar { box-shadow: var(--sc-lift-1); }
+
+/* ------------------------------------------------------- THE TICKS, ALIVE
+
+   A tick that fills is the page's only running score. It used to cross-fade
+   its colour over 240ms, which at 3px tall is invisible — so the number at
+   the top moved and nothing else did. */
+.plan-bar i {
+  transform-origin: center;
+  transition:
+    background var(--sc-dur) var(--sc-ease),
+    box-shadow var(--sc-dur) var(--sc-ease);
+}
+.plan-bar i[data-on='true'] {
+  /* Pops once, as it fills. The animation runs when the element starts
+     matching this selector — which is exactly the moment she ticks a card —
+     and not on a re-render that leaves it already matching. */
+  animation: pop var(--sc-dur) var(--sc-spring);
+  /* A little bloom, so a filled tick reads as lit rather than merely
+     coloured. Cheap: it is 8px tall and there are never more than a few
+     dozen. */
+  box-shadow: 0 0 8px rgba(232, 102, 58, 0.45);
+}
+
+/* --------------------------------------------------------- THE CONFIRM
+
+   Ticking a card off is the whole point of the page and it used to be the
+   quietest thing on it: a border changed colour. Now the card says so.
+
+   Driven by `data-just-filmed`, which PlanItemCard sets for a moment after a
+   real tap and never on load. Keying this off `[data-filmed]` instead would
+   pulse every already-filmed card each time she opens the page, which is a
+   celebration of nothing. */
+.plan-item[data-just-filmed] { animation: pop var(--sc-dur-slow) var(--sc-spring); }
+
+/* The ring grows out of the card's own edge and fades. On a pseudo-element
+   and `pointer-events: none`, so the card never moves, the list never
+   reflows, and nothing under it stops being tappable mid-animation. */
+.plan-item[data-just-filmed]::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--sc-positive);
+  border-radius: var(--r);
+  pointer-events: none;
+  animation: confirm-ring var(--sc-dur-slow) var(--sc-ease) forwards;
+}
+/* The ring is positioned against the card, so the card has to be a
+   containing block. It was static before this line. */
+.plan-item { position: relative; }
+
+/* The circle in the filmed button fills with a pop of its own, so the
+   button confirms itself even before the ring is noticed. */
+.plan-filmed::before {
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    transform var(--sc-dur-fast) var(--sc-spring);
+}
+.plan-item[data-filmed] .plan-filmed::before { animation: pop var(--sc-dur) var(--sc-spring); }
+
+/* --------------------------------------------------------- THE ANSWER
+
+   Accept and decline get the same treatment for the same reason: they are
+   answers, and an answer should land. */
+.plan-verdict button[aria-pressed='true'] { animation: pop var(--sc-dur) var(--sc-spring); }
+.plan-code[aria-pressed='true'] { animation: pop var(--sc-dur-fast) var(--sc-spring); }
+
+/* The unread badge arrives rather than appearing. */
+.plan-ask-badge { animation: pop var(--sc-dur) var(--sc-spring); }
+
+/* ----------------------------------------------------------- DISCLOSURE
+
+   The + / – markers rotated nothing and swapped a glyph, which on a phone
+   reads as a flicker. One glyph, rotated, is the same information and is the
+   part of the page most obviously "an app". */
+.plan-how summary::after,
+.plan-transcript summary::after,
+.plan-ask::after {
+  transition: transform var(--sc-dur) var(--sc-spring);
+}
+.plan-how[open] summary::after,
+.plan-transcript[open] summary::after,
+.plan-ask[aria-expanded='true']::after {
+  /* The rules above swap the glyph to an en dash when open. A dash cannot be
+     reached by turning a plus — but an × can, and "× to close" is the more
+     honest mark for a panel that is already open. So the content is put back
+     to '+' here and the open state is expressed entirely by the rotation,
+     which means the marker actually animates instead of flickering between
+     two characters. These rules sit after the swap and match at the same
+     specificity, so they win on order. */
+  content: '+';
+  transform: rotate(45deg);
+}
+
+/* The media well, so a card with a video reads as having something in it
+   rather than a black rectangle sitting on paper. */
+.plan-player { box-shadow: inset 0 0 0 1px rgba(10, 10, 10, 0.10); }
+
+/* ============================================================
    THE INK GROUND — her page in dark mode.
 
    tokens.css carries a full flipped palette under
@@ -966,6 +1125,24 @@
 
     --sc-rule-hair: 1px solid #33302C;
     --sc-rule-firm: 1px solid #EDE9E3;
+    /* Restored 2026-09-16. This line was in globals.css's dark block and
+       missing here, which broke the "byte-identical, edit both" invariant the
+       phase-6 notes rely on. Nothing under `.plan` reads it, so it was never
+       a visible bug — but the next person to diff the two blocks needed them
+       to actually match. */
+    --sc-rule-lock: 2px solid #EDE9E3;
+
+    /* Phase 9. A warm low-alpha shadow is invisible on a near-black ground,
+       so the whole elevation scale is restated deeper and neutral. Without
+       this, dark mode loses every plane the light theme just gained and the
+       page flattens back to what it was. Identical to the block in
+       globals.css — edit both. */
+    --sc-lift-1: 0 1px 2px rgba(0, 0, 0, 0.40),
+                 0 2px 10px rgba(0, 0, 0, 0.36);
+    --sc-lift-2: 0 2px 6px rgba(0, 0, 0, 0.48),
+                 0 12px 28px rgba(0, 0, 0, 0.44);
+    --sc-lift-3: 0 10px 20px rgba(0, 0, 0, 0.52),
+                 0 32px 72px rgba(0, 0, 0, 0.62);
   }
 
   body { background: var(--sc-bone); color: var(--sc-ink-500); }
@@ -975,7 +1152,12 @@
      would put cream behind cream. */
   /* These paint text with --sc-bone, which on the ink ground is near-black.
      Left alone they render black on black — the week vanished entirely. */
-  .plan-head { background: #000; color: var(--sc-ink-900); }
+  /* `background-color`, NOT the `background` shorthand. Phase 9 paints the
+     header's atmosphere with `background-image`, and the shorthand would
+     reset it to none — the wash would exist in light mode and silently
+     vanish in dark, which is the exact class of bug the phase-2b notes warn
+     about. The gradient is already tuned for a dark ground. */
+  .plan-head { background-color: #000; color: var(--sc-ink-900); }
   .plan-week,
   .plan-name,
   .plan-facts b { color: var(--sc-ink-900); }
@@ -1037,4 +1219,14 @@
     color: #0A0A0A;
     border-color: var(--sc-ink-900);
   }
+
+  /* Phase 9. The well's inset edge is ink at 10% — invisible against the
+     black it now sits on. Restated light so a card carrying a video still
+     reads as having something set into it rather than a hole cut in it. */
+  .plan-player { box-shadow: inset 0 0 0 1px rgba(237, 233, 227, 0.10); }
+
+  /* A card at rest gets no useful shadow on black, so the plane is carried by
+     the surface being lighter than the page plus a slightly firmer edge.
+     Hovering still deepens it, which is what the pointer needs. */
+  .plan-item { border-color: #33302C; }
 }

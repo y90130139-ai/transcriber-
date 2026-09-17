@@ -1,0 +1,242 @@
+/* ============================================================
+   MOTION — the one place either surface describes how something
+   moves.
+
+   WHY THIS FILE EXISTS. Before it, her page and the console each
+   grew their own hover rules: the console faded a border colour,
+   her page shifted a background, and the two drifted because
+   nothing held them together. Every control that can be pointed
+   at or pressed now reads its behaviour from here, so "what a
+   button does when you touch it" is one answer in one file.
+
+   It is imported by globals.css, which the root layout loads on
+   EVERY route — including /p/[token]. That is deliberate: it is
+   the only stylesheet both surfaces are guaranteed to share.
+
+   THE RULES THIS FILE KEEPS:
+
+   1. Compositor only. transform, opacity, box-shadow, filter.
+      Never width, height, top, margin or padding — those relayout
+      the page on every frame and turn a 60fps lift into a stutter.
+
+   2. Hover is for pointers. Every :hover rule sits inside
+      @media (hover: hover). A phone that "hovers" on tap leaves
+      the control stuck in its lifted state until something else
+      is touched, which on her page means a button that looks
+      pressed when it is not.
+
+   3. Reduced motion means reduced, not broken. tokens.css already
+      collapses every duration to 1ms; the block at the foot of
+      this file also removes the transforms, because an instant
+      2px jump is worse than no jump at all. Colour and shadow
+      still change, so nothing loses its state.
+   ============================================================ */
+
+/* ------------------------------------------------------------ LIFT
+
+   The shared response: rise a little under a pointer, give under a
+   press. `--sc-rise` and `--sc-press` live in tokens.css so the
+   distance is one decision rather than thirty.
+
+   Listed by class rather than applied through a utility, because
+   both surfaces already have their controls named and adding a
+   class to every button in nine components is churn that buys
+   nothing. If a new control appears, it goes in this list. */
+.plan-cta,
+.plan-filmed,
+.plan-verdict button,
+.plan-code,
+.plan-copy,
+.plan-ask,
+.plan-send,
+.console .btn,
+.console .chip,
+.console .pill,
+.console .sheet-link,
+.console .card-link,
+.console .sheet-tab,
+.console .postcard,
+.console .toppost,
+.console .sweeprow,
+.console .socialrow-open,
+.console .reader-close,
+.console .sheet-close {
+  /* Named explicitly rather than `transition: all`, which would also
+     animate layout properties the moment one is added to a rule. */
+  transition:
+    transform var(--sc-dur-fast) var(--sc-spring),
+    box-shadow var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+
+@media (hover: hover) {
+  .plan-cta:hover,
+  .plan-filmed:hover:not(:disabled),
+  .plan-verdict button:hover,
+  .plan-code:hover,
+  .plan-copy:hover,
+  .plan-ask:hover,
+  .plan-send:hover:not(:disabled),
+  .console .btn:hover:not(:disabled),
+  .console .chip:hover,
+  .console .pill:hover,
+  .console .sheet-link:hover,
+  .console .card-link:hover,
+  .console .postcard:hover,
+  .console .toppost:hover,
+  .console .sweeprow:hover,
+  .console .socialrow-open:hover {
+    transform: translateY(var(--sc-rise));
+    box-shadow: var(--sc-lift-2);
+  }
+}
+
+/* The press. This one is not gated on pointers — a finger presses too, and
+   it is the only feedback a touch device gets that the tap landed. */
+.plan-cta:active,
+.plan-filmed:active:not(:disabled),
+.plan-verdict button:active,
+.plan-code:active,
+.plan-copy:active,
+.plan-ask:active,
+.plan-send:active:not(:disabled),
+.console .btn:active:not(:disabled),
+.console .chip:active,
+.console .pill:active,
+.console .sheet-link:active,
+.console .card-link:active,
+.console .postcard:active,
+.console .toppost:active,
+.console .sweeprow:active,
+.console .socialrow-open:active {
+  transform: scale(var(--sc-press));
+  box-shadow: none;
+  /* Snaps down, springs back. The spring is on the transition above, so
+     releasing overshoots slightly on the way home. */
+  transition-duration: 80ms;
+}
+
+/* A control that cannot be used does not move. Lifting a disabled button
+   tells the finger something is about to happen when nothing is. */
+.plan-filmed:disabled,
+.plan-send:disabled,
+.console .btn:disabled {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------- REVEAL ON SCROLL
+
+   Cards arrive rather than being already there. The state is written by
+   `useReveal` (src/hooks/useReveal.ts) in a layout effect, before the
+   browser paints, so nothing is ever seen in its hidden state first.
+
+   NOTHING HERE HIDES ANYTHING BY DEFAULT. `data-reveal` is only ever set to
+   "out" by JavaScript that has already confirmed IntersectionObserver exists
+   and that reduced motion is off. With JS broken, absent or slow, every card
+   renders exactly as it does today — visible. A reveal animation that can
+   leave content permanently invisible is a bug, not a flourish. */
+[data-reveal='out'] {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+[data-reveal='in'] {
+  animation: reveal var(--sc-dur-slow) var(--sc-ease) backwards;
+  /* Set inline by the hook as a multiple of the card's place in the run, so a
+     group arrives as a run rather than all at once. Capped there, not here —
+     the twenty-sixth card must not wait a second to exist. */
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------- POP
+
+   For something that changes state under the finger and should be seen to:
+   a progress tick filling, a badge counting up. Scale only, from the centre,
+   so it cannot disturb a single pixel of layout around it. */
+@keyframes pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* The confirm. Runs once on the card that was just ticked off — a ring of
+   colour that grows out of the card's own edge and fades. Drawn on a
+   pseudo-element so the card itself never moves and the list never reflows. */
+@keyframes confirm-ring {
+  from { opacity: 0.5; transform: scale(1); }
+  to   { opacity: 0;   transform: scale(1.04); }
+}
+
+/* ------------------------------------------------------------ FLOAT
+
+   A panel that is genuinely above the page: it arrives with a little scale so
+   it reads as coming toward the reader, not sliding in from an edge. */
+@keyframes float-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes float-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
+}
+
+/* The phone-width variant, where the sheet is not centred and therefore has
+   no translate to preserve. Keeping these separate avoids the trap that
+   `transform` is one property: an animation that forgets the -50% snaps the
+   panel to the corner for the length of the animation. */
+@keyframes float-up {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes float-down {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(12px) scale(0.99); }
+}
+
+/* ============================================================
+   REDUCED MOTION.
+
+   tokens.css already forces every duration to 1ms, which stops
+   things moving but leaves the transforms themselves in place —
+   so a hover still jumped 2px, instantly, which is the jitter
+   the setting exists to prevent. These remove the movement and
+   keep everything that carries meaning: colour, shadow, state.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .plan-cta:hover, .plan-cta:active,
+  .plan-filmed:hover, .plan-filmed:active,
+  .plan-verdict button:hover, .plan-verdict button:active,
+  .plan-code:hover, .plan-code:active,
+  .plan-copy:hover, .plan-copy:active,
+  .plan-ask:hover, .plan-ask:active,
+  .plan-send:hover, .plan-send:active,
+  .console .btn:hover, .console .btn:active,
+  .console .chip:hover, .console .chip:active,
+  .console .pill:hover, .console .pill:active,
+  .console .sheet-link:hover, .console .sheet-link:active,
+  .console .card-link:hover, .console .card-link:active,
+  .console .postcard:hover, .console .postcard:active,
+  .console .toppost:hover, .console .toppost:active,
+  .console .sweeprow:hover, .console .sweeprow:active,
+  .console .socialrow-open:hover, .console .socialrow-open:active {
+    transform: none;
+  }
+
+  /* Whatever the hook decided, nothing starts invisible. */
+  [data-reveal='out'],
+  [data-reveal='in'] {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}

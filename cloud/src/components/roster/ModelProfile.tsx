@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 import type { IntakePick } from './IntakeDrop'
 import AccessTab, { type Override } from './profile/AccessTab'
@@ -38,6 +38,11 @@ const TABS: { key: Tab; label: string }[] = [
  * drawer want different answers at the top and bottom, but it obeys the same
  * rule that caused the bug: one scroll region, and the whole sheet is it.
  */
+/** Must match `--sc-dur-fast` in tokens.css, which is what the `float-out`
+ *  animation on `.console .sheet[data-closing]` runs for. Longer and the panel
+ *  sits finished-but-present; shorter and it is cut off mid-fade. */
+const EXIT_MS = 150
+
 export default function ModelProfile({
   model,
   onClose,
@@ -95,11 +100,37 @@ export default function ModelProfile({
 
   useEffect(() => { loadReadings() }, [loadReadings])
 
+  /**
+   * The way out.
+   *
+   * The sheet arrived with a float and then vanished on close, because
+   * RosterTab unmounts it the instant it is dismissed — the one place in the
+   * app where something appeared with care and left like a dropped call.
+   *
+   * `closing` puts `data-closing` on the panel and its scrim, which runs the
+   * exit animation in globals.css, and holds the unmount for exactly as long
+   * as that animation lasts. The timer is cleared on unmount so a sheet closed
+   * and reopened quickly cannot call `onClose` for a panel that is already
+   * gone.
+   */
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const close = useCallback(() => {
+    if (closeTimer.current) return // already on the way out
+    setClosing(true)
+    closeTimer.current = setTimeout(onClose, EXIT_MS)
+  }, [onClose])
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+  }, [])
+
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [close])
 
   const set: <K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) => void =
     (key, value) => setForm((current) => ({ ...current, [key]: value }))
@@ -235,9 +266,15 @@ export default function ModelProfile({
 
   return (
     <>
-      <button className="sheet-scrim" onClick={onClose} aria-label="Close" />
+      <button
+        className="sheet-scrim"
+        data-closing={closing || undefined}
+        onClick={close}
+        aria-label="Close"
+      />
       <aside
         className="sheet"
+        data-closing={closing || undefined}
         aria-label={model ? `${model.name}'s profile` : 'Add a model'}
       >
         <ProfileHead
@@ -245,7 +282,7 @@ export default function ModelProfile({
           isNew={!model}
           busy={busy}
           onPhoto={(file) => void takePhoto(file)}
-          onClose={onClose}
+          onClose={close}
           onAddLinks={() => setTab('profile')}
         />
 

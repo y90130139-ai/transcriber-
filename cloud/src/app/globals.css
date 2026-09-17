@@ -1,6 +1,12 @@
 @import './tokens.css';
 @import './library.css';
 @import './profile.css';
+/* Last, so a motion rule wins the tie against the component rule it animates.
+   This is the only stylesheet both the console and /p/[token] are guaranteed
+   to load — the root layout imports this file on every route — which is why
+   the shared hover/press behaviour lives there rather than being written
+   twice. */
+@import './motion.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -758,6 +764,18 @@ body {
     --sc-rule-hair: 1px solid #33302C;
     --sc-rule-firm: 1px solid #EDE9E3;
     --sc-rule-lock: 2px solid #EDE9E3;
+
+    /* Phase 9. A warm low-alpha shadow is invisible on a near-black ground,
+       so the whole elevation scale is restated deeper and neutral. Without
+       this, dark mode loses every plane the light theme just gained and the
+       console flattens back to what it was. Identical to the block in
+       plan.css — edit both. */
+    --sc-lift-1: 0 1px 2px rgba(0, 0, 0, 0.40),
+                 0 2px 10px rgba(0, 0, 0, 0.36);
+    --sc-lift-2: 0 2px 6px rgba(0, 0, 0, 0.48),
+                 0 12px 28px rgba(0, 0, 0, 0.44);
+    --sc-lift-3: 0 10px 20px rgba(0, 0, 0, 0.52),
+                 0 32px 72px rgba(0, 0, 0, 0.62);
   }
 
   body { background: var(--sc-bone); color: var(--sc-ink-500); }
@@ -876,3 +894,295 @@ body {
 .scaffold-ref { font-style: italic; margin: 2px 0; }
 
 .scaffold-do { font-size: var(--sc-text-xs); line-height: 1.5; color: var(--sc-ink-300); }
+
+/* ============================================================
+   PHASE 9 — one visual system, and depth in it.
+   2026-09-16.
+
+   THE PROBLEM THIS SOLVES. `/p/[token]` and the console were
+   built three weeks apart to two different briefs, and it
+   showed: her plan card was a card — bordered, raised, rounded,
+   padded, with a pill badge carrying its id — and the console's
+   version of the same thing was a row under a 2px rule with the
+   id set in flat grey display type. Comparing what he was
+   editing to what she would open meant translating between two
+   designs in his head.
+
+   Two changes fix it. This block makes the console's plan row
+   the SAME CARD, and PlanPreview renders her page's actual
+   component beside it so the comparison stops being a
+   comparison at all.
+
+   SCOPE. Every rule hangs off `.console`, the way phase 6's
+   does. `tokens.css` still says `--sc-radius: 0` and every other
+   Sinaura surface is still square.
+
+   SPECIFICITY. globals.css is imported after library.css and
+   profile.css, so `.console .planrow` (0,2,0) beats
+   `.planrow` (0,1,0) on both count and order. Where a rule
+   below replaces a `border-top-color` state with a full
+   `border-color`, the state rule is restated at (0,3,0) — a
+   shorthand `border` here would otherwise silently erase the
+   caution and critical edges that say a video is not on her
+   phone yet.
+   ============================================================ */
+
+/* ---------------------------------------------------- THE PLAN ROW, AS A CARD
+
+   Mirrors `.plan-item` in plan.css: hairline, paper, padding, lift. The
+   radius is the console's 12/8 rather than her page's 14/10 — the two
+   surfaces are the same system at different sizes, not the same screen. */
+.console .planlist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.console .planrow {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-paper);
+  padding: var(--sc-space-4);
+  box-shadow: var(--sc-lift-1);
+  transition:
+    box-shadow var(--sc-dur) var(--sc-ease),
+    border-color var(--sc-dur) var(--sc-ease);
+}
+
+@media (hover: hover) {
+  .console .planrow:hover {
+    box-shadow: var(--sc-lift-2);
+    border-color: var(--sc-ink-300);
+  }
+}
+
+/* Restated at (0,3,0). The old rules coloured `border-top-color` against a
+   2px top rule that no longer exists; left alone, the shorthand above would
+   paint over them and a row whose video is still on the Mac would look
+   exactly like one that is ready to send. Now the whole edge carries it,
+   which is also what `.plan-item[data-filmed]` does on her side. */
+.console .planrow[data-state='waiting'] { border-color: var(--sc-caution); }
+.console .planrow[data-state='no-video'] { border-color: var(--sc-critical); }
+
+/* The id as a pill, the way her card wears it. It was flat ink-150 display
+   type — the quietest thing on a row whose whole job is to be identified by
+   it, and nothing like the badge she sees. */
+.console .planrow-top { grid-template-columns: auto 56px minmax(0, 1fr) auto; }
+
+.console .planrow-no {
+  align-self: center;
+  padding: var(--sc-space-1) var(--sc-space-3);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  border-radius: var(--r-pill);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Media inside the card picks up the card's own softening. */
+.console .planrow img { border-radius: var(--r-sm); }
+
+/* The pill costs the row about 35px that the old flat `1.6rem` number did not,
+   and on a phone the reference's name was already the thing giving way — it
+   truncated to "TEX…". One column below the console's breakpoint: the badge
+   takes its own line and the name gets the full width of the card.
+
+   Deliberately NOT `grid-template-areas`. The first attempt here named an
+   `img` area and reserved 56px for it, not having noticed that library.css's
+   own ≤720px block sets `.planrow img { display: none }` — the console drops
+   thumbnails on a phone on purpose. The result was a 56px gutter held open
+   for a picture that is never drawn. One column sidesteps it: a hidden child
+   takes part in no layout at all, and `.planrow-tools`'s existing
+   `grid-column: 1 / -1` still spans correctly. */
+@media (max-width: 720px) {
+  .console .planrow-top { grid-template-columns: minmax(0, 1fr); }
+  .console .planrow-top .planrow-no { justify-self: start; }
+}
+
+/* -------------------------------------------------- THE PROFILE, FLOATING
+
+   `.sheet` had no radius at all — profile.css never set one and phase 6's
+   radius list never reached it — so the one panel that is literally floating
+   above the page was the sharpest-cornered thing in the app, sitting on a
+   flat scrim with a 2px slab border doing the work a shadow should do.
+
+   Hairline plus lift-3 instead: the edge stops shouting and the height is
+   carried by the shadow, which is what makes it read as ABOVE rather than
+   merely ON TOP. */
+.console .sheet {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  box-shadow: var(--sc-lift-3);
+  /* Replaces profile.css's `rise`, which only translated. Scaling up from
+     0.96 reads as the panel coming toward the reader rather than sliding in
+     from somewhere — and `float-in` keeps the centring translate inside every
+     keyframe, because `transform` is one property and a keyframe that forgets
+     the -50% snaps the panel to the corner for the length of the animation. */
+  animation: float-in var(--sc-dur) var(--sc-spring);
+}
+
+/* The way out. Until now the sheet was unmounted the instant it closed, so it
+   vanished — the one moment in the app where something appeared with care and
+   left like a dropped call. ModelProfile holds the unmount for the length of
+   this animation; see its `closing` state. */
+.console .sheet[data-closing='true'] {
+  animation: float-out var(--sc-dur-fast) var(--sc-ease) forwards;
+  pointer-events: none;
+}
+
+.console .sheet-scrim {
+  /* Blur is the one `filter` this app spends, and it is spent here because a
+     floating panel over a sharp page reads as a panel that failed to load its
+     backdrop. Prefixed for Safari, which is most of the traffic on the other
+     surface. */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  background: rgba(10, 10, 10, 0.52);
+}
+.console .sheet-scrim[data-closing='true'] {
+  animation: fade var(--sc-dur-fast) var(--sc-ease) reverse forwards;
+}
+
+/* `.sheet-cover` gets NO radius, and this is the trap worth recording.
+   It looks like the top of the panel and it is not: `.sheet-topbar` is, sticky
+   at `top: 0`, with the cover starting 56px below it. Rounding the cover
+   therefore curves an edge in the MIDDLE of the panel, and because both are
+   ink on a cream sheet it showed up as a small cream notch bitten out of the
+   black. `.sheet` sets `overflow-y: auto`, which makes overflow-x compute to
+   auto too, so the panel already clips every child to its own corners —
+   nothing inside it needs to round itself. */
+.console .sheet-avatar,
+.console .sheet-stat,
+.console .sheet-link,
+.console .card-link,
+.console .toppost,
+.console .toppost img,
+.console .socialrow-open,
+.console .sheet-close { border-radius: var(--r-sm); }
+.console .sheet-avatar,
+.console .sheet-avatar img { border-radius: var(--r-pill); }
+
+/* --------------------------------------------------- THE ROSTER, ANSWERING
+
+   The card already scaled its photo on hover. The card itself did nothing, so
+   the picture moved and the thing containing it did not. */
+.console .model {
+  transition: transform var(--sc-dur) var(--sc-ease);
+}
+.console .model-frame {
+  border-radius: var(--r-sm);
+  transition: box-shadow var(--sc-dur) var(--sc-ease);
+}
+@media (hover: hover) {
+  .console .model:hover { transform: translateY(-3px); }
+  .console .model:hover .model-frame { box-shadow: var(--sc-lift-2); }
+}
+
+/* ------------------------------------------------------ THE PREVIEW PANE
+
+   The editor beside her actual page. `.reader-wide` was 820px, which fits the
+   form and nothing else; the pane needs another 400 for a phone at its real
+   width plus the frame around it. */
+.console .reader-preview { width: min(1280px, 100vw); }
+
+.console .planpane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sc-space-6);
+  align-items: start;
+}
+
+/* Two columns only where both halves can keep their real width. Below this
+   the preview goes behind a toggle rather than being squeezed — a phone
+   rendered at 300px is not a preview of anything. */
+@media (min-width: 1120px) {
+  .console .planpane[data-preview='true'] {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+  .console .planpane-side {
+    position: sticky;
+    /* Clear of `.reader-head`, which is sticky above it. */
+    top: var(--sc-space-4);
+  }
+}
+
+.console .planpane-side { min-width: 0; }
+
+.console .planpane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-3);
+}
+
+/* The phone. A real bezel rather than a bare column, because the whole claim
+   of this pane is "this is what lands on her phone" and a full-width block of
+   her page on a desktop is not that claim. */
+.console .planphone {
+  border: var(--sc-rule-firm);
+  border-radius: 28px;
+  background: var(--sc-bone);
+  padding: var(--sc-space-3);
+  box-shadow: var(--sc-lift-2);
+  overflow: hidden;
+}
+
+.console .planphone-screen {
+  height: min(72dvh, 780px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 18px;
+  background: var(--sc-bone);
+  /* The preview renders her stylesheet, which is mobile-first and sizes
+     itself from the viewport. Containing it here means `.plan` lays out
+     against this box rather than against the desktop window, so what is
+     drawn is genuinely her phone layout and not a stretched version of it. */
+  container-type: inline-size;
+}
+
+/* Her page pads itself for a phone's edges; inside the frame that padding is
+   already the bezel's. */
+.console .planphone-screen .plan { padding-left: 0; padding-right: 0; }
+
+.console .planpane-note {
+  margin: var(--sc-space-3) 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   PHASE 9 — the ink ground.
+
+   The flip rule, restated once more: a rule painting a SURFACE
+   with `--sc-ink-900` or TEXT with `--sc-bone` inverts with the
+   token. The pill badge below does both at once, which is
+   exactly the trap that painted a decline button green in
+   phase 6.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  /* Ember rather than ink, matching what `.plan-item-head .plan-no` does on
+     her page in the same theme — an ink-900 fill is near-white here and the
+     badge would read as a hole punched in the card. */
+  .console .planrow-no { background: var(--sc-ember); color: #0A0A0A; }
+
+  /* The card edge at rest. A shadow does almost nothing on this ground, so
+     the plane is carried by paper sitting above the page plus a firmer line. */
+  .console .planrow { border-color: #33302C; }
+
+  /* The scrim is already near-black; more of it just hides the blur. */
+  .console .sheet-scrim { background: rgba(0, 0, 0, 0.66); }
+
+  /* `.sheet` paints `--sc-bone-light` as a surface, which flips correctly on
+     its own. Its border was `--sc-rule-lock` and is now a hairline, and the
+     dark hairline is #33302C — light enough to hold the panel's edge against
+     the scrim behind it. Nothing to restate. */
+
+  .console .planphone { background: var(--sc-bone); border-color: #33302C; }
+  .console .planphone-screen { background: var(--sc-bone); }
+}

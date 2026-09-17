@@ -716,3 +716,155 @@ about:
 node cdpshot.mjs http://localhost:3111/ shot.png 0 1440 1300 "tx_session=…" "" \
   '["[...document.querySelectorAll(\"button\")].find(b=>b.textContent.trim()===\"Models\").click()"]'
 ```
+
+## Phase 9 — one visual system, and life in it
+
+**Status: built and verified locally 2026-09-16. Not yet deployed.** Rollback is
+git — the tree was clean at `08c1d53` when this started, so `git diff` is the
+change and `git checkout -- .` is the undo. (The note at the top of
+`docs/rollback/README.md` saying this repo is not under git is **stale**; it is,
+and has been since the phase 8 work. No `.pre-p9` copies were made.)
+
+Two complaints, one cause. The plan looked flat and inert next to the rest of
+the app, and comparing what Geno was editing to what she would open meant
+translating between two designs in his head — her card was a rounded, raised,
+padded card with a pill badge, and the console's version of the same item was a
+row under a 2px rule with its id in flat grey display type.
+
+### What was built
+
+**A shared motion layer.** New `src/app/motion.css`, imported last by
+`globals.css` — the only stylesheet both surfaces are guaranteed to load, since
+the root layout imports it on every route including `/p/[token]`. Every control
+that can be pointed at or pressed reads its hover and press behaviour from
+there, so "what a button does when you touch it" is one answer in one file
+instead of two that drift. New tokens in `tokens.css`: `--sc-spring` (the
+overshoot), `--sc-dur-slow`, `--sc-rise`, `--sc-press`, and a three-rung
+elevation scale `--sc-lift-1..3`.
+
+**Her page got depth and a response.** Elevation on the header, the cards and
+the group bars; a warm radial wash in the header block; cards that reveal as
+she scrolls to them; the progress ticks pop and bloom as they fill; the filmed
+button confirms with a ring that grows out of the card's own edge; the
+disclosure markers rotate instead of swapping a glyph.
+
+**The console's plan row is now the same card.** `.console .planrow` mirrors
+`.plan-item` — hairline, paper, padding, lift — and `.planrow-no` is the pill
+badge her card wears. Radius stays the console's 12/8 against her page's 14/10:
+the same system at two sizes, not the same screen.
+
+**The profile sheet actually floats.** `.sheet` had no radius at all — phase
+6's radius list never reached it — so the one panel literally floating above
+the page was the sharpest-cornered thing in the app. Now hairline + `lift-3` +
+a blurred scrim, arriving with a scale rather than a slide, and leaving with
+one: `ModelProfile` holds the unmount for the length of the exit animation.
+
+**And the preview, which is the actual fix for "make them identical".**
+
+### The preview is not a mock-up
+
+`PlanPreview` renders `PlanView` — the same component `/p/[token]` renders —
+inside a phone frame beside the editor, fed by `/api/plans/[id]/preview`. There
+is no second implementation to keep in sync. That is the whole design: the two
+surfaces cannot drift apart because there is only one of them.
+
+Three things worth keeping:
+
+- **`loadPlan` could not be reused, and the reason matters.** It answers "what
+  should she be looking at *right now*", which means sent plans only, within a
+  fortnight of this week — drafts are invisible to her by design. The preview's
+  entire purpose is looking at a draft *before* sending it. So the item query
+  was extracted to `planItemsFor(planId)` in `plans.ts` and a second entry point
+  `loadPlanPreview` was added in a **new file**, `lib/preview.ts`. It is not in
+  `plans.ts` because that file opens by promising no query in it takes an id
+  from the request, and that promise has to stay literally true.
+- **The preview cannot write.** `preview` threads from `PlanPreview` through
+  `PlanView` into every `PlanItemCard`, where each of the four mutations returns
+  before its fetch. Every control still responds exactly as it will under her
+  thumb; none of them post. This is a hard requirement, not a nicety — the
+  console previews **real creators' live weeks**, and a preview that wrote would
+  tick her cards filmed, answer her verdicts and send her messages from Geno's
+  screen while he was only looking. Verified by driving every control in the
+  preview with the network recorded: zero mutating requests, and the database
+  unchanged afterwards.
+- **It refetches rather than mirroring the editor's local state.** What it must
+  show is what is *stored*, because that is what her page will load. A field
+  typed and not yet blurred has not been saved and must not appear as though it
+  had. The `revision` counter is keyed off `plan` and `items`, which are
+  replaced by reference exactly when a save succeeds — so it cannot fall behind
+  by someone forgetting to bump it in a tenth mutation.
+
+### Three bugs found by looking, worth recording
+
+- **The reveal stranded cards.** An IntersectionObserver only reports what is
+  intersecting *now*, and a jump from below the viewport to above it is ratio 0
+  → ratio 0 — not a change, so no callback ever fires. Jumping to the foot of a
+  26-card week left **11 cards permanently invisible**. Fixed by growing the
+  observer's root upward past the top of the document, which makes "scrolled
+  past" the thing that reveals an item. The size matters: a flat `9999px` still
+  stranded four, because at ~1,400px per card they sat 15,000px up. It is now
+  measured from `document.scrollHeight` plus slack.
+- **`.sheet-cover` must never be rounded.** It looks like the top of the panel
+  and is not — `.sheet-topbar` is, sticky at `top: 0`, with the cover starting
+  56px below. Rounding it curved an edge in the *middle* of the panel and bit a
+  cream notch out of the black. `.sheet` sets `overflow-y: auto`, so it already
+  clips every child to its own corners; nothing inside needs to round itself.
+- **The pill badge cost the console row 35px on a phone** and the reference's
+  name truncated to "TEX…". The first fix reserved a 56px `grid-template-areas`
+  column for the thumbnail — not having noticed that library.css's own ≤720px
+  block sets `.planrow img { display: none }`, because the console drops
+  thumbnails on a phone on purpose. It held a gutter open for a picture that is
+  never drawn. One column below 720px sidesteps it: a hidden child takes part in
+  no layout at all.
+
+### The dark blocks had already drifted
+
+Phase 6 says the dark `:root` in `globals.css` and the one in `plan.css` are
+byte-identical on purpose and that editing one means editing both. They were
+not: `globals.css` carried `--sc-rule-lock` and `plan.css` did not. Nothing
+under `.plan` reads it, so it was never a visible bug — but the invariant is
+only useful if it is true. Restored, and the three new `--sc-lift-*` tokens went
+into both. They now carry 20 identical declarations; the check is in "Verifying"
+below.
+
+### Verified
+
+Typecheck and production build clean. Her page at 320/375/390/768/1024/1440 in
+both themes with no overflow at any width. The console at 390/768/1024/1120/1440
+— the preview pane goes two-column at 1120 and stacks below it. Reduced motion
+confirmed to remove every transform while keeping colour and shadow, and to
+leave all 26 cards visible rather than hidden. Every card confirmed visible
+after both a gradual scroll and an instant jump to the bottom of a 36,000px
+page.
+
+**One pre-existing bug found and deliberately not fixed:** `.rosterflag` sets
+`white-space: nowrap` (phase 5, `library.css`), so a long exception flag cannot
+wrap and overflows the roster card at 390 — the console's document is 407px wide
+against a 390px window. It is untouched by this work and folding an unrelated
+one-line fix into a phase-9 diff would muddy the rollback story. Worth doing on
+its own.
+
+### Two checks to run after touching either stylesheet
+
+The `var(--token)` audit from phase 1, now covering `motion.css`, and a
+comparison of the two dark `:root` blocks that strips comments before diffing —
+a naive line diff reports the prose as a difference and hides a real one:
+
+```bash
+cd cloud && python3 - <<'EOF'
+import re, pathlib
+defined = set(re.findall(r'^\s*(--sc-[a-z0-9-]+)\s*:',
+              pathlib.Path('src/app/tokens.css').read_text(), re.M))
+for f in ['plan.css','library.css','globals.css','profile.css','motion.css']:
+    used = set(re.findall(r'var\((--sc-[a-z0-9-]+)', pathlib.Path('src/app/'+f).read_text()))
+    print(f, sorted(used - defined) or 'ok')
+
+def decls(p):
+    t = pathlib.Path(p).read_text(); i = t.find('@media (prefers-color-scheme: dark)')
+    body = re.search(r':root\s*\{(.*?)\n  \}', t[i:], re.S).group(1)
+    body = re.sub(r'/\*.*?\*/', '', body, flags=re.S)
+    return sorted(re.sub(r'\s+',' ',d).strip()
+                  for d in re.findall(r'(--[a-z0-9-]+\s*:\s*[^;]+);', body))
+print('dark :root identical:', decls('src/app/globals.css') == decls('src/app/plan.css'))
+EOF
+```

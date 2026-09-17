@@ -152,18 +152,27 @@ function mediaFor(row: Record<string, unknown>): PlanMedia | null {
   return planMediaFor(config, key, name)
 }
 
-/** Everything her page renders, for one token. */
-export async function loadPlan(token: unknown): Promise<
-  { model: PlanModel; plan: Plan; items: PlanItem[] } | null
-> {
-  const model = await modelForToken(token)
-  if (!model) return null
-
-  const plan = await currentPlanFor(model)
-  if (!plan) return null
-
-  // Joined through plan_id, which was itself resolved from the token's own
-  // model. No id from the request touches this query.
+/**
+ * Every item on one plan, in the exact shape her page renders.
+ *
+ * **THIS FUNCTION AUTHORIZES NOTHING.** It takes a plan id and trusts it. It
+ * was extracted from `loadPlan` so that the console's preview could render her
+ * page from the same query rather than from a second one written to look like
+ * it — a reconstruction drifts the moment either side gains a field, which is
+ * the whole failure the preview exists to prevent.
+ *
+ * Two callers, and both establish access before they get here:
+ *   - `loadPlan`, which resolved the plan from the token's own model.
+ *   - `loadPlanPreview` in `preview.ts`, which is behind the console session.
+ *
+ * A third caller that has not done one of those things is a model-isolation
+ * bug. Read the boundary note at the top of this file before adding one.
+ */
+export async function planItemsFor(planId: string): Promise<PlanItem[]> {
+  // Filtered to the one plan id it was handed, and nothing else widens it.
+  // Which model that plan belongs to was settled by the caller — see the note
+  // above, and do not move an authorization check in here: the point of this
+  // function is that it is the same query for both callers.
   const rows = await sql.query(
     `select i.id as item_id, i.position, i.notes, i.editing_notes,
             i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
@@ -191,7 +200,7 @@ export async function loadPlan(token: unknown): Promise<
        ) m on true
       where i.plan_id = $1
       order by i.position, i.created_at`,
-    [plan.id],
+    [planId],
   )
 
   const items: PlanItem[] = rows.map((row) => ({
@@ -221,6 +230,21 @@ export async function loadPlan(token: unknown): Promise<
     transcript: String(row.transcript ?? '').trim(),
     media: mediaFor(row),
   }))
+
+  return items
+}
+
+/** Everything her page renders, for one token. */
+export async function loadPlan(token: unknown): Promise<
+  { model: PlanModel; plan: Plan; items: PlanItem[] } | null
+> {
+  const model = await modelForToken(token)
+  if (!model) return null
+
+  const plan = await currentPlanFor(model)
+  if (!plan) return null
+
+  const items = await planItemsFor(plan.id)
 
   return { model, plan, items }
 }

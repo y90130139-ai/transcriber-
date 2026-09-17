@@ -94,7 +94,11 @@ export async function POST(_request: Request, { params }: Params) {
       [id, targetId],
     ),
     sql.query(
-      `update transcriber.plan_items set plan_id = $2
+      // `carried_from` keeps the first week it was ever put on, so a card
+      // carried twice still says where it started.
+      `update transcriber.plan_items
+          set plan_id = $2,
+              carried_from = coalesce(carried_from, (select week_of from transcriber.plans where id = $1))
         where id in (select id from (${movable}) m)
         returning id`,
       [id, targetId],
@@ -102,9 +106,14 @@ export async function POST(_request: Request, { params }: Params) {
     sql.query(
       `update transcriber.plans t
           set status    = case when t.status = 'sent' or s.status = 'sent' then 'sent' else 'draft' end,
-              sent_at   = case when t.status = 'sent' or s.status = 'sent'
-                               then least(t.sent_at, s.sent_at) end,
-              opened_at = least(t.opened_at, s.opened_at),
+              -- Sent and opened travel as a pair, from one week, never mixed:
+              -- heat reads the gap between them, and the old week's send date
+              -- beside this week's open would make a prompt creator look slow.
+              -- The target's own pair wins once it has been sent.
+              sent_at   = case when t.status = 'sent' then t.sent_at
+                               when s.status = 'sent' then s.sent_at end,
+              opened_at = case when t.status = 'sent' then t.opened_at
+                               when s.status = 'sent' then s.opened_at end,
               title     = coalesce(t.title, s.title),
               intro     = coalesce(t.intro, s.intro),
               updated_at = now()

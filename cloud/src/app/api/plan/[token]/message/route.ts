@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { sql } from '@/lib/db'
 import { newId } from '@/lib/models'
+import { logEvent } from '@/lib/events'
 import { itemForToken } from '@/lib/plans'
 import { rateLimit } from '@/lib/ratelimit'
 
@@ -70,5 +71,6 @@ export async function POST(request: Request, { params }: Params) {
     [owned.id, note],
   )
 
+  after(() => logEvent({ modelId: owned.modelId, planId: owned.planId, itemId: owned.id, kind: 'message' }))
   return NextResponse.json({ ok: true, message, note })
 }

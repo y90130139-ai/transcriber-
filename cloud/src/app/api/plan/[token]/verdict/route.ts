@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { sql } from '@/lib/db'
 import { isDeclineCode } from '@/lib/decline'
+import { logEvent } from '@/lib/events'
 import { itemForToken } from '@/lib/plans'
 import { rateLimit } from '@/lib/ratelimit'
 
@@ -59,6 +60,15 @@ export async function POST(request: Request, { params }: Params) {
     [owned.id, verdict, reason, code],
   )
   if (!item) return notFound()
+
+  // Only a change is an act, as with filming. Recorded after the response so
+  // measurement never costs her a moment on the tap.
+  if (verdict !== owned.verdict) {
+    after(() => logEvent({
+      modelId: owned.modelId, planId: owned.planId, itemId: owned.id,
+      kind: verdict === 'accepted' ? 'accept' : verdict === 'declined' ? 'decline' : 'reopen',
+    }))
+  }
 
   return NextResponse.json({
     ok: true,

@@ -7,13 +7,14 @@ import AccessTab, { type Override } from './profile/AccessTab'
 import ProfileFigures from './profile/ProfileFigures'
 import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
+import StandingTab from './profile/StandingTab'
 import TagsTab from './profile/TagsTab'
 import WeekTab from './profile/WeekTab'
 import { BLANK, fromModel, type ProfileForm } from './profile/form'
 import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
 
-type Tab = 'profile' | 'tags' | 'week' | 'access'
+type Tab = 'profile' | 'tags' | 'week' | 'standing' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -21,6 +22,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
   { key: 'tags', label: 'Tags' },
   { key: 'week', label: 'Week' },
+  // Heat and priority. Only for a model that exists — a new one has no weeks.
+  { key: 'standing', label: 'Heat' },
   { key: 'access', label: 'Link' },
 ]
 
@@ -47,10 +50,14 @@ export default function ModelProfile({
   model,
   onClose,
   onSaved,
+  onStanding,
 }: {
   model: RosterModel | null
   onClose: () => void
   onSaved: () => void
+  /** Her priority or revenue band changed. Saved on the spot, so the roster
+   *  behind the sheet can regroup without waiting for Save. */
+  onStanding?: () => void
 }) {
   const [form, setForm] = useState<ProfileForm>(() => (model ? fromModel(model) : BLANK))
   const [tab, setTab] = useState<Tab>('profile')
@@ -294,7 +301,7 @@ export default function ModelProfile({
         />
 
         <nav className="sheet-tabs" aria-label="Profile sections">
-          {TABS.map((one) => (
+          {TABS.filter((one) => one.key !== 'standing' || modelId).map((one) => (
             <button
               key={one.key}
               className="sheet-tab"
@@ -324,6 +331,7 @@ export default function ModelProfile({
           )}
           {tab === 'tags' && <TagsTab form={form} set={set} setForm={setForm} />}
           {tab === 'week' && <WeekTab form={form} set={set} setForm={setForm} />}
+          {tab === 'standing' && modelId && <StandingTab modelId={modelId} onChanged={onStanding} />}
           {tab === 'access' && (
             <AccessTab
               form={form}

@@ -273,16 +273,26 @@ export async function markOpened(planId: string): Promise<void> {
 export async function itemForToken(
   token: unknown,
   itemId: unknown,
-): Promise<{ id: string; filmed: boolean } | null> {
+): Promise<{
+  id: string; filmed: boolean; planId: string; modelId: string
+  verdict: 'accepted' | 'declined' | 'open'
+} | null> {
   const model = await modelForToken(token)
   if (!model || typeof itemId !== 'string' || itemId.length === 0) return null
 
   const [item] = await sql.query(
-    `select i.id, (i.filmed_at is not null) as filmed
+    `select i.id, i.plan_id, (i.filmed_at is not null) as filmed,
+            case when i.declined_at is not null then 'declined'
+                 when i.accepted_at is not null then 'accepted' else 'open' end as verdict
        from transcriber.plan_items i
        join transcriber.plans p on p.id = i.plan_id
       where i.id = $1 and p.model_id = $2 and p.status = 'sent'`,
     [itemId, model.id],
   )
-  return item ? { id: String(item.id), filmed: Boolean(item.filmed) } : null
+  return item
+    ? {
+        id: String(item.id), filmed: Boolean(item.filmed), planId: String(item.plan_id), modelId: model.id,
+        verdict: item.verdict as 'accepted' | 'declined' | 'open',
+      }
+    : null
 }

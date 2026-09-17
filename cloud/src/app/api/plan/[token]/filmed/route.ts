@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { sql } from '@/lib/db'
+import { logEvent } from '@/lib/events'
 import { itemForToken } from '@/lib/plans'
 import { rateLimit } from '@/lib/ratelimit'
 
@@ -29,5 +30,9 @@ export async function POST(request: Request, { params }: Params) {
       returning (filmed_at is not null) as filmed`,
     [owned.id, filmed],
   )
+  // Only a change is an act; a repeated tick is the same tick.
+  if (filmed !== owned.filmed) {
+    after(() => logEvent({ modelId: owned.modelId, planId: owned.planId, itemId: owned.id, kind: filmed ? 'film' : 'unfilm' }))
+  }
   return NextResponse.json({ ok: true, filmed: Boolean(item?.filmed) })
 }

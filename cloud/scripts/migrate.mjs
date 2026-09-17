@@ -515,6 +515,47 @@ const statements = [
 
   `create index if not exists model_intake_model_idx
      on transcriber.model_intake (model_id, created_at desc)`,
+
+  // --------------------------------------------- standing: priority and heat
+
+  // What she does on her page, one row per act. `plans.opened_at` is stamped
+  // once, so "is she still coming back to it" was unanswerable; the item
+  // columns only ever hold the latest state, so a card accepted, reopened and
+  // accepted again read as one quiet tap. This is the timeline behind heat.
+  //
+  // Written best-effort by the routes she already calls — a failed insert
+  // here must never fail her tap. Visits are throttled at write time.
+  `create table if not exists transcriber.plan_events (
+     id       text primary key,
+     model_id text not null references transcriber.models(id) on delete cascade,
+     plan_id  text references transcriber.plans(id) on delete set null,
+     item_id  text references transcriber.plan_items(id) on delete set null,
+     kind     text not null
+       check (kind in ('visit','accept','decline','reopen','film','unfilm','message')),
+     at       timestamptz not null default now()
+   )`,
+
+  `create index if not exists plan_events_model_idx
+     on transcriber.plan_events (model_id, at desc)`,
+  `create index if not exists plan_events_plan_idx
+     on transcriber.plan_events (plan_id, kind, at desc)`,
+
+  // The week a card was first put on, set when a past week is carried forward.
+  // A card that keeps moving unfilmed is backlog, and without this a carry
+  // erased the only evidence of it.
+  `alter table transcriber.plan_items
+     add column if not exists carried_from date`,
+
+  // Priority, which is not `tier`. `tier` says how bespoke her plan is and
+  // stays exactly that. `priority` is who gets attention first: suggested by
+  // the console from revenue and heat, set by Geno, never changed on its own.
+  // Null until he sets it. Revenue is a band, not a figure: dollar amounts do
+  // not belong in a system that hands out links.
+  `alter table transcriber.models
+     add column if not exists priority        text check (priority in ('S','A','B','C')),
+     add column if not exists priority_set_at timestamptz,
+     add column if not exists revenue_band    text check (revenue_band in ('high','mid','low')),
+     add column if not exists revenue_set_at  timestamptz`,
 ]
 
 for (const statement of statements) {

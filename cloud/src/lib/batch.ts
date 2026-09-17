@@ -63,8 +63,8 @@ export type Batch = { weekOf: string; rows: BatchRow[] }
 /**
  * What one pass would draft, without writing anything.
  *
- * Models are taken in tier order, so when two of them want the same reel the
- * bespoke tier gets first refusal and the rest are staggered onto their next
+ * Models are taken in priority order, then tier, so when two want the same reel the
+ * higher-ranked model gets first refusal and the rest are staggered onto their next
  * best fit. That stagger is the thing the scaling plan always assumed existed
  * and nothing in the console has ever actually done.
  */
@@ -82,7 +82,11 @@ export async function previewBatch(weekOf?: string): Promise<Batch> {
           where p.model_id = m.id and p.week_of = $1::date
        ) w on true
       where m.status = 'active'
-      order by m.tier, m.name`,
+      -- Priority first, so an S-ranked model gets first refusal on a contested
+      -- reel; unranked models after C. Plan type breaks ties, as it always did.
+      order by case m.priority when 'S' then 0 when 'A' then 1 when 'B' then 2
+                               when 'C' then 3 else 4 end,
+               m.tier, m.name`,
     [week],
   )
 

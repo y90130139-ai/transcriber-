@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { formatDate } from '@/lib/dates'
 import type { Sweep, SweepRow } from '@/lib/sweep'
+import type { Standing } from '@/lib/standing'
+import { useStanding } from './useStanding'
 
 /**
  * The daily sweep. Six lists and a scoreboard, answering the one question the
@@ -86,9 +88,46 @@ function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`
 }
 
+/** The heat lists: who is on fire, who has gone cold, and the two situations
+ *  that only exist once revenue is known. Each row carries its reason. */
+const HEAT_LISTS: {
+  key: string
+  title: string
+  blurb: string
+  pick: (standing: Standing) => boolean
+  tone?: 'ours'
+}[] = [
+  {
+    key: 'fire',
+    title: '🔥 On fire',
+    blurb: 'Cleared her newest week, or scoring high across several. Keep her supplied first.',
+    pick: (standing) => standing.engagement.heat === 'fire',
+  },
+  {
+    key: 'at_risk',
+    title: 'At risk — talk to her',
+    blurb: 'High revenue, low engagement. More plans will not fix this one; a conversation might.',
+    pick: (standing) => standing.suggestion.situation === 'at_risk',
+    tone: 'ours',
+  },
+  {
+    key: 'rising',
+    title: 'Rising — invest',
+    blurb: 'Proactive but not yet top revenue. The best place to put extra effort to grow.',
+    pick: (standing) => standing.suggestion.situation === 'rising',
+  },
+  {
+    key: 'cold',
+    title: '🧊 Cold',
+    blurb: 'A sent week unopened for 3+ days, or a low score across several. Drafts never count.',
+    pick: (standing) => standing.engagement.heat === 'cold',
+  },
+]
+
 export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) => void }) {
   const [sweep, setSweep] = useState<Sweep | null>(null)
   const [loading, setLoading] = useState(true)
+  const { standing } = useStanding()
 
   const load = useCallback(async () => {
     const response = await fetch('/api/sweep')
@@ -169,6 +208,38 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
                       {countdown(row.days_left) && (
                         <span className="sweeprow-due">{countdown(row.days_left)}</span>
                       )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })}
+
+      {/* Heat comes after every list above, not before: our own side is first,
+          and a board that led with who is cold would blame her for weeks we
+          never sent. */}
+      {HEAT_LISTS.map((list) => {
+        const rows = sweep.rows
+          .filter((row) => row.status === 'active' && standing[row.id] && list.pick(standing[row.id]))
+        return (
+          <section className="sweeplist" key={list.key} data-tone={list.tone}>
+            <div className="sweephead">
+              <h3>{list.title}</h3>
+              <span className="tally">{rows.length}</span>
+            </div>
+            <p className="hint">{list.blurb}</p>
+            {rows.length === 0 ? (
+              <p className="sweepclear">Nobody yet.</p>
+            ) : (
+              <ul className="sweeprows">
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <button className="sweeprow" onClick={() => onOpenModel(row.id)}>
+                      <span className="sweeprow-tier">{standing[row.id]?.priority ?? '–'}</span>
+                      <span className="sweeprow-name">{row.name}</span>
+                      <span className="sweeprow-why">{standing[row.id]?.engagement.why}</span>
                     </button>
                   </li>
                 ))}

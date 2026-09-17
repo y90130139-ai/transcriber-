@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react'
 import ModelProfile from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
+import StandingBadge from './StandingBadge'
 import SweepFlags from './SweepFlags'
+import { useStanding } from './useStanding'
 import { formatDate } from '@/lib/dates'
 import { displayHandle, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
 import { labelOf } from '@/lib/taxonomy'
@@ -44,13 +46,19 @@ function CardLinks({ model }: { model: RosterModel }) {
 
 const CARD_LINKS = 5
 
-/** A tier is a heading here, not a badge. The roster's whole job is to answer
- *  "who needs me" and bespoke people need answering first. */
-const TIERS: { key: 'A' | 'B' | 'C'; label: string }[] = [
-  { key: 'A', label: 'A · bespoke' },
-  { key: 'B', label: 'B · mixed' },
-  { key: 'C', label: 'C · library only' },
+/** Priority is the heading: the roster's whole job is to answer "who needs me",
+ *  and that is who gets attention first. Plan type (bespoke / mixed / library)
+ *  used to be the heading and is now a word on the card — it says what her
+ *  plan is made of, not where she ranks. */
+type Group = 'S' | 'A' | 'B' | 'C' | 'none'
+const GROUPS: { key: Group; label: string }[] = [
+  { key: 'S', label: 'S · priority' },
+  { key: 'A', label: 'A · priority' },
+  { key: 'B', label: 'B · priority' },
+  { key: 'C', label: 'C · priority' },
+  { key: 'none', label: 'Not ranked yet' },
 ]
+const PLAN_TYPE = { A: 'bespoke', B: 'mixed', C: 'library only' } as const
 
 export default function RosterTab({
   openPlanFor,
@@ -67,6 +75,8 @@ export default function RosterTab({
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
   const [planning, setPlanning] = useState<RosterModel | null>(null)
+  const { standing, reload: loadStanding } = useStanding()
+  const groupOf = (model: RosterModel): Group => standing[model.id]?.priority ?? 'none'
 
   const load = useCallback(async () => {
     const response = await fetch('/api/models')
@@ -134,17 +144,17 @@ export default function RosterTab({
           <p>No models yet. Add one, then tag videos to her from the library.</p>
         </div>
       ) : (
-        TIERS.filter((tier) => models.some((model) => (model.tier ?? 'B') === tier.key))
-          .map((tier) => (
-        <section className="tiergroup" key={tier.key}>
+        GROUPS.filter((group) => models.some((model) => groupOf(model) === group.key))
+          .map((group) => (
+        <section className="tiergroup" key={group.key}>
           <h3 className="tierhead">
-            <span>{tier.label}</span>
+            <span>{group.label}</span>
             <span className="tally">
-              {models.filter((model) => (model.tier ?? 'B') === tier.key).length}
+              {models.filter((model) => groupOf(model) === group.key).length}
             </span>
           </h3>
         <div className="models">
-          {models.filter((model) => (model.tier ?? 'B') === tier.key).map((model) => (
+          {models.filter((model) => groupOf(model) === group.key).map((model) => (
             <div key={model.id} className="model roster-card" data-paused={model.status === 'paused'}>
               <button
                 className="model-frame roster-frame"
@@ -164,6 +174,8 @@ export default function RosterTab({
 
               <span className="model-handle">{model.name}</span>
               {model.handle && <span className="model-name">@{model.handle}</span>}
+
+              <StandingBadge standing={standing[model.id]} />
 
               <span className="model-persona">
                 {model.persona.length > 0 ? (
@@ -188,6 +200,7 @@ export default function RosterTab({
                     ? <> · opened</>
                     : <> · <b className="roster-declined">not opened</b></>
                 )}
+                {' · '}{PLAN_TYPE[model.tier ?? 'B']}
                 {model.status === 'paused' && ' · paused'}
               </span>
 
@@ -219,7 +232,8 @@ export default function RosterTab({
         <ModelProfile
           model={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); void load() }}
+          onSaved={() => { setEditing(null); void load(); void loadStanding() }}
+          onStanding={() => void loadStanding()}
         />
       )}
 
@@ -227,7 +241,7 @@ export default function RosterTab({
         <PlanEditor
           modelId={planning.id}
           modelName={planning.name}
-          onClose={() => { setPlanning(null); void load() }}
+          onClose={() => { setPlanning(null); void load(); void loadStanding() }}
         />
       )}
     </>

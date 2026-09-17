@@ -1359,3 +1359,82 @@ textarea.field { resize: vertical; }
   line-height: var(--sc-leading-body);
 }
 .intake-unmapped b { color: var(--sc-ink-500); font-weight: 500; }
+
+/* ------------------------------------------------- STANDING: HEAT + PRIORITY */
+/* One line on the roster card. Heat is the mark, priority the letter; a
+   suggested letter is dashed and carries a question mark so it is never read
+   as a decision. Cold stays ink, not blue — the palette has no cold colour and
+   should not grow one for a badge. */
+.standing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-1) var(--sc-space-2);
+  margin-top: var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  max-width: 100%;
+}
+.standing-mark { font-size: 0.9rem; line-height: 1; }
+.standing-tier {
+  padding: 1px var(--sc-space-2);
+  border: 1px solid var(--sc-ink-900);
+  color: var(--sc-ink-900);
+  font-weight: 700;
+}
+.standing-tier[data-suggested='true'] { border-style: dashed; border-color: var(--sc-ink-300); color: var(--sc-ink-500); font-weight: 500; }
+.standing[data-heat='fire'] .standing-why { color: var(--sc-ember-deep); }
+.standing-why { overflow-wrap: anywhere; }
+.standing-backlog { color: var(--sc-caution); }
+
+/* The Heat tab in her sheet. */
+.standingtab { display: grid; gap: var(--sc-space-6); }
+.standing-heat {
+  padding: var(--sc-space-4);
+  border-left: 2px solid var(--sc-ink-150);
+  background: var(--sc-bone);
+}
+.standing-heat[data-heat='fire'] { border-left-color: var(--sc-ember); }
+.standing-heat[data-heat='cold'] { border-left-color: var(--sc-ink-500); }
+.standing-heat-head {
+  margin: 0 0 var(--sc-space-1);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  color: var(--sc-ink-900);
+}
+.chip[data-suggested='true'] { border-style: dashed; border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+
+.standing-parts { list-style: none; margin: var(--sc-space-2) 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.standing-parts li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(4rem, 7rem) 3rem;
+  align-items: center;
+  gap: var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-700);
+}
+.standing-parts b { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); text-align: right; color: var(--sc-ink-900); }
+.standing-bar { height: 6px; background: var(--sc-ink-150); overflow: hidden; }
+.standing-bar i { display: block; height: 100%; background: var(--sc-ink-900); }
+
+.standing-weeks { list-style: none; margin: var(--sc-space-2) 0 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.standing-weeks li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1) var(--sc-space-3);
+  padding: var(--sc-space-2) 0;
+  border-top: var(--sc-rule-hair);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.standing-weeks li b { color: var(--sc-ink-900); }
+.standing-weeks li[data-cleared] b { color: var(--sc-ember-deep); }

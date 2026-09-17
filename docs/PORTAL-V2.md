@@ -952,3 +952,95 @@ Moving a full week onto a full week doubles it — Elizabeth's 21 + 21 would be 
 on the 14th. The week's short-of-target warning only warns when *under*; nothing
 flags over. Trim after moving, or delete the old week instead if its videos are
 not wanted.
+
+## Standing: priority and heat — 2026-09-17
+
+**Status: built and verified. Migration run on production (additive). Not yet
+deployed.** Design reasoning: `docs/NEXT-TIERS.md`.
+
+Geno's ask: tier creators **S/A/B/C** by **revenue** and **how proactive they
+are**, prioritise the top, see who actually uses the plan (opens, taps *I'll do
+this* / *I won't*, comments), a 🔥 for a creator who clears her week and a cold
+mark for one who doesn't look.
+
+### Decisions (defaults taken; Geno said keep going — each is cheap to change)
+
+1. **`tier` is untouched** and still means plan type (bespoke / mixed / library).
+   **`priority` (S/A/B/C) is new** and means who gets attention first. The
+   roster now *groups by priority*; plan type became a word on the card.
+2. **Revenue is a band** (high / mid / low), set per creator in her sheet. No
+   dollar figures stored.
+3. **"Cleared" = everything she did not decline, filmed.** A reasoned decline
+   never costs her the 🔥.
+4. **Internal only.** Nothing changed on her page except that visits are now
+   recorded.
+
+### What was built
+
+- **`plan_events`**: one row per act on her page: `visit` (throttled to one
+  per plan per 30 min), `accept`, `decline`, `reopen`, `film`, `unfilm`,
+  `message`. Written best-effort by the routes she already calls
+  (`lib/events.ts`); a failed insert is logged and swallowed, never her
+  problem. A repeated film tick is not a new event.
+- **`plan_items.carried_from`**: stamped by carry-forward (first week only), so
+  unfilmed carried cards count as **backlog**.
+- **`models.priority`, `revenue_band`** (+ `_set_at`), all nullable.
+- **`lib/engagement.ts`** (pure): score 0–100 over her newest 4 **sent** weeks,
+  recency-weighted 40/30/20/10. Filmed-of-expected 35, answered 20, posted 20,
+  opened-and-how-fast 15, talked 10. **Posted only counts once any post of
+  hers has been bound**; until then its weight moves to filmed.
+  **Heat:** 🔥 cleared newest week, or ≥75 over 2+ weeks · 🧊 newest sent week
+  unopened 3+ days, or <25 over 2+ weeks · `new` under 2 sent weeks · else
+  steady. Every heat carries its one-line reason.
+  **Suggestion** = revenue × engagement, read as a situation: high+engaged **S
+  Star**, high+disengaged **A At risk**, mid+engaged **A Rising**, low+engaged
+  **B Rising**, low/mid+disengaged **C Dormant**, otherwise steady. No
+  suggestion without a revenue band or with under 2 sent weeks.
+- **`lib/standing.ts`** + `GET /api/standing` (everyone) and
+  `GET|PUT /api/models/[id]/standing` (one; PUT sets priority/revenue, `null`
+  clears, omitted leaves alone). Password-gated like the rest of the console.
+- **UI.** Roster grouped S / A / B / C / Not ranked yet, with a one-line badge
+  (heat mark, priority, or a dashed `A?` suggestion, situation, backlog) shown
+  only when there is something to say. A **Heat** tab in her sheet: heat and
+  reason, last active, revenue chips, priority chips with the suggested one
+  dashed and a *Use A* button, score breakdown bars, her sent weeks. **Today**
+  gains 🔥 On fire, At risk, Rising, 🧊 Cold, placed *after* the existing
+  lists so our own side still comes first.
+- **Build a week for everyone** now takes models in priority order (unranked
+  last), then plan type, so an S gets first refusal on a contested reel.
+
+### What it reads today
+
+On 2026-09-17 all 20 read **new**: 3 have one sent week (Milky Sins 24, two at
+15), 17 have none. That is correct and is the point of rule 1. **Heat starts
+meaning something after two sent weeks each.** Sending weeks is the lever.
+
+### Verified
+
+- `engagement.ts` unit tests: never sent, Milky's real shape, cleared with and
+  without declines, unopened 4 days vs 1 day, two strong / two weak weeks,
+  posting weight, all suggestion quadrants.
+- **The real `migrate.mjs` run twice against PGlite**, then the real routes:
+  standing for fire/cold/draft-only; PUT set/clear/400/404; her accept, film,
+  repeat film, message and decline each recorded once and still returning
+  what they did; a wrong token records nothing; visit throttle; a failing
+  event insert swallowed; carry sets `carried_from` and backlog. The eight
+  carry-forward tests still pass.
+- Migration run on production: columns present, 0 events, 0 ranked.
+- Typecheck, production build, both stylesheet checks.
+- Console at 1440, 390 light, 390 dark and 320 against live data with **every
+  non-GET aborted**: no attempted writes, no page errors, no document overflow.
+  At 320 the sheet's five tabs scroll within their bar.
+
+### Fixed after code review
+
+- **Carry no longer mixes sent/opened pairs.** It took `least()` of each
+  separately, so carrying a stale week into her sent, opened current week gave
+  the combined week the *old* send date beside *this* week's open, making a
+  prompt creator look 17 days slow. The target's own pair now wins once sent.
+  Test added (10 PGlite tests).
+- **Event writes run in `after()`**, once her response is sent, not in the
+  request path. Neither her page nor a tap waits on measurement.
+- **Re-sending the same verdict records nothing**, the same rule as filming.
+- Known and accepted: two visits within the same instant can both pass the
+  30-minute throttle. It changes no score; `last_active` is a max.

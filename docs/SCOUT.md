@@ -201,3 +201,42 @@ need a residential address and a signed-in session; a datacenter IP there is
 *more* likely to be flagged, not less, so that half waits. If the Mac is gone
 for good, the options are another machine at home, or a residential proxy —
 not a VPS.
+
+---
+
+# Why a reel, in words (added 2026-09-19)
+
+Geno: *"for a model, they don't know what the X is, so they're not going to
+read that."* Right. `8.53×` is the correct maths and the wrong sentence.
+
+`cloud/src/lib/appeal.ts` turns four measured signals into badges:
+
+| Badge | Rule | Measured from |
+|---|---|---|
+| **Blowing up** | ≥5× that creator's median **plays**, posted ≤7 days ago | top decile of 921 in-window reels |
+| **Proven hit** | same, but older | — |
+| **Doing well** | ≥2× their median plays | — |
+| **People reacted** | (likes+comments) ÷ plays ≥ 6.6% | corpus median 2.4%, top decile 6.6% |
+| **Still climbing** | plays up ≥25% since last sweep | needs two sightings, hence `plays_prev` |
+| **Trending sound** | ≥2 watched creators on that audio in 14 days | 25 such sounds on 2026-09-19 |
+
+Her card shows one line — `Proven hit · 765K views` — and nothing at all when
+there is nothing true to say. The console keeps the numbers in the badge's
+tooltip. Rows the sweep has never seen fall back to the old engagement measure,
+worded as **Popular**.
+
+**Views are the measure now**, not likes: `videoPlayCount` is on every
+sighting. `hot.ts` is still untouched and still engagement-based; the next step
+is letting it take its median from sightings too, once there are a few weeks of
+them.
+
+## Watchlist and sounds
+
+- **Creators → Watchlist**: paste handles or profile links in bulk. This is how
+  the sweep reaches outside the niche — a comedian or a cooking account watched
+  for its *format*, which travels between niches better than its subject does.
+- Accounts found collaborating on a picked reel land as **suggested** and cost
+  nothing until someone taps Watch. Tagged brands (@starbucks) turn up there
+  too; that is what "Not for us" is for.
+- **Library → Sounds going round**: audio two or more watched creators used in
+  the last fortnight, rising first, with a link to hear it.

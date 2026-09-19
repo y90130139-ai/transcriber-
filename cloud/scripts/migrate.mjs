@@ -618,6 +618,12 @@ const statements = [
      add column if not exists poster_url  text,
      add column if not exists media_until timestamptz`,
 
+  // Last sweep's play count, so a re-sighting can say whether a reel is still
+  // climbing. One snapshot says how big; two say which direction.
+  `alter table transcriber.sightings
+     add column if not exists plays_prev    bigint,
+     add column if not exists plays_prev_at timestamptz`,
+
   // One row per sweep, so "did it run, what did it cost, what did it find" is
   // a query rather than a log file on the Mac.
   `create table if not exists transcriber.scout_runs (

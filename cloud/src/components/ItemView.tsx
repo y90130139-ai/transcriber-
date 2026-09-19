@@ -10,7 +10,7 @@ import {
 import { AXES } from '@/lib/taxonomy'
 import { firstLineOf } from '@/lib/autotag'
 import { buildScaffold } from '@/lib/script'
-import { OUTPERFORMANCE_LEGEND } from '@/lib/outperformance'
+import { BADGE_LEGEND } from '@/lib/appeal'
 
 type FullItem = LibraryItem & {
   caption: string | null
@@ -105,7 +105,7 @@ export default function ItemView({
           <button className="reader-close" onClick={onClose} aria-label="Close">Close</button>
           <h3>{displayName(item)}</h3>
           {link && <a className="source" href={link} target="_blank" rel="noreferrer">{link}</a>}
-          <p className="facts" title={OUTPERFORMANCE_LEGEND}>
+          <p className="facts" title={BADGE_LEGEND}>
             {[
               shown.upload_date,
               clock(shown.duration_sec),

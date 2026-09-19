@@ -41,6 +41,11 @@ export type LibraryItem = {
   engagement_score?: number | null
   creator_posts?: number | null
   outperformance?: number | null
+  /** Plain-language reasons this reel is worth making — see lib/appeal.ts.
+   *  Absent on rows the sweep has never seen. */
+  badges?: { label: string; detail: string; tone: 'hot' | 'warm' | 'cool' }[]
+  /** Plays, when the sweep has them. */
+  sig_plays?: number | string | null
   is_hot?: boolean | null
   tags?: TagRow[]
 }

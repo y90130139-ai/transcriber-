@@ -4,7 +4,7 @@ import { useState } from 'react'
 import BulkAssign from './roster/BulkAssign'
 import FilterBar, { type Filters } from './FilterBar'
 import LibraryGrid from './LibraryGrid'
-import { OUTPERFORMANCE_LEGEND } from '@/lib/outperformance'
+import { BADGE_LEGEND } from '@/lib/appeal'
 import type { LibraryItem } from '@/lib/format'
 
 export default function LibraryTab({
@@ -103,7 +103,7 @@ export default function LibraryTab({
       {/* The multiplier was rendered in four places and explained in none.
           A `title` tooltip is useless on a phone, which is where this gets
           read, so the legend is visible copy rather than a hover. */}
-      <p className="legend">{OUTPERFORMANCE_LEGEND}</p>
+      <p className="legend">{BADGE_LEGEND}</p>
 
       {items.length > 0 ? (
         <>

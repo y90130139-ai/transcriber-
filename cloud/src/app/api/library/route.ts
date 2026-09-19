@@ -3,6 +3,7 @@ import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
 import { IN_HOT_WINDOW, IN_MONTH, IN_WEEK, IS_HOT, SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
+import { badgesFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from '@/lib/appeal'
 import { tagsForMany } from '@/lib/tagging'
 import { AXES } from '@/lib/taxonomy'
 
@@ -81,17 +82,22 @@ export async function GET(request: Request) {
   if (window === '90') where.push(IN_HOT_WINDOW)
   if (onlyHot) where.push(IS_HOT)
 
-  const items = await sql.query(
+  const rows = await sql.query(
     `with ${SCORING_CTE}
-     select ${COLUMNS}, ${SCORING_COLUMNS}
+     select ${COLUMNS}, ${SCORING_COLUMNS}, ${SIGNALS_COLUMNS}
        from transcriber.jobs j
        join transcriber.transcripts t on t.job_id = j.id
        ${SCORING_JOIN}
+       ${SIGNALS_JOIN}
       where ${where.join(' and ')}
       order by ${sort}
       limit ${limit} offset ${offset}`,
     params,
   )
+
+  // The multiplier stays on the row for anyone who wants the working; the
+  // badges are what the grid actually reads out.
+  const items: Record<string, unknown>[] = rows.map((row) => ({ ...row, badges: badgesFor(signalsFrom(row)) }))
 
   // How many the filter actually holds, as against how many came back. Without
   // this the grid could only ever report what it was handed, so a truncated

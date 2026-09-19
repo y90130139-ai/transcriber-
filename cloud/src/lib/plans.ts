@@ -1,3 +1,4 @@
+import { headlineFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from './appeal'
 import { sql } from './db'
 import { currentWeekOf } from './dates'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
@@ -51,6 +52,9 @@ export type PlanMessage = {
 export type Verdict = 'open' | 'accepted' | 'declined'
 
 export type PlanItem = {
+  /** Why this reel, in her language — "Blowing up · 1.2M views · trending
+   *  sound". Null when the sweep has nothing true to say about it. */
+  headline: string | null
   id: string
   position: number
   /** Phase 4. Assigned once per model and never reassigned, so a conversation
@@ -181,11 +185,13 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             t.webpage_url, t.duration_sec, t.blocks,
+            ${SIGNALS_COLUMNS},
             ${spoken('t.plain')} as transcript,
             coalesce(m.messages, '[]'::json) as messages,
             coalesce(m.unread, 0)::int as unread
        from transcriber.plan_items i
        left join transcriber.transcripts t on t.job_id = i.job_id
+       ${SIGNALS_JOIN}
        left join lateral (
          select json_agg(json_build_object(
                   'id',     n.id,
@@ -204,6 +210,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   )
 
   const items: PlanItem[] = rows.map((row) => ({
+    headline: headlineFor(signalsFrom(row)),
     id: String(row.item_id),
     position: Number(row.position ?? 0),
     card_no: row.card_no === null || row.card_no === undefined ? null : Number(row.card_no),

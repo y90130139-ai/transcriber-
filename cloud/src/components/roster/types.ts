@@ -193,6 +193,9 @@ export type Suggestion = {
   upload_date: string | null
   outperformance: number | null
   is_hot: boolean | null
+  /** Plain-language reasons, strongest first — see lib/appeal.ts. */
+  badges?: { label: string; detail: string; tone: 'hot' | 'warm' | 'cool' }[]
+  sig_plays?: number | string | null
   has_thumb: boolean
   preview: string | null
   fit: number

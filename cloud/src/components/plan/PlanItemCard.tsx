@@ -227,6 +227,11 @@ export default function PlanItemCard({
         {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
       </div>
 
+      {/* Why this one is on her week. Plain words, because "8.53×" is a number
+          she has no baseline for and would rightly ignore. Nothing is shown
+          when the sweep has nothing true to say. */}
+      {item.headline && <p className="plan-why">{item.headline}</p>}
+
       {item.media ? (
         <video
           className="plan-player"

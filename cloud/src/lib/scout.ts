@@ -212,6 +212,20 @@ export async function storeSightings(rows: Sighting[]): Promise<number> {
             audio_url text, video_url text, poster_url text, media_until timestamptz)
      on conflict (post_id) do update
         set plays          = coalesce(excluded.plays, transcriber.sightings.plays),
+            -- Keep the previous reading whenever this one is higher: the pair
+            -- is what makes "still climbing" a measurement instead of a guess.
+            plays_prev     = case
+                               when excluded.plays is not null
+                                and transcriber.sightings.plays is not null
+                                and excluded.plays > transcriber.sightings.plays
+                               then transcriber.sightings.plays
+                               else transcriber.sightings.plays_prev end,
+            plays_prev_at  = case
+                               when excluded.plays is not null
+                                and transcriber.sightings.plays is not null
+                                and excluded.plays > transcriber.sightings.plays
+                               then transcriber.sightings.seen_at
+                               else transcriber.sightings.plays_prev_at end,
             likes          = coalesce(excluded.likes, transcriber.sightings.likes),
             comments       = coalesce(excluded.comments, transcriber.sightings.comments),
             caption        = coalesce(excluded.caption, transcriber.sightings.caption),

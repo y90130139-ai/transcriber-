@@ -240,3 +240,60 @@ them.
   too; that is what "Not for us" is for.
 - **Library → Sounds going round**: audio two or more watched creators used in
   the last fortnight, rising first, with a link to hear it.
+
+---
+
+# Knowing who a creator is, without reading 195 profiles (added 2026-09-19)
+
+Geno: *"having to go through 195 creators and make sure that they're all
+tagged kind of seems a little bit unrealistic."* It is. 178 of 196 watched
+creators had no persona, and persona is the most load-bearing tag in the
+system — inherited by everything that creator posts, and the thing that
+decides which model is shown her work.
+
+## What the evidence actually is
+
+`scripts/profiles.mjs` pulls each account's bio, category and followers
+through Apify's profile scraper (~$0.0023 each, $0.45 for the watchlist).
+Two findings from the first run, both worth keeping:
+
+- **Bios are empty here.** 148 of 196 have one and it is almost always
+  "check highlights ↓". Five mention goth, four mention mom, two mention
+  latina. The bio is *not* the dense signal it is in other niches.
+- **Only 57 of 196 are professional accounts.** That is the answer to the
+  long-open `business_discovery` question: Meta's free route would have
+  covered under a third of this watchlist even before age-gating.
+
+So the evidence is the pixels and the captions: eight still frames from her
+best reels, up to fifteen captions, and any on-screen text.
+
+## The profiler proposes; a human decides
+
+`cloud/src/lib/profiler.ts` sends that evidence to Cloudflare Workers AI
+(`mistral-small-3.1-24b-instruct`, vision) with **our own 32-tag vocabulary**
+and takes back at most three ids plus one sentence of reasoning. Tags outside
+the vocabulary are dropped rather than coerced. It writes to
+`transcriber.creator_proposals` — never to `creators.persona`.
+
+Creators tab → **"Who these creators are"**: her frame, her numbers, the
+model's reason, and the whole chip row with its picks lit. Tap a chip to
+correct it, **Take** to apply (which carries the persona to everything she
+posts), or **None of these**. `decision` records which of the three happened,
+so the proposer's accuracy is measurable later rather than assumed.
+
+**Why a model when rule 3 says deterministic:** the evidence is pixels. A
+lexicon cannot see a black-walled room or latex, and the bios are empty. The
+discipline is kept where it counts — fixed vocabulary, evidence shown beside
+the answer, a human deciding — which is the same shape as `brief.ts`.
+
+**Measured before trusting:** against the six creators with both a human tag
+and sweep evidence, three overlapped outright. The misses (`pregnant`,
+`milf-mature`) are facets a still frame cannot show, not nonsense — and one
+human tag (`pregnant`) may simply be out of date. Treat the panel as a
+first pass, not an oracle; @clips, a 17.8M-follower meme account, got three
+confident tags that are all wrong, which is exactly what "None of these" is
+for.
+
+**Chaining:** `POST /api/creators/profile {"chain":true}` profiles three, then
+hands the baton on, until nothing is left. About 12 seconds a creator and well
+under a cent each.

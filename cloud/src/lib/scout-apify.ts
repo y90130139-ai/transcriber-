@@ -169,6 +169,11 @@ export function toSighting(item: Record<string, unknown>): Sighting | null {
     collaborators: names(item.coauthorProducers),
     tagged: names(item.taggedUsers),
     pinned: item.isPinned === true,
+    // Signed CDN links, good for about a day and a half — the fallback's way
+    // to fetch a reel without the Mac and without paying Apify twice.
+    audio_url: item.audioUrl,
+    video_url: item.videoUrl,
+    poster_url: item.displayUrl,
     ...audio(item),
   })
 }

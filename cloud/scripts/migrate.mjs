@@ -607,6 +607,17 @@ const statements = [
   `create index if not exists sightings_source_key_idx
      on transcriber.sightings (source_key)`,
 
+  // Where the media actually sits, as the sweep saw it. Instagram's CDN links
+  // are signed and expire in about 33 hours (read off the `oe` parameter), so
+  // these are a short-lived shortcut, not storage: the cloud fallback can
+  // fetch a reel with no Mac and no second Apify call while they are fresh,
+  // and re-fetches once they are not.
+  `alter table transcriber.sightings
+     add column if not exists audio_url   text,
+     add column if not exists video_url   text,
+     add column if not exists poster_url  text,
+     add column if not exists media_until timestamptz`,
+
   // One row per sweep, so "did it run, what did it cost, what did it find" is
   // a query rather than a log file on the Mac.
   `create table if not exists transcriber.scout_runs (

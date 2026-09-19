@@ -39,6 +39,32 @@ export async function pendingUploads(): Promise<PendingUpload[]> {
   }))
 }
 
+/** The same queue, for the cloud fallback: items on a live plan whose video
+ *  is not in R2 and whose reel still has a usable CDN link. The Mac uploads
+ *  from its own copy on disk (`folder`); with no Mac there is no disk, so
+ *  these are fetched from Instagram's CDN instead. */
+export async function cloudUploads(): Promise<{ id: string; key: string; url: string }[]> {
+  const rows = await sql.query(
+    `select i.id, i.plan_id, i.job_id, s.video_url
+       from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+       join transcriber.transcripts t on t.job_id = i.job_id
+       join transcriber.sightings s on s.source_key = t.webpage_url or s.post_id = t.post_id
+      where i.uploaded_at is null
+        and i.r2_purged_at is null
+        and s.video_url is not null
+        and s.media_until > now()
+        and p.week_of >= current_date - interval '${R2_RETENTION_DAYS} days'
+      order by p.week_of desc, i.position
+      limit ${UPLOAD_BATCH}`,
+  )
+  return rows.map((row) => ({
+    id: String(row.id),
+    key: r2KeyFor(String(row.plan_id), String(row.job_id)),
+    url: String(row.video_url),
+  }))
+}
+
 /** Objects whose week has closed. Retention is what keeps this free forever. */
 export async function expiredObjects(): Promise<{ id: string; key: string }[]> {
   const rows = await sql.query(

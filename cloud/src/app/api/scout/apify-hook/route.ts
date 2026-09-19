@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { isScheduler } from '@/lib/cron'
 import { sql } from '@/lib/db'
 import {
@@ -11,6 +11,7 @@ import {
   type Sighting,
 } from '@/lib/scout'
 import { accessFrom, datasetItems, runInfo, toSighting } from '@/lib/scout-apify'
+import { macState } from '@/lib/fallback'
 
 export const maxDuration = 60
 
@@ -85,6 +86,21 @@ export async function POST(request: Request) {
       }),
     ],
   )
+
+  // Freshly queued winners carry CDN links that live about a day and a half.
+  // If the Mac is not there to fetch them, the cloud should start now rather
+  // than at tomorrow's cron, while those links still work.
+  if (queued > 0) {
+    const origin = new URL(request.url).origin
+    after(async () => {
+      const mac = await macState()
+      if (!mac.stale) return
+      await fetch(`${origin}/api/worker/cloud`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` },
+      }).catch(() => {})
+    })
+  }
 
   return NextResponse.json({ run: runId, stored, picked: picks.length, queued, suggested, truncated })
 }

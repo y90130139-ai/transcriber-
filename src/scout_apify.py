@@ -194,6 +194,11 @@ def to_sighting(item: dict) -> dict | None:
         "collaborators": _names(item.get("coauthorProducers")),
         "tagged": _names(item.get("taggedUsers")),
         "pinned": bool(item.get("isPinned")),
+        # Signed CDN links (about 33h of life) so the cloud fallback can fetch
+        # a reel with no Mac and no second Apify call.
+        "audio_url": item.get("audioUrl"),
+        "video_url": item.get("videoUrl"),
+        "poster_url": item.get("displayUrl"),
     }
     sighting.update(_audio(item))
     return sighting

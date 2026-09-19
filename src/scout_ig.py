@@ -139,6 +139,10 @@ def to_sighting(item: dict, handle: str) -> dict | None:
         "tagged": _names((item.get("usertags") or {}).get("in")),
         # A pinned reel carries the ids of the profiles it is pinned on.
         "pinned": bool(item.get("timeline_pinned_user_ids")),
+        # Same shortcut the Apify reader stores, read off the feed's own
+        # version lists: highest-bitrate video, and the image as poster.
+        "video_url": (item.get("video_versions") or [{}])[0].get("url"),
+        "poster_url": ((item.get("image_versions2") or {}).get("candidates") or [{}])[0].get("url"),
     }
 
 

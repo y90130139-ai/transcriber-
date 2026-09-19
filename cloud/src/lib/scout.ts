@@ -80,6 +80,10 @@ export type Sighting = {
   tagged: string[]
   pinned: boolean
   via: 'apify' | 'burner'
+  audio_url: string | null
+  video_url: string | null
+  poster_url: string | null
+  media_until: string | null
 }
 
 export type Access = { handle: string; access: 'open' | 'gated' | 'missing' }
@@ -101,6 +105,23 @@ function handles(value: unknown): string[] {
     if (HANDLE.test(h)) seen.add(h)
   }
   return [...seen].slice(0, MAX_NAMES)
+}
+
+/** A signed CDN link, kept only while it is worth anything. */
+function mediaUrl(value: unknown): string | null {
+  return typeof value === 'string' && value.startsWith('https://') ? value.slice(0, 2_000) : null
+}
+
+/** Instagram signs its CDN links with an `oe` expiry in hex seconds. Reading
+ *  it is what lets the fallback know whether it can use a stored link or must
+ *  pay for a fresh one. */
+export function expiryOf(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const match = /[?&]oe=([0-9a-fA-F]{6,10})/.exec(value)
+  if (!match) return null
+  const seconds = parseInt(match[1], 16)
+  if (!Number.isFinite(seconds) || seconds < 1_600_000_000) return null
+  return new Date(seconds * 1000).toISOString()
 }
 
 /** Validate one sighting from the Mac. Anything malformed is dropped whole
@@ -136,6 +157,10 @@ export function parseSighting(raw: unknown): Sighting | null {
     tagged: handles(r.tagged).filter((h) => h !== handle),
     pinned: r.pinned === true,
     via,
+    audio_url: mediaUrl(r.audio_url),
+    video_url: mediaUrl(r.video_url),
+    poster_url: mediaUrl(r.poster_url),
+    media_until: expiryOf(r.audio_url) ?? expiryOf(r.video_url),
   }
 }
 
@@ -173,17 +198,18 @@ export async function storeSightings(rows: Sighting[]): Promise<number> {
     `insert into transcriber.sightings
        (post_id, handle, url, source_key, posted_at, plays, likes, comments,
         duration_sec, caption, audio_id, audio_title, audio_artist, original_audio,
-        collaborators, tagged, pinned, via)
+        collaborators, tagged, pinned, via, audio_url, video_url, poster_url, media_until)
      select x.post_id, x.handle, x.url, x.source_key, x.posted_at, x.plays, x.likes,
             x.comments, x.duration_sec, x.caption, x.audio_id, x.audio_title,
             x.audio_artist, x.original_audio,
             coalesce(x.collaborators, '{}'), coalesce(x.tagged, '{}'),
-            coalesce(x.pinned, false), x.via
+            coalesce(x.pinned, false), x.via, x.audio_url, x.video_url, x.poster_url, x.media_until
        from jsonb_to_recordset($1::jsonb) as x(
             post_id text, handle text, url text, source_key text, posted_at timestamptz,
             plays bigint, likes bigint, comments bigint, duration_sec real, caption text,
             audio_id text, audio_title text, audio_artist text, original_audio boolean,
-            collaborators text[], tagged text[], pinned boolean, via text)
+            collaborators text[], tagged text[], pinned boolean, via text,
+            audio_url text, video_url text, poster_url text, media_until timestamptz)
      on conflict (post_id) do update
         set plays          = coalesce(excluded.plays, transcriber.sightings.plays),
             likes          = coalesce(excluded.likes, transcriber.sightings.likes),
@@ -201,6 +227,12 @@ export async function storeSightings(rows: Sighting[]): Promise<number> {
             tagged         = case when cardinality(excluded.tagged) > 0
                                   then excluded.tagged else transcriber.sightings.tagged end,
             pinned         = excluded.pinned,
+            -- Only ever move media links forward: a re-sighting with no links
+            -- (or expired ones) must not blank a usable pair.
+            audio_url      = coalesce(excluded.audio_url, transcriber.sightings.audio_url),
+            video_url      = coalesce(excluded.video_url, transcriber.sightings.video_url),
+            poster_url     = coalesce(excluded.poster_url, transcriber.sightings.poster_url),
+            media_until    = greatest(excluded.media_until, transcriber.sightings.media_until),
             seen_at        = now()
      returning post_id`,
     [JSON.stringify(rows)],

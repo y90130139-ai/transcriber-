@@ -65,15 +65,21 @@ function signingKey(secret: string, datestamp: string): Buffer {
 }
 
 /**
- * A presigned GET for one object, valid for `ttlSec`.
+ * A presigned URL for one object, valid for `ttlSec`.
  *
  * `extraQuery` is signed along with everything else, which is what makes
- * `response-content-disposition` usable for a download link.
+ * `response-content-disposition` usable for a download link. `method` is part
+ * of the signature, so a PUT link (how the cloud fallback uploads a plan's
+ * video when the Mac is not there to) must be signed as PUT.
  */
-export function presignGet(
+export function presign(
   config: R2Config,
   key: string,
-  { ttlSec = R2_URL_TTL_SEC, extraQuery = {} }: { ttlSec?: number; extraQuery?: Record<string, string> } = {},
+  {
+    ttlSec = R2_URL_TTL_SEC,
+    extraQuery = {},
+    method = 'GET',
+  }: { ttlSec?: number; extraQuery?: Record<string, string>; method?: 'GET' | 'PUT' } = {},
 ): string {
   const host = `${config.accountId}.r2.cloudflarestorage.com`
   const canonicalUri = `/${encodePath(config.bucket)}/${encodePath(key)}`
@@ -96,7 +102,7 @@ export function presignGet(
     .join('&')
 
   const canonicalRequest = [
-    'GET',
+    method,
     canonicalUri,
     canonicalQuery,
     `host:${host}\n`,
@@ -116,6 +122,16 @@ export function presignGet(
     .digest('hex')
 
   return `https://${host}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`
+}
+
+/** The read link the app hands out. Unchanged behaviour; `presign` grew a
+ *  method so uploads could share the signing. */
+export function presignGet(
+  config: R2Config,
+  key: string,
+  options: { ttlSec?: number; extraQuery?: Record<string, string> } = {},
+): string {
+  return presign(config, key, { ...options, method: 'GET' })
 }
 
 export type PlanMedia = { video: string; download: string }

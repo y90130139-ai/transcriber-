@@ -37,19 +37,29 @@ export async function GET(request: Request) {
     did.autodraft = await draftNextWeek()
   }
 
+  // Every day, not just the scheduled ones: this is the check that notices the
+  // Mac has stopped. It returns immediately while the Mac is alive.
+  did.fallback = await callSelf(request, '/api/worker/cloud')
+
   return NextResponse.json(did)
 }
 
-/** Ask our own sweep route to start, carrying the scheduler's credential. */
-async function startSweep(request: Request) {
+/** Call one of our own routes, carrying the scheduler's credential. */
+async function callSelf(request: Request, path: string) {
   const origin = new URL(request.url).origin
-  const response = await fetch(`${origin}/api/scout/apify`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` },
-  })
-  const body = await response.json().catch(() => ({}))
-  return response.ok ? body : { error: body?.error ?? response.status }
+  try {
+    const response = await fetch(`${origin}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` },
+    })
+    const body = await response.json().catch(() => ({}))
+    return response.ok ? body : { error: body?.error ?? response.status }
+  } catch (error) {
+    return { error: String(error).slice(0, 160) }
+  }
 }
+
+const startSweep = (request: Request) => callSelf(request, '/api/scout/apify')
 
 /**
  * Tomorrow's Monday, exactly as `bin/autodraft` asks for it: on Sunday that is

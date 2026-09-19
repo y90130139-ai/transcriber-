@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import PersonaProposals from './PersonaProposals'
 import WatchlistPanel from './WatchlistPanel'
 import CreatorSheet from './CreatorSheet'
 import PersonaBackfill from './PersonaBackfill'
@@ -78,6 +79,7 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
   return (
     <>
       <WatchlistPanel />
+      <PersonaProposals />
       <section className="filters" aria-label="Creator filters">
         <div className="filter-rail">
           <input

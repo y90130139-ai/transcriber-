@@ -624,6 +624,31 @@ const statements = [
      add column if not exists plays_prev    bigint,
      add column if not exists plays_prev_at timestamptz`,
 
+  // What the creator says she is. A bio states in one line what a still frame
+  // can only hint at — "mom of 3", "goth mommy", "certified brat" — and it is
+  // the single densest piece of evidence for positioning her.
+  `alter table transcriber.creators
+     add column if not exists bio        text,
+     add column if not exists category   text,
+     add column if not exists followers  bigint,
+     add column if not exists is_private boolean,
+     add column if not exists profile_at timestamptz`,
+
+  // What the profiler thinks a creator is, waiting on a human. Never applied
+  // on its own: persona decides which model gets shown her work, and a guess
+  // that writes itself into the matcher is a guess nobody can see.
+  `create table if not exists transcriber.creator_proposals (
+     handle     text primary key references transcriber.creators(handle) on delete cascade,
+     tags       text[] not null default '{}',
+     why        text,
+     evidence   jsonb  not null default '{}',
+     made_at    timestamptz not null default now(),
+     decided_at timestamptz,
+     decision   text check (decision in ('taken','edited','rejected'))
+   )`,
+  `create index if not exists creator_proposals_open_idx
+     on transcriber.creator_proposals (made_at desc) where decided_at is null`,
+
   // One row per sweep, so "did it run, what did it cost, what did it find" is
   // a query rather than a log file on the Mac.
   `create table if not exists transcriber.scout_runs (

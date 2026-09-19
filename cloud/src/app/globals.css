@@ -1230,3 +1230,25 @@ body {
 .sounds-list li { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; font-size: 0.88rem; }
 .sounds-title em { font-style: normal; color: var(--sc-ink-500); }
 .sounds-meta { color: var(--sc-ember); font-size: 0.8rem; letter-spacing: 0.04em; }
+
+/* Persona proposals: a face, a reason, the chips, and two buttons. The chip
+   row is the edit — no separate mode, because the decision and the correction
+   are the same gesture. */
+.proposals { border-top: var(--sc-rule-hair); margin: 0 0 1rem; }
+.proposals-body { padding: 0 0 1rem; display: grid; gap: 0.8rem; }
+.proposals-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+.proposals-list li {
+  display: grid; gap: 0.5rem 0.9rem; align-items: start;
+  grid-template-columns: 64px minmax(0, 1fr);
+  padding-bottom: 0.9rem; border-bottom: var(--sc-rule-hair);
+}
+.proposals-list img { object-fit: cover; width: 64px; height: 80px; }
+.proposals-who { display: grid; gap: 0.2rem; font-size: 0.9rem; }
+.proposals-who span { color: var(--sc-ink-500); font-size: 0.78rem; }
+.proposals-who em { font-style: normal; color: var(--sc-ink-700); font-size: 0.82rem; }
+.proposals-tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.proposals-actions { grid-column: 2; display: flex; gap: 0.6rem; }
+@media (max-width: 640px) {
+  .proposals-list li { grid-template-columns: 48px minmax(0, 1fr); }
+  .proposals-list img { width: 48px; height: 60px; }
+}

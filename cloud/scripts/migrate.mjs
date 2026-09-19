@@ -556,6 +556,71 @@ const statements = [
      add column if not exists priority_set_at timestamptz,
      add column if not exists revenue_band    text check (revenue_band in ('high','mid','low')),
      add column if not exists revenue_set_at  timestamptz`,
+
+  // Scout — the watchlist sweep. `access` is what the last sweep learned about
+  // reading the account: open to a logged-out reader, gated (18+ or audience-
+  // restricted, needs the burner session), or missing (renamed/deleted).
+  // `watch` separates the accounts we sweep from ones the sweep *suggested*
+  // (collaborators on a winner) so a suggestion never costs a sweep until a
+  // human says watch it. Everything already here is `watching`.
+  `alter table transcriber.creators
+     add column if not exists access    text check (access in ('open','gated','missing')),
+     add column if not exists access_at timestamptz,
+     add column if not exists swept_at  timestamptz,
+     add column if not exists watch     text not null default 'watching'
+       check (watch in ('watching','suggested','dismissed')),
+     add column if not exists found_via text`,
+
+  // Every reel the sweep has seen, winner or not. This is the creator's real
+  // baseline — the library only holds posts someone chose to keep, so a median
+  // over the library is a median over the good ones. Metrics are refreshed on
+  // every sighting because plays keep climbing for days.
+  `create table if not exists transcriber.sightings (
+     post_id        text primary key,
+     handle         text not null,
+     url            text not null,
+     source_key     text not null,
+     posted_at      timestamptz,
+     plays          bigint,
+     likes          bigint,
+     comments       bigint,
+     duration_sec   real,
+     caption        text,
+     audio_id       text,
+     audio_title    text,
+     audio_artist   text,
+     original_audio boolean,
+     collaborators  text[] not null default '{}',
+     tagged         text[] not null default '{}',
+     pinned         boolean not null default false,
+     via            text not null check (via in ('apify','burner')),
+     first_seen_at  timestamptz not null default now(),
+     seen_at        timestamptz not null default now(),
+     job_id         text references transcriber.jobs(id) on delete set null,
+     picked_at      timestamptz,
+     pick_reason    text
+   )`,
+  `create index if not exists sightings_handle_idx
+     on transcriber.sightings (handle, posted_at desc)`,
+  `create index if not exists sightings_audio_idx
+     on transcriber.sightings (audio_id, posted_at desc) where audio_id is not null`,
+  `create index if not exists sightings_source_key_idx
+     on transcriber.sightings (source_key)`,
+
+  // One row per sweep, so "did it run, what did it cost, what did it find" is
+  // a query rather than a log file on the Mac.
+  `create table if not exists transcriber.scout_runs (
+     id          text primary key,
+     started_at  timestamptz not null,
+     finished_at timestamptz not null default now(),
+     handles     int not null default 0,
+     sightings   int not null default 0,
+     picked      int not null default 0,
+     suggested   int not null default 0,
+     gated       int not null default 0,
+     cost_usd    numeric(8,4),
+     notes       jsonb not null default '{}'
+   )`,
 ]
 
 for (const statement of statements) {

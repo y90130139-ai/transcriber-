@@ -184,9 +184,9 @@ def to_sighting(item: dict) -> dict | None:
         "handle": handle,
         "via": "apify",
         "posted_at": item.get("timestamp"),
-        # One play figure, the same one for everybody: a baseline built from a
-        # mix of Instagram-only and cross-posted counts would not be a baseline.
-        "plays": _first(item.get("igPlayCount"), item.get("videoPlayCount"), item.get("videoViewCount")),
+        # `videoPlayCount` is THE field — see the note in cloud/src/lib/scout-apify.ts.
+        # One measure for everybody, or a creator's median is not a baseline.
+        "plays": _first(item.get("videoPlayCount"), item.get("igPlayCount"), item.get("videoViewCount")),
         "likes": item.get("likesCount"),
         "comments": item.get("commentsCount"),
         "duration_sec": item.get("videoDuration"),

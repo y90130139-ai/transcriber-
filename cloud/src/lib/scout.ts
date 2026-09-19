@@ -25,10 +25,14 @@ import { sql } from './db'
 import { normalizeUrl } from './links'
 
 /** A reel must beat its creator's median plays by this much to be fetched.
- *  Provisional: set before any sighting existed. The first sweep prints the
- *  distribution, and this gets re-set to about the top decile the way
- *  HOT_THRESHOLD was — measured, not guessed twice. */
-export const PICK_MULTIPLIER = 2.0
+ *
+ *  **Measured 2026-09-19** over 921 in-window reels from 91 creators, the
+ *  first real sweep: p50 1.0x, p90 5.21x, p95 10.87x. 5.0 is that top decile,
+ *  the same rule HOT_THRESHOLD follows, and it takes a sweep from 238 picks
+ *  (at the provisional 2.0) to 96 — a week a person can actually look at.
+ *  Creators with tiny medians do not dominate it: reels from accounts under
+ *  1k median plays are 8 of those 238. Re-measure after a full-roster sweep. */
+export const PICK_MULTIPLIER = 5.0
 
 /** Too few reels and "her median" is noise. Six is roughly a week of posting
  *  for this niche, and the first sweep pulls more than that per account. */

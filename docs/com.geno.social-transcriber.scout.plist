@@ -9,6 +9,8 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Users/geno/projects/social-transcriber/bin/scout</string>
+		<string>--only</string>
+		<string>burner</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

@@ -5,6 +5,7 @@ import BulkAssign from './roster/BulkAssign'
 import FilterBar, { type Filters } from './FilterBar'
 import LibraryGrid from './LibraryGrid'
 import { BADGE_LEGEND } from '@/lib/appeal'
+import SoundsPanel from './SoundsPanel'
 import type { LibraryItem } from '@/lib/format'
 
 export default function LibraryTab({
@@ -104,6 +105,7 @@ export default function LibraryTab({
           A `title` tooltip is useless on a phone, which is where this gets
           read, so the legend is visible copy rather than a hover. */}
       <p className="legend">{BADGE_LEGEND}</p>
+      <SoundsPanel />
 
       {items.length > 0 ? (
         <>

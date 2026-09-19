@@ -346,8 +346,8 @@ body {
 }
 
 .card-tag[data-tone='hot'] { background: var(--sc-ember); }
-.card-tag[data-tone='warm'] { background: var(--sc-ink); }
-.card-tag[data-tone='cool'] { background: var(--sc-ink); opacity: 0.72; }
+.card-tag[data-tone='warm'] { background: var(--sc-ink-900); }
+.card-tag[data-tone='cool'] { background: var(--sc-ink-900); opacity: 0.72; }
 
 .card-handle {
   font-family: var(--sc-font-display);
@@ -1199,3 +1199,34 @@ body {
   .console .planphone { background: var(--sc-bone); border-color: #33302C; }
   .console .planphone-screen { background: var(--sc-bone); }
 }
+
+/* ── The watchlist and the sounds strip ─────────────────────────────────────
+   Both are lists that sit above a grid and must not compete with it: one
+   ink rule, no card, ember only on the count that changes. */
+.watchlist, .sounds { border-top: var(--sc-rule-hair); margin: 0 0 1rem; }
+
+.watchlist-head, .sounds-head {
+  display: flex; gap: 0.75rem; align-items: baseline; width: 100%;
+  padding: 0.7rem 0; background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 0.78rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--sc-ink-900);
+}
+.watchlist-counts, .sounds-count { margin-left: auto; color: var(--sc-ink-500); letter-spacing: 0.04em; }
+.watchlist-head span:last-child, .sounds-head span:last-child { color: var(--sc-ember); margin-left: 0.5rem; }
+
+.watchlist-body { padding: 0 0 1rem; display: grid; gap: 0.6rem; }
+.watchlist-add span { display: block; font-size: 0.78rem; color: var(--sc-ink-500); margin-bottom: 0.3rem; }
+.watchlist-add textarea {
+  width: 100%; padding: 0.6rem; border: var(--sc-rule-hair); border-radius: 0;
+  font: inherit; font-size: 0.9rem; background: var(--sc-bone); color: var(--sc-ink-900); resize: vertical;
+}
+.watchlist-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.watchlist-said, .watchlist-note { font-size: 0.8rem; color: var(--sc-ink-500); }
+.watchlist-suggested { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.watchlist-suggested li { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
+.watchlist-suggested span { color: var(--sc-ink-500); font-size: 0.8rem; }
+
+.sounds-list { list-style: none; margin: 0; padding: 0 0 1rem; display: grid; gap: 0.45rem; }
+.sounds-list li { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; font-size: 0.88rem; }
+.sounds-title em { font-style: normal; color: var(--sc-ink-500); }
+.sounds-meta { color: var(--sc-ember); font-size: 0.8rem; letter-spacing: 0.04em; }

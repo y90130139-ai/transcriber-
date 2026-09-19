@@ -95,9 +95,11 @@ from sightings too.
 3. Put it in `config.json` → `scout.apify_token`.
 4. First run, on the free credit: `./bin/scout --only apify --limit 40`
    (~40 accounts × ≤30 reels ≈ $3). Read the spread it prints.
-5. Full weekly sweep needs the $29/mo Starter plan (first backfill of ~100
-   open accounts ≈ $7; weekly refresh after that ≈ $3–5). Raise
-   `scout.max_usd_per_run` to ~12 when on Starter.
+5. Full weekly sweep needs the **$19/mo Starter** plan (price checked on
+   apify.com/pricing 2026-09-19; it includes that much usage). First backfill
+   of ~100 open accounts ≈ $7; the weekly refresh after that ≈ $4 (~1,700
+   reels × $0.0023), so ~$17 a month fits inside the plan. Raise
+   `scout.max_usd_per_run` to ~8 when on Starter.
 
 ### 2. Burner session (gated accounts)
 

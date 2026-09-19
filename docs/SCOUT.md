@@ -146,3 +146,58 @@ it read, and logs `burner stopped: …`. Re-sign-in, re-export, carry on.
 5. **TikTok radar (phase 2, agreed):** creators' TikTok accounts via the
    vendored yt-dlp `tiktok:user` (free, verified working 2026-09-08) plus a
    weekly trending-sounds pull (Apify Creative Center actor, ~$1–5/mo).
+
+---
+
+# Running without the Mac (added 2026-09-19)
+
+Geno's question: *"say one day my Mac Mini just goes off and doesn't turn on."*
+Before this, everything stopped. Now only the parts that physically need a Mac
+do.
+
+| Stage | Where it runs now | If the Mac dies |
+|---|---|---|
+| Sweep, open accounts | Vercel cron → Apify → webhook | **keeps running** |
+| Pick winners, queue them | Vercel (the webhook) | **keeps running** |
+| Draft every model's week | Vercel cron, Sunday | **keeps running** |
+| Transcribe a queued reel | Mac (whisper.cpp, Metal) | **cloud fallback** — Workers AI |
+| Plan video → R2 | Mac | **cloud fallback** — presigned PUT |
+| Sweep, gated accounts | Mac (burner session) | waits — needs a residential IP |
+| On-screen text (Vision OCR) | Mac | waits — macOS only |
+| Diarization | Mac | waits |
+| Library video preview | Mac tunnel | falls back to the Instagram link |
+
+**The switch is the heartbeat.** `/api/worker/cloud` does nothing while the
+Mac has pinged within `STALE_AFTER_MIN` (90 minutes — it pings every 30
+seconds, so ninety minutes means gone, not busy). The daily cron calls it, and
+so does the sweep webhook when it queues winners, because a fresh CDN link is
+worth about 33 hours.
+
+**How the cloud can fetch a reel at all.** Instagram blocks datacenter IPs for
+its *site* — the reason the Mac does the fetching — but not for its media CDN:
+measured 2026-09-19, a Vercel function pulled an 11.4 MB reel in 868 ms. So
+each sighting now stores the signed `audio_url` / `video_url` / `poster_url`
+Apify returns, with the expiry read off the link's own `oe` parameter. The
+audio track alone is ~150 KB for a 17-second reel.
+
+**Verified end to end 2026-09-19** by stopping the launchd worker and
+backdating the heartbeat: 24 reels transcribed through Workers AI with no
+failures, tagged by the same rule-based tagger, silence correctly recorded as
+silence (VAD, not a guess); the Mac restarted and the fallback stood down on
+its next call without being told. Presigned R2 PUT tested separately against
+the live bucket and the test object deleted.
+
+**What a fallback row is missing:** no on-screen text (`has_looked` stays null,
+which is what `./bin/relook` hunts for), no speaker labels, no local copy of
+the video, and no poster if the image was over 120 KB. When the Mac returns,
+those can be filled in.
+
+**Cost:** Workers AI Whisper is ~$0.0002 a reel with 10,000 free neurons a day
+(~640 reels), on the Cloudflare account that already holds R2
+(contact@sinauraco.com). Failover normally costs nothing.
+
+**What still needs the Mac, honestly.** Gated accounts (half the watchlist)
+need a residential address and a signed-in session; a datacenter IP there is
+*more* likely to be flagged, not less, so that half waits. If the Mac is gone
+for good, the options are another machine at home, or a residential proxy —
+not a VPS.

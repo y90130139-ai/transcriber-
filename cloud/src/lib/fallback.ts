@@ -65,6 +65,23 @@ type Claimable = {
   comments: number | null
 }
 
+/** A serverless function is killed at 60 seconds, so a job this side left
+ *  'running' for five minutes was interrupted, not slow. The Mac's own
+ *  reclaim covers this at thirty minutes; ours knows more and can be quicker,
+ *  and only ever touches jobs stamped with our own stage. */
+const CLOUD_STALE_MIN = 5
+
+async function releaseInterrupted(): Promise<number> {
+  const rows = await sql.query(
+    `update transcriber.jobs
+        set status = 'queued', stage = null, claimed_at = null, updated_at = now()
+      where status = 'running' and stage = 'cloud'
+        and claimed_at < now() - interval '${CLOUD_STALE_MIN} minutes'
+      returning id`,
+  )
+  return rows.length
+}
+
 /** Queued reels the cloud can actually do something with: a live CDN link to
  *  their audio. Anything else waits for the Mac. */
 async function claimable(limit: number): Promise<Claimable[]> {
@@ -168,6 +185,9 @@ export type FallbackResult = {
 export async function runFallback(origin: string): Promise<FallbackResult> {
   const deadline = Date.now() + TIME_BUDGET_MS
   const result: FallbackResult = { transcribed: 0, failed: 0, uploaded: 0, remaining: 0, errors: [] }
+
+  const released = await releaseInterrupted()
+  if (released > 0) result.errors.push(`re-queued ${released} interrupted`)
 
   if (sttConfigured()) {
     for (const job of await claimable(JOBS_PER_RUN)) {

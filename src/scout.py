@@ -40,6 +40,7 @@ REFRESH_SLACK_DAYS = 3
 CHUNK = 500
 DEFAULT_MAX_USD = 5.0
 REQUEST_TIMEOUT_SEC = 120.0
+POST_ATTEMPTS = 4
 
 
 def log(message: str) -> None:
@@ -52,6 +53,18 @@ class Cloud:
         self.secret = secret
 
     def post(self, path: str, payload: dict) -> dict:
+        """POST with retries: a Neon or Vercel blip must not cost a week."""
+        for attempt in range(1, POST_ATTEMPTS + 1):
+            try:
+                return self._post_once(path, payload)
+            except RuntimeError as error:
+                if attempt == POST_ATTEMPTS or " → 4" in str(error):
+                    raise
+                log(f"  {path} failed ({error}); retrying in {attempt * 15}s")
+                time.sleep(attempt * 15)
+        return {}
+
+    def _post_once(self, path: str, payload: dict) -> dict:
         request = urllib.request.Request(
             f"{self.base}{path}",
             data=json.dumps(payload).encode(),
@@ -64,6 +77,8 @@ class Cloud:
         except urllib.error.HTTPError as error:
             detail = error.read().decode(errors="replace")[:300]
             raise RuntimeError(f"{path} → {error.code}: {detail}") from error
+        except (urllib.error.URLError, OSError) as error:
+            raise RuntimeError(f"{path} → network: {error}") from error
 
 
 def _settings() -> tuple[Cloud, dict]:
@@ -183,10 +198,13 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     access_rows = [{"handle": h, "access": a} for h, a in access.items()]
 
     chunks = [sightings[i:i + CHUNK] for i in range(0, len(sightings), CHUNK)] or [[]]
+    # Every chunk but the last only stores. A chunk that still fails after its
+    # retries is recorded and skipped — its reels are simply picked up next
+    # week — but the final call always goes, because it is the one that picks.
     result: dict = {}
     for index, chunk in enumerate(chunks):
         final = index == len(chunks) - 1
-        result = cloud.post("/api/scout/ingest", {
+        body = {
             "run_id": run_id,
             "started_at": started,
             "sightings": chunk,
@@ -194,7 +212,14 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
             "swept": swept if index == 0 else [],
             "final": final,
             "stats": stats if final else None,
-        })
+        }
+        try:
+            result = cloud.post("/api/scout/ingest", body)
+        except RuntimeError as error:
+            if final:
+                raise
+            log(f"  ! chunk {index + 1}/{len(chunks)} not stored: {error}")
+            stats["errors"].append(f"chunk {index + 1} not stored: {error}"[:300])
 
     log(f"  stored {len(sightings)} sightings · picked {result.get('picked', 0)} · "
         f"queued {result.get('queued', 0)} new · suggested {result.get('suggested', 0)} accounts · "

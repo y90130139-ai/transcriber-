@@ -129,7 +129,12 @@ it read, and logs `burner stopped: …`. Re-sign-in, re-export, carry on.
 
 ## Next, in order
 
-1. **Calibrate `PICK_MULTIPLIER`** from the first full sweep's spread.
+1. **Calibrate `PICK_MULTIPLIER`** from the first full sweep's spread. In the
+   same pass, check which play figure the actor actually fills
+   (`igPlayCount` vs `videoPlayCount`). They differ only for reels cross-posted
+   to Facebook, but the mapper falls back per reel, so if `igPlayCount` turns
+   out to be patchy, pin one field for everybody rather than mixing them
+   (code review, 2026-09-19).
 2. **Surface it in the UI** — a "Suggested" list on Creators (Watch / Dismiss)
    and a "Sounds rising" panel from `/api/scout/sounds`. The data is already
    being collected.

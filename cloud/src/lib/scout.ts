@@ -189,8 +189,13 @@ export async function storeSightings(rows: Sighting[]): Promise<number> {
             audio_title    = coalesce(excluded.audio_title, transcriber.sightings.audio_title),
             audio_artist   = coalesce(excluded.audio_artist, transcriber.sightings.audio_artist),
             original_audio = coalesce(excluded.original_audio, transcriber.sightings.original_audio),
-            collaborators  = excluded.collaborators,
-            tagged         = excluded.tagged,
+            -- An empty list is "this reader did not say", not "nobody": the
+            -- burner and Apify see collaborators differently, and these
+            -- columns are where suggestions come from.
+            collaborators  = case when cardinality(excluded.collaborators) > 0
+                                  then excluded.collaborators else transcriber.sightings.collaborators end,
+            tagged         = case when cardinality(excluded.tagged) > 0
+                                  then excluded.tagged else transcriber.sightings.tagged end,
             pinned         = excluded.pinned,
             seen_at        = now()
      returning post_id`,

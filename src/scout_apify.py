@@ -25,6 +25,7 @@ POLL_SEC = 10.0
 RUN_TIMEOUT_SEC = 45 * 60
 REQUEST_TIMEOUT_SEC = 60.0
 PAGE = 1_000
+MAX_POLL_FAILURES = 5
 
 # Words the actor uses when an account cannot be read logged out. Checked
 # against its own issue tracker: 18+ accounts come back as restricted with
@@ -71,18 +72,34 @@ def run(handles: list[str], token: str, *, limit: int, newer_than: str | None,
         raise ApifyError(f"Apify did not start a run: {started}")
     log(f"  apify run {run_id} · {len(handles)} accounts · ≤{limit} reels each · cap ${max_usd:.2f}")
 
+    # The run is billed whether or not we manage to watch it finish, so a
+    # failed poll or a timeout is never allowed to throw the results away:
+    # the dataset id is known from the start and is read regardless.
+    dataset_hint = info.get("defaultDatasetId")
     deadline = time.monotonic() + RUN_TIMEOUT_SEC
+    poll_failures = 0
     while info.get("status") in (None, "READY", "RUNNING"):
         if time.monotonic() > deadline:
-            raise ApifyError(f"Apify run {run_id} still running after {RUN_TIMEOUT_SEC // 60} min")
+            log(f"  apify run {run_id} still running after {RUN_TIMEOUT_SEC // 60} min — reading what it has")
+            _abort(run_id, token)
+            break
         time.sleep(POLL_SEC)
-        polled = _request("GET", f"{API}/actor-runs/{run_id}", token)
-        info = polled.get("data", {}) if isinstance(polled, dict) else {}
+        try:
+            polled = _request("GET", f"{API}/actor-runs/{run_id}", token)
+        except (ApifyError, urllib.error.URLError, OSError, ValueError) as error:
+            poll_failures += 1
+            if poll_failures >= MAX_POLL_FAILURES:
+                log(f"  apify polling failed {poll_failures}× ({error}) — reading what it has")
+                break
+            continue
+        poll_failures = 0
+        info = (polled.get("data") if isinstance(polled, dict) else None) or info
 
-    status = info.get("status")
+    status = info.get("status") or "UNKNOWN"
+    info.setdefault("defaultDatasetId", dataset_hint)
     # A run stopped by its own charge cap still wrote what it paid for, so the
     # dataset is read either way; only a failure with no dataset is fatal.
-    if status not in ("SUCCEEDED", "ABORTED", "TIMED-OUT") and not info.get("defaultDatasetId"):
+    if not info.get("defaultDatasetId"):
         raise ApifyError(f"Apify run {run_id} ended {status}")
 
     items: list[dict] = []
@@ -104,6 +121,15 @@ def run(handles: list[str], token: str, *, limit: int, newer_than: str | None,
         "status": status,
         "cost_usd": float(info.get("usageTotalUsd") or 0.0),
     }
+
+
+def _abort(run_id: str, token: str) -> None:
+    """Stop a run we have given up waiting for, so it cannot keep charging
+    up to its cap after we have stopped listening."""
+    try:
+        _request("POST", f"{API}/actor-runs/{run_id}/abort", token, {})
+    except (ApifyError, urllib.error.URLError, OSError, ValueError):
+        pass
 
 
 def _first(*values):

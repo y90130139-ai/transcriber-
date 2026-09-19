@@ -131,8 +131,16 @@ def _pick_handle(info: dict) -> str | None:
     TikTok puts it in `uploader` ('nasa') and the display name in `channel`;
     Instagram does the reverse and its `uploader_id` is a bare numeric id. So
     prefer whichever candidate actually looks like a handle.
+
+    On Instagram `channel` goes first. A one-word display name ("Amelia",
+    "DANIELLE🖤") has no space and is not digits, so a platform-blind order
+    took it for the handle — 45 of 196 creators were filed that way, and the
+    watchlist sweep cannot look up a display name.
     """
-    candidates = [info.get("uploader"), info.get("channel"), info.get("uploader_id")]
+    if (info.get("extractor_key") or "").lower().startswith("instagram"):
+        candidates = [info.get("channel"), info.get("uploader"), info.get("uploader_id")]
+    else:
+        candidates = [info.get("uploader"), info.get("channel"), info.get("uploader_id")]
     handle = next(
         (c for c in candidates if c and " " not in c and not c.isdigit()), None
     )

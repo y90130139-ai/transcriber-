@@ -52,28 +52,42 @@ export default function LibraryGrid({
               {item.duration_sec !== null && (
                 <span className="card-tag" data-corner="right">{clock(item.duration_sec)}</span>
               )}
-              {item.badges && item.badges.length > 0 ? (
-                <span className="card-tag" data-tone={item.badges[0].tone} title={item.badges[0].detail}>
-                  {item.badges[0].label}
-                </span>
-              ) : (
-                item.outperformance !== null &&
-                item.outperformance !== undefined && (
-                  <span className="card-tag" title={explainOutperformance(item.outperformance)}>
-                    {item.outperformance}×
+              {/* Bottom-left, the way the Reels tab does it: the eye and the
+                  number first, the verdict beside it. A row rather than two
+                  absolutely-positioned tags, so they can never land on top of
+                  each other however long the label runs. */}
+              <span className="card-stats">
+                {item.sig_plays !== null && item.sig_plays !== undefined && (
+                  <span className="card-tag" title={`${Number(item.sig_plays).toLocaleString()} views`}>
+                    <svg className="card-eye" viewBox="0 0 24 16" aria-hidden="true">
+                      <path d="M1 8s4-6 11-6 11 6 11 6-4 6-11 6S1 8 1 8Z" fill="none"
+                            stroke="currentColor" strokeWidth="2" />
+                      <circle cx="12" cy="8" r="3" fill="currentColor" />
+                    </svg>
+                    {compact(Number(item.sig_plays))}
+                    <span className="sr-only"> views</span>
                   </span>
-                )
-              )}
+                )}
+                {item.badges && item.badges.length > 0 ? (
+                  <span className="card-tag" data-tone={item.badges[0].tone} title={item.badges[0].detail}>
+                    {item.badges[0].label}
+                  </span>
+                ) : (
+                  item.outperformance !== null &&
+                  item.outperformance !== undefined && (
+                    <span className="card-tag" title={explainOutperformance(item.outperformance)}>
+                      {item.outperformance}×
+                    </span>
+                  )
+                )}
+              </span>
             </span>
             <span className="card-handle">{displayName(item)}</span>
             {item.preview && <span className="card-line">{item.preview}</span>}
             <span className="card-meta">
               {item.upload_date && <span>{item.upload_date}</span>}
-              {/* Views first where we have them: it is the number that says how
-                  far a reel actually travelled. */}
-              {item.sig_plays !== null && item.sig_plays !== undefined && (
-                <span>{compact(Number(item.sig_plays))} views</span>
-              )}
+              {/* Views moved onto the frame, where the eye is. Repeating them
+                  here was the overlap that made the line hard to read. */}
               {item.like_count !== null && <span>{compact(item.like_count)} likes</span>}
               {item.comment_count !== null && <span>{compact(item.comment_count)} cm</span>}
             </span>

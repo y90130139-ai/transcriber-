@@ -175,12 +175,17 @@ export default function ItemView({
               {/* The pipeline already wrote WebVTT, so the clip is watchable muted. */}
               <track kind="captions" srcLang="en" label="Transcript" src={media.captions} default />
             </video>
+          ) : item.folder ? (
+            <p className="hint">
+              The Mac is asleep, so the video is not reachable. The words are all here.
+            </p>
           ) : (
-            item.folder && (
-              <p className="hint">
-                The Mac is asleep, so the video is not reachable. The words are all here.
-              </p>
-            )
+            // Nineteen items from before the media was kept have a transcript
+            // and no file behind it. Rendering nothing here read as a player
+            // that would not start; say which it is.
+            <p className="hint">
+              No video was kept for this one — only the words. Open it on Instagram to watch it.
+            </p>
           )}
 
           <div className="axes">

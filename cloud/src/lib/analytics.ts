@@ -132,7 +132,26 @@ export async function topPosts(handle: string, windowDays = 30, limit = 10): Pro
       limit $3`,
     [handle, since, limit],
   )
-  return rows as unknown as TopPost[]
+  // `plays`, `likes` and `comments` are bigint, and the driver hands those back
+  // as strings to keep 64-bit values exact. Passing them through untouched
+  // means a caller that formats or compares them is working on text: "9" sorts
+  // above "10", and a thousands separator throws. Coerce at the boundary.
+  return rows.map((row) => ({
+    post_id: String(row.post_id),
+    posted_at: row.posted_at ? String(row.posted_at) : null,
+    kind: row.kind ? String(row.kind) : null,
+    plays: count(row.plays),
+    likes: count(row.likes),
+    comments: count(row.comments),
+    caption: row.caption ? String(row.caption) : null,
+    audio_title: row.audio_title ? String(row.audio_title) : null,
+  }))
+}
+
+function count(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Follower movement across the window, from the daily snapshots. */

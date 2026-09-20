@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import ItemView from './ItemView'
 import CreatorsTab from './CreatorsTab'
+import DigestTab from './DigestTab'
 import LibraryTab from './LibraryTab'
 import QueueTab from './QueueTab'
 import RosterTab from './roster/RosterTab'
@@ -15,7 +16,7 @@ type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
 // `creators` is the Instagram accounts we research — the word the database and
 // /api/creators already use. `models` is our own people, who are a different
 // entity in a different table and get their own tab.
-type Tab = 'queue' | 'library' | 'creators' | 'models' | 'today'
+type Tab = 'queue' | 'library' | 'creators' | 'models' | 'today' | 'week'
 
 // Poll hard while the Mac is chewing on something, gently when it is idle.
 const POLL_BUSY_MS = 2500
@@ -41,6 +42,7 @@ const TABS: { id: Tab; label: string }[] = [
   // Appended rather than slotted in front, so four tabs of muscle memory keep
   // pointing at what they always did.
   { id: 'today', label: 'Today' },
+  { id: 'week', label: 'Week' },
 ]
 
 export default function Workbench() {
@@ -182,6 +184,16 @@ export default function Workbench() {
 
         {tab === 'models' && (
           <RosterTab openPlanFor={openModel} onOpened={() => setOpenModel(null)} />
+        )}
+
+        {tab === 'week' && (
+          <DigestTab
+            onFilterTo={(handle) => {
+              applyFilters({ ...EMPTY_FILTERS, creator: handle })
+              setQuery('')
+              setTab('library')
+            }}
+          />
         )}
 
         {tab === 'today' && (

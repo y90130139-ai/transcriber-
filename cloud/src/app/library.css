@@ -1518,3 +1518,46 @@ textarea.field { resize: vertical; }
 .score[data-state='yes'] .score-verdict     { color: var(--sc-positive); }
 .score[data-state='no'] .score-verdict      { color: var(--sc-ember); }
 .score[data-state='unknown'] .score-verdict { color: var(--sc-ink-300); }
+
+/* ------------------------------------------------------------ WHY IT WORKED
+   Reasons are evidence, not tags a person chose, so they read as static
+   chips. The two rare, specific reasons — a sound the niche was on, a format
+   that keeps paying — carry the ember; the common streak stays quiet, and
+   "new concept" is outlined because it is an absence, not a signal. */
+.why { margin-top: var(--sc-space-2); }
+.why .chips { gap: var(--sc-space-1); }
+.why-chip[data-kind='sound'],
+.why-chip[data-kind='format'] { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.why-chip[data-kind='shared'] { border-color: var(--sc-ink-500); color: var(--sc-ink-700); }
+.why-chip[data-kind='new'] { border-style: dashed; }
+.why-line {
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+  margin: var(--sc-space-1) 0 0;
+}
+
+/* ------------------------------------------------------------ THE WEEK
+   The digest reads top-down like a front page: the lede in sentences, the
+   patterns as tallies, then the ranked reels that produced them. */
+.digest-nav { display: flex; align-items: center; gap: var(--sc-space-3); flex-wrap: wrap; }
+.digest-nav .pill:disabled { opacity: 0.35; cursor: default; }
+.digest-lede {
+  border-left: 3px solid var(--sc-ember);
+  padding: var(--sc-space-1) 0 var(--sc-space-1) var(--sc-space-4);
+  max-width: 62ch;
+}
+.digest-lede p {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  line-height: 1.3;
+  color: var(--sc-ink-900);
+  margin: 0 0 var(--sc-space-2);
+}
+.digest-lede p:first-child { font-weight: 700; }
+.digest-lede .hint { font-family: inherit; font-size: var(--sc-text-sm); margin-top: var(--sc-space-3); }
+.digest-patterns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sc-space-2) var(--sc-space-8);
+  margin-top: var(--sc-space-6);
+}

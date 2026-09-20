@@ -59,3 +59,24 @@ for row in short:
     print("  short %s for %s — check her formats and persona"
           % (row.get("short"), row.get("name")))
 ' <<<"$BODY"
+
+# The week that is ending, in sentences: what the niche's best reels had in
+# common. Read after the draft on purpose — it is commentary, and a failure
+# here must never read as a failed draft, so it cannot fail the script.
+TODAY="$(date +%Y-%m-%d)"
+DIGEST="$(curl --silent --show-error --fail-with-body --max-time 60 \
+  --header "Authorization: Bearer ${WORKER_SECRET}" \
+  "${CLOUD_URL}/api/digest?week=${TODAY}" 2>&1)" || {
+    echo "  digest unavailable: ${DIGEST:0:160}"
+    exit 0
+  }
+/usr/bin/python3 -c '
+import json, sys
+try:
+    digest = json.loads(sys.stdin.read() or "{}")
+except ValueError:
+    sys.exit(0)
+print("  the week of %s:" % digest.get("week_of", "?"))
+for line in digest.get("headline") or []:
+    print("    " + line)
+' <<<"$DIGEST"

@@ -101,7 +101,7 @@ def process(source: str, options: Options, user_config: dict, *, log=print,
         shutil.rmtree(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     try:
-        return _process_in(source, workdir, options, user_config, log=log)
+        return _process_in(source, workdir, options, user_config, log=log, direct=direct)
     except BaseException:
         # Never leave a half-finished job behind for the next run to trip over.
         shutil.rmtree(workdir, ignore_errors=True)
@@ -109,7 +109,8 @@ def process(source: str, options: Options, user_config: dict, *, log=print,
 
 
 def _process_in(
-    source: str, workdir: Path, options: Options, user_config: dict, *, log=print
+    source: str, workdir: Path, options: Options, user_config: dict, *, log=print,
+    direct: dict | None = None,
 ) -> Path:
     key = job_key(source)
 

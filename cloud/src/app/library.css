@@ -1469,3 +1469,52 @@ textarea.field { resize: vertical; }
   font-family: var(--sc-font-mono); font-size: 0.58rem; letter-spacing: var(--sc-track-label);
   text-transform: uppercase; color: var(--sc-ink-300);
 }
+
+/* ── The scorecard ────────────────────────────────────────────────────────
+ *
+ * Reads as a verdict, not a dashboard: the number is the loud thing, the
+ * target sits under it, and the judgement is a word rather than a colour
+ * alone — so it still reads without relying on seeing the difference between
+ * ember and positive.
+ */
+.score-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--sc-space-2);
+  margin-bottom: var(--sc-space-3);
+}
+
+.score {
+  display: grid;
+  gap: 2px;
+  padding: var(--sc-space-3);
+  border: 1px solid var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  border-left-width: 3px;
+  background: var(--sc-paper);
+}
+.score[data-state='yes']     { border-left-color: var(--sc-positive); }
+.score[data-state='no']      { border-left-color: var(--sc-ember); }
+.score[data-state='unknown'] { border-left-color: var(--sc-ink-300); }
+
+.score-name {
+  font: var(--sc-text-xs)/1 var(--sc-font-text);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.score-value {
+  font: var(--sc-text-2xl)/var(--sc-leading-tight) var(--sc-font-counter);
+  letter-spacing: var(--sc-track-counter);
+  color: var(--sc-ink-900);
+}
+.score-target { font: var(--sc-text-xs)/1.3 var(--sc-font-text); color: var(--sc-ink-500); }
+.score-verdict {
+  margin-top: 2px;
+  font: var(--sc-text-xs)/1 var(--sc-font-text);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+.score[data-state='yes'] .score-verdict     { color: var(--sc-positive); }
+.score[data-state='no'] .score-verdict      { color: var(--sc-ember); }
+.score[data-state='unknown'] .score-verdict { color: var(--sc-ink-300); }

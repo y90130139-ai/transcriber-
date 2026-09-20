@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { clock, compact, thumbUrl } from '@/lib/format'
 import { taxonomy } from '@/lib/taxonomy'
 import { explainOutperformance } from '@/lib/outperformance'
+import Scorecard from './Scorecard'
 
 type Profile = { handle: string; display_name: string | null; persona: string[]; note: string | null }
 type Post = {
@@ -132,6 +133,8 @@ export default function CreatorSheet({
               </div>
             )}
           </div>
+
+          <Scorecard handle={handle} />
 
           {(formats.length > 0 || hooks.length > 0) && (
             <div className="axis">

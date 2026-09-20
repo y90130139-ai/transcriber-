@@ -67,28 +67,36 @@ stopped with:
 That is ~23 creators of vision calls a day. 120 of the 178 untagged creators
 have usable frames right now. Two ways on, Geno's call:
 
-- **Wait** — but the reset is not reliably 00:00 UTC. Cloudflare's docs say
-  "all limits reset daily at 00:00 UTC"; measured against this account, the
-  route still returned `429 … used up your daily free allocation` at both
-  **00:32 and 01:02 UTC** on 2026-09-20, an hour past that boundary. So the
-  documented hour is not what this account behaves like — expect a lag of
-  unknown length, and probe rather than schedule.
-- **Pay** — and the real figure is **$5/month, not $1**. Exceeding the free
-  10,000 neurons/day is not a billing toggle: it requires the **Workers Paid
-  plan, $5 USD/month minimum** (Cloudflare's own Workers pricing page). The
-  $0.011 per 1,000 neurons is what you pay *on top* of that, and the remaining
-  watchlist is roughly $1 of neurons. The 429's wording ("please upgrade")
-  says this account is on Workers Free today.
+**Settled 2026-09-19: do not pay. The free tier is enough.** Two figures from
+Cloudflare's model pricing decide it:
 
-  $5/month buys more than the profiler: the same plan raises the Workers
-  allotments that **Whisper failover** draws on, which is currently sharing
-  that one free 10,000/day with the profiler. If the $5 is worth it at all,
-  it is worth it for the failover headroom, with the profiler as the occasion.
+| model | cost |
+|---|---|
+| `@cf/openai/whisper-large-v3-turbo` | **46.63 neurons / audio minute** |
+| `@cf/mistralai/mistral-small-3.1-24b-instruct` | 31,876 / M input tokens |
 
-`bin/profile-creators` used to spin through all 500 rounds against that wall —
-the route keeps reporting `more`, so an exhausted allowance looked like work
-left to do. It now stops on the first round that profiles nobody, and names the
-allowance when that is the reason.
+- **Failover has ~20× the room it needs.** 10,000 neurons/day is ~214 audio
+  minutes — about **428 reels a day** at ~30 s each. The failover test did 24,
+  and the whole library is 648 items gathered over the project's life. An
+  earlier draft of this doc claimed the $5 plan bought failover headroom. It
+  does not; that claim was wrong.
+- **The profiler is the only thing paying would buy, and only speed.** Measured
+  ~23 creators/day (~435 neurons each). 120 of the 178 untagged have usable
+  frames, so the free path is **~5 days of running one command**, against
+  $5/month + ~$0.85 to do it in one pass.
+- **Personas do not depend on the vision profiler anyway.** Two free sources are
+  already wired: tag evidence from a creator's transcribed items
+  (`creators/route.ts:43-54`) and `personaProposal()` over captions
+  (`lib/autotag`). The profiler is a third and better source, not the only one.
+
+So: `./bin/profile-creators` once a day for about five days. It now stops at the
+wall instead of spinning through 500 rounds, so it costs one command and no
+attention.
+
+On the reset hour: Cloudflare's docs say "all limits reset daily at 00:00 UTC",
+but this account still returned `429 … used up your daily free allocation` at
+both **00:32 and 01:02 UTC** on 2026-09-20. Expect a lag of unknown length —
+probe, do not schedule.
 
 **Careful:** Whisper failover shares that same daily allocation. If the Mac is
 down, leave the profiler alone — transcription matters more.

@@ -54,8 +54,63 @@ account**; `./bin/scout-cookies --sessionid '…' --csrftoken '…'` writes the
 jar. Then `./bin/scout --check-burner <a gated handle>` proves it, and
 `./bin/scout --only burner --limit 10` proves the pass.
 
-Full walkthrough: `docs/SCOUT-SETUP.md`. **Raise this at the start of the
-session** — it is the single biggest gap left.
+Full walkthrough: `docs/SCOUT-SETUP.md`.
+
+#### Status 2026-09-20, 00:20: the jar exists and the reader still cannot read
+
+The session is in place and **valid**. What fails is the endpoint. Measured, in
+this order, all against the burner's own cookies:
+
+| probe | result |
+|---|---|
+| profile **HTML page** | **200**, 641 KB, body carries `class="… logged-in"` |
+| `/api/v1/users/web_profile_info/`, gated account | **429** |
+| same, **famous open** account (`instagram`) | **429** |
+| same, full browser header set (`X-ASBD-ID`, `Sec-Fetch-*`, `Accept-Language`) | **429** |
+| same, echoing a real `X-IG-WWW-Claim` from a page load | **429** (no claim is even returned) |
+| anonymous, no cookies, same endpoint | **401** |
+| Instagram homepage | **200** |
+
+So the following are **ruled out**, not guessed at:
+
+- **the address** — `108.53.126.140`, residential Verizon FiOS, New Jersey;
+- **the account** — Geno loaded a gated creator's reels on the phone, on this
+  same session, while these calls were failing;
+- **the session** — Instagram returns `logged-in` and serves a 641 KB page;
+- **the user-agent** — desktop and mobile both 429. The UA was changed to the
+  phone's and then changed back; see `scout_ig.USER_AGENT` for why desktop is
+  correct regardless (it must match the endpoints, not the browser);
+- **missing headers**, **the www-claim**, **gated-vs-open targets**, and
+  **transience** (40 minutes between attempts).
+
+Also measured: **the profile HTML carries no reel data** — `play_count`,
+`video_view_count`, `edge_owner_to_timeline_media`, `clips_metadata` and
+`shortcode` all appear zero times in those 641 KB. Instagram renders it
+client-side, so scraping the page is not a fallback.
+
+What this points at is the endpoint itself, exactly as `scout_ig.py`'s docstring
+warned it might: *"these are the private web endpoints the Instagram site itself
+calls. They are not a published API and can change without notice."* Note that
+**the burner path has never once succeeded** — this was its first real run, so
+there is no working state to regress from.
+
+**The decisive evidence is free and in Geno's hand.** The phone is still tethered
+with Web Inspector attached. Open a creator's profile on it, watch the **Network**
+tab, and read off the request that actually returns the profile and reel data —
+whether it is `/api/v1/…` at all, or `/graphql/query` with a `doc_id`. That says
+whether the reader needs re-pointing or rewriting.
+
+Three ways on, and the first is not obviously the best:
+
+1. **Re-point the reader** at whatever the phone shows. Keeps the design. But
+   hand-maintaining private endpoints is a treadmill, which is what the
+   docstring is warning about.
+2. **Let Apify do the gated half too.** The actor is `apify~instagram-reel-scraper`
+   and takes no cookies today, but Apify maintains its scrapers against
+   Instagram's changes and runs residential proxies. Costs Apify credit — already
+   $12.08 of $19 this cycle.
+3. **Leave the gated half out.** 116 of 196 creators already read fine, the
+   library went 465 → 648 today on those alone, and nothing downstream is blocked.
 
 ### 2. Finish the persona proposals — blocked on neurons, not code
 

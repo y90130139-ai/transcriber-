@@ -59,7 +59,28 @@ async function callSelf(request: Request, path: string) {
   }
 }
 
-const startSweep = (request: Request) => callSelf(request, '/api/scout/apify')
+/**
+ * The paid sweep, now a *fallback* rather than the weekly habit.
+ *
+ * The Mac reads the whole watchlist through a real browser for nothing
+ * (`bin/scout --only burner`, Saturdays). Firing Apify on the same morning
+ * would pay ~$4 a week to fetch what has already been fetched, so this only
+ * spends money when the free pass did not happen — the Mac asleep, gone, or
+ * its session expired. Resilience was always the point of running this in the
+ * cloud; paying for it every week never was.
+ */
+async function startSweep(request: Request) {
+  const [recent] = await sql.query(
+    `select max(started_at) as at
+       from transcriber.scout_runs
+      where started_at > now() - interval '3 days'
+        and notes->>'kind' is distinct from 'autodraft'`,
+  )
+  if (recent?.at) {
+    return { skipped: 'the Mac already swept', last_sweep: recent.at }
+  }
+  return callSelf(request, '/api/scout/apify')
+}
 
 /**
  * Tomorrow's Monday, exactly as `bin/autodraft` asks for it: on Sunday that is

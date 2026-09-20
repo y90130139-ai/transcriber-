@@ -13,6 +13,54 @@ State at the end of the session: **745 library items, none without a video**;
 
 ---
 
+## Update — 2026-09-20 evening
+
+**Handles.** Geno put handles on the model pages. 22 of 24 have one; **Alexis
+Heart and Lae have none** and the roster pass will skip them. `--roster` reads
+`models.handle` only, but Chelsea, Faye, Milky, Rey Rey and Snow list more than
+one Instagram in `socials` — only one account per model is measured. Ask which
+is the main one before building the Winners Bank on top of it.
+
+**Built and verified in a browser (desktop + 390px):**
+
+- **Why it worked** — `lib/why.ts` (query) + `lib/reasons.ts` (wording) +
+  `WhyChips`. On every creator-sheet reel at 2×+ her median plays: trending
+  sound / proven format / shared widely / heat run, or "new concept" when none
+  fire on a measured post. Thresholds are named constants with the measurement
+  that set them in the header comment. The sheet now also shows the plays
+  multiple beside the old engagement ×, because reasons key off plays.
+- **The week** — `lib/digest.ts`, `GET /api/digest?week=`, a **Week** tab.
+  Patterns are counted over the strongest 20 winners, not all of them — the
+  library is all picks, so 2×+ is 115 of 130 posted and "in common" over all
+  of them is just the library average. House styles (formats on >1/3 of the
+  library) are excluded. Computed live, never stored — deliberately kept out
+  of `scout_runs`, whose rows gate the paid Apify fallback.
+  `bin/autodraft` prints the ending week's headline after drafting; a digest
+  failure exits 0.
+- **Scale** — measured every hot route under 0.5s. The only full-table scans
+  on a table headed for 100k+ rows were the time-window reads on `sightings`
+  (`risingSounds`, `candidates`); added `sightings_posted_idx`. A cadence
+  rollup and paging on `/api/creators` were **not** built: nothing reads
+  cadence across many handles yet, and per-handle reads ride
+  `creator_posts_handle_posted`. Build them when a caller needs them.
+
+**Missing creators — cause found, fix NOT applied (needs Geno's OK).**
+`scripts/fix-handles.mjs` skipped any author that already looked like a handle,
+so one-word lowercase display names survived: `mila` → `notcherryygrlfrnd`,
+`mya` → `cute.xmya`, `r4ven` → `bbyd0llr4ven`, and also `honey` →
+`honeyybee.bby`, `scarlet` → `lil.timm`, `vampy` → `vampingbites`. The script
+is fixed; `node scripts/fix-handles.mjs` (dry run) lists 43 rows. The sweep has
+been reading *strangers* under the wrong names (`@honey` is a 102k account: 31
+sightings, 48 posts; none were picked into the library). Applying needs
+`--apply`, then deleting those strangers' `sightings` / `creator_posts` /
+`creator_snapshots` rows with a rollback record first — the permission
+classifier blocked that as a mass delete, correctly asking for a human.
+`blondiiefallon`, `dulcediosaa`, `meliwesty` are real handles returning
+nothing — likely renamed or deleted; check with `./bin/scout --check-burner`
+when no other browser pass is running.
+
+---
+
 ## The one fact that explained everything
 
 `/api/v1/` — the private endpoint `scout_ig.py` was built on — **is retired.**

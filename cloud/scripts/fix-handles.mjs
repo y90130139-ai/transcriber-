@@ -35,7 +35,11 @@ const rows = await sql.query(
 
 const moves = []               // { job_id, from, to }
 for (const row of rows) {
-  if (HANDLE.test(row.author)) continue
+  // Every row is checked, not only the ones that fail HANDLE. A lowercase
+  // one-word display name — "mila", "mya", "r4ven" — passes the pattern, so
+  // skipping on it left three creators filed under names Instagram answers
+  // with nothing (or with a stranger). `channel` is the truth either way, and
+  // a row already under it is skipped below.
   const info = new URL(`${row.folder}/source.info.json`, OUT)
   if (!existsSync(info)) continue
   let meta

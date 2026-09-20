@@ -606,6 +606,12 @@ const statements = [
      on transcriber.sightings (audio_id, posted_at desc) where audio_id is not null`,
   `create index if not exists sightings_source_key_idx
      on transcriber.sightings (source_key)`,
+  // The window queries — `risingSounds` (28 days, every Sounds panel open) and
+  // `candidates` (120 days, every sweep) — filter on time across all handles,
+  // which neither index above can serve. Seq-scanned at 6,799 rows on
+  // 2026-09-20; this table is the one headed for hundreds of thousands.
+  `create index if not exists sightings_posted_idx
+     on transcriber.sightings (posted_at desc)`,
 
   // Where the media actually sits, as the sweep saw it. Instagram's CDN links
   // are signed and expire in about 33 hours (read off the `oe` parameter), so

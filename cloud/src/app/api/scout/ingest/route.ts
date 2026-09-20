@@ -6,11 +6,17 @@ import {
   enqueue,
   multiplierSpread,
   parseAccess,
+  parseCreatorPost,
+  parseCreatorSnapshot,
   parseSighting,
   storeAccess,
+  storeCreatorPosts,
+  storeCreatorSnapshots,
   storeSightings,
   suggest,
   type Access,
+  type CreatorPost,
+  type CreatorSnapshot,
   type Sighting,
 } from '@/lib/scout'
 
@@ -48,11 +54,26 @@ export async function POST(request: Request) {
     .filter((h: unknown): h is string => typeof h === 'string')
     .map((h: string) => h.trim().toLowerCase())
 
+  // The cadence record travels on the same chunk. It is a different question
+  // from scoring — every post type, not just the reels that can win — so it is
+  // parsed and stored separately rather than folded into `sightings`.
+  const posts = (Array.isArray(body.posts) ? body.posts : [])
+    .map(parseCreatorPost)
+    .filter((p: CreatorPost | null): p is CreatorPost => p !== null)
+  const snapshots = (Array.isArray(body.snapshots) ? body.snapshots : [])
+    .map(parseCreatorSnapshot)
+    .filter((s: CreatorSnapshot | null): s is CreatorSnapshot => s !== null)
+
   const stored = await storeSightings(sightings)
   await storeAccess(access, swept)
+  const postsStored = await storeCreatorPosts(posts)
+  const snapsStored = await storeCreatorSnapshots(snapshots)
 
   if (body.final !== true) {
-    return NextResponse.json({ stored, dropped: raw.length - sightings.length })
+    return NextResponse.json({
+      stored, dropped: raw.length - sightings.length,
+      posts: postsStored, snapshots: snapsStored,
+    })
   }
 
   const picks = await candidates()

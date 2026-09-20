@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.daily</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/scout-daily</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-daily.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-daily.log</string>
+	<!-- 19:00 local, every day. Late enough that a day's stories have been
+	     posted, early enough that they have not expired. Deliberately not
+	     Saturday 10:00, so it never runs alongside the deep sweep: two browsers
+	     on one session at once is what makes a burner look automated. -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>19</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+</dict>
+</plist>

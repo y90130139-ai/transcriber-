@@ -56,6 +56,74 @@ def _cookies(path: Path) -> list[dict]:
     } for c in jar]
 
 
+# 1 photo, 2 video, 8 carousel. `product_type` separates a reel from a video
+# posted to the feed, which matters because only one of them counts as a reel.
+KIND = {1: "photo", 2: "video", 8: "carousel"}
+
+
+def to_post(item: dict, handle: str) -> dict | None:
+    """One item → the cadence record. Unlike `to_sighting` this keeps photos
+    and carousels: "2-3 carousels a week" cannot be measured from reels alone."""
+    code = item.get("code")
+    if not code:
+        return None
+    kind = KIND.get(item.get("media_type"))
+    if kind == "video" and item.get("product_type") == "clips":
+        kind = "reel"
+    caption = item.get("caption") or {}
+    clips = item.get("clips_metadata") or {}
+    music = (clips.get("music_info") or {}).get("music_asset_info") or {}
+    original = clips.get("original_sound_info") or {}
+    taken = item.get("taken_at")
+    return {
+        "post_id": code,
+        "handle": handle,
+        "posted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(taken)) if taken else None,
+        "kind": kind,
+        "product_type": item.get("product_type"),
+        "carousel_count": item.get("carousel_media_count"),
+        "plays": item.get("ig_play_count") or item.get("play_count") or item.get("view_count"),
+        "likes": item.get("like_count"),
+        "comments": item.get("comment_count"),
+        "caption": caption.get("text") if isinstance(caption, dict) else None,
+        "audio_title": music.get("title") or original.get("original_audio_title"),
+        "is_paid_partnership": item.get("is_paid_partnership"),
+        "collaborators": [
+            c.get("username") for c in (item.get("coauthor_producers") or []) if c.get("username")
+        ],
+    }
+
+
+def to_snapshot(profile: dict, handle: str) -> dict:
+    """The account as it stands right now. `latest_reel_media` is the timestamp
+    of the most recent story and is 0 when none is live — which is the only way
+    to see stories at all from outside, and why this has to run daily: a story
+    is gone in 24 hours, so a weekly reading can never show one posted midweek."""
+    story = profile.get("latest_reel_media") or 0
+    return {
+        "handle": handle,
+        "followers": profile.get("follower_count"),
+        "posts": profile.get("media_count"),
+        "story_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(story)) if story else None,
+        "has_story": bool(story),
+        "highlights": len(((profile.get("highlights") or {}).get("edges")) or []),
+        "is_private": profile.get("is_private"),
+        "is_verified": profile.get("is_verified"),
+    }
+
+
+def _profiles(node):
+    """Every dict that looks like the account's own header."""
+    if isinstance(node, dict):
+        if node.get("username") and "latest_reel_media" in node:
+            yield node
+        for value in node.values():
+            yield from _profiles(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _profiles(value)
+
+
 def _media(node):
     """Every dict in a response that looks like a post. The site nests them
     differently per query, so this walks rather than assuming a path."""
@@ -81,6 +149,7 @@ class Reader:
         self._browser = self._play.chromium.launch(headless=True)
         self._ctx = self._browser.new_context(viewport={"width": 1280, "height": 900})
         self._ctx.add_cookies(_cookies(path))
+        self._want = ""
 
     def close(self) -> None:
         for shut in (self._ctx.close, self._browser.close, self._play.stop):
@@ -92,6 +161,7 @@ class Reader:
     def _visit(self, url: str) -> dict[str, dict]:
         """Open a page and keep every post the site fetched, keyed by pk."""
         found: dict[str, dict] = {}
+        profile: dict = {}
         page = self._ctx.new_page()
 
         def collect(response):
@@ -101,6 +171,9 @@ class Reader:
                 body = response.json()
             except Exception:
                 return
+            for who in _profiles(body):
+                if who.get("username", "").lower() == self._want:
+                    profile.update({k: v for k, v in who.items() if v is not None})
             for item in _media(body):
                 key = str(item["pk"])
                 # Merge rather than overwrite: the two tabs carry different
@@ -121,14 +194,26 @@ class Reader:
                 page.close()
             except Exception:
                 pass
-        return found
+        return found, profile
 
-    def posts(self, handle: str) -> list[dict]:
-        """Both tabs, merged. Items are the shape `to_sighting` expects."""
-        merged = self._visit(f"https://www.instagram.com/{handle}/")
-        for key, item in self._visit(f"https://www.instagram.com/{handle}/reels/").items():
+    def posts(self, handle: str) -> tuple[list[dict], dict]:
+        """Both tabs, merged, plus the account header. Items are the shape
+        `to_sighting` and `to_post` expect."""
+        self._want = handle.lower()
+        merged, profile = self._visit(f"https://www.instagram.com/{handle}/")
+        more, also = self._visit(f"https://www.instagram.com/{handle}/reels/")
+        for key, item in more.items():
             merged.setdefault(key, {}).update({k: v for k, v in item.items() if v is not None})
-        return list(merged.values())
+        profile.update({k: v for k, v in also.items() if v is not None})
+        return list(merged.values()), profile
+
+    def profile_only(self, handle: str) -> dict:
+        """The header alone — one page load, no scrolling. This is the daily
+        pass: cheap enough for the whole watchlist, and the only way to catch a
+        story before it expires."""
+        self._want = handle.lower()
+        _, profile = self._visit(f"https://www.instagram.com/{handle}/")
+        return profile
 
 
 def sweep(
@@ -136,6 +221,7 @@ def sweep(
     cookies_file: str | Path,
     log=print,
     user_agent: str | None = None,   # accepted for call-site compatibility; the browser sets its own
+    record=None,                     # called per creator with (cadence rows, snapshot)
 ) -> tuple[list[dict], dict[str, str], str | None]:
     """Same contract as `scout_ig.sweep`: (sightings, access, stop reason).
 
@@ -150,7 +236,7 @@ def sweep(
             if index:
                 time.sleep(random.uniform(*PAUSE_SEC))
             try:
-                posts = reader.posts(handle)
+                posts, profile = reader.posts(handle)
             except BurnerStopped as error:
                 stopped = str(error)
                 log(f"  burner stopped: {error}")
@@ -162,7 +248,56 @@ def sweep(
             reels = [s for s in (to_sighting(p, handle) for p in posts) if s]
             access[handle] = "open" if reels else "missing"
             sightings += reels
-            log(f"  @{handle}: {len(reels)} reels")
+            # The same read, kept twice over: reels for scoring, everything for
+            # cadence. Collecting it here costs nothing — the page is already open.
+            if record is not None:
+                record(
+                    [r for r in (to_post(p, handle) for p in posts) if r],
+                    to_snapshot(profile, handle) if profile else None,
+                )
+            kinds = {}
+            for p in posts:
+                k = KIND.get(p.get("media_type"))
+                kinds[k] = kinds.get(k, 0) + 1
+            story = "story" if (profile.get("latest_reel_media") or 0) else "-"
+            log(f"  @{handle}: {len(reels)} reels · {kinds} · {story}")
     finally:
         reader.close()
     return sightings, access, stopped
+
+
+def light_sweep(
+    handles: list[str],
+    cookies_file: str | Path,
+    log=print,
+) -> tuple[list[dict], str | None]:
+    """The daily pass: one page load each, header only, no scrolling.
+
+    This exists because stories expire. The Saturday sweep can say whether
+    someone had a story up on Saturday morning and nothing more; only a daily
+    reading can tell whether they post stories at all."""
+    reader = Reader(cookies_file)
+    snapshots: list[dict] = []
+    stopped: str | None = None
+    try:
+        for index, handle in enumerate(handles):
+            if index:
+                time.sleep(random.uniform(*PAUSE_SEC))
+            try:
+                profile = reader.profile_only(handle)
+            except BurnerStopped as error:
+                stopped = str(error)
+                log(f"  burner stopped: {error}")
+                break
+            except Exception as error:
+                log(f"  ! @{handle}: {str(error)[:120]}")
+                continue
+            if not profile:
+                continue
+            snap = to_snapshot(profile, handle)
+            snapshots.append(snap)
+            log(f"  @{handle}: {snap['followers']} followers · "
+                f"{'story ' + (snap['story_at'] or '') if snap['has_story'] else 'no story'}")
+    finally:
+        reader.close()
+    return snapshots, stopped

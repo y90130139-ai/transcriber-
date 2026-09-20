@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# The daily header-only pass: stories, followers, post counts, for every watched
+# creator and every one of our own models. Cheap by design — one page load each,
+# no scrolling, no Apify.
+#
+# It runs daily rather than weekly for one reason: a story is gone in 24 hours,
+# so a weekly reading can never show one posted midweek.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+exec "$ROOT/.venv/bin/python" -m src.scout --daily "$@"

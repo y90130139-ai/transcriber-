@@ -149,6 +149,9 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
 
     stats: dict = {"handles": len(creators), "cost_usd": 0.0, "errors": [], "skipped": []}
     sightings: list[dict] = []
+    # The analytics record, gathered from the same pages as the sightings.
+    cadence: list[dict] = []
+    snapshots: list[dict] = []
     access: dict[str, str] = {}
     budget = float(settings.get("max_usd_per_run") or DEFAULT_MAX_USD)
 
@@ -184,8 +187,15 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
         else:
             log(f"  burner: reading {len(gated)} gated accounts (slowly, on purpose)")
             try:
+                def keep(rows: list, snap: dict | None) -> None:
+                    """The same read, kept for cadence as well as scoring."""
+                    cadence.extend(rows)
+                    if snap:
+                        snapshots.append(snap)
+
                 found, learned, stopped = scout_browser.sweep(
-                    gated, cookies, log=log, user_agent=settings.get("burner_user_agent"))
+                    gated, cookies, log=log, user_agent=settings.get("burner_user_agent"),
+                    record=keep)
             except (scout_ig.BurnerStopped, FileNotFoundError) as error:
                 found, learned, stopped = [], {}, str(error)
             sightings += found
@@ -199,7 +209,10 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     swept = sorted({s["handle"] for s in sightings} | set(access))
     access_rows = [{"handle": h, "access": a} for h, a in access.items()]
 
-    chunks = [sightings[i:i + CHUNK] for i in range(0, len(sightings), CHUNK)] or [[]]
+    # Enough chunks for whichever list is longer: there are always more cadence
+    # rows than sightings, because photos and carousels have no plays to score.
+    span = max(len(sightings), len(cadence))
+    chunks = [sightings[i:i + CHUNK] for i in range(0, span, CHUNK)] or [[]]
     # Every chunk but the last only stores. A chunk that still fails after its
     # retries is recorded and skipped — its reels are simply picked up next
     # week — but the final call always goes, because it is the one that picks.
@@ -210,6 +223,8 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
             "run_id": run_id,
             "started_at": started,
             "sightings": chunk,
+            "posts": cadence[index * CHUNK:(index + 1) * CHUNK],
+            "snapshots": snapshots if index == 0 else [],
             "access": access_rows if index == 0 else [],
             "swept": swept if index == 0 else [],
             "final": final,
@@ -236,6 +251,59 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     for error in stats["errors"]:
         log(f"  ! {error}")
     return 1 if stats["errors"] and not sightings else 0
+
+
+def daily() -> int:
+    """The daily pass: every watched creator and every one of our own models,
+    header only, one page load each.
+
+    It exists because a story is gone within the day. The Saturday sweep can say
+    whether someone had a story up on Saturday morning and nothing else, so
+    "did they post a story" is only answerable by reading every day. Followers
+    and post counts come along for free and turn into a growth curve.
+
+    No scrolling, no reels, no Apify: this is the cheap half of Scout."""
+    cloud, settings = _settings()
+    cookies = _resolve(settings.get("burner_cookies"))
+    if not cookies or not cookies.is_file():
+        sys.exit("the daily pass needs the burner session — see docs/SCOUT-SETUP.md")
+
+    plan = cloud.post("/api/scout/targets", {})
+    watched = [c["handle"] for c in (plan.get("creators") or []) if c.get("handle")]
+    mine = list(plan.get("mine") or [])
+    # Ours first: a missed posting day matters more than a competitor's.
+    handles = mine + [h for h in watched if h not in set(mine)]
+    if not handles:
+        log("nobody to read")
+        return 0
+
+    run_id = time.strftime("daily-%Y%m%d-%H%M")
+    log(f"{time.strftime('%Y-%m-%d %H:%M')} daily pass · {len(mine)} ours · {len(watched)} watched")
+    snapshots, stopped = scout_browser.light_sweep(handles, cookies, log=log)
+    if stopped:
+        log(f"  stopped early: {stopped}")
+
+    written = 0
+    for index in range(0, len(snapshots), CHUNK) or [0]:
+        chunk = snapshots[index:index + CHUNK]
+        body = {
+            "run_id": run_id,
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "sightings": [],
+            "snapshots": chunk,
+            # Never `final`: the daily pass must not pick winners or log a run.
+            # It only records where every account stood today.
+            "final": False,
+        }
+        try:
+            result = cloud.post("/api/scout/ingest", body)
+            written += int(result.get("snapshots") or 0)
+        except RuntimeError as error:
+            log(f"  ! snapshots not stored: {error}")
+
+    stories = sum(1 for s in snapshots if s.get("has_story"))
+    log(f"  {written} snapshots stored · {stories} of {len(snapshots)} had a story up")
+    return 0 if snapshots else 1
 
 
 def check_burner(handle: str) -> int:
@@ -283,7 +351,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, help="sweep only the first N watched accounts")
     parser.add_argument("--only", choices=("apify", "burner"), help="run one reader only")
     parser.add_argument("--check-burner", metavar="HANDLE", help="test the burner session on one account")
+    parser.add_argument("--daily", action="store_true",
+                        help="the daily header-only pass: stories, followers, post counts")
     args = parser.parse_args(argv)
+    if args.daily:
+        return daily()
     if args.check_burner:
         return check_burner(args.check_burner.lstrip("@").lower())
     return sweep(limit_handles=args.limit, dry=args.dry, only=args.only)

@@ -94,11 +94,21 @@ calls. They are not a published API and can change without notice."* Note that
 **the burner path has never once succeeded** — this was its first real run, so
 there is no working state to regress from.
 
-**The decisive evidence is free and in Geno's hand.** The phone is still tethered
-with Web Inspector attached. Open a creator's profile on it, watch the **Network**
-tab, and read off the request that actually returns the profile and reel data —
-whether it is `/api/v1/…` at all, or `/graphql/query` with a `doc_id`. That says
-whether the reader needs re-pointing or rewriting.
+**Answered 2026-09-20, 00:30.** Web Inspector on the tethered phone, Network tab,
+filtering the full URL:
+
+- `graphql` → **rows**
+- `api/v1` → **nothing**
+
+So `/api/v1/` is not rate-limited, it is **retired**. The site does not call it
+any more; it uses `/graphql/query`. That explains every measurement above at
+once — the identical 429 for gated accounts, for famous open accounts, for every
+header set and after every wait — and it means `scout_ig.py` was written against
+a path that was already gone. **It never could have worked.** Nothing regressed.
+
+This makes option 1 below *worse*, not better: re-pointing means adopting
+GraphQL `doc_id`s, which Instagram rotates without notice. That is the treadmill
+the docstring warns about, with a shorter cycle.
 
 Three ways on, and the first is not obviously the best:
 

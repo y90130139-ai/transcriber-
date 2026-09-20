@@ -1,237 +1,209 @@
-# Handoff — 2026-09-19, end of the Scout build
+# Handoff — 2026-09-20, the night Apify stopped being needed
 
-Read this, then `docs/SCOUT.md` (the account of everything below), then the
-project memory. `docs/GAME-PLAN.md` is still the strategy; stages 1, 2, 3, 4
-and 6 of its loop are now shipped.
+Read this, then `docs/SCOUT.md` and `docs/SCOUT-SETUP.md`, then the project
+memory. `docs/GAME-PLAN.md` is still the strategy. The previous handoff is
+archived at `docs/HANDOFF-2026-09-19-scout.md`.
 
-Everything here is committed on `main` and deployed. Working tree clean at
-`6e4cc55`.
+Everything below is committed on `main` and deployed. Working tree clean, 25
+commits since `e8c9e34`.
 
----
-
-## What exists now that did not this morning
-
-**Scout** — the watchlist sweep that ended hand-pasting. Vercel cron (Sat
-10:00 ET) starts an Apify run; Apify webhooks the results to
-`/api/scout/apify-hook`, which stores every reel as a *sighting*, measures each
-against its creator's own median plays, and queues the winners into the same
-job queue a paste uses. Sunday the same cron drafts every model's week (also
-10:00 ET — see item 3; 17:00 is the Mac's fallback copy). The Mac is not
-involved in either.
-
-**Failover** — `/api/worker/cloud` stands in when the Mac's heartbeat has been
-silent 90 minutes: transcribes through Cloudflare Workers AI and pushes plan
-videos to R2 with a presigned PUT. Verified by stopping the worker: 24 reels
-transcribed, Mac restarted, failover stood down by itself.
-
-**Badges** — `lib/appeal.ts` replaced "8.53×" with *Blowing up · 1.2M views*,
-from measured thresholds. Her card shows one line; the console keeps the
-numbers on hover.
-
-**Watchlist + sounds + profiler** — bulk-add creators, collab suggestions,
-rising-audio strip, and a vision profiler that proposes each creator's persona
-for one-tap approval.
-
-Numbers as of tonight: **196 watched creators** (72 gated, 19 suggested),
-**3,008 sightings**, **648 library items**, 0 queued, 0 failed, 18 creators
-with a persona, 20 proposals waiting.
+State at the end of the session: **745 library items, none without a video**;
+**745 jobs done, none failed**; **193 watched creators readable** (3 missing);
+**7,723 posts** and **188 snapshots** in the analytics tables; **$0.00 spent**.
 
 ---
 
-## Do these first
+## The one fact that explained everything
 
-### 1. Geno's burner session — 72 gated creators are dark
+`/api/v1/` — the private endpoint `scout_ig.py` was built on — **is retired.**
+Instagram's own site no longer calls it. Proved on a tethered phone's Web
+Inspector: filter the Network tab for `graphql` and rows appear; filter for
+`api/v1` and nothing does.
 
-Over a third of the watchlist cannot be read logged out (measured: 97 of 194
-reels refused an anonymous fetch). The gated sweep is built and scheduled
-(`com.geno.social-transcriber.scout`, Saturdays, `--only burner`) and does
-nothing until `secrets/scout-cookies.txt` exists.
+That single fact explained three failures that had looked unrelated: a burner
+reader that had never once worked, yt-dlp failing on exactly the reels the
+burner found, and a 429 that appeared for every account, every header set and
+every wait.
 
-Geno has the throwaway account ready (created a month or two ago, which is
-good — aged accounts get challenged less). He needs to paste the `sessionid`
-cookie from DevTools on **a separate Chrome profile signed into only that
-account**; `./bin/scout-cookies --sessionid '…' --csrftoken '…'` writes the
-jar. Then `./bin/scout --check-burner <a gated handle>` proves it, and
-`./bin/scout --only burner --limit 10` proves the pass.
+**The fix was to stop constructing requests.** `src/scout_browser.py` drives a
+real headless browser, signed in as the burner, to the pages a person would
+open, and keeps the JSON the site fetched *for itself*. When Instagram changes
+its queries the site changes with them and this keeps working. Nothing is
+scraped out of the DOM either — it is the same structured JSON, obtained
+honestly.
 
-Full walkthrough: `docs/SCOUT-SETUP.md`.
+**Do not re-point anything at GraphQL by hand.** The `doc_id`s resolve at
+runtime from Relay metadata and rotate without notice; the page's own bundles
+carry no literal one. That treadmill is what this design avoids.
 
-#### Status 2026-09-20, 00:20: the jar exists and the reader still cannot read
+---
 
-The session is in place and **valid**. What fails is the endpoint. Measured, in
-this order, all against the burner's own cookies:
+## What is now true that was not
 
-| probe | result |
+**The gated half is gone as a problem.** 72 creators were unreadable at the
+start of the night. All 196 are readable now, and reading them costs nothing —
+the browser reader neither knows nor cares whether an account is gated.
+
+**Apify is a fallback, not a habit.** Once every creator was marked `open`, the
+next Saturday would have sent the *whole* watchlist through Apify at ~$4/week.
+`--only burner` now reads all 196 free, and `/api/cron/daily` starts a paid
+sweep only if none happened in three days. Money is spent only when the Mac is
+asleep, gone, or its session died — which is what putting it in the cloud was
+for. Apify takes minutes, the browser ~2.5 hours; hours are free overnight.
+
+**The analytics layer exists.** Two tables beside the scoring pipeline, never
+inside it (`cloud/schema/analytics.sql`, the first schema here under version
+control):
+
+- `creator_posts` — every post, any type. 7,723 rows over 190 creators: 5,734
+  reels, 1,601 carousels, 348 photos. The carousels are the point — "2–3
+  carousels a week" cannot be counted from a table that drops carousels.
+- `creator_snapshots` — the account header, one row per pass. 188 rows, 122
+  with a story up.
+
+`/api/analytics/<handle>` answers, per creator: top videos by plays, posting
+frequency by type, reels/day and carousels/week against target, story days,
+longest gap, follower movement. Rendered on the creator sheet as a scorecard
+that says "not yet" rather than "behind" when the record is too thin to judge.
+
+**Shares are captured** — `media_repost_count`, 5,583 posts, top reel at
+285,464. Geno assumed this was invisible; it is not. **Saves genuinely are not
+public.**
+
+**Stories are solved, and that is why the daily pass exists.**
+`latest_reel_media` is a timestamp of the most recent story, `0` when none is
+live. A story expires in 24 hours, so the Saturday sweep can only ever say
+whether one was up on Saturday morning. `bin/scout-daily` reads headers alone —
+one page load each, no scrolling — at **19:00 daily**, deliberately never
+alongside the deep sweep, because two browsers on one session is what makes a
+burner look automated. Loaded as `com.geno.social-transcriber.daily`.
+
+**The phone is out of the loop.** It handed over one cookie. The browser now
+saves and reloads its own storage state and Instagram refreshes a session as it
+is used, so the Mac keeps itself signed in. Geno can unplug it, but should stay
+signed in on it — logging out invalidates the session server-side.
+
+---
+
+## What is left, in the order it matters
+
+### 1. Blocked on Geno, and it blocks everything after it
+
+**The model handles are wrong.** Only `kaytie_golfs` is real. `snow` does not
+exist under that name; `fayewest` and `magnus` are different accounts. Nine of
+the 24 returned 3–4 photos and no reels, which is what a stranger's small
+account looks like.
+
+He said he would put correct Instagram handles on the model pages and send a
+full list (IG, plus TikTok where it exists). **Remind him.**
+
+**Do not run `./bin/scout --roster` until then** — it reads whoever owns those
+handles and files their posts under our models. Nothing was stored on the first
+attempt, so the tables are clean; keep them that way.
+
+Also needed: **`formats` and `hooks` per model — 22 of 24 are empty.**
+
+### 2. The 70/20/10 split, which needs 1 first
+
+Geno's full breakdown arrived mid-session (source: Marketing Mastery HQ,
+Notion). The short version:
+
+| Bucket | Meaning |
 |---|---|
-| profile **HTML page** | **200**, 641 KB, body carries `class="… logged-in"` |
-| `/api/v1/users/web_profile_info/`, gated account | **429** |
-| same, **famous open** account (`instagram`) | **429** |
-| same, full browser header set (`X-ASBD-ID`, `Sec-Fetch-*`, `Accept-Language`) | **429** |
-| same, echoing a real `X-IG-WWW-Claim` from a page load | **429** (no claim is even returned) |
-| anonymous, no cookies, same endpoint | **401** |
-| Instagram homepage | **200** |
+| **70% Reskins** | her own proven winners — **>10× her rolling 30-day median views** |
+| **20% Iterations** | medium performers — **3–5× median** |
+| **10% New Tests** | new verticals, trends, angles |
 
-So the following are **ruled out**, not guessed at:
+21 reels/week is 15 / 4 / 2. Posting: 3 reels/day at 10:00 / 13:00 / 18:00,
+1–3 carousels/week, never two posts inside one hour.
 
-- **the address** — `108.53.126.140`, residential Verizon FiOS, New Jersey;
-- **the account** — Geno loaded a gated creator's reels on the phone, on this
-  same session, while these calls were failing;
-- **the session** — Instagram returns `logged-in` and serves a 641 KB page;
-- **the user-agent** — desktop and mobile both 429. The UA was changed to the
-  phone's and then changed back; see `scout_ig.USER_AGENT` for why desktop is
-  correct regardless (it must match the endpoints, not the browser);
-- **missing headers**, **the www-claim**, **gated-vs-open targets**, and
-  **transience** (40 minutes between attempts).
+**A post's bucket comes from its measured performance against her own median —
+never from its format.** A first implementation classified by `models.formats`
+and was wrong on that axis; it was rebuilt. `lib/mix.ts` **measures and does not
+yet pick** — changing how winners are chosen and what they are measured against
+in one step is this project's standing rule.
 
-Also measured: **the profile HTML carries no reel data** — `play_count`,
-`video_view_count`, `edge_owner_to_timeline_media`, `clips_metadata` and
-`shortcode` all appear zero times in those 641 KB. Instagram renders it
-client-side, so scraping the page is not a fallback.
+Two gaps that are in his source docs, not introduced here: **watch-through rate
+is half the grading matrix and lives only in her own Insights**, so only the
+views axis is computable from outside; and the **5×–10× band is undefined**,
+treated here as Iteration, the conservative reading.
 
-What this points at is the endpoint itself, exactly as `scout_ig.py`'s docstring
-warned it might: *"these are the private web endpoints the Instagram site itself
-calls. They are not a published API and can change without notice."* Note that
-**the burner path has never once succeeded** — this was its first real run, so
-there is no working state to regress from.
+**One question he has not answered:** the library is *other* creators' viral
+reels, but the 70% is reskins of *her own* winners — so the library mostly feeds
+the 10%. The 70% wants a **Winners Bank of her own posts**, a different store
+from the one we filled all night. Raise this before building.
 
-**Answered 2026-09-20, 00:30.** Web Inspector on the tethered phone, Network tab,
-filtering the full URL:
+### 3. Parked at his request, mine to build
 
-- `graphql` → **rows**
-- `api/v1` → **nothing**
-
-So `/api/v1/` is not rate-limited, it is **retired**. The site does not call it
-any more; it uses `/graphql/query`. That explains every measurement above at
-once — the identical 429 for gated accounts, for famous open accounts, for every
-header set and after every wait — and it means `scout_ig.py` was written against
-a path that was already gone. **It never could have worked.** Nothing regressed.
-
-This makes option 1 below *worse*, not better: re-pointing means adopting
-GraphQL `doc_id`s, which Instagram rotates without notice. That is the treadmill
-the docstring warns about, with a shorter cycle.
-
-Three ways on, and the first is not obviously the best:
-
-1. **Re-point the reader** at whatever the phone shows. Keeps the design. But
-   hand-maintaining private endpoints is a treadmill, which is what the
-   docstring is warning about.
-2. **Let Apify do the gated half too.** The actor is `apify~instagram-reel-scraper`
-   and takes no cookies today, but Apify maintains its scrapers against
-   Instagram's changes and runs residential proxies. Costs Apify credit — already
-   $12.08 of $19 this cycle.
-3. **Leave the gated half out.** 116 of 196 creators already read fine, the
-   library went 465 → 648 today on those alone, and nothing downstream is blocked.
-
-### 2. Finish the persona proposals — blocked on neurons, not code
-
-`./bin/profile-creators` loops the profiler until nobody is left. Tonight it
-stopped with:
-
-> you have used up your daily free allocation of 10,000 neurons
-
-That is ~23 creators of vision calls a day. 120 of the 178 untagged creators
-have usable frames right now. Two ways on, Geno's call:
-
-**Settled 2026-09-19: do not pay. The free tier is enough.** Two figures from
-Cloudflare's model pricing decide it:
-
-| model | cost |
-|---|---|
-| `@cf/openai/whisper-large-v3-turbo` | **46.63 neurons / audio minute** |
-| `@cf/mistralai/mistral-small-3.1-24b-instruct` | 31,876 / M input tokens |
-
-- **Failover has ~20× the room it needs.** 10,000 neurons/day is ~214 audio
-  minutes — about **428 reels a day** at ~30 s each. The failover test did 24,
-  and the whole library is 648 items gathered over the project's life. An
-  earlier draft of this doc claimed the $5 plan bought failover headroom. It
-  does not; that claim was wrong.
-- **The profiler is the only thing paying would buy, and only speed.** Measured
-  ~23 creators/day (~435 neurons each). 120 of the 178 untagged have usable
-  frames, so the free path is **~5 days of running one command**, against
-  $5/month + ~$0.85 to do it in one pass.
-- **Personas do not depend on the vision profiler anyway.** Two free sources are
-  already wired: tag evidence from a creator's transcribed items
-  (`creators/route.ts:43-54`) and `personaProposal()` over captions
-  (`lib/autotag`). The profiler is a third and better source, not the only one.
-
-So: `./bin/profile-creators` once a day for about five days. It now stops at the
-wall instead of spinning through 500 rounds, so it costs one command and no
-attention.
-
-On the reset hour: Cloudflare's docs say "all limits reset daily at 00:00 UTC",
-but this account still returned `429 … used up your daily free allocation` at
-both **00:32 and 01:02 UTC** on 2026-09-20. Expect a lag of unknown length —
-probe, do not schedule.
-
-**Careful:** Whisper failover shares that same daily allocation. If the Mac is
-down, leave the profiler alone — transcription matters more.
-
-### 3. Watch the first unattended run — it is Sunday morning, not Saturday
-
-Corrected after checking the registered cron. It is one Vercel cron,
-`/api/cron/daily` on `0 14 * * *`, **14:00 UTC — 10:00 EDT**, enabled and
-pointed at the current production deploy. So:
-
-- **Sat 2026-09-19 did not sweep.** The cron was deployed hours after 14:00 UTC
-  had already passed. The five runs in `scout_runs` that evening were hand-fired.
-- **Sun 2026-09-20, 10:00 EDT** is the first unattended fire: the autodraft
-  branch (`weekday === 0`). This is the one to watch tomorrow morning.
-- **Sat 2026-09-26, 10:00 EDT** is the first unattended sweep.
-- The docs elsewhere say "Sunday 17:00". That hour belongs to the *Mac's*
-  `com.geno.social-transcriber.autodraft` launchd job, which still fires. Both
-  drafters running is harmless and now verified so: `previewBatch` computes
-  `wanted = weekly_target - already`, so the 17:00 pass finds the week already
-  full and writes nothing. It is a fallback, not a duplicate.
-- `0 14 * * *` is pinned to UTC, so when the US leaves DST on 2026-11-01 both
-  jobs slide to **09:00 ET**. Nothing breaks; it is just an hour earlier.
-
-Check `transcriber.scout_runs` and `~/Library/Logs/social-transcriber-scout.log`.
-
-Apify spend is **$12.08 of the $19 Starter allowance** with 11 days left in
-the cycle; a weekly refresh is ~$4. If it overruns, cut `REFRESH_DAYS` 17 → 12
-in `cloud/src/lib/scout-apify.ts`.
+- **"Why it worked"** on the creator sheet — trending sound / heat run / proven
+  format / new concept. Derivable from what is captured: `audio_title`
+  frequency across creators, the creator's own median, `media_repost_count`.
+- **Weekly digest** — the week's top concepts and what they had in common. A
+  natural extension of the Sunday autodraft job.
+- **The 3 "missing" creators** — watched accounts returning nothing. Likely
+  deleted or renamed.
+- **Scale work** — pagination and a materialised cadence rollup. Fine at 745
+  items; needed well before the hundreds of thousands he expects.
 
 ---
 
-## Then, in Geno's own order of interest
+## Bugs fixed tonight, and what each cost
 
-1. **Interface** — he has said twice he wants the console cleaner, and admins
-   eventually ("not right now"). The Creators tab now stacks three panels
-   above the grid; that is the first thing to look at.
-2. **`hot.ts` from sightings.** It still divides by the median of *kept*
-   posts, which runs high, and it is still engagement-based while everything
-   new is plays-based. Do not change the score and its input in the same step —
-   that rule is why it has been left alone so far.
-3. **Sweep our own models' accounts.** The same reader gives plays on *her*
-   posts: stage 7 (measure) without the Meta app. It cannot give saves or
-   watch time — only Insights can.
-4. **TikTok radar (phase 2, agreed).** `tiktok:user` works in the vendored
-   yt-dlp and costs nothing; trends land there 1–3 weeks before Reels.
-5. **Feed the model's own verdicts back into `match.ts`** — "I'll do this" /
-   "Can't do this" is collected and still unused.
+- **Collab reels broke whole batches.** `ON CONFLICT DO UPDATE command cannot
+  affect row a second time` — a coauthored reel sits on both creators' profiles
+  under one shortcode, so sweeping both puts it in the batch twice. Cost ~590
+  reels before being diagnosed **from Vercel's runtime log** rather than guessed
+  at. An earlier commit had blamed payload size and shrunk `CHUNK`; that was
+  wrong. De-duplication now lives in the three store functions.
+- **yt-dlp could not download burner-found reels.** All 24 failures were
+  `via: burner`, none from Apify — the same retired endpoint. Nothing needed
+  resolving: the sweep had already stored `video_versions[0].url`. The claim
+  route now hands the media over with the job and `media.download` falls back to
+  it. Instagram's CDN serves those files to anyone.
+- **The library player was black.** The Mac served 206 `video/mp4` perfectly;
+  what was missing was `Access-Control-Allow-Origin`, and the player carries
+  `crossOrigin="anonymous"` because the caption `<track>` is always a CORS
+  request. The browser received the bytes and discarded them, silently.
+- **19 items had no video at all** — transcribed by the Cloudflare failover
+  while the Mac was down, so the Mac never held the file. They sorted to the
+  *top* of the library (newest `upload_date`), so they were the first thing
+  clicked, which is why it looked like every video was broken. All 19
+  re-fetched; the panel now says so when a video is genuinely missing.
+- **bigint came back as strings.** `plays`/`likes`/`comments` are bigint and the
+  driver returns text to keep 64-bit values exact. `topPosts` passed them
+  through, so `"9"` sorted above `"10"`. Coerced at the boundary.
+
+### Two mistakes worth not repeating
+
+**Editing a module a live worker imports is a race.** Adding the *use* of a new
+parameter before adding the parameter itself meant launchd restarted the worker
+into a half-written file and burned 24 jobs on `NameError`. Finish the file,
+exercise the real path, *then* restart.
+
+**A test that does not walk the caller's path is not evidence.** The same fix
+then failed again because `process()` delegates to `_process_in()`, and the
+parameter went on the outer function while the edited line sat in the inner one.
+The helper passed in isolation; the worker never could.
 
 ---
 
-## Traps this session earned
+## Traps still standing
 
-- **`vercel env add` did not trigger the implicit `env pull`** that store
-  commands do — `.env.local` was byte-identical before and after, checked
-  every time. Keep checking.
-- **Vercel Hobby crons are daily-only**, so one `/api/cron/daily` decides by
-  weekday which job is due. `after()` chaining works for the fallback but
-  **proved unreliable for long profiler chains** — that loop belongs on the
-  Mac (`bin/profile-creators`).
-- **Instagram's CDN serves datacenters fine** even though its site blocks
-  them. That single fact is why cloud failover is possible at all.
-- **`@cf/meta/llama-3.2-11b-vision-instruct` needs Meta's licence accepted**
-  by the account owner (403 until then). Mistral needed nothing.
-- **Bios are empty in this niche** — 148 of 196 exist and say "check
-  highlights ↓". Do not build anything that leans on them.
-- **Only 57 of 196 creators are professional accounts**, so
-  `business_discovery` was never going to cover this watchlist. That question
-  is closed.
-- **CSS tokens** are `--sc-ink-900/700/500/300/150`, `--sc-bone`,
-  `--sc-ember`, `--sc-rule-hair`. There is no `--sc-ink` or `--sc-ink-100`;
-  inventing them fails silently.
-- Screenshot recipe that works is in `docs/SCOUT.md`; smoke-test `/p/<token>`
-  only with a week that is already opened, or it fakes `plans.opened_at`.
+- **Vercel Hobby crons are daily-only.** One `/api/cron/daily` at `0 14 * * *`
+  (14:00 UTC = 10:00 EDT) decides by weekday. It slides to 09:00 ET after 1 Nov.
+- The Mac's 17:00 Sunday autodraft still fires and is **harmless** —
+  `previewBatch` computes `wanted = weekly_target - already`, so it writes
+  nothing when the week is already full.
+- **The Workers AI free tier is enough — do not buy the $5 plan.** Whisper is
+  46.63 neurons per audio minute, so 10,000/day is ~428 reels. The profiler is
+  the only thing paying would buy, and only speed.
+- **The profiler eats the whole daily allowance**, so it must not run while the
+  Mac is down — Whisper failover shares it.
+- **CSS tokens** are `--sc-ink-900/700/500/300/150`, `--sc-bone`, `--sc-ember`,
+  `--sc-rule-hair`. Inventing one fails silently.
+- **Deploys no longer prompt** — `.claude/settings.local.json` at the repo root
+  allows `vercel --prod`. Claude cannot write that file itself (self-modification
+  guard), and that guard is correct.
+- **Verify UI claims by loading the page.** Sign in with `APP_PASSWORD` from
+  `cloud/.env.local` and drive Playwright (installed in `.venv`). Reading the
+  diff is not verification — both UI bugs above survived a diff review.

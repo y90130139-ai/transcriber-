@@ -192,7 +192,25 @@ export async function targets() {
 
 /** Upsert a batch. Metrics and `seen_at` move on every sighting, because a
  *  reel's plays keep climbing; the first-seen time and any pick never move. */
-export async function storeSightings(rows: Sighting[]): Promise<number> {
+/**
+ * Last row wins, per key.
+ *
+ * Postgres refuses an `on conflict do update` whose payload names the same row
+ * twice ("cannot affect row a second time"), and a sweep produces exactly that:
+ * a collab reel sits on both coauthors' profiles under one shortcode, so
+ * reading both creators puts it in the batch twice. Measured 2026-09-20 — it
+ * took down a chunk of the first full gated sweep and the first roster pass,
+ * losing ~590 reels. The de-duplication belongs here rather than in the Mac,
+ * because the constraint is this statement's, not the caller's.
+ */
+function byKey<T>(rows: T[], key: (row: T) => string): T[] {
+  const seen = new Map<string, T>()
+  for (const row of rows) seen.set(key(row), row)
+  return [...seen.values()]
+}
+
+export async function storeSightings(input: Sighting[]): Promise<number> {
+  const rows = byKey(input, (row) => row.post_id)
   if (rows.length === 0) return 0
   const written = await sql.query(
     `insert into transcriber.sightings
@@ -546,7 +564,8 @@ export function parseCreatorSnapshot(raw: unknown): CreatorSnapshot | null {
 }
 
 /** Upsert: a re-swept post updates its counts and keeps its first sighting. */
-export async function storeCreatorPosts(rows: CreatorPost[]): Promise<number> {
+export async function storeCreatorPosts(input: CreatorPost[]): Promise<number> {
+  const rows = byKey(input, (row) => row.post_id)
   if (rows.length === 0) return 0
   const written = await sql.query(
     `insert into transcriber.creator_posts
@@ -574,7 +593,8 @@ export async function storeCreatorPosts(rows: CreatorPost[]): Promise<number> {
 
 /** One row per account per pass. The time series is the point — a single
  *  reading cannot show growth, and a story is gone within the day. */
-export async function storeCreatorSnapshots(rows: CreatorSnapshot[]): Promise<number> {
+export async function storeCreatorSnapshots(input: CreatorSnapshot[]): Promise<number> {
+  const rows = byKey(input, (row) => row.handle)
   if (rows.length === 0) return 0
   const written = await sql.query(
     `insert into transcriber.creator_snapshots

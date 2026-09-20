@@ -43,6 +43,10 @@ export type Mix = {
   drift: Record<Band, number>
   /** The band the next pick should come from to move toward target. */
   wants: Band | null
+  /** Whether there was anything to classify against at all. */
+  basis: 'model-profile' | 'none'
+  /** Set when `basis` is 'none': why the split cannot be read yet. */
+  unreadable?: string
 }
 
 const BANDS: Band[] = ['proven', 'adjacent', 'experimental']
@@ -84,13 +88,39 @@ export async function mixOf(planId: string): Promise<Mix | null> {
     [planId],
   )
 
+  const modelFormats = (plan.formats as string[] | null) ?? []
+  const modelHooks = (plan.hooks as string[] | null) ?? []
+
+  // Without a profile there is nothing for "proven" or "adjacent" to mean, and
+  // every item falls through to experimental — which reads as "this week is a
+  // wild gamble" when the truth is "nobody has said what she does". Measured
+  // 2026-09-20: only 2 of 24 active models had formats set, 1 had hooks, so
+  // this is the common case and not an edge. Say so instead of scoring it.
+  if (modelFormats.length === 0 && modelHooks.length === 0) {
+    const zero: Record<Band, number> = { proven: 0, adjacent: 0, experimental: 0 }
+    return {
+      plan_id: String(plan.id),
+      model_id: String(plan.model_id),
+      items: rows.length,
+      counts: zero,
+      shares: zero,
+      target: TARGET_MIX,
+      drift: zero,
+      wants: null,
+      basis: 'none',
+      unreadable:
+        'This model has no formats or hooks set, so there is nothing to call proven. ' +
+        'Set them on her profile and the split becomes readable.',
+    }
+  }
+
   const counts: Record<Band, number> = { proven: 0, adjacent: 0, experimental: 0 }
   for (const row of rows) {
     const band = classify(
       (row.formats as string[] | null) ?? [],
       (row.hooks as string[] | null) ?? [],
-      (plan.formats as string[] | null) ?? [],
-      (plan.hooks as string[] | null) ?? [],
+      modelFormats,
+      modelHooks,
     )
     counts[band] += 1
   }
@@ -118,6 +148,7 @@ export async function mixOf(planId: string): Promise<Mix | null> {
     target: TARGET_MIX,
     drift,
     wants,
+    basis: 'model-profile',
   }
 }
 

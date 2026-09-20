@@ -5,6 +5,8 @@ import { clock, compact, thumbUrl } from '@/lib/format'
 import { taxonomy } from '@/lib/taxonomy'
 import { explainOutperformance } from '@/lib/outperformance'
 import Scorecard from './Scorecard'
+import WhyChips from './WhyChips'
+import type { Why } from '@/lib/reasons'
 
 type Profile = { handle: string; display_name: string | null; persona: string[]; note: string | null }
 type Post = {
@@ -19,6 +21,7 @@ type Post = {
   has_thumb: boolean
   webpage_url: string | null
   preview: string | null
+  why: Why | null
 }
 type Tally = { axis: string; tag: string; n: number }
 
@@ -171,11 +174,13 @@ export default function CreatorSheet({
                     </span> {post.is_hot && <span>🔥</span>}
                   </p>
                   <p className="rung-meta">
-                    {[post.upload_date, `${compact(post.like_count)} likes`,
+                    {[post.why?.multiple != null ? `${post.why.multiple}× her median plays` : null,
+                      post.upload_date, `${compact(post.like_count)} likes`,
                       `${compact(post.comment_count)} cm`, clock(post.duration_sec)]
                       .filter(Boolean).join(' · ')}
                   </p>
                   {post.preview && <p className="rung-line">{post.preview}</p>}
+                  <WhyChips why={post.why} />
                 </div>
               </li>
             ))}

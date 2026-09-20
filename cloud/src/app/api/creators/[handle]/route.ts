@@ -4,6 +4,7 @@ import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
 import { SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
 import { isValidTag } from '@/lib/taxonomy'
+import { whyItWorked } from '@/lib/why'
 
 type Params = { params: Promise<{ handle: string }> }
 
@@ -43,9 +44,13 @@ export async function GET(_request: Request, { params }: Params) {
     [who],
   )
 
+  // What carried each winner: a sound, a streak, a repeat format, shares, or
+  // the idea itself. One query for the whole shelf.
+  const why = await whyItWorked(posts.map((post) => String(post.id)))
+
   return NextResponse.json({
     creator: profile ?? { handle: who, display_name: null, persona: [], note: null },
-    posts,
+    posts: posts.map((post) => ({ ...post, why: why.get(String(post.id)) ?? null })),
     tally,
   })
 }

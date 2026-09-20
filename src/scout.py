@@ -33,7 +33,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, scout_apify, scout_ig
+from . import config, scout_apify, scout_browser, scout_ig
 
 BACKFILL_REELS = 30
 REFRESH_REELS = 30
@@ -184,7 +184,7 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
         else:
             log(f"  burner: reading {len(gated)} gated accounts (slowly, on purpose)")
             try:
-                found, learned, stopped = scout_ig.sweep(
+                found, learned, stopped = scout_browser.sweep(
                     gated, cookies, log=log, user_agent=settings.get("burner_user_agent"))
             except (scout_ig.BurnerStopped, FileNotFoundError) as error:
                 found, learned, stopped = [], {}, str(error)
@@ -249,14 +249,10 @@ def check_burner(handle: str) -> int:
     # from Instagram is its *finding*, not a crash: report it and say which of
     # the two it is, because they need opposite fixes.
     try:
-        burner = scout_ig.Burner(cookies, settings.get("burner_user_agent"))
-        user = burner.profile(handle)
-        if not user:
-            sys.exit(f"@{handle}: not found")
-        log(f"@{handle}: id {user.get('id')} · private {user.get('is_private')} · "
-            f"followers {(user.get('edge_followed_by') or {}).get('count')}")
-        time.sleep(2)
-        reels = [s for s in (scout_ig.to_sighting(i, handle) for i in burner.reels(str(user["id"]))) if s]
+        found, _access, stopped = scout_browser.sweep([handle], cookies, log=log)
+        if stopped:
+            raise scout_ig.BurnerStopped(stopped)
+        reels = sorted(found, key=lambda r: r.get("posted_at") or "", reverse=True)
     except scout_ig.BurnerStopped as error:
         log(f"burner stopped: {error}")
         if "429" in str(error):

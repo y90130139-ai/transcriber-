@@ -39,6 +39,9 @@ BACKFILL_REELS = 30
 REFRESH_REELS = 30
 REFRESH_SLACK_DAYS = 3
 CHUNK = 500
+# Store the gated pass as it goes. It reads a page at a time for hours, so a
+# stumble at the last creator must not discard every one before it.
+FLUSH_AT = 200
 DEFAULT_MAX_USD = 5.0
 REQUEST_TIMEOUT_SEC = 120.0
 POST_ATTEMPTS = 4
@@ -152,6 +155,8 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     # The analytics record, gathered from the same pages as the sightings.
     cadence: list[dict] = []
     snapshots: list[dict] = []
+    # What has been read but not yet stored, so a long pass survives a stumble.
+    pending: dict[str, list] = {"reels": [], "posts": []}
     access: dict[str, str] = {}
     budget = float(settings.get("max_usd_per_run") or DEFAULT_MAX_USD)
 
@@ -187,11 +192,38 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
         else:
             log(f"  burner: reading {len(gated)} gated accounts (slowly, on purpose)")
             try:
-                def keep(rows: list, snap: dict | None) -> None:
-                    """The same read, kept for cadence as well as scoring."""
+                def keep(reels: list, rows: list, snap: dict | None) -> None:
+                    """The same read, kept for cadence as well as scoring — and
+                    posted as it goes.
+
+                    The gated pass is the long one: seventy-odd accounts read a
+                    page at a time takes hours. Holding it all until the end
+                    meant a stumble at the last creator threw away every one
+                    before it, so each creator's share is stored on the way
+                    past. The winners are still picked once, at the end, from
+                    the finished picture."""
                     cadence.extend(rows)
                     if snap:
                         snapshots.append(snap)
+                    pending["reels"].extend(reels)
+                    pending["posts"].extend(rows)
+                    if len(pending["reels"]) + len(pending["posts"]) < FLUSH_AT:
+                        return
+                    try:
+                        cloud.post("/api/scout/ingest", {
+                            "run_id": run_id,
+                            "started_at": started,
+                            "sightings": pending["reels"],
+                            "posts": pending["posts"],
+                            "snapshots": [],
+                            "final": False,
+                        })
+                        pending["reels"].clear()
+                        pending["posts"].clear()
+                    except RuntimeError as error:
+                        # Keep them and try again at the next creator; the final
+                        # call re-sends everything regardless.
+                        log(f"  ! interim store failed, will retry: {str(error)[:90]}")
 
                 found, learned, stopped = scout_browser.sweep(
                     gated, cookies, log=log, user_agent=settings.get("burner_user_agent"),

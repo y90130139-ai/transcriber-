@@ -39,6 +39,7 @@ from pathlib import Path
 from .scout_ig import BurnerStopped, to_sighting
 
 PAUSE_SEC = (8.0, 15.0)
+STATE_NAME = "scout-state.json"   # the browser's own copy of the session, kept warm
 SETTLE_MS = 5000          # let the page's own fetches land
 SCROLL_ROUNDS = 2         # each one asks the site for another page of posts
 NAV_TIMEOUT_MS = 60_000
@@ -145,13 +146,33 @@ class Reader:
         path = Path(cookies_file).expanduser()
         if not path.is_file():
             raise FileNotFoundError(f"burner cookies not found at {path}")
+        self._state = path.with_name(STATE_NAME)
         self._play = sync_playwright().start()
         self._browser = self._play.chromium.launch(headless=True)
-        self._ctx = self._browser.new_context(viewport={"width": 1280, "height": 900})
+        # Carry the previous run's cookies forward when there are any. Instagram
+        # refreshes a session as it is used, so a browser that keeps its own
+        # state stays signed in on its own — which is what stops this needing a
+        # trip to the tethered phone every time the jar goes stale.
+        self._ctx = self._browser.new_context(
+            viewport={"width": 1280, "height": 900},
+            storage_state=str(self._state) if self._state.is_file() else None,
+        )
+        # The jar from the phone is the floor, not the ceiling: adding it after
+        # the saved state means a hand-refreshed session always wins.
         self._ctx.add_cookies(_cookies(path))
         self._want = ""
 
+    def _save(self) -> None:
+        """Keep whatever Instagram handed back, so the next run starts fresher
+        than this one did."""
+        try:
+            self._ctx.storage_state(path=str(self._state))
+            self._state.chmod(0o600)
+        except Exception:
+            pass
+
     def close(self) -> None:
+        self._save()
         for shut in (self._ctx.close, self._browser.close, self._play.stop):
             try:
                 shut()
@@ -221,7 +242,7 @@ def sweep(
     cookies_file: str | Path,
     log=print,
     user_agent: str | None = None,   # accepted for call-site compatibility; the browser sets its own
-    record=None,                     # called per creator with (cadence rows, snapshot)
+    record=None,                     # called per creator with (reels, cadence rows, snapshot)
 ) -> tuple[list[dict], dict[str, str], str | None]:
     """Same contract as `scout_ig.sweep`: (sightings, access, stop reason).
 
@@ -252,6 +273,7 @@ def sweep(
             # cadence. Collecting it here costs nothing — the page is already open.
             if record is not None:
                 record(
+                    reels,
                     [r for r in (to_post(p, handle) for p in posts) if r],
                     to_snapshot(profile, handle) if profile else None,
                 )

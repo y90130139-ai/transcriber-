@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Propose a persona for every watched creator who has none.
+#
+# The route profiles three at a time (a vision call over eight frames each,
+# and five of them once took 59 of a serverless function's 60 seconds). Its
+# own self-chaining proved unreliable, so the loop lives here, where nothing
+# times out. Everything it writes is a proposal: a human still takes, edits or
+# rejects each one in Creators → "Who these creators are".
+#
+#   ./bin/profile-creators          # until there is nobody left
+#   ./bin/profile-creators 5        # only five rounds
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+
+read -r CLOUD_URL WORKER_SECRET <<<"$(/usr/bin/python3 -c '
+import json, sys
+config = json.load(open("config.json"))
+url = (config.get("cloud_url") or "").rstrip("/")
+secret = config.get("worker_secret") or ""
+if not url or not secret:
+    sys.exit("config.json is missing cloud_url or worker_secret")
+print(url, secret)
+')"
+
+ROUNDS="${1:-500}"
+for (( round = 1; round <= ROUNDS; round++ )); do
+  BODY="$(curl --silent --show-error --fail-with-body --max-time 120 \
+    --request POST \
+    --header "Authorization: Bearer ${WORKER_SECRET}" \
+    --header 'Content-Type: application/json' \
+    --data '{}' \
+    "${CLOUD_URL}/api/creators/profile")" || { echo "  round ${round} failed: ${BODY:-no response}"; exit 1; }
+
+  /usr/bin/python3 -c '
+import json, sys
+result = json.loads(sys.stdin.read() or "{}")
+made = result.get("made") or []
+for row in made:
+    print("  @%-24s %s" % (row.get("handle"), ", ".join(row.get("tags") or []) or "nothing fits"))
+for problem in result.get("errors") or []:
+    print("  ! %s" % problem)
+print("MORE" if result.get("more") else "DONE")
+' <<<"$BODY" | tee /tmp/scout-profile-round.txt
+
+  grep -q '^DONE$' /tmp/scout-profile-round.txt && { echo "nobody left to profile"; break; }
+done

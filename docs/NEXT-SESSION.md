@@ -67,15 +67,23 @@ stopped with:
 That is ~23 creators of vision calls a day. 120 of the 178 untagged creators
 have usable frames right now. Two ways on, Geno's call:
 
-- **Wait** — but **not for 00:00 UTC**. Measured 2026-09-20 at 00:32 UTC, half
-  an hour past the boundary this doc first assumed: still `429 … used up your
-  daily free allocation`. Whatever Cloudflare's reset actually keys off, it is
-  not midnight UTC, so "run it once a day" needs a known-good hour first.
-- **Enable Workers AI billing** on the Cloudflare account
-  (contact@sinauraco.com, the one holding R2). Beyond the free tier it is
-  $0.011 per 1,000 neurons, and the whole remaining watchlist measured at
-  roughly **$1 in total**. Given the reset hour is unknown, this is now the
-  recommended path.
+- **Wait** — but the reset is not reliably 00:00 UTC. Cloudflare's docs say
+  "all limits reset daily at 00:00 UTC"; measured against this account, the
+  route still returned `429 … used up your daily free allocation` at both
+  **00:32 and 01:02 UTC** on 2026-09-20, an hour past that boundary. So the
+  documented hour is not what this account behaves like — expect a lag of
+  unknown length, and probe rather than schedule.
+- **Pay** — and the real figure is **$5/month, not $1**. Exceeding the free
+  10,000 neurons/day is not a billing toggle: it requires the **Workers Paid
+  plan, $5 USD/month minimum** (Cloudflare's own Workers pricing page). The
+  $0.011 per 1,000 neurons is what you pay *on top* of that, and the remaining
+  watchlist is roughly $1 of neurons. The 429's wording ("please upgrade")
+  says this account is on Workers Free today.
+
+  $5/month buys more than the profiler: the same plan raises the Workers
+  allotments that **Whisper failover** draws on, which is currently sharing
+  that one free 10,000/day with the profiler. If the $5 is worth it at all,
+  it is worth it for the failover headroom, with the profiler as the occasion.
 
 `bin/profile-creators` used to spin through all 500 rounds against that wall —
 the route keeps reporting `more`, so an exhausted allowance looked like work

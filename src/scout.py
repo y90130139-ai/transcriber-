@@ -38,7 +38,12 @@ from . import config, scout_apify, scout_browser, scout_ig
 BACKFILL_REELS = 30
 REFRESH_REELS = 30
 REFRESH_SLACK_DAYS = 3
-CHUNK = 500
+# 500 was too many. The first full gated sweep (2026-09-20) posted five chunks
+# and the fourth came back 500 with an empty body, three retries deep, losing
+# ~590 of 2,107 reels. Every sighting carries a caption of up to 2,200
+# characters, so a 500-row chunk is a multi-megabyte `jsonb_to_recordset`
+# statement over Neon's HTTP driver. Smaller chunks, more of them.
+CHUNK = 200
 # Store the gated pass as it goes. It reads a page at a time for hours, so a
 # stumble at the last creator must not discard every one before it.
 FLUSH_AT = 200

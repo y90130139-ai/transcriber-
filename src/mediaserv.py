@@ -121,6 +121,34 @@ class _Handler(BaseHTTPRequestHandler):
             return None
         return path
 
+    def _cors(self) -> None:
+        """Let the console's <video> read these bytes.
+
+        The player carries `crossOrigin="anonymous"` — it has to, because the
+        caption track is fetched from here too and a <track> is always a CORS
+        request. Without an allow-origin header the browser refuses the
+        response it just received, and the element goes black with no error
+        anyone would notice. Measured 2026-09-20: the file served 206
+        video/mp4 perfectly and still would not play.
+
+        The signature in the query string is what actually guards these files,
+        so allowing any origin to *ask* costs nothing — an origin without a
+        valid `sig` still gets a 403.
+        """
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
+        self.send_header("Timing-Allow-Origin", "*")
+
+    def do_OPTIONS(self) -> None:  # noqa: N802 - stdlib naming
+        """Preflight, for the Range request the player makes when it seeks."""
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self._cors()
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Range, Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _deny(self, status: HTTPStatus = HTTPStatus.FORBIDDEN) -> None:
         body = json.dumps({"error": status.phrase.lower()}).encode()
         self.send_response(status)
@@ -146,6 +174,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(length))
         self.send_header("Accept-Ranges", "bytes")
+        self._cors()
         # The signature already carries the expiry; caching inside it is free.
         self.send_header("Cache-Control", "private, max-age=3600")
         if download_as:

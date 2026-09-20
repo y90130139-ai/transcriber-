@@ -15,8 +15,9 @@ Everything here is committed on `main` and deployed. Working tree clean at
 10:00 ET) starts an Apify run; Apify webhooks the results to
 `/api/scout/apify-hook`, which stores every reel as a *sighting*, measures each
 against its creator's own median plays, and queues the winners into the same
-job queue a paste uses. Sunday 17:00 the same cron drafts every model's week.
-The Mac is not involved in either.
+job queue a paste uses. Sunday the same cron drafts every model's week (also
+10:00 ET — see item 3; 17:00 is the Mac's fallback copy). The Mac is not
+involved in either.
 
 **Failover** — `/api/worker/cloud` stands in when the Mac's heartbeat has been
 silent 90 minutes: transcribes through Cloudflare Workers AI and pushes plan
@@ -66,21 +67,44 @@ stopped with:
 That is ~23 creators of vision calls a day. 120 of the 178 untagged creators
 have usable frames right now. Two ways on, Geno's call:
 
-- **Wait** — the allocation resets at 00:00 UTC. Run `./bin/profile-creators`
-  once a day for a week.
+- **Wait** — but **not for 00:00 UTC**. Measured 2026-09-20 at 00:32 UTC, half
+  an hour past the boundary this doc first assumed: still `429 … used up your
+  daily free allocation`. Whatever Cloudflare's reset actually keys off, it is
+  not midnight UTC, so "run it once a day" needs a known-good hour first.
 - **Enable Workers AI billing** on the Cloudflare account
   (contact@sinauraco.com, the one holding R2). Beyond the free tier it is
   $0.011 per 1,000 neurons, and the whole remaining watchlist measured at
-  roughly **$1 in total**.
+  roughly **$1 in total**. Given the reset hour is unknown, this is now the
+  recommended path.
+
+`bin/profile-creators` used to spin through all 500 rounds against that wall —
+the route keeps reporting `more`, so an exhausted allowance looked like work
+left to do. It now stops on the first round that profiles nobody, and names the
+allowance when that is the reason.
 
 **Careful:** Whisper failover shares that same daily allocation. If the Mac is
 down, leave the profiler alone — transcription matters more.
 
-### 3. Watch the first unattended Saturday
+### 3. Watch the first unattended run — it is Sunday morning, not Saturday
 
-The cron fires Sat 10:00 ET: sweep → winners queued → Mac transcribes →
-Sunday 17:00 drafts 24 weeks. Nobody has seen that run end to end yet. Check
-`transcriber.scout_runs` and `~/Library/Logs/social-transcriber-scout.log`.
+Corrected after checking the registered cron. It is one Vercel cron,
+`/api/cron/daily` on `0 14 * * *`, **14:00 UTC — 10:00 EDT**, enabled and
+pointed at the current production deploy. So:
+
+- **Sat 2026-09-19 did not sweep.** The cron was deployed hours after 14:00 UTC
+  had already passed. The five runs in `scout_runs` that evening were hand-fired.
+- **Sun 2026-09-20, 10:00 EDT** is the first unattended fire: the autodraft
+  branch (`weekday === 0`). This is the one to watch tomorrow morning.
+- **Sat 2026-09-26, 10:00 EDT** is the first unattended sweep.
+- The docs elsewhere say "Sunday 17:00". That hour belongs to the *Mac's*
+  `com.geno.social-transcriber.autodraft` launchd job, which still fires. Both
+  drafters running is harmless and now verified so: `previewBatch` computes
+  `wanted = weekly_target - already`, so the 17:00 pass finds the week already
+  full and writes nothing. It is a fallback, not a duplicate.
+- `0 14 * * *` is pinned to UTC, so when the US leaves DST on 2026-11-01 both
+  jobs slide to **09:00 ET**. Nothing breaks; it is just an hour earlier.
+
+Check `transcriber.scout_runs` and `~/Library/Logs/social-transcriber-scout.log`.
 
 Apify spend is **$12.08 of the $19 Starter allowance** with 11 days left in
 the cycle; a weekly refresh is ~$4. If it overruns, cut `REFRESH_DAYS` 17 → 12

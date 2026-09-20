@@ -50,4 +50,21 @@ print("MORE" if result.get("more") else "DONE")
 ' <<<"$BODY" | tee /tmp/scout-profile-round.txt
 
   grep -q '^DONE$' /tmp/scout-profile-round.txt && { echo "nobody left to profile"; break; }
+
+  # Workers AI's free allowance is a wall, not a hiccup: once it is spent every
+  # creator in the round fails the same way and the route still reports `more`,
+  # so an unguarded loop spins until ROUNDS runs out. Stop and say why.
+  if grep -q 'daily free allocation' /tmp/scout-profile-round.txt; then
+    echo "stopped: the account's daily Workers AI allowance is spent (~23 creators)."
+    echo "  wait for it to reset, or enable Workers AI billing — the rest of the"
+    echo "  watchlist measured at roughly \$1 in total."
+    exit 3
+  fi
+
+  # Any other round where nothing was profiled is a wall too — a stuck creator
+  # would otherwise be retried for every remaining round.
+  if ! grep -q '^  @' /tmp/scout-profile-round.txt; then
+    echo "stopped: round ${round} profiled nobody. Nothing here will improve by repeating it."
+    exit 4
+  fi
 done

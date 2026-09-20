@@ -216,6 +216,9 @@ def run_job(cloud: Cloud, job: dict, options: pipeline.Options, user_config: dic
         folder = pipeline.process(
             source, dataclasses.replace(options, transcribe=wants_speech), user_config,
             log=lambda line, jid=job["id"]: cloud.progress(jid, line.strip(" .…")),
+            # What the sweep already read about this post: its media URL and the
+            # metadata around it, used only if the page will not resolve.
+            direct=job.get("media"),
         )
         cloud.progress(job["id"], "uploading transcript")
         cloud.complete(_payload(job["id"], folder))

@@ -36,9 +36,9 @@ def job_key(source: str) -> str:
     return hashlib.sha256(source.encode()).hexdigest()[:8]
 
 
-def _resolve(source: str, workdir: Path, user_config: dict) -> media.Source:
+def _resolve(source: str, workdir: Path, user_config: dict, direct: dict | None = None) -> media.Source:
     if media.is_url(source):
-        return media.download(source, workdir, user_config)
+        return media.download(source, workdir, user_config, direct)
     path = Path(source).expanduser().resolve()
     if not path.exists():
         raise RuntimeError(f"no such file: {source}")
@@ -92,7 +92,8 @@ def _finalize(workdir: Path, out_dir: Path, slug: str, key: str) -> Path:
     return final
 
 
-def process(source: str, options: Options, user_config: dict, *, log=print) -> Path:
+def process(source: str, options: Options, user_config: dict, *, log=print,
+            direct: dict | None = None) -> Path:
     """Download/adopt, transcribe, diarize, and write every requested format."""
     key = job_key(source)
     workdir = options.out_dir / ".work" / key
@@ -113,7 +114,7 @@ def _process_in(
     key = job_key(source)
 
     log("  fetching…")
-    resolved = _resolve(source, workdir, user_config)
+    resolved = _resolve(source, workdir, user_config, direct)
 
     if resolved.meta.get("source_type") == "url":
         media.ensure_playable(resolved.media_path)

@@ -48,10 +48,30 @@ export async function POST(request: Request) {
     [Math.min(Math.max(Number(limit) || 1, 1), 10)],
   )
 
+  // The media URL the sweep already read, handed over with the job.
+  //
+  // yt-dlp resolves an Instagram page through the private /api/v1 endpoints,
+  // and those are retired — which is why every one of the 24 failed jobs on
+  // 2026-09-20 came from the burner reader and none from Apify. But the sweep
+  // that found the reel already saw `video_versions[0].url` and stored it, so
+  // the Mac does not need to resolve anything: it can fetch the file. These
+  // links expire, hence `media_until`.
+  const direct = claimed.length
+    ? await sql.query(
+        `select job_id, video_url, poster_url, caption, handle, posted_at, duration_sec
+           from transcriber.sightings
+          where job_id = any($1::text[])
+            and video_url is not null
+            and (media_until is null or media_until > now())`,
+        [claimed.map((row) => String(row.id))],
+      )
+    : []
+  const media = Object.fromEntries(direct.map((row) => [String(row.job_id), row]))
+
   // Plan videos ride along on the same poll: the Mac holds both the files and
   // the R2 credentials, so it is the only side that can move or reclaim bytes.
   return NextResponse.json({
-    jobs: claimed,
+    jobs: claimed.map((row) => ({ ...row, media: media[String(row.id)] ?? null })),
     uploads: await pendingUploads(),
     expired: await expiredObjects(),
     trash: await orphanedKeys(),

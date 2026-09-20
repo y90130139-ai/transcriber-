@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import urllib.request
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dataclasses import dataclass
 from datetime import datetime
@@ -64,6 +65,13 @@ def platform_of(url: str) -> str:
 # lock on its cookie store, so every cookie-bearing attempt is time-boxed.
 COOKIE_TIMEOUT_SEC = 45.0
 NO_COOKIE_TIMEOUT_SEC = 180.0
+# Instagram's CDN serves these files to anyone, including datacenters, and asks
+# for no session — it is only the site that gates.
+DIRECT_TIMEOUT_SEC = 120.0
+DIRECT_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+)
 
 # Errors that mean "this post needs a session", as opposed to a dead link.
 _LOGIN_HINTS = (
@@ -180,8 +188,46 @@ def _fetch(cmd: list[str], url: str, user_config: dict) -> None:
         ) from cookie_failure
 
 
-def download(url: str, workdir: Path, user_config: dict) -> Source:
-    """Fetch a post with yt-dlp into workdir, returning the media file and its metadata."""
+def _from_direct(direct: dict, workdir: Path, url: str) -> Source:
+    """Fetch the media URL the sweep stored, and build the metadata from what it
+    already knew.
+
+    yt-dlp resolves an Instagram post through the private `/api/v1` endpoints,
+    and those are retired — measured 2026-09-20, when all 24 failed jobs came
+    from the burner reader and none from Apify. There is nothing to resolve
+    here: the sweep saw `video_versions[0].url` on Instagram's own response and
+    kept it, along with the caption, the handle and the date. Instagram's CDN
+    serves those files without a session.
+    """
+    target = workdir / "source.mp4"
+    request = urllib.request.Request(direct["video_url"], headers={"User-Agent": DIRECT_UA})
+    with urllib.request.urlopen(request, timeout=DIRECT_TIMEOUT_SEC) as response:
+        target.write_bytes(response.read())
+    if target.stat().st_size == 0:
+        target.unlink(missing_ok=True)
+        raise RuntimeError(f"the stored media URL for {url} returned an empty file")
+
+    posted = (direct.get("posted_at") or "")[:10].replace("-", "") or None
+    caption = direct.get("caption") or ""
+    return Source(media_path=target, meta={
+        "platform": "instagram",
+        "author": direct.get("handle"),
+        # No title comes back with a bare file, so the caption's first line
+        # stands in — the same thing yt-dlp does for a Reel.
+        "title": caption.splitlines()[0][:100] if caption else None,
+        "caption": caption or None,
+        "upload_date": posted,
+        "duration_sec": direct.get("duration_sec"),
+        "webpage_url": url,
+        "source_url": url,
+    })
+
+
+def download(url: str, workdir: Path, user_config: dict, direct: dict | None = None) -> Source:
+    """Fetch a post with yt-dlp into workdir, returning the media file and its metadata.
+
+    `direct` is what the sweep already read about this post — its media URL and
+    the metadata around it — used only when yt-dlp cannot resolve the page."""
     workdir.mkdir(parents=True, exist_ok=True)
     cmd = [
         config.YT_DLP, "--no-playlist", "--no-warnings", "--no-progress",
@@ -230,6 +276,11 @@ def download(url: str, workdir: Path, user_config: dict) -> Source:
                     f"guarantee video: photo posts with audio play in the Reels "
                     f"feed too. Re-exporting cookies will not change this: {url}"
                 ) from failure
+            # The page would not resolve, but the sweep that found this reel
+            # already read its media URL off Instagram's own response. Fetch
+            # that instead of asking yt-dlp to resolve a page it cannot.
+            if direct and direct.get("video_url"):
+                return _from_direct(direct, workdir, url)
             raise
 
     media = _media_in(workdir)

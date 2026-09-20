@@ -32,15 +32,22 @@ from pathlib import Path
 
 APP_ID = "936619743392459"  # the Instagram web app's public id, sent by the site on every call
 
-# Must match the browser that signed the burner in, because Instagram reads
-# session, user-agent and address together: a session born in iPhone Safari and
-# then used under desktop Chrome is the kind of incoherence that earns a
-# challenge. The burner is signed in on an old iPhone over USB to the Mac (see
-# docs/SCOUT-SETUP.md), so this is that phone's Safari. Override per-device with
-# `scout.burner_user_agent` rather than editing this.
+# Must match the client whose endpoints are being called — **not** the browser
+# that created the session. Everything below is the *desktop* web client:
+# `web_profile_info` and `feed/user` with APP_ID above. So this is a desktop
+# browser, and pairing a mobile user-agent with the desktop app id is the
+# mismatch to avoid.
+#
+# The session itself travels: it is created in Safari on a tethered iPhone
+# (docs/SCOUT-SETUP.md) and used here, because Instagram does not bind a web
+# sessionid to a user-agent. Measured 2026-09-19 — the phone was loading reels on
+# that same session while this reader carried it far enough to be rate-limited
+# (429) rather than rejected as invalid (401).
+#
+# Override with `scout.burner_user_agent` rather than editing this.
 USER_AGENT = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 "
-    "(KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 )
 PAUSE_SEC = (8.0, 15.0)
 FEED_COUNT = 24

@@ -86,15 +86,20 @@ Then:
 `--sessionid -` reads stdin, so the session never reaches shell history or `ps`.
 Paste, Enter, Ctrl-D.
 
-### The user agent must match the phone
+### The user agent matches the endpoints, not the phone
 
-Instagram reads session, user-agent and address together. A session born in
-iPhone Safari and then used under a desktop Chrome UA is the incoherence that
-earns a challenge, so `scout_ig.USER_AGENT` is **that phone's Safari string**,
-not a desktop one. Address already agrees: phone and Mac share one Wi-Fi.
+Tried it the other way first and it was the wrong axis. `USER_AGENT` stays a
+**desktop** browser, because the reader calls the *desktop* web client's
+endpoints (`web_profile_info`, `feed/user`, `X-IG-App-ID 936619743392459`).
+Pairing the phone's mobile UA with the desktop app id is the mismatch to avoid.
 
-Re-pair on a different device and the UA moves with it — set
-`scout.burner_user_agent` in `config.json` rather than editing the module.
+The session travels regardless: Instagram does not bind a web `sessionid` to a
+user-agent. Measured 2026-09-19 — the phone was loading reels on that same
+session while this reader carried it far enough to be **rate-limited (429)**
+rather than rejected as invalid (401). A fresh jar's first authenticated call
+drawing a 429 looks to be pacing, not proof of anything about the jar.
+
+`scout.burner_user_agent` overrides it if that ever stops being true.
 
 ### Renewal, and what was deferred
 

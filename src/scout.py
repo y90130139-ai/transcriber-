@@ -17,6 +17,7 @@ Config lives in `config.json` under `scout`, never in the environment:
     "scout": {
       "apify_token": "apify_api_…",
       "burner_cookies": "secrets/scout-cookies.txt",
+      "burner_user_agent": "…",   # the browser the burner signed in on; see scout_ig.USER_AGENT
       "max_usd_per_run": 5
     }
 """
@@ -183,7 +184,8 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
         else:
             log(f"  burner: reading {len(gated)} gated accounts (slowly, on purpose)")
             try:
-                found, learned, stopped = scout_ig.sweep(gated, cookies, log=log)
+                found, learned, stopped = scout_ig.sweep(
+                    gated, cookies, log=log, user_agent=settings.get("burner_user_agent"))
             except (scout_ig.BurnerStopped, FileNotFoundError) as error:
                 found, learned, stopped = [], {}, str(error)
             sightings += found
@@ -243,7 +245,7 @@ def check_burner(handle: str) -> int:
     cookies = _resolve(settings.get("burner_cookies"))
     if not cookies:
         sys.exit("set scout.burner_cookies in config.json first")
-    burner = scout_ig.Burner(cookies)
+    burner = scout_ig.Burner(cookies, settings.get("burner_user_agent"))
     user = burner.profile(handle)
     if not user:
         sys.exit(f"@{handle}: not found")

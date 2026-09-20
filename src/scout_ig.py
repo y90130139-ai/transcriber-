@@ -31,9 +31,16 @@ import urllib.request
 from pathlib import Path
 
 APP_ID = "936619743392459"  # the Instagram web app's public id, sent by the site on every call
+
+# Must match the browser that signed the burner in, because Instagram reads
+# session, user-agent and address together: a session born in iPhone Safari and
+# then used under desktop Chrome is the kind of incoherence that earns a
+# challenge. The burner is signed in on an old iPhone over USB to the Mac (see
+# docs/SCOUT-SETUP.md), so this is that phone's Safari. Override per-device with
+# `scout.burner_user_agent` rather than editing this.
 USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1"
 )
 PAUSE_SEC = (8.0, 15.0)
 FEED_COUNT = 24
@@ -45,7 +52,8 @@ class BurnerStopped(RuntimeError):
 
 
 class Burner:
-    def __init__(self, cookies_file: str | Path) -> None:
+    def __init__(self, cookies_file: str | Path, user_agent: str | None = None) -> None:
+        self._ua = (user_agent or "").strip() or USER_AGENT
         path = Path(cookies_file).expanduser()
         if not path.is_file():
             raise FileNotFoundError(f"burner cookies not found at {path}")
@@ -60,7 +68,7 @@ class Burner:
 
     def _get(self, url: str) -> dict:
         request = urllib.request.Request(url, headers={
-            "User-Agent": USER_AGENT,
+            "User-Agent": self._ua,
             "X-IG-App-ID": APP_ID,
             "X-CSRFToken": self._csrf,
             "X-Requested-With": "XMLHttpRequest",
@@ -146,13 +154,18 @@ def to_sighting(item: dict, handle: str) -> dict | None:
     }
 
 
-def sweep(handles: list[str], cookies_file: str | Path, log=print) -> tuple[list[dict], dict[str, str], str | None]:
+def sweep(
+    handles: list[str],
+    cookies_file: str | Path,
+    log=print,
+    user_agent: str | None = None,
+) -> tuple[list[dict], dict[str, str], str | None]:
     """Read each handle's recent reels. Returns (sightings, access, stop reason).
 
     A stop is not an exception to the caller: whatever was read before
     Instagram pushed back is still worth posting, and the reason is reported
     so the next run is not blind to it."""
-    burner = Burner(cookies_file)
+    burner = Burner(cookies_file, user_agent)
     sightings: list[dict] = []
     access: dict[str, str] = {}
     for index, handle in enumerate(handles):

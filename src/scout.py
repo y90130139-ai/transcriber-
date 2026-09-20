@@ -161,7 +161,7 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     cadence: list[dict] = []
     snapshots: list[dict] = []
     # What has been read but not yet stored, so a long pass survives a stumble.
-    pending: dict[str, list] = {"reels": [], "posts": []}
+    pending: dict[str, list] = {"reels": [], "posts": [], "snaps": []}
     access: dict[str, str] = {}
     budget = float(settings.get("max_usd_per_run") or DEFAULT_MAX_USD)
 
@@ -225,6 +225,11 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
                     cadence.extend(rows)
                     if snap:
                         snapshots.append(snap)
+                        # Snapshots ride the interim flush too. They used to go
+                        # only with the final post, which on a pass this long
+                        # meant a story — the one reading that expires within a
+                        # day — was the most perishable thing held the longest.
+                        pending["snaps"].append(snap)
                     pending["reels"].extend(reels)
                     pending["posts"].extend(rows)
                     if len(pending["reels"]) + len(pending["posts"]) < FLUSH_AT:
@@ -235,11 +240,12 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
                             "started_at": started,
                             "sightings": pending["reels"],
                             "posts": pending["posts"],
-                            "snapshots": [],
+                            "snapshots": pending["snaps"],
                             "final": False,
                         })
                         pending["reels"].clear()
                         pending["posts"].clear()
+                        pending["snaps"].clear()
                     except RuntimeError as error:
                         # Keep them and try again at the next creator; the final
                         # call re-sends everything regardless.

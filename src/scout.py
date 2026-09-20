@@ -245,14 +245,35 @@ def check_burner(handle: str) -> int:
     cookies = _resolve(settings.get("burner_cookies"))
     if not cookies:
         sys.exit("set scout.burner_cookies in config.json first")
-    burner = scout_ig.Burner(cookies, settings.get("burner_user_agent"))
-    user = burner.profile(handle)
-    if not user:
-        sys.exit(f"@{handle}: not found")
-    log(f"@{handle}: id {user.get('id')} · private {user.get('is_private')} · "
-        f"followers {(user.get('edge_followed_by') or {}).get('count')}")
-    time.sleep(2)
-    reels = [s for s in (scout_ig.to_sighting(i, handle) for i in burner.reels(str(user["id"]))) if s]
+    # This is the tool you reach for when the session is in doubt, so a push-back
+    # from Instagram is its *finding*, not a crash: report it and say which of
+    # the two it is, because they need opposite fixes.
+    try:
+        burner = scout_ig.Burner(cookies, settings.get("burner_user_agent"))
+        user = burner.profile(handle)
+        if not user:
+            sys.exit(f"@{handle}: not found")
+        log(f"@{handle}: id {user.get('id')} · private {user.get('is_private')} · "
+            f"followers {(user.get('edge_followed_by') or {}).get('count')}")
+        time.sleep(2)
+        reels = [s for s in (scout_ig.to_sighting(i, handle) for i in burner.reels(str(user["id"]))) if s]
+    except scout_ig.BurnerStopped as error:
+        log(f"burner stopped: {error}")
+        if "429" in str(error):
+            log("  Before guessing, separate the address from the session. Anonymously:")
+            log("    curl -so/dev/null -w '%{http_code}\\n' -H 'X-IG-App-ID: 936619743392459' \\")
+            log("      'https://www.instagram.com/api/v1/users/web_profile_info/?username=instagram'")
+            log("  401 there means the address is fine and the 429 belongs to this session or")
+            log("  account — measured 2026-09-19, first authenticated call on a fresh jar. 429")
+            log("  there means the Mac has simply asked for too much too recently; wait.")
+            log("  A fresh session's first 429 is often transient: wait tens of minutes, retry")
+            log("  once, and only then start changing headers.")
+        else:
+            log("  that reads as the session, not the address. Re-read the cookies from the")
+            log("  phone (docs/SCOUT-SETUP.md, steps 6-9) and write the jar again.")
+        return 1
+    except FileNotFoundError as error:
+        sys.exit(str(error))
     for s in reels[:8]:
         log(f"  {s['posted_at']}  plays {s['plays']}  likes {s['likes']}  comments {s['comments']}  "
             f"audio {s.get('audio_title')!r}  {s['post_id']}")

@@ -1,107 +1,112 @@
 /**
- * The 70/20/10 split, measured before it is enforced.
+ * The 70/20/10 split — Reskins, Iterations, New Tests.
  *
- * The rule: most of a week should be things already known to work, a fifth
- * should be a known thing with one variable changed, and a tenth should be a
- * real bet that is allowed to fail. A library that only ships proven formats
- * stops finding new ones; one that only experiments burns the roster.
+ * Not the marketing-budget 70/20/10 and not the value/curated/promotional
+ * content mix. This is an *output allocation* for one creator's own reels:
  *
- * **This measures. It does not yet pick.** Changing how winners are chosen and
- * what they are measured against in the same step is the mistake this project
- * has a standing rule against, so the first version reports the mix a week
- * already has and how far it sits from target. Enforcing it in `batch.ts` is
- * the next step, once these numbers have been looked at against real weeks.
+ *   70%  Reskins      recreate her own proven winners  (>10x her median views)
+ *   20%  Iterations   re-run the medium performers     (3-5x median)
+ *   10%  New Tests    new verticals, trends, angles    (no history yet)
  *
- * How an item is classified, for one model:
+ * At 21 reels a week that is 15 / 4 / 2.
  *
- *   proven        its format is one she is already known for (`models.formats`)
- *   adjacent      a new format, but through a hook she already uses
- *                 (`models.hooks`) — the same voice, a different shape
- *   experimental  neither: a format and an angle she has not run
+ * **A post's bucket comes from how it performed against her own rolling 30-day
+ * median — never from its format.** The first version of this file classified
+ * by `models.formats` and `models.hooks` and was wrong on exactly that axis: it
+ * asked "is this the kind of thing she makes" when the rule asks "did this, or
+ * something like it, already win for her". Format is a property of an idea;
+ * the split is a property of evidence. Rebuilt 2026-09-20 against Geno's own
+ * breakdown.
  *
- * That leans on the curated `formats` and `hooks` on each model, which are
- * human-set and therefore trustworthy. Once the roster pass has collected
- * enough of a model's own posts, "proven" can be tightened to mean formats her
- * own posts beat her median with — evidence rather than intent. The shape of
- * this file does not change when it is.
+ * Median, not average, and her own median rather than an absolute number:
+ * reels are power-law, so one outlier drags a mean and a 5k account and an 80k
+ * account cannot share a threshold.
+ *
+ * What is deliberately missing: **watch-through rate**. The full grading matrix
+ * routes on views × watch-through, which is what separates "the hook worked and
+ * the body failed" from a real winner. Watch time lives in her own Instagram
+ * Insights and cannot be read from outside the account, so only the views half
+ * of the matrix is computable here. Anything claiming otherwise would be
+ * inventing the number.
+ *
+ * The 5x-10x band is unresolved in the source docs. Treated as Iteration here,
+ * which is the more conservative of the two readings.
  */
 import { sql } from './db'
 
-/** Geno's split. Shares of a week, not counts. */
-export const TARGET_MIX = { proven: 0.7, adjacent: 0.2, experimental: 0.1 } as const
+/** Shares of a week. */
+export const TARGET_MIX = { reskin: 0.7, iteration: 0.2, test: 0.1 } as const
 
-export type Band = 'proven' | 'adjacent' | 'experimental'
+/** Multiples of her own rolling median views. */
+export const THRESHOLD = { reskin: 10, iteration: 3 } as const
+
+/** The window her median is taken over. */
+export const MEDIAN_DAYS = 30
+
+/** Posts needed before a median means anything. */
+const MIN_HISTORY = 5
+
+export type Band = 'reskin' | 'iteration' | 'test'
+
+export type Graded = {
+  post_id: string
+  posted_at: string | null
+  plays: number | null
+  multiple: number | null
+  band: Band
+}
 
 export type Mix = {
-  plan_id: string
-  model_id: string
-  items: number
+  handle: string
+  median_plays: number | null
+  history: number
   counts: Record<Band, number>
   shares: Record<Band, number>
   target: typeof TARGET_MIX
-  /** Signed distance from target, per band. Positive means over-weighted. */
+  /** Signed distance from target. Positive is over-weighted. */
   drift: Record<Band, number>
-  /** The band the next pick should come from to move toward target. */
+  /** Which bucket the next reel should come from. */
   wants: Band | null
-  /** Whether there was anything to classify against at all. */
-  basis: 'model-profile' | 'none'
-  /** Set when `basis` is 'none': why the split cannot be read yet. */
+  basis: 'own-median' | 'none'
   unreadable?: string
 }
 
-const BANDS: Band[] = ['proven', 'adjacent', 'experimental']
+const BANDS: Band[] = ['reskin', 'iteration', 'test']
 
-export function classify(
-  itemFormats: string[],
-  itemHooks: string[],
-  modelFormats: string[],
-  modelHooks: string[],
-): Band {
-  const known = new Set(modelFormats)
-  if (itemFormats.some((f) => known.has(f))) return 'proven'
-  const voice = new Set(modelHooks)
-  if (itemHooks.some((h) => voice.has(h))) return 'adjacent'
-  return 'experimental'
+/** One post's bucket, from its multiple of her median. */
+export function band(multiple: number | null): Band {
+  if (multiple === null) return 'test'
+  if (multiple >= THRESHOLD.reskin) return 'reskin'
+  if (multiple >= THRESHOLD.iteration) return 'iteration'
+  return 'test'
 }
 
-/** What one drafted week actually consists of, against the rule. */
-export async function mixOf(planId: string): Promise<Mix | null> {
-  const [plan] = await sql.query(
-    `select p.id, p.model_id, coalesce(m.formats, '{}') as formats,
-            coalesce(m.hooks, '{}') as hooks
-       from transcriber.plans p
-       join transcriber.models m on m.id = p.model_id
-      where p.id = $1`,
-    [planId],
-  )
-  if (!plan) return null
-
-  // Each item's tags, by axis, in one pass rather than per item.
+/**
+ * How one creator's recent reels grade out, and how far that sits from the
+ * rule. Handle-agnostic like everything else here, though it only means
+ * something for an account we are trying to steer.
+ */
+export async function mixFor(handle: string, windowDays = MEDIAN_DAYS): Promise<Mix> {
   const rows = await sql.query(
-    `select i.job_id,
-            array_remove(array_agg(t.tag) filter (where t.axis = 'format'), null) as formats,
-            array_remove(array_agg(t.tag) filter (where t.axis = 'hook'), null) as hooks
-       from transcriber.plan_items i
-       left join transcriber.tags t on t.job_id = i.job_id
-      where i.plan_id = $1
-      group by i.job_id`,
-    [planId],
+    `select post_id, posted_at, plays
+       from transcriber.creator_posts
+      where handle = $1
+        and kind = 'reel'
+        and plays is not null
+        and posted_at >= now() - ($2 || ' days')::interval
+      order by posted_at desc`,
+    [handle, String(windowDays)],
   )
 
-  const modelFormats = (plan.formats as string[] | null) ?? []
-  const modelHooks = (plan.hooks as string[] | null) ?? []
+  const zero: Record<Band, number> = { reskin: 0, iteration: 0, test: 0 }
 
-  // Without a profile there is nothing for "proven" or "adjacent" to mean, and
-  // every item falls through to experimental — which reads as "this week is a
-  // wild gamble" when the truth is "nobody has said what she does". Measured
-  // 2026-09-20: only 2 of 24 active models had formats set, 1 had hooks, so
-  // this is the common case and not an edge. Say so instead of scoring it.
-  if (modelFormats.length === 0 && modelHooks.length === 0) {
-    const zero: Record<Band, number> = { proven: 0, adjacent: 0, experimental: 0 }
+  // A median off two posts is not a baseline, it is a coin toss. Say so rather
+  // than grading a week against noise.
+  if (rows.length < MIN_HISTORY) {
     return {
-      plan_id: String(plan.id),
-      model_id: String(plan.model_id),
-      items: rows.length,
+      handle,
+      median_plays: null,
+      history: rows.length,
       counts: zero,
       shares: zero,
       target: TARGET_MIX,
@@ -109,47 +114,68 @@ export async function mixOf(planId: string): Promise<Mix | null> {
       wants: null,
       basis: 'none',
       unreadable:
-        'This model has no formats or hooks set, so there is nothing to call proven. ' +
-        'Set them on her profile and the split becomes readable.',
+        `Only ${rows.length} reel${rows.length === 1 ? '' : 's'} with plays in the last ` +
+        `${windowDays} days. A median needs at least ${MIN_HISTORY} before it means anything.`,
     }
   }
 
-  const counts: Record<Band, number> = { proven: 0, adjacent: 0, experimental: 0 }
+  const plays = rows.map((r) => Number(r.plays)).sort((a, b) => a - b)
+  const mid = Math.floor(plays.length / 2)
+  const median = plays.length % 2 ? plays[mid] : (plays[mid - 1] + plays[mid]) / 2
+
+  const counts = { ...zero }
   for (const row of rows) {
-    const band = classify(
-      (row.formats as string[] | null) ?? [],
-      (row.hooks as string[] | null) ?? [],
-      modelFormats,
-      modelHooks,
-    )
-    counts[band] += 1
+    const multiple = median > 0 ? Number(row.plays) / median : null
+    counts[band(multiple)] += 1
   }
 
   const items = rows.length
   const shares = {} as Record<Band, number>
   const drift = {} as Record<Band, number>
-  for (const band of BANDS) {
-    shares[band] = items ? round(counts[band] / items, 3) : 0
-    drift[band] = items ? round(shares[band] - TARGET_MIX[band], 3) : 0
+  for (const b of BANDS) {
+    shares[b] = round(counts[b] / items, 3)
+    drift[b] = round(shares[b] - TARGET_MIX[b], 3)
   }
 
-  // The most under-weighted band is what the week is short of. With no items
-  // at all there is nothing to be short of yet.
-  const wants = items
-    ? BANDS.reduce((low, band) => (drift[band] < drift[low] ? band : low), BANDS[0])
-    : null
-
   return {
-    plan_id: String(plan.id),
-    model_id: String(plan.model_id),
-    items,
+    handle,
+    median_plays: median,
+    history: items,
     counts,
     shares,
     target: TARGET_MIX,
     drift,
-    wants,
-    basis: 'model-profile',
+    wants: BANDS.reduce((low, b) => (drift[b] < drift[low] ? b : low), BANDS[0]),
+    basis: 'own-median',
   }
+}
+
+/** Her winners, highest multiple first — the pool the 70% is drawn from. */
+export async function winners(handle: string, windowDays = MEDIAN_DAYS): Promise<Graded[]> {
+  const mix = await mixFor(handle, windowDays)
+  if (mix.basis === 'none' || !mix.median_plays) return []
+
+  const rows = await sql.query(
+    `select post_id, posted_at, plays
+       from transcriber.creator_posts
+      where handle = $1
+        and kind = 'reel'
+        and plays is not null
+        and posted_at >= now() - ($2 || ' days')::interval
+      order by plays desc`,
+    [handle, String(windowDays)],
+  )
+
+  return rows.map((row) => {
+    const multiple = round(Number(row.plays) / (mix.median_plays as number), 2)
+    return {
+      post_id: String(row.post_id),
+      posted_at: row.posted_at ? String(row.posted_at) : null,
+      plays: Number(row.plays),
+      multiple,
+      band: band(multiple),
+    }
+  })
 }
 
 function round(n: number, places: number): number {

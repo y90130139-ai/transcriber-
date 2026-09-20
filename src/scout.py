@@ -188,6 +188,20 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     # Anything Apify just found to be gated joins this week's burner pass
     # rather than waiting a week to be tried.
     gated = groups["gated"] + [h for h, a in access.items() if a == "gated" and h not in groups["gated"]]
+
+    # `--only burner` reads *everything*, not only the gated half.
+    #
+    # The browser reader was built for the accounts Apify cannot open, but it
+    # has no idea whether an account is gated — it opens the page a person
+    # would open. So it reads the open half just as well, for nothing, and on
+    # 2026-09-20 that stopped being a curiosity: once the gated sweep marked
+    # all 72 readable, every creator was `open` and the whole watchlist would
+    # have gone back to Apify at ~$4 a week. The credits are needed elsewhere.
+    #
+    # The trade is time for money: Apify finishes in minutes, this takes hours.
+    # Hours are free overnight on a Mac that is already awake.
+    if only == "burner":
+        gated = [c["handle"] for c in creators if c.get("handle")]
     cookies = _resolve(settings.get("burner_cookies"))
     if gated and only != "apify":
         if not cookies or not cookies.is_file():
@@ -195,7 +209,8 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
                 f"export its cookies to {settings.get('burner_cookies') or 'secrets/scout-cookies.txt'}")
             stats["skipped"].append(f"burner: no cookies, {len(gated)} gated accounts")
         else:
-            log(f"  burner: reading {len(gated)} gated accounts (slowly, on purpose)")
+            what = "accounts" if only == "burner" else "gated accounts"
+            log(f"  burner: reading {len(gated)} {what} (slowly, on purpose)")
             try:
                 def keep(reels: list, rows: list, snap: dict | None) -> None:
                     """The same read, kept for cadence as well as scoring — and

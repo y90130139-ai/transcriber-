@@ -343,6 +343,61 @@ def daily() -> int:
     return 0 if snapshots else 1
 
 
+def roster() -> int:
+    """Read our own models' accounts, for the scorecard rather than the library.
+
+    Deliberately not a sweep: nothing here is written to `sightings`. Those are
+    winners to hand a model as an idea, and a model's own posts are not ideas to
+    give her — they are the record of what she has already done. So this fills
+    the analytics tables only, and the same scorecard that measures a watched
+    creator then measures her, against her targets instead of against curiosity.
+    """
+    cloud, settings = _settings()
+    cookies = _resolve(settings.get("burner_cookies"))
+    if not cookies or not cookies.is_file():
+        sys.exit("the roster pass needs the burner session — see docs/SCOUT-SETUP.md")
+
+    plan = cloud.post("/api/scout/targets", {})
+    mine = list(plan.get("mine") or [])
+    if not mine:
+        log("no active model has a handle set")
+        return 0
+
+    run_id = time.strftime("roster-%Y%m%d-%H%M")
+    started = datetime.now(timezone.utc).isoformat()
+    log(f"{time.strftime('%Y-%m-%d %H:%M')} roster pass · {len(mine)} models")
+
+    posts: list[dict] = []
+    snapshots: list[dict] = []
+
+    def keep(_reels: list, rows: list, snap: dict | None) -> None:
+        posts.extend(rows)
+        if snap:
+            snapshots.append(snap)
+
+    scout_browser.sweep(mine, cookies, log=log, record=keep)
+
+    written = 0
+    for index in range(0, max(len(posts), 1), CHUNK):
+        body = {
+            "run_id": run_id,
+            "started_at": started,
+            "sightings": [],
+            "posts": posts[index:index + CHUNK],
+            "snapshots": snapshots if index == 0 else [],
+            # Never final: the roster pass measures, it never picks winners.
+            "final": False,
+        }
+        try:
+            result = cloud.post("/api/scout/ingest", body)
+            written += int(result.get("posts") or 0)
+        except RuntimeError as error:
+            log(f"  ! not stored: {str(error)[:120]}")
+
+    log(f"  {written} posts stored for {len(snapshots)} models")
+    return 0 if posts else 1
+
+
 def check_burner(handle: str) -> int:
     """One profile, one feed, printed — to prove a freshly exported burner
     session works before trusting it with a whole pass."""
@@ -390,9 +445,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check-burner", metavar="HANDLE", help="test the burner session on one account")
     parser.add_argument("--daily", action="store_true",
                         help="the daily header-only pass: stories, followers, post counts")
+    parser.add_argument("--roster", action="store_true",
+                        help="read our own models' accounts into the scorecard")
     args = parser.parse_args(argv)
     if args.daily:
         return daily()
+    if args.roster:
+        return roster()
     if args.check_burner:
         return check_burner(args.check_burner.lstrip("@").lower())
     return sweep(limit_handles=args.limit, dry=args.dry, only=args.only)

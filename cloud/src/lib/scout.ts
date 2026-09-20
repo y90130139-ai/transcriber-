@@ -479,6 +479,7 @@ export type CreatorPost = {
   plays: number | null
   likes: number | null
   comments: number | null
+  reposts: number | null
   caption: string | null
   audio_title: string | null
   is_paid_partnership: boolean | null
@@ -517,6 +518,7 @@ export function parseCreatorPost(raw: unknown): CreatorPost | null {
     plays: num(r.plays),
     likes: num(r.likes),
     comments: num(r.comments),
+    reposts: num(r.reposts),
     caption: text(r.caption, CAPTION_MAX),
     audio_title: text(r.audio_title, 200),
     is_paid_partnership: bool(r.is_paid_partnership),
@@ -549,19 +551,20 @@ export async function storeCreatorPosts(rows: CreatorPost[]): Promise<number> {
   const written = await sql.query(
     `insert into transcriber.creator_posts
        (post_id, handle, posted_at, kind, product_type, carousel_count,
-        plays, likes, comments, caption, audio_title, is_paid_partnership, collaborators)
+        plays, likes, comments, reposts, caption, audio_title, is_paid_partnership, collaborators)
      select x.post_id, x.handle, x.posted_at, x.kind, x.product_type, x.carousel_count,
-            x.plays, x.likes, x.comments, x.caption, x.audio_title,
+            x.plays, x.likes, x.comments, x.reposts, x.caption, x.audio_title,
             x.is_paid_partnership, coalesce(x.collaborators, '{}')
        from jsonb_to_recordset($1::jsonb) as x(
             post_id text, handle text, posted_at timestamptz, kind text,
             product_type text, carousel_count int, plays bigint, likes bigint,
-            comments bigint, caption text, audio_title text,
+            comments bigint, reposts bigint, caption text, audio_title text,
             is_paid_partnership boolean, collaborators text[])
      on conflict (post_id) do update
         set plays    = coalesce(excluded.plays, transcriber.creator_posts.plays),
             likes    = coalesce(excluded.likes, transcriber.creator_posts.likes),
             comments = coalesce(excluded.comments, transcriber.creator_posts.comments),
+            reposts  = coalesce(excluded.reposts, transcriber.creator_posts.reposts),
             seen_at  = now()
      returning post_id`,
     [JSON.stringify(rows)],

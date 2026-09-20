@@ -86,6 +86,11 @@ def to_post(item: dict, handle: str) -> dict | None:
         "plays": item.get("ig_play_count") or item.get("play_count") or item.get("view_count"),
         "likes": item.get("like_count"),
         "comments": item.get("comment_count"),
+        # Shares, which Instagram does expose here even though the app never
+        # shows them to a viewer. Measured 2026-09-20: present and non-null on
+        # every timeline item read. Saves are the one signal that genuinely is
+        # not public — only the account's own Insights carry those.
+        "reposts": item.get("media_repost_count"),
         "caption": caption.get("text") if isinstance(caption, dict) else None,
         "audio_title": music.get("title") or original.get("original_audio_title"),
         "is_paid_partnership": item.get("is_paid_partnership"),

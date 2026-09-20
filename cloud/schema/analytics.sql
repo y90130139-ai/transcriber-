@@ -23,6 +23,7 @@ create table if not exists transcriber.creator_posts (
   plays               bigint,
   likes               bigint,
   comments            bigint,
+  reposts             bigint,          -- media_repost_count: shares
   caption             text,
   audio_title         text,
   is_paid_partnership boolean,

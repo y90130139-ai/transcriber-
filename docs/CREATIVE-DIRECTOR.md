@@ -183,3 +183,31 @@ docs/SCOUT-SETUP.md steps 6-9 → `./bin/scout-cookies` → `./bin/scout --sessi
 **Also open:** 1,429 rows carry a play count and no date (124 handles, exactly
 24 each — one reels-tab page). The probe that would confirm the field shape
 needs a live session, so it is queued behind the renewal.
+
+---
+
+## Build progress — 2026-09-21 (Geno: "build 1-9 and all polish")
+
+**Done and verified:**
+
+- Session renewed; `bin/scout-cookies --header` takes the whole Cookie line.
+- Dates for every post from its shortcode (`lib/postid.ts`): 2,315 undated
+  rows fixed, incl. 886 sightings the picker could not see. Deployed.
+- **Every card** (`lib/card.ts`, `PlanItemCard`): Keep / Change / Your face,
+  shot scaffold beat by beat, when it posts, bucket in her words, 7-point
+  checklist, caption options (renders when written). Week: intro from what
+  landed, background rule, stories every day, 2 carousels.
+- **Taxonomy**: mirror, reveal, confession, car-confession.
+- **#4 + #6 Brand** (`lib/insights.ts`, Brand tab): level, verticals A/B/C,
+  her 3 creators, won't-do proposals, one-tap accept. Matching falls back to
+  derived verticals then the 3 starters — every model now gets a plan.
+  Testing round 6 → 15 for new creators with no winners.
+
+**Still to build, in order:** #3 weekly review + Sunday call sheet, #5 batch
+attribution, #1 T6 short DM (card already carries the full T6 fields), #2
+caption engine (column + UI exist, generator missing), #7 edit-reskin and
+trial-reel queues, #8 monthly blueprint page, #9 quality scan, session health
+on the Today tab.
+
+**Roster pass** was started 2026-09-21 in the background; check
+`creator_posts` for the model accounts before trusting banks as complete.

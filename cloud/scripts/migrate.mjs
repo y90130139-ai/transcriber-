@@ -712,6 +712,28 @@ const statements = [
   // are allowed to repeat. Dropping and recreating rather than adding a second
   // index, because two rules on the same columns is how a constraint gets
   // enforced by whichever one someone happened to read.
+  // ------------------------------------------------- the editor's queue
+  //
+  // Edit Reskins and Trial Reels: work on a clip that already exists, so it
+  // never goes in her filming plan (decision 4 in CREATIVE-DIRECTOR.md).
+  // One row per winner per move, so re-generating the queue is a no-op.
+  `create table if not exists transcriber.editor_tasks (
+     id          text primary key,
+     model_id    text not null references transcriber.models(id) on delete cascade,
+     source_post text not null,
+     kind        text not null check (kind in ('edit', 'trial')),
+     move        text not null,
+     due_date    date not null,
+     done_at     timestamptz,
+     created_at  timestamptz not null default now()
+   )`,
+  `create unique index if not exists editor_tasks_unique_idx
+     on transcriber.editor_tasks (model_id, source_post, kind, move)`,
+  // Her trial-reel stage: 1 = 5 a day, 2 = 10, 3 = 15. Advanced by hand once a
+  // stage runs smoothly — the manual's own rule, and not one a query can judge.
+  `alter table transcriber.models
+     add column if not exists trial_stage smallint not null default 1`,
+
   // ------------------------------------------------- her brand, once accepted
   //
   // Derived by lib/insights.ts and offered for a tap. Only what a human

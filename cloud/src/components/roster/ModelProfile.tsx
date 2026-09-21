@@ -7,6 +7,7 @@ import AccessTab, { type Override } from './profile/AccessTab'
 import ProfileFigures from './profile/ProfileFigures'
 import BrandTab from './profile/BrandTab'
 import ReviewTab from './profile/ReviewTab'
+import EditorTab from './profile/EditorTab'
 import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
 import StandingTab from './profile/StandingTab'
@@ -17,7 +18,7 @@ import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
 
-type Tab = 'profile' | 'brand' | 'review' | 'tags' | 'week' | 'standing' | 'access'
+type Tab = 'profile' | 'brand' | 'review' | 'editor' | 'tags' | 'week' | 'standing' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -26,6 +27,7 @@ const TABS: { key: Tab; label: string }[] = [
   // Worked out from her accounts, never typed — see lib/insights.ts.
   { key: 'brand', label: 'Brand' },
   { key: 'review', label: 'Review' },
+  { key: 'editor', label: 'Editor' },
   { key: 'tags', label: 'Tags' },
   { key: 'week', label: 'Week' },
   // Heat and priority. Only for a model that exists — a new one has no weeks.
@@ -341,6 +343,7 @@ export default function ModelProfile({
           )}
           {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'review' && modelId && <ReviewTab modelId={modelId} />}
+          {tab === 'editor' && modelId && <EditorTab modelId={modelId} />}
           {tab === 'tags' && <TagsTab form={form} set={set} setForm={setForm} />}
           {tab === 'week' && <WeekTab form={form} set={set} setForm={setForm} />}
           {tab === 'standing' && modelId && <StandingTab modelId={modelId} onChanged={onStanding} />}

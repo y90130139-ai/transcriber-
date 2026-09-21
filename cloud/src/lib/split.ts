@@ -30,6 +30,7 @@ import { ladderFor, nextAxis, RUNGS_PER_WINNER, type Axis, type Rung } from './l
 import { suggestionsFor } from './match'
 import { sql } from './db'
 import { TARGET_MIX } from './mix'
+import { schedule, scheduleSummary, type Scheduled } from './schedule'
 
 export type Bucket = 'reskin' | 'iteration' | 'test'
 
@@ -71,7 +72,9 @@ export type Week = {
   counts: Counts
   /** What was actually filled — short of `counts` when the sources ran dry. */
   filled: Counts
-  cards: PlannedCard[]
+  cards: Scheduled[]
+  /** The week in a sentence, for the top of her plan. */
+  summary: string
   bank: { winners: number; iterations: number; empty: boolean; accounts: Bank['accounts'] }
   /** Said out loud rather than papered over. */
   notes: string[]
@@ -180,13 +183,16 @@ export async function weekFor(modelId: string): Promise<Week | null> {
     notes.push(`${total} of ${target} cards filled. The sources ran dry, not the week.`)
   }
 
+  const laid = schedule(cards)
+
   return {
     model_id: String(model.id),
     name: String(model.name),
     target,
     counts,
     filled,
-    cards,
+    cards: laid,
+    summary: scheduleSummary(laid),
     bank: {
       winners: winners.length,
       iterations: bank?.iterations.length ?? 0,

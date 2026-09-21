@@ -385,6 +385,20 @@ export default function PlanItemCard({
         </details>
       )}
 
+      {/* The DM version, for Geno to send wherever she reads her messages.
+          Console only: on her own page the card already says all of it. */}
+      {preview && item.brief_short && (
+        <div className="plan-caption">
+          <div className="plan-caption-top">
+            <span className="plan-label">DM version</span>
+            <button type="button" className="plan-copy" onClick={() => void navigator.clipboard.writeText(item.brief_short ?? '')}>
+              Copy
+            </button>
+          </div>
+          <p>{item.brief_short}</p>
+        </div>
+      )}
+
       <details className="plan-checklist">
         <summary>Before you post it</summary>
         <ul>

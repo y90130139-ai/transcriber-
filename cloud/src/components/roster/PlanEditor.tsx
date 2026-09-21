@@ -52,6 +52,23 @@ export default function PlanEditor({
    *  nobody remembers to go and look, and a preview behind a click is a
    *  preview nobody opens. */
   const [showPreview, setShowPreview] = useState(true)
+  /** Progress of the caption-and-DM writer, or null when idle. */
+  const [writing, setWriting] = useState<string | null>(null)
+
+  async function writeCopy(id: string) {
+    setWriting('Writing…')
+    for (let round = 0; round < 10; round += 1) {
+      const response = await fetch(`/api/plans/${id}/write`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      if (!response.ok) { setWriting('Writer unavailable'); setTimeout(() => setWriting(null), 2400); return }
+      const body = await response.json()
+      setRevision((r) => r + 1)
+      if (!body.remaining || body.written === 0) break
+      setWriting(`Writing… ${body.remaining} left`)
+    }
+    setWriting(null)
+  }
   /** Bumped whenever the stored plan changes, which tells the preview to
    *  refetch. Keyed off `plan` and `items` rather than instrumented into each
    *  of the nine mutations below, because both are replaced by reference
@@ -816,6 +833,16 @@ export default function PlanEditor({
               <div className="planpane-side">
                 <div className="planpane-head">
                   <span className="axis-name">What she sees</span>
+                  {/* Writes the DM and three captions for every card that lacks
+                      them, five a request until none are left. On demand only:
+                      the model allowance is shared with Whisper. */}
+                  <button
+                    className="chip"
+                    disabled={writing !== null}
+                    onClick={() => void writeCopy(planId)}
+                  >
+                    {writing ?? 'Write captions & DMs'}
+                  </button>
                   <button
                     className="chip"
                     aria-pressed={showPreview}

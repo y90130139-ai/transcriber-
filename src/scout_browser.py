@@ -97,6 +97,12 @@ def to_post(item: dict, handle: str) -> dict | None:
         "collaborators": [
             c.get("username") for c in (item.get("coauthor_producers") or []) if c.get("username")
         ],
+        # Her reel's own file. Her winners are downloaded from this when yt-dlp
+        # cannot resolve the page — age-gated or an empty media response, 12 of
+        # 62 on 2026-09-21 — and it expires in about a day, so it rides along
+        # on every pass rather than being fetched when needed.
+        "video_url": (item.get("video_versions") or [{}])[0].get("url") if kind == "reel" else None,
+        "poster_url": ((item.get("image_versions2") or {}).get("candidates") or [{}])[0].get("url"),
     }
 
 

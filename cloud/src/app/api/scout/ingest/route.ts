@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
+import { requeueWithFreshLinks } from '@/lib/hers'
 import {
   candidates,
   enqueue,
@@ -68,11 +69,14 @@ export async function POST(request: Request) {
   await storeAccess(access, swept)
   const postsStored = await storeCreatorPosts(posts)
   const snapsStored = await storeCreatorSnapshots(snapshots)
+  // A roster pass brings fresh links for her reels; any winner that failed to
+  // download goes back in the queue on its own.
+  const requeued = posts.some((post: CreatorPost) => post.video_url) ? await requeueWithFreshLinks() : 0
 
   if (body.final !== true) {
     return NextResponse.json({
       stored, dropped: raw.length - sightings.length,
-      posts: postsStored, snapshots: snapsStored,
+      posts: postsStored, snapshots: snapsStored, requeued,
     })
   }
 

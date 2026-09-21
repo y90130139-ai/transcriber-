@@ -66,7 +66,35 @@ export async function POST(request: Request) {
         [claimed.map((row) => String(row.id))],
       )
     : []
-  const media = Object.fromEntries(direct.map((row) => [String(row.job_id), row]))
+  // Her own winners are queued straight into `jobs`, so no sighting is linked
+  // to them. Match those by shortcode instead — a sighting of the same reel,
+  // or the link the roster pass read off her own feed. Without this, every
+  // winner Instagram would not let yt-dlp resolve failed with nothing to fall
+  // back on: 12 of 62 on 2026-09-21.
+  const linked = new Set(direct.map((row) => String(row.job_id)))
+  const unlinked = claimed.filter((row) => !linked.has(String(row.id))).map((row) => String(row.id))
+  const byCode = unlinked.length
+    ? await sql.query(
+        `select distinct on (j.id) j.id as job_id, m.video_url, m.poster_url, m.caption,
+                m.handle, m.posted_at, m.duration_sec
+           from transcriber.jobs j
+           join (
+             select post_id, video_url, poster_url, caption, handle, posted_at,
+                    duration_sec, media_until
+               from transcriber.sightings
+             union all
+             select post_id, video_url, poster_url, caption, handle, posted_at,
+                    null::real, media_until
+               from transcriber.creator_posts
+           ) m on j.source like '%/' || m.post_id || '/%'
+          where j.id = any($1::text[])
+            and m.video_url is not null
+            and m.media_until > now()
+          order by j.id, m.media_until desc`,
+        [unlinked],
+      )
+    : []
+  const media = Object.fromEntries([...direct, ...byCode].map((row) => [String(row.job_id), row]))
 
   // Plan videos ride along on the same poll: the Mac holds both the files and
   // the R2 credentials, so it is the only side that can move or reclaim bytes.

@@ -416,6 +416,15 @@ def roster() -> int:
             log(f"  ! not stored: {str(error)[:120]}")
 
     log(f"  {written} posts stored for {len(snapshots)} models")
+    # The links just read expire in about a day, so her winners are queued now,
+    # while they can still be fetched without a login. Failed ones were already
+    # put back in the queue by the ingest above.
+    if posts:
+        try:
+            hers = cloud.post("/api/scout/hers", {})
+            log(f"  {hers.get('queued', 0)} of her winners queued for download")
+        except RuntimeError as error:
+            log(f"  ! winners not queued: {str(error)[:120]}")
     return 0 if posts else 1
 
 

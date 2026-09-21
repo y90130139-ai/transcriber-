@@ -518,6 +518,11 @@ export type CreatorPost = {
   audio_title: string | null
   is_paid_partnership: boolean | null
   collaborators: string[]
+  /** Her reel's CDN file, so a winner Instagram will not let yt-dlp resolve
+   *  can still be fetched directly. Expires in about a day. */
+  video_url: string | null
+  poster_url: string | null
+  media_until: string | null
 }
 
 export type CreatorSnapshot = {
@@ -578,6 +583,9 @@ export function parseCreatorPost(raw: unknown): CreatorPost | null {
     collaborators: Array.isArray(r.collaborators)
       ? r.collaborators.filter((c): c is string => typeof c === 'string')
       : [],
+    video_url: mediaUrl(r.video_url),
+    poster_url: mediaUrl(r.poster_url),
+    media_until: expiryOf(r.video_url),
   }
 }
 
@@ -605,15 +613,18 @@ export async function storeCreatorPosts(input: CreatorPost[]): Promise<number> {
   const written = await sql.query(
     `insert into transcriber.creator_posts
        (post_id, handle, posted_at, posted_at_source, kind, product_type, carousel_count,
-        plays, likes, comments, reposts, caption, audio_title, is_paid_partnership, collaborators)
+        plays, likes, comments, reposts, caption, audio_title, is_paid_partnership, collaborators,
+        video_url, poster_url, media_until)
      select x.post_id, x.handle, x.posted_at, x.posted_at_source, x.kind, x.product_type, x.carousel_count,
             x.plays, x.likes, x.comments, x.reposts, x.caption, x.audio_title,
-            x.is_paid_partnership, coalesce(x.collaborators, '{}')
+            x.is_paid_partnership, coalesce(x.collaborators, '{}'),
+            x.video_url, x.poster_url, x.media_until
        from jsonb_to_recordset($1::jsonb) as x(
             post_id text, handle text, posted_at timestamptz, posted_at_source text, kind text,
             product_type text, carousel_count int, plays bigint, likes bigint,
             comments bigint, reposts bigint, caption text, audio_title text,
-            is_paid_partnership boolean, collaborators text[])
+            is_paid_partnership boolean, collaborators text[],
+            video_url text, poster_url text, media_until timestamptz)
      on conflict (post_id) do update
         -- A date is only ever upgraded: a real taken_at replaces a derived or
         -- missing one; a derived one fills a gap and never replaces a real one.
@@ -631,6 +642,10 @@ export async function storeCreatorPosts(input: CreatorPost[]): Promise<number> {
             likes    = coalesce(excluded.likes, transcriber.creator_posts.likes),
             comments = coalesce(excluded.comments, transcriber.creator_posts.comments),
             reposts  = coalesce(excluded.reposts, transcriber.creator_posts.reposts),
+            -- The fresher link wins; a pass that read no link keeps the old one.
+            video_url   = coalesce(excluded.video_url, transcriber.creator_posts.video_url),
+            poster_url  = coalesce(excluded.poster_url, transcriber.creator_posts.poster_url),
+            media_until = coalesce(excluded.media_until, transcriber.creator_posts.media_until),
             seen_at  = now()
      returning post_id`,
     [JSON.stringify(rows)],

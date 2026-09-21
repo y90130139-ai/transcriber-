@@ -121,9 +121,10 @@ export async function jobsForPosts(postIds: string[]): Promise<Map<string, strin
 /**
  * Her posts the Mac tried and could not fetch, and never transcribed.
  *
- * Measured 2026-09-21: 5 of 62 came back "can't be seen by certain audiences"
- * — Instagram age-gates them, and the cookies retry is refused the same way,
- * so re-queuing changes nothing. A failed job was still matched by
+ * Measured 2026-09-21: 12 of 62 failed — age-gated, or an empty media
+ * response — and the cookies retry was refused the same way. Until the next
+ * roster pass brings a direct link (`requeueWithFreshLinks`), re-queuing
+ * changes nothing. A failed job was still matched by
  * `jobsForPosts`, which turned her 908× winner into five cards pointing at a
  * video that never arrived. The planner passes these over instead.
  */
@@ -140,4 +141,27 @@ export async function unfetchable(postIds: string[]): Promise<Set<string>> {
     [postIds],
   )
   return new Set(rows.map((row) => String(row.code)))
+}
+
+/**
+ * Put her failed downloads back in the queue once a fresh link exists for them.
+ *
+ * Runs whenever the roster pass stores her posts, because that pass is what
+ * reads the CDN links a failed winner needs. Nobody has to notice the failure
+ * or press retry: the next pass heals it. The retry budget resets because the
+ * thing that failed — resolving the page — is no longer what will be tried.
+ */
+export async function requeueWithFreshLinks(): Promise<number> {
+  const rows = await sql.query(
+    `update transcriber.jobs j
+        set status = 'queued', error = null, stage = null, attempts = 0,
+            claimed_at = null, updated_at = now()
+      where j.status = 'failed'
+        and j.error like 'could not download%'
+        and exists (select 1 from transcriber.creator_posts cp
+                     where j.source like '%/' || cp.post_id || '/%'
+                       and cp.video_url is not null and cp.media_until > now())
+      returning j.id`,
+  )
+  return rows.length
 }

@@ -777,6 +777,15 @@ const statements = [
   `alter table transcriber.sightings
      add column if not exists posted_at_source text`,
 
+  // Her own reels' CDN links, read by the roster pass. Her winners are not
+  // sightings, so the direct-download fallback had nothing to fall back on
+  // and 12 of 62 failed on 2026-09-21. Links expire in about a day, hence
+  // `media_until`.
+  `alter table transcriber.creator_posts
+     add column if not exists video_url text,
+     add column if not exists poster_url text,
+     add column if not exists media_until timestamptz`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

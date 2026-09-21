@@ -318,8 +318,9 @@ from "views only" into the manual's real grading matrix — views × watch-throu
 — and gives saves and profile visits, which are the two metrics that actually
 predict subs.
 
-**This is the one thing that needs her to do something.** Everything else here
-is derived.
+**Declined 2026-09-21.** Left documented because it is the only route to
+watch-through and saves, and because everything needed to build it is already
+here if that ever changes.
 
 ### §26 T2 — Compliance + quality scan
 
@@ -376,9 +377,18 @@ allocates reels only, and `analytics.ts` already measures her against a
    died tonight; the roster pass is what fills every model's own post history,
    and the Winners Bank is empty without it. Nothing else here matters until
    this is done.
-2. **A decision on Insights screenshots** (§25). If she sends them weekly, the
-   grading matrix becomes real: saves, watch-through, profile visits, follows.
-   If not, we stay on views and shares and say so.
+2. ~~Insights screenshots~~ — **declined, 2026-09-21.** So the grading matrix
+   stays on what is public: plays, likes, comments, shares. Consequences, so
+   nobody rediscovers them later:
+   - **Watch-through is gone for good.** It is half the manual's grading
+     matrix and there is no outside proxy for it. A reel that hooked and then
+     lost them looks identical to one that held.
+   - **Saves, profile visits and follows are gone**, so "what brought the most
+     subs" (§8) cannot be answered. Shares per 1,000 plays is the nearest
+     public stand-in and is already computed.
+   - A winner therefore stays **>10× her own 30-day median plays**, shares
+     breaking ties, exactly as decided. Nothing anywhere should imply we know
+     retention.
 3. **Nothing typed.** Brand sentences, verticals, levels, similar creators and
    off-limits lists are all derived and offered for a tap.
 

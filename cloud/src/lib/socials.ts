@@ -289,6 +289,33 @@ export function withImpliedInstagram(socials: Social[], handle: string | null): 
   return implied ? [implied, ...socials] : socials
 }
 
+/**
+ * Every Instagram account a model has, main first.
+ *
+ * `models.handle` is one column and several of the roster run two or three
+ * accounts — a main, a backup, a niche one. Measuring only the column asks
+ * "how is she doing" of a third of her output and calls it the answer, and
+ * the whole point of the roster pass is to find which account is winning.
+ *
+ * Deduped case-insensitively, because the same account reaches here typed
+ * both ways, and `handle` leads: it is what her library rows are filed under.
+ */
+export function instagramAccounts(handle: string | null, socials: Social[]): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const add = (value: string | null | undefined) => {
+    const clean = (value ?? '').replace(/^@+/, '').trim().toLowerCase()
+    if (!clean || seen.has(clean)) return
+    seen.add(clean)
+    out.push(clean)
+  }
+  add(handle)
+  for (const social of socials) {
+    if (social.platform === 'instagram') add(social.handle)
+  }
+  return out
+}
+
 /** A count above this is a typo — nobody on this roster has a billion
  *  followers, and a fat-fingered paste would flatten every real reading in the
  *  chart it is drawn into. */

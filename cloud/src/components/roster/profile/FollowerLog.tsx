@@ -94,10 +94,14 @@ export default function FollowerLog({
                   is not on is possible but should not be the easy path. */}
               {accounts.length > 0 && (
                 <optgroup label="Hers">
-                  {accounts.map((account) => (
-                    <option key={`own-${account.platform}`} value={account.platform}>
-                      {labelOfPlatform(account.platform)}
-                    </option>
+                  {/* One option per platform, not per account: a reading is
+                      stored against the platform, and a model running three
+                      Instagrams would otherwise offer "Instagram" three
+                      indistinguishable times — which React also rejects as a
+                      duplicate key. Her per-account followers come from the
+                      roster pass instead, on the scorecards above. */}
+                  {[...new Set(accounts.map((account) => account.platform))].map((one) => (
+                    <option key={`own-${one}`} value={one}>{labelOfPlatform(one)}</option>
                   ))}
                 </optgroup>
               )}

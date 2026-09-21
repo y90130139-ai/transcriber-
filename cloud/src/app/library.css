@@ -1561,3 +1561,23 @@ textarea.field { resize: vertical; }
   gap: var(--sc-space-2) var(--sc-space-8);
   margin-top: var(--sc-space-6);
 }
+
+/* ------------------------------------------------------------ HER ACCOUNTS
+   One scorecard per Instagram she runs. Kept apart on purpose: a combined
+   figure would average a main account against a backup and describe neither. */
+.accounts { display: grid; gap: var(--sc-space-4); margin: var(--sc-space-4) 0; }
+.account {
+  border-top: 1px solid var(--sc-ink-150);
+  padding-top: var(--sc-space-3);
+}
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-2);
+}
+.account-head a {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  letter-spacing: var(--sc-track-label);
+}

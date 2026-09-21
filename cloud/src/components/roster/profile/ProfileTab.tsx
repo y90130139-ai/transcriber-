@@ -1,6 +1,7 @@
 'use client'
 
 import IntakeDrop, { type IntakePick } from '../IntakeDrop'
+import Accounts from './Accounts'
 import type { HerPost } from '../types'
 import FollowerLog from './FollowerLog'
 import SocialEditor from './SocialEditor'
@@ -83,6 +84,8 @@ export default function ProfileTab({
       )}
 
       <SocialEditor socials={form.socials} onChange={(next) => set('socials', next)} />
+
+      <Accounts handle={form.handle} socials={form.socials} />
 
       <FollowerLog
         modelId={modelId}

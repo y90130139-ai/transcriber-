@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
 import { useReveal } from '@/hooks/useReveal'
+import { BACKGROUND_RULE } from '@/lib/brief'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 
@@ -155,12 +156,14 @@ export default function PlanView({
       <div className="plan-body" ref={body}>
         {plan.intro && <p className="plan-intro">{plan.intro}</p>}
 
-        {model.standing_rules && (
-          <section className="plan-rules" aria-label="Your standing rules">
-            <p className="plan-label">Always</p>
-            <p>{model.standing_rules}</p>
-          </section>
-        )}
+        {/* Her own rules first, because they are hers and they override. The
+            house background rule sits under them: it applies to every card,
+            so it belongs here once rather than repeated twenty-one times. */}
+        <section className="plan-rules" aria-label="What applies to everything">
+          <p className="plan-label">Always</p>
+          {model.standing_rules && <p>{model.standing_rules}</p>}
+          <p>{BACKGROUND_RULE}</p>
+        </section>
 
         <details className="plan-how">
           <summary>How your plan works</summary>

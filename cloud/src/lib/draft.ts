@@ -32,6 +32,57 @@ import { weekFor, type Week } from './split'
 /** Same offset a hand-opened week uses. */
 const DUE_OFFSET_DAYS = 7
 
+/**
+ * The top of her week, in her words.
+ *
+ * Her page opened with nothing: `plans.title` and `plans.intro` were never
+ * drafted, so unless someone typed them she got a wall of cards and no idea
+ * why any of them were there. This is the one place to say what the week *is*.
+ *
+ * Deliberately without the vocabulary we use between ourselves. "Reskin" is
+ * our word for it; what she needs to know is that five of these are versions
+ * of a reel that already worked for her, that two of them are identical on
+ * purpose, and that the point of holding everything else still is that it is
+ * the only way to learn what actually moved the numbers.
+ */
+export function draftIntro(week: Week): { title: string; intro: string } {
+  const lines: string[] = []
+  const reskins = week.cards.filter((card) => card.bucket === 'reskin')
+  const iterations = week.filled.iteration
+  const tests = week.filled.test
+
+  if (reskins.length > 0) {
+    const best = reskins.find((card) => card.source_multiple !== null)
+    const axis = reskins.find((card) => card.axis)?.axis
+    const multiple = best?.source_multiple
+    lines.push(
+      `${reskins.length} of these are your own reel again — the one that did ` +
+      `${multiple ? `${Math.round(multiple)}×` : 'far better than'} your normal. ` +
+      'The first two are exactly as it was, on purpose: they are what the rest get ' +
+      `measured against. The other three change one thing${axis ? `, the ${axis}` : ''} ` +
+      'and nothing else, because one change at a time is the only way to find out ' +
+      'what actually made it work.',
+    )
+  }
+  if (iterations > 0) {
+    lines.push(
+      `${iterations} did well without taking off. Worth one more go to see whether ` +
+      'it was the idea or the day.',
+    )
+  }
+  if (tests > 0) {
+    lines.push(
+      `${tests} ${tests === 1 ? 'is a' : 'are'} new — ideas working right now for ` +
+      'accounts like yours. Make them yours: your outfit, your place, your words.',
+    )
+  }
+
+  return {
+    title: `${week.filled.reskin + iterations + tests} reels`,
+    intro: lines.join(' '),
+  }
+}
+
 export type DraftResult = {
   model_id: string
   name: string
@@ -54,12 +105,19 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   const week = await weekFor(modelId)
   if (!week) return null
 
+  // Title and intro are only ever *filled in*, never replaced: `coalesce`
+  // keeps whatever a human wrote, because the one thing worse than an empty
+  // top-of-week is a drafted one that overwrote the real one.
+  const opening = draftIntro(week)
   const [plan] = await sql.query(
-    `insert into transcriber.plans (id, model_id, week_of, due_date)
-     values ($1, $2, $3::date, $4::date)
-     on conflict (model_id, week_of) do update set updated_at = now()
+    `insert into transcriber.plans (id, model_id, week_of, due_date, title, intro)
+     values ($1, $2, $3::date, $4::date, $5, $6)
+     on conflict (model_id, week_of) do update
+        set updated_at = now(),
+            title = coalesce(nullif(transcriber.plans.title, ''), excluded.title),
+            intro = coalesce(nullif(transcriber.plans.intro, ''), excluded.intro)
      returning id, (xmax = 0) as created`,
-    [newId(), modelId, weekOf, addDays(weekOf, DUE_OFFSET_DAYS)],
+    [newId(), modelId, weekOf, addDays(weekOf, DUE_OFFSET_DAYS), opening.title, opening.intro],
   )
   const planId = String(plan.id)
 

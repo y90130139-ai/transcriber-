@@ -512,6 +512,24 @@ export function legacyFieldsDirection(
    PHASE 4 — where it is filmed, and what the card is called.
    ============================================================ */
 
+/**
+ * The house background rule, from the Viral Reels Blueprint.
+ *
+ * Written once at the top of her week rather than guessed per card. The
+ * manual is specific and it is specific about *backgrounds*, not about which
+ * room a talking head belongs in — so this is a standing rule, and
+ * `LOCATION` below stays what it was: a place only where the format actually
+ * implies one.
+ *
+ * It is a preference, not a refusal. A bedroom reel that is genuinely good is
+ * better than a garden reel that is not, and the wording says so rather than
+ * handing her a rule she has to break to get anything filmed.
+ */
+export const BACKGROUND_RULE =
+  'Backgrounds carry more than they look like they do: outside, a pool, a beach, ' +
+  'a garden or a street all read better than a white wall or a bedroom. Shoot ' +
+  'somewhere with something in it where you can.'
+
 /** Where this shape is usually shot, keyed by format. Only where the format
  *  actually implies somewhere: guessing "In the kitchen" off a talking head
  *  would group her whole week under a room she never went into. */

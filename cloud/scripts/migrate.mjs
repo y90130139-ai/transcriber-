@@ -712,6 +712,17 @@ const statements = [
   // are allowed to repeat. Dropping and recreating rather than adding a second
   // index, because two rules on the same columns is how a constraint gets
   // enforced by whichever one someone happened to read.
+  // ------------------------------------------------- quality scan (T2)
+  `create table if not exists transcriber.quality_checks (
+     post_id    text primary key,
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     scores     jsonb not null,
+     composite  real,
+     verdict    text not null check (verdict in ('PASS', 'WARN', 'FAIL')),
+     notes      text,
+     checked_at timestamptz not null default now()
+   )`,
+
   // ------------------------------------------------- the editor's queue
   //
   // Edit Reskins and Trial Reels: work on a clip that already exists, so it

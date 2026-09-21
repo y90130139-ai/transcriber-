@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import type { Review } from '@/lib/review'
 import type { Attribution } from '@/lib/attribution'
+import type { QualityCheck } from '@/lib/quality'
 
 type Payload = Review & { attribution: Attribution }
 
@@ -14,6 +15,22 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
   const [week, setWeek] = useState(thisWeek)
   const [data, setData] = useState<Payload | null>(null)
   const [copied, setCopied] = useState(false)
+  const [checks, setChecks] = useState<QualityCheck[] | null>(null)
+  const [scanning, setScanning] = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch(`/api/models/${modelId}/quality`)
+      if (response.ok) setChecks((await response.json()).checks)
+    })()
+  }, [modelId])
+
+  async function scan() {
+    setScanning(true)
+    const response = await fetch(`/api/models/${modelId}/quality`, { method: 'POST' })
+    if (response.ok) setChecks((await response.json()).checks)
+    setScanning(false)
+  }
 
   useEffect(() => {
     let live = true
@@ -69,6 +86,30 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
                       {' '}{post.multiple !== null ? `${post.multiple}× her normal` : 'no baseline'}
                       {post.action ? ` → ${post.action}` : ''}
                     </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="axis">
+            <div className="axis-head">
+              <span className="axis-name">Quality check</span>
+              <button className="axis-confirm" disabled={scanning} onClick={scan}>
+                {scanning ? 'Checking…' : 'Check her latest reels'}
+              </button>
+            </div>
+            {!checks || checks.length === 0 ? (
+              <span className="hint">Nothing checked yet. Each run looks at her four newest unchecked reels.</span>
+            ) : (
+              <ul className="brand-list">
+                {checks.map((check) => (
+                  <li key={check.post_id}>
+                    <b>{check.verdict}</b>
+                    <a href={`https://www.instagram.com/reel/${check.post_id}/`} target="_blank" rel="noreferrer">
+                      {check.composite}/10
+                    </a>
+                    <span className="hint"> — {check.notes || 'no fixes needed'}</span>
                   </li>
                 ))}
               </ul>

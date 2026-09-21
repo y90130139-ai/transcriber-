@@ -669,6 +669,36 @@ const statements = [
      cost_usd    numeric(8,4),
      notes       jsonb not null default '{}'
    )`,
+
+  // ------------------------------------------------- the 70/20/10 week
+  //
+  // A card used to be one thing: a library reel to recreate. The Creative
+  // Director workflow splits her week three ways, and two of those buckets are
+  // her *own* posts, which have no `job_id` until they are ingested. So a card
+  // now carries where it came from and what is under test on it.
+  //
+  //   bucket       reskin | iteration | test
+  //   axis         the ONE variable a reskin changes — outfit, location, hook.
+  //                Null on a control, which is the point of a control.
+  //   source_post  her winning post's shortcode, for a reskin or an iteration
+  //   hold         what must not move, so a result can be attributed
+  //   slot_day     0-6 from the week's Monday
+  //   slot_time    'HH:MM' local to her — 10:00 / 13:00 / 18:00
+  //
+  // Nullable throughout: every card written before this exists is a test by
+  // definition, and backfilling a guess would be inventing history.
+  `alter table transcriber.plan_items
+     add column if not exists bucket      text,
+     add column if not exists axis        text,
+     add column if not exists source_post text,
+     add column if not exists source_url  text,
+     add column if not exists hold        text,
+     add column if not exists slot_day    smallint,
+     add column if not exists slot_time   text`,
+
+  // How many ladder batches a model has run, which decides the next axis.
+  `create index if not exists plan_items_source_idx
+     on transcriber.plan_items (source_post) where source_post is not null`,
 ]
 
 for (const statement of statements) {

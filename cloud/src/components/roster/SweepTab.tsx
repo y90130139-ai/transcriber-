@@ -140,6 +140,15 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
   const [sweep, setSweep] = useState<Sweep | null>(null)
   const [loading, setLoading] = useState(true)
   const { standing } = useStanding()
+  // The burner's heartbeat. A dead session does not announce itself — it just
+  // stops producing rows — so this reads the newest snapshot instead.
+  const [scout, setScout] = useState<{ alive: boolean; hours: number | null; fix: string } | null>(null)
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch('/api/scout/health')
+      if (response.ok) setScout(await response.json())
+    })()
+  }, [])
 
   const load = useCallback(async () => {
     const response = await fetch('/api/sweep')
@@ -159,6 +168,13 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
 
   return (
     <>
+      {scout && !scout.alive && (
+        <p className="hint" data-tone="bad" role="alert">
+          The scout session looks dead — nothing read for{' '}
+          {scout.hours === null ? 'as long as there is a record' : `${Math.round(scout.hours)} hours`}.
+          {' '}{scout.fix}
+        </p>
+      )}
       <div className="section-head">
         <h2>Today</h2>
         <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>

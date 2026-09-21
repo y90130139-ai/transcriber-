@@ -16,7 +16,7 @@
 import { sql } from './db'
 import { askJson } from './ai'
 
-const PER_REQUEST = 4
+const PER_REQUEST = 3
 export const REVISE_BELOW = 7.0
 /** The manual: keep videos shorter. */
 const IDEAL_MAX_SECONDS = 15

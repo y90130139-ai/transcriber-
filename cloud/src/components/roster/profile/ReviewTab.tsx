@@ -100,7 +100,7 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
               </button>
             </div>
             {!checks || checks.length === 0 ? (
-              <span className="hint">Nothing checked yet. Each run looks at her four newest unchecked reels.</span>
+              <span className="hint">Nothing checked yet. Each run looks at her three newest unchecked reels.</span>
             ) : (
               <ul className="brand-list">
                 {checks.map((check) => (

@@ -82,12 +82,19 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     '',
     'TASK 1 — "dm": a short message (under 90 words) she could receive as a DM, in a warm direct friend tone:',
     'what the concept is, the hook, what to film, what to wear and where, how long, and one line on why it fits her lane.',
-    'Never mention any other creator, handle, account, source, or model. Write it as if the idea is for her specifically.',
+    (row.bucket === 'reskin' || row.bucket === 'iteration')
+      ? '- This is HER OWN reel that already did well. Say so plainly: she is re-filming her own video' +
+        (row.axis ? `, changing only ${row.axis === 'location' ? 'where she films it' : row.axis === 'hook' ? 'the opening line' : 'her outfit'}.` : ', exactly as it was.')
+      : '- This is a new idea for her.',
+    'Never mention any other creator, handle, account, source, or model. Never use the words card, reskin, iteration, vertical, bucket or winner card.',
     '',
     'TASK 2 — "captions": exactly 3 captions, each using a different formula from:',
     ...FORMULAS.map((f, i) => `${i + 1}. ${f}`),
     'Each caption under 12 words, sounding like her, using only traits she actually has from the profile above.',
-    '"baits" is the exact comment a real person would type in reply.',
+    '"baits" is the exact comment a real stranger would type in reply. It must be a disagreement, a correction,',
+    'a question, tagging a friend, or "this is literally me" — NEVER a compliment or praise for her.',
+    'A caption that only draws "love this" baits nothing and fails.',
+    'Formula 1 must be a numbered promise like "2 reasons to date a..." — not a list of adjectives.',
     'Hard bans: no emojis, no hashtags, no em-dash asides, no "not just X but Y", no politics, race, religion or body-shaming.',
   ].filter(Boolean).join('\n')
 

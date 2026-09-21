@@ -132,3 +132,54 @@ readable from outside.
 - **One variable per reskin.** The ladder is worthless if two things change at
   once — that is the whole reason the manual insists on it.
 - **The model never sees a competitor's handle.**
+
+---
+
+## Status, 2026-09-21 ~21:30 ET
+
+**Built and verified tonight** (deterministic half, no model calls):
+
+- `lib/bank.ts` — her winners and iterations, graded per account against her
+  own median. Widens 30 → 90 days when 30 is too thin, and says which window
+  it used, because a 90-day median on a growing account runs low.
+- `lib/ladder.ts` — the Double Down batch: 2 controls, 3 of one axis, axis
+  rotating outfit → location → hook across batches.
+- `lib/split.ts` — the 15/4/2 picker. Says out loud when a bucket came up
+  short instead of quietly refilling the week with tests.
+- `lib/schedule.ts` — three a day at 10:00/13:00/18:00 across the whole week
+  before any in-between slot is used.
+- `lib/draft.ts` + `POST /api/models/[id]/week` — writes the split onto a
+  draft week. Verified end to end on a throwaway week: 26 cards, a 5-card
+  ladder on one winner, 1 iteration, 20 tests, 0 skipped; week deleted after.
+- `lib/hers.ts` — ingests her graded posts into the library so a reskin card
+  has a clip and her own words behind it.
+
+**Two bugs found and fixed on the way:**
+
+1. The unique index on `(plan_id, job_id)` silently collapsed a 5-card ladder
+   to 1 card. Now partial on `source_post is null`: library reels keep the
+   guarantee, her own reskins may repeat.
+2. Card fields had to move *into* the insert. Stamped afterwards, rung two
+   landed with a null source, collided with rung one under that same index and
+   vanished.
+
+**Blocked, and this is the thing to fix first:**
+
+The burner session **died tonight** between 20:37 (the daily pass finished,
+207 snapshots) and 21:25. Proof rather than inference: the profile page still
+renders but its own ajax call carries `__user=0`, and the jar and the saved
+browser state hold the identical `sessionid`, so there is no fresher copy to
+fall back to. `./bin/scout --session` reports it.
+
+That blocks the roster pass, which is what fills `creator_posts` for all 38 of
+her accounts — which is what the Winners Bank needs. Only 8 accounts hold rows
+today, so most models still grade as "no baseline".
+
+Renewal needs the phone, and the phone's **Web Inspector is not listening**
+(tested three times; lockdown accepts, port 27753 refuses). Enable Settings →
+Safari → Advanced → Web Inspector, unlock, keep Auto-Lock at Never, then
+docs/SCOUT-SETUP.md steps 6-9 → `./bin/scout-cookies` → `./bin/scout --session`.
+
+**Also open:** 1,429 rows carry a play count and no date (124 handles, exactly
+24 each — one reels-tab page). The probe that would confirm the field shape
+needs a live session, so it is queued behind the renewal.

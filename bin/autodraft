@@ -38,27 +38,29 @@ WEEK="$(date -v+1d +%Y-%m-%d)"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') autodraft → week of $WEEK"
 
-BODY="$(curl --silent --show-error --fail-with-body --max-time 120 \
-  --request POST \
-  --header "Authorization: Bearer ${WORKER_SECRET}" \
-  --header 'Content-Type: application/json' \
-  "${CLOUD_URL}/api/plans/autodraft?week=${WEEK}")" || {
-    echo "  autodraft failed: ${BODY:-no response}"
-    exit 1
-  }
-
-# `short` is who the library ran out of things for — usually an unfilled
-# profile rather than a dry library, and the one thing worth reading here.
-/usr/bin/python3 -c '
+# A draft takes about five seconds a model and the function has sixty, so one
+# call covers part of the roster and reports how many it did not reach. Call
+# again until none are left; already-drafted weeks are skipped, never doubled.
+for round in 1 2 3 4 5 6; do
+  BODY="$(curl --silent --show-error --fail-with-body --max-time 120 \
+    --request POST \
+    --header "Authorization: Bearer ${WORKER_SECRET}" \
+    --header 'Content-Type: application/json' \
+    "${CLOUD_URL}/api/plans/autodraft?week=${WEEK}")" || {
+      echo "  autodraft failed: ${BODY:-no response}"
+      exit 1
+    }
+  LEFT="$(/usr/bin/python3 -c '
 import json, sys
 result = json.loads(sys.stdin.read() or "{}")
-print("  %s models · %s weeks opened · %s cards added"
-      % (result.get("models", 0), result.get("opened", 0), result.get("added", 0)))
-short = result.get("short") or []
-for row in short:
-    print("  short %s for %s — check her formats and persona"
-          % (row.get("short"), row.get("name")))
-' <<<"$BODY"
+print("  pass %s: %s weeks opened · %s cards added · %s still to draft"
+      % (sys.argv[1], result.get("opened", 0), result.get("added", 0), result.get("remaining", 0)), file=sys.stderr)
+for row in result.get("short") or []:
+    print("  short %s for %s" % (row.get("short"), row.get("name")), file=sys.stderr)
+print(result.get("remaining", 0))
+' "$round" <<<"$BODY")"
+  [ "${LEFT:-0}" = "0" ] && break
+done
 
 # The week that is ending, in sentences: what the niche's best reels had in
 # common. Read after the draft on purpose — it is commentary, and a failure

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
 import { useReveal } from '@/hooks/useReveal'
 import { BACKGROUND_RULE } from '@/lib/brief'
+import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 
@@ -164,6 +165,28 @@ export default function PlanView({
           {model.standing_rules && <p>{model.standing_rules}</p>}
           <p>{BACKGROUND_RULE}</p>
         </section>
+
+        {/* The two things the analytics measure her against and the plan never
+            asked for. Carousels come from the shoot-day photos, so they cost
+            no extra filming; stories rotate so no two days ask the same. */}
+        <details className="plan-extras">
+          <summary>Stories and carousels this week</summary>
+          <p className="plan-label">Carousels · {CAROUSEL_PLAN.count} this week</p>
+          <p>
+            {CAROUSEL_PLAN.slots.map((slot) => `${slot.day} ${slot.time}`).join(' and ')} —
+            in the gap between your reels, never within an hour of one.
+          </p>
+          <p className="plan-quiet">{CAROUSEL_PLAN.source}</p>
+          <p className="plan-label">A story every day</p>
+          <dl className="plan-spec">
+            {STORY_PROMPTS.map((story) => (
+              <div className="plan-spec-row" key={story.day}>
+                <dt>{story.day.slice(0, 3)} · {story.theme}</dt>
+                <dd>{story.prompt}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
 
         <details className="plan-how">
           <summary>How your plan works</summary>

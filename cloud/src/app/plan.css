@@ -1230,3 +1230,101 @@
      Hovering still deepens it, which is what the pointer needs. */
   .plan-item { border-color: #33302C; }
 }
+
+/* ------------------------------------------------ THE 70/20/10 CARD
+   When it goes out and what kind of card it is, above everything else. The
+   bucket carries the only colour: her winner is the one to get right. */
+.plan-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2) var(--sc-space-3);
+  margin: 0 0 var(--sc-space-3);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.plan-bucket {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  color: var(--sc-ink-700);
+}
+.plan-bucket[data-bucket='reskin'] {
+  border-color: var(--sc-ember);
+  color: var(--sc-ember-deep);
+}
+
+/* Keep / change / your face — the part of the brief the manual says gets lost
+   when all she is sent is a caption. Set apart from Direction with a rule
+   rather than a box, so the card does not become a stack of boxes. */
+.plan-rule {
+  border-left: 3px solid var(--sc-ember);
+  padding: var(--sc-space-1) 0 var(--sc-space-1) var(--sc-space-3);
+  margin: 0 0 var(--sc-space-4);
+}
+.plan-rule .plan-spec { margin-top: var(--sc-space-2); }
+
+/* The four folds share the transcript's quiet treatment: closed by default,
+   one line each, so the card stays scannable and the depth is a tap away. */
+.plan-scaffold,
+.plan-captions,
+.plan-checklist { border-top: var(--sc-rule-hair); }
+.plan-scaffold summary,
+.plan-captions summary,
+.plan-checklist summary,
+.plan-extras summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.plan-captions summary { color: var(--sc-ink-900); }
+.plan-scaffold summary::-webkit-details-marker,
+.plan-captions summary::-webkit-details-marker,
+.plan-checklist summary::-webkit-details-marker,
+.plan-extras summary::-webkit-details-marker { display: none; }
+.plan-scaffold summary::after,
+.plan-captions summary::after,
+.plan-checklist summary::after,
+.plan-extras summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-scaffold[open] summary::after,
+.plan-captions[open] summary::after,
+.plan-checklist[open] summary::after,
+.plan-extras[open] summary::after { content: '–'; }
+
+.plan-scaffold ol,
+.plan-captions ul,
+.plan-checklist ul {
+  margin: 0;
+  padding: 0 0 var(--sc-space-3) var(--sc-space-5);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+}
+.plan-scaffold li,
+.plan-captions li,
+.plan-checklist li { margin-bottom: var(--sc-space-2); }
+.plan-captions li p { margin: 0; color: var(--sc-ink-900); }
+.plan-captions li .plan-quiet { font-size: var(--sc-text-xs); }
+
+/* Stories and carousels: week-level, so it sits with "How your plan works"
+   and takes the same box. */
+.plan-extras {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  margin-bottom: var(--sc-space-4);
+  padding: 0 var(--sc-space-4) var(--sc-space-2);
+  background: var(--sc-paper);
+}
+.plan-extras > p { font-size: var(--sc-text-sm); line-height: var(--sc-leading-body); color: var(--sc-ink-700); margin: 0 0 var(--sc-space-2); }
+.plan-extras .plan-spec { margin-bottom: var(--sc-space-3); }

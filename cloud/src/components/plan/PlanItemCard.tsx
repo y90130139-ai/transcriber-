@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { DECLINE_CODES, DECLINE_LABEL, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
+import { BUCKET_LABEL, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
+import { buildScaffold } from '@/lib/script'
+import { DAYS } from '@/lib/schedule'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -194,6 +197,16 @@ export default function PlanItemCard({
   // for anything the phase-4 backfill has not reached — never nothing.
   const cardId = item.card_no ? `V-${item.card_no}` : `Video ${number}`
 
+  const rule = copyRuleFor(item.bucket, item.axis)
+  const expression = expressionFor(item.formats)
+  const scaffold = buildScaffold({
+    hooks: item.hooks,
+    formats: item.formats,
+    firstLine: item.hook,
+    onScreenCaptions: item.on_screen_captions,
+    durationSec: item.duration_sec,
+  })
+
   const words = item.blocks.length > 0
     ? item.blocks.map((block, index) => (
         <p key={index}>
@@ -226,6 +239,18 @@ export default function PlanItemCard({
         {item.title && <span className="plan-item-title">{item.title}</span>}
         {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
       </div>
+
+      {/* When it goes out, and what kind of card it is — in her words. Only on
+          cards the 70/20/10 planner drafted; everything older renders as it
+          always did. */}
+      {(item.bucket || item.slot_time) && (
+        <p className="plan-when">
+          {item.bucket && <span className="plan-bucket" data-bucket={item.bucket}>{BUCKET_LABEL[item.bucket]}</span>}
+          {item.slot_time && item.slot_day !== null && (
+            <span>Post {DAYS[item.slot_day % DAYS.length]} at {item.slot_time}</span>
+          )}
+        </p>
+      )}
 
       {/* Why this one is on her week. Plain words, because "8.53×" is a number
           she has no baseline for and would rightly ignore. Nothing is shown
@@ -260,6 +285,18 @@ export default function PlanItemCard({
         )}
       </div>
 
+      {/* Step 7's missing half: what she keeps exactly and what she changes.
+          The manual is explicit that sending only a caption loses the thing
+          that made the reel work. */}
+      <div className="plan-rule">
+        <span className="plan-label">{rule.label}</span>
+        <dl className="plan-spec">
+          <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
+          <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
+          <div className="plan-spec-row"><dt>Your face</dt><dd>{expression}</dd></div>
+        </dl>
+      </div>
+
       {(item.notes || spec.length > 0) && (
         <div className="plan-direction">
           <span className="plan-label">Direction</span>
@@ -290,6 +327,26 @@ export default function PlanItemCard({
         </div>
       )}
 
+      {/* The beat-by-beat skeleton of the reference. Built for the console and
+          never shown to her until now, though it is the richest guidance we
+          generate. The reference's words are shown as reference, never as her
+          lines. */}
+      {scaffold && scaffold.beats.length > 1 && (
+        <details className="plan-scaffold">
+          <summary>How it is built, beat by beat</summary>
+          <p className="plan-quiet">{scaffold.mechanism}</p>
+          <ol>
+            {scaffold.beats.map((beat, index) => (
+              <li key={index}>
+                <b>{beat.at !== null ? `${Math.round(beat.at)}s` : `Beat ${index + 1}`}</b>{' '}
+                {beat.instruction}
+                <span className="plan-quiet"> They put: &ldquo;{beat.reference}&rdquo;</span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
       {item.editing_notes && (
         <p className="plan-editing">
           <span className="plan-label">Editing</span>
@@ -310,6 +367,30 @@ export default function PlanItemCard({
           <p>{item.caption}</p>
         </div>
       )}
+
+      {/* Written against the five caption formulas. Each one names the comment
+          it is built to provoke — the manual's test for whether a caption is
+          doing anything at all. */}
+      {item.caption_options && item.caption_options.length > 0 && (
+        <details className="plan-captions" open>
+          <summary>Caption options</summary>
+          <ul>
+            {item.caption_options.map((option, index) => (
+              <li key={index}>
+                <p>{option.caption}</p>
+                <span className="plan-quiet">Gets people commenting: &ldquo;{option.baits}&rdquo;</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <details className="plan-checklist">
+        <summary>Before you post it</summary>
+        <ul>
+          {REEL_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+        </ul>
+      </details>
 
       <details className="plan-transcript">
         <summary>What they say, word for word</summary>

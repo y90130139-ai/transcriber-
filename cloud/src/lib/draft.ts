@@ -45,23 +45,34 @@ const DUE_OFFSET_DAYS = 7
  * purpose, and that the point of holding everything else still is that it is
  * the only way to learn what actually moved the numbers.
  */
-export function draftIntro(week: Week): { title: string; intro: string } {
+export function draftIntro(cards: Week['cards']): { title: string; intro: string } {
   const lines: string[] = []
-  const reskins = week.cards.filter((card) => card.bucket === 'reskin')
-  const iterations = week.filled.iteration
-  const tests = week.filled.test
+  const reskins = cards.filter((card) => card.bucket === 'reskin')
+  const iterations = cards.filter((card) => card.bucket === 'iteration').length
+  const tests = cards.filter((card) => card.bucket === 'test').length
 
   if (reskins.length > 0) {
-    const best = reskins.find((card) => card.source_multiple !== null)
-    const axis = reskins.find((card) => card.axis)?.axis
-    const multiple = best?.source_multiple
+    // One batch per winner, each testing its own variable, so the intro has to
+    // speak to however many there are rather than assume one.
+    const batches = new Map<string, { multiple: number | null; axis: string | null }>()
+    for (const card of reskins) {
+      const key = card.source_post ?? ''
+      const seen = batches.get(key) ?? { multiple: card.source_multiple, axis: null }
+      if (card.axis) seen.axis = card.axis
+      batches.set(key, seen)
+    }
+    const list = [...batches.values()]
+    const best = Math.max(...list.map((batch) => batch.multiple ?? 0))
+    const axes = [...new Set(list.map((batch) => batch.axis).filter((axis): axis is string => Boolean(axis)))]
+    const winners = list.length === 1
+      ? `your reel that did ${best >= 10 ? `${Math.round(best)}×` : 'far better than'} your normal`
+      : `your ${list.length} best reels — the top one did ${Math.round(best)}× your normal`
     lines.push(
-      `${reskins.length} of these are your own reel again — the one that did ` +
-      `${multiple ? `${Math.round(multiple)}×` : 'far better than'} your normal. ` +
-      'The first two are exactly as it was, on purpose: they are what the rest get ' +
-      `measured against. The other three change one thing${axis ? ` — the ${axis} — ` : ' '}` +
-      'and nothing else, because one change at a time is the only way to find out ' +
-      'what actually made it work.',
+      `${reskins.length} of these are ${winners}, again. For each one, the first two ` +
+      'are exactly as it was, on purpose: they are what the rest get measured against. ' +
+      'The other three change one thing and nothing else' +
+      (axes.length ? ` — ${axes.join(', then ')} — ` : ' ') +
+      'because one change at a time is the only way to find out what actually made it work.',
     )
   }
   if (iterations > 0) {
@@ -78,7 +89,7 @@ export function draftIntro(week: Week): { title: string; intro: string } {
   }
 
   return {
-    title: `${week.filled.reskin + iterations + tests} reels`,
+    title: `${cards.length} reels`,
     intro: lines.join(' '),
   }
 }
@@ -105,19 +116,12 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   const week = await weekFor(modelId)
   if (!week) return null
 
-  // Title and intro are only ever *filled in*, never replaced: `coalesce`
-  // keeps whatever a human wrote, because the one thing worse than an empty
-  // top-of-week is a drafted one that overwrote the real one.
-  const opening = draftIntro(week)
   const [plan] = await sql.query(
-    `insert into transcriber.plans (id, model_id, week_of, due_date, title, intro)
-     values ($1, $2, $3::date, $4::date, $5, $6)
-     on conflict (model_id, week_of) do update
-        set updated_at = now(),
-            title = coalesce(nullif(transcriber.plans.title, ''), excluded.title),
-            intro = coalesce(nullif(transcriber.plans.intro, ''), excluded.intro)
+    `insert into transcriber.plans (id, model_id, week_of, due_date)
+     values ($1, $2, $3::date, $4::date)
+     on conflict (model_id, week_of) do update set updated_at = now()
      returning id, (xmax = 0) as created`,
-    [newId(), modelId, weekOf, addDays(weekOf, DUE_OFFSET_DAYS), opening.title, opening.intro],
+    [newId(), modelId, weekOf, addDays(weekOf, DUE_OFFSET_DAYS)],
   )
   const planId = String(plan.id)
 
@@ -128,6 +132,7 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   const jobs = await jobsForPosts(sources)
 
   const skipped: DraftResult['skipped'] = []
+  const landed: Week['cards'] = []
   let written = 0
 
   for (const card of week.cards) {
@@ -151,13 +156,32 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
       hold: card.hold,
       slot_day: card.slot_day,
       slot_time: card.slot_time,
-      lead: [card.instruction, card.hold].filter(isText).join(' '),
+      // No lead in Direction: the card's Keep / Change / Your face block now
+      // says what this card is for, and saying it twice pushed the actual
+      // direction below the fold.
     }))
     if (added === 0) {
       skipped.push({ bucket: card.bucket, why: 'Already on this week.' })
       continue
     }
     written += 1
+    landed.push(card)
+  }
+
+  // Described from what actually landed, not from what was proposed: a card
+  // skipped for want of an ingested source must not be promised in the intro.
+  // Filled in only, never replaced — whatever a human wrote wins, because the
+  // one thing worse than an empty top-of-week is a drafted one that overwrote
+  // the real one.
+  if (landed.length > 0) {
+    const opening = draftIntro(landed)
+    await sql.query(
+      `update transcriber.plans
+          set title = coalesce(nullif(title, ''), $2),
+              intro = coalesce(nullif(intro, ''), $3)
+        where id = $1`,
+      [planId, opening.title, opening.intro],
+    )
   }
 
   return {

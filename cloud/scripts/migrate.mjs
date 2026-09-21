@@ -712,6 +712,16 @@ const statements = [
   // are allowed to repeat. Dropping and recreating rather than adding a second
   // index, because two rules on the same columns is how a constraint gets
   // enforced by whichever one someone happened to read.
+  // ------------------------------------------------- what the card says to her
+  //
+  // brief_short     the T6 short brief — a DM-ready paragraph in her voice,
+  //                 written by a model and stored because it is paid for once
+  // caption_options the caption engine's output: formula, caption, and the
+  //                 exact comment each one is built to provoke
+  `alter table transcriber.plan_items
+     add column if not exists brief_short     text,
+     add column if not exists caption_options jsonb`,
+
   // ------------------------------------------------- where a date came from
   //
   // `taken_at` when the page sent one, `id` when it was read out of the

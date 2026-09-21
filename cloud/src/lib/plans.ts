@@ -91,7 +91,28 @@ export type PlanItem = {
   blocks: PlanBlock[]
   transcript: string
   media: PlanMedia | null
+  /** The 70/20/10 card: which bucket, the one variable under test, what must
+   *  not move, and when it goes out. All null on cards drafted before the split
+   *  existed, which render exactly as they always did. */
+  bucket: 'reskin' | 'iteration' | 'test' | null
+  axis: string | null
+  hold: string | null
+  slot_day: number | null
+  slot_time: string | null
+  /** The reference's own tags, which decide the expression line and the shot
+   *  scaffold she now sees. */
+  formats: string[]
+  hooks: string[]
+  on_screen_captions: { t?: number | null; text?: string | null }[] | null
+  /** T6: the DM-ready version of this card, when one has been written. */
+  brief_short: string | null
+  /** The caption engine's options, when written. */
+  caption_options: CaptionOption[] | null
 }
+
+/** One caption from the engine: which formula, the line, and the comment it
+ *  is built to provoke — the manual's test for whether a caption baits at all. */
+export type CaptionOption = { formula: string; caption: string; baits: string }
 
 export type Plan = {
   id: string
@@ -184,6 +205,13 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             (i.filmed_at is not null) as filmed, i.model_note,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
+            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time,
+            i.brief_short, i.caption_options,
+            t.on_screen_captions,
+            coalesce((select array_agg(g.tag) from transcriber.tags g
+                       where g.job_id = i.job_id and g.axis = 'format'), '{}') as formats,
+            coalesce((select array_agg(g.tag) from transcriber.tags g
+                       where g.job_id = i.job_id and g.axis = 'hook'), '{}') as hooks,
             t.webpage_url, t.duration_sec, t.blocks,
             ${SIGNALS_COLUMNS},
             ${spoken('t.plain')} as transcript,
@@ -236,9 +264,27 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     blocks: Array.isArray(row.blocks) ? (row.blocks as PlanBlock[]) : [],
     transcript: String(row.transcript ?? '').trim(),
     media: mediaFor(row),
+    bucket: isBucket(row.bucket) ? row.bucket : null,
+    axis: (row.axis as string | null) ?? null,
+    hold: (row.hold as string | null) ?? null,
+    slot_day: row.slot_day === null || row.slot_day === undefined ? null : Number(row.slot_day),
+    slot_time: (row.slot_time as string | null) ?? null,
+    formats: Array.isArray(row.formats) ? (row.formats as string[]) : [],
+    hooks: Array.isArray(row.hooks) ? (row.hooks as string[]) : [],
+    on_screen_captions: Array.isArray(row.on_screen_captions)
+      ? (row.on_screen_captions as PlanItem['on_screen_captions'])
+      : null,
+    brief_short: (row.brief_short as string | null) ?? null,
+    caption_options: Array.isArray(row.caption_options)
+      ? (row.caption_options as CaptionOption[])
+      : null,
   }))
 
   return items
+}
+
+function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' {
+  return value === 'reskin' || value === 'iteration' || value === 'test'
 }
 
 /** Everything her page renders, for one token. */

@@ -32,6 +32,13 @@ export const FORMAT_WORDS: Lexicon = {
   'rage-bait': ['unpopular opinion', 'i said what i said', 'hot take', 'controversial', 'fight me', "don't @ me", "you're wrong", 'delusional'],
   'snap-banner': ['snapchat', 'add me on snap', 'my snap', 'sc:', 'snap:'],
   dance: ['dance', 'dancing', 'choreo', 'this trend', 'the routine'],
+  // The three the manual starts every creator on — Talking (Car Confessions),
+  // Thirst Traps, Captions — could not be named here before, and nor could the
+  // categories it says to research: mirror, reveal, confession.
+  mirror: ['mirror selfie', 'in the mirror', 'mirror pic', 'mirror check'],
+  reveal: ['wait for it', 'the reveal', 'watch till the end', 'wait till the end', 'before and after', 'glow up'],
+  confession: ['i have a confession', 'confession', 'i never told anyone', 'i have to admit', 'can i be honest', 'nobody knows this'],
+  'car-confession': ['car confession', 'in my car', 'sitting in my car', 'car talk', 'in the car'],
   'thirst-trap': ['thirst trap'],
   'text-overlay': [],
   'talking-head': [],

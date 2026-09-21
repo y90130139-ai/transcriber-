@@ -31,6 +31,12 @@ import { suggestionsFor } from './match'
 import { sql } from './db'
 import { TARGET_MIX } from './mix'
 import { schedule, scheduleSummary, type Scheduled } from './schedule'
+import { STARTER_VERTICALS, effectiveFormats, levelFor, verticalsFor, type Level } from './insights'
+
+/** The manual's onboarding testing round: 6 reels, feedback, then 15 — before
+ *  any branded week. Only for a creator the level read calls new; the manual is
+ *  explicit that a bigger creator should be personalised immediately. */
+export const TESTING_ROUNDS = [6, 15] as const
 
 export type Bucket = 'reskin' | 'iteration' | 'test'
 
@@ -76,6 +82,11 @@ export type Week = {
   /** The week in a sentence, for the top of her plan. */
   summary: string
   bank: { winners: number; iterations: number; empty: boolean; accounts: Bank['accounts'] }
+  /** Where she is in the manual's sequence, and what she is matched on. */
+  level: Level
+  /** 1 or 2 during the testing round, null once she is past it. */
+  testing_round: number | null
+  matched_on: { formats: string[]; basis: 'her-profile' | 'derived' | 'starter' }
   /** Said out loud rather than papered over. */
   notes: string[]
 }
@@ -83,17 +94,47 @@ export type Week = {
 /** Her week, proposed. Reads only; nothing is written until a human says so. */
 export async function weekFor(modelId: string): Promise<Week | null> {
   const [model] = await sql.query(
-    `select id, name, coalesce(weekly_target, 21) as target
-       from transcriber.models where id = $1`,
+    `select m.id, m.name, coalesce(m.weekly_target, 21) as target, m.persona, m.formats,
+            (select count(*)::int from transcriber.plans p
+              where p.model_id = m.id and p.status = 'sent') as sent
+       from transcriber.models m where m.id = $1`,
     [modelId],
   )
   if (!model) return null
 
-  const target = Number(model.target) || 21
-  const counts = countsFor(target)
   const bank = await bankFor(modelId)
   const notes: string[] = []
   const cards: PlannedCard[] = []
+
+  // What to match her on. Her typed formats when anyone typed them; otherwise
+  // what her own winners say, and the manual's three starters under that —
+  // never nothing, because nothing is what left 9 models without a plan.
+  const persona = (model.persona as string[]) ?? []
+  const verticals = bank ? await verticalsFor(modelId, bank, persona) : []
+  const matchedOn = effectiveFormats((model.formats as string[]) ?? [], verticals)
+  const override = matchedOn.basis === 'her-profile' ? undefined : matchedOn.formats
+
+  // The testing round, for a creator who reads as new and has not had two
+  // weeks sent yet. Everything in it is a new test on the starter verticals:
+  // there is no brand to build from until she has filmed something.
+  const level = bank ? (await levelFor(modelId, bank)).level : 'new'
+  const sent = Number(model.sent ?? 0)
+  // New *and* nothing to go on. The round exists to collect data, so a small
+  // account that already has winners has done its testing on Instagram's dime —
+  // Faye, at 9k followers with three reels past 10x, is the case that showed it.
+  const hasWinners = (bank?.winners.length ?? 0) > 0
+  const testingRound = level === 'new' && !hasWinners && sent < TESTING_ROUNDS.length ? sent + 1 : null
+  const target = testingRound ? TESTING_ROUNDS[testingRound - 1] : Number(model.target) || 21
+  const counts: Counts = testingRound ? { reskin: 0, iteration: 0, test: target } : countsFor(target)
+  if (testingRound === 1) {
+    notes.push(
+      'Testing round 1 of 2: six reels across the three starter verticals, then ' +
+      'feedback before anything else is sent. The point is to see how she looks, ' +
+      'talks and moves on camera — not to brand her yet.',
+    )
+  } else if (testingRound === 2) {
+    notes.push('Testing round 2 of 2: fifteen more, shaped by what the first six showed.')
+  }
 
   if (!bank || bank.empty) {
     notes.push(
@@ -107,7 +148,7 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // Reskins. Each winner is a batch of five: two controls and three of one
   // axis. Whole batches only — half a batch answers nothing, and the controls
   // are the half that would get dropped.
-  const winners = bank?.winners ?? []
+  const winners = testingRound ? [] : bank?.winners ?? []
   let batches = await batchesRun(modelId)
   for (const winner of winners) {
     if (cards.filter(is('reskin')).length + RUNGS_PER_WINNER > counts.reskin) break
@@ -130,7 +171,7 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // Iterations: her medium performers, run again as they were. No axis — the
   // question an iteration asks is whether the post was under-served, not which
   // variable matters.
-  for (const post of (bank?.iterations ?? []).slice(0, counts.iteration)) {
+  for (const post of (testingRound ? [] : bank?.iterations ?? []).slice(0, counts.iteration)) {
     cards.push({
       bucket: 'iteration',
       source_post: post.post_id,
@@ -150,7 +191,8 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // fallback path lands here too, which is why it asks for the full target.
   const wantTests = target - cards.length
   if (wantTests > 0) {
-    const picks = await suggestionsFor(modelId, Math.min(wantTests * 2, 40))
+    const formats = testingRound ? [...STARTER_VERTICALS] : override
+    const picks = await suggestionsFor(modelId, Math.min(wantTests * 2, 40), formats)
     for (const pick of picks.slice(0, wantTests)) {
       cards.push({
         bucket: 'test',
@@ -166,9 +208,16 @@ export async function weekFor(modelId: string): Promise<Week | null> {
     }
     if (picks.length === 0) {
       notes.push(
-        'The library returned nothing for her. That is a profile with no format ' +
-        'or persona tags rather than an empty library: a pick has to be ' +
-        'explainable by at least one tag she carries.',
+        `The library returned nothing on ${matchedOn.formats.map((f) => f).join(', ')}. ` +
+        'That is a library short of those formats, not a profile problem — tag more ' +
+        'references in them, or accept different verticals for her.',
+      )
+    }
+    if (override && picks.length > 0 && !testingRound) {
+      notes.push(
+        matchedOn.basis === 'derived'
+          ? 'Matched on the verticals her own winners point to — nobody has typed a profile for her.'
+          : 'Matched on the manual\'s three starter verticals — she has no profile and no winners to derive one from yet.',
       )
     }
   }
@@ -193,6 +242,9 @@ export async function weekFor(modelId: string): Promise<Week | null> {
     filled,
     cards: laid,
     summary: scheduleSummary(laid),
+    level,
+    testing_round: testingRound,
+    matched_on: matchedOn,
     bank: {
       winners: winners.length,
       iterations: bank?.iterations.length ?? 0,

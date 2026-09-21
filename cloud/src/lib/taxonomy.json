@@ -112,7 +112,7 @@
       {
         "id": "toxic-gf",
         "label": "Toxic girlfriend",
-        "desc": "Jealous, possessive, drama-led \u2014 the inverse of GFE warmth"
+        "desc": "Jealous, possessive, drama-led — the inverse of GFE warmth"
       },
       {
         "id": "amateur",
@@ -294,6 +294,26 @@
         "id": "dance",
         "label": "Dance",
         "desc": "Choreography-led"
+      },
+      {
+        "id": "mirror",
+        "label": "Mirror",
+        "desc": "Filmed in or at a mirror — selfie framing, often with a flirty caption"
+      },
+      {
+        "id": "reveal",
+        "label": "Reveal",
+        "desc": "Builds to a reveal — outfit, look or transformation lands on the cut"
+      },
+      {
+        "id": "confession",
+        "label": "Confession",
+        "desc": "Confession-style talking — admits something to camera, intimate and direct"
+      },
+      {
+        "id": "car-confession",
+        "label": "Car confession",
+        "desc": "A confession or story told to camera from the driver's seat"
       }
     ]
   },
@@ -319,7 +339,7 @@
       {
         "id": "pov-relatable",
         "label": "POV / relatable",
-        "desc": "Names a scenario the viewer is meant to see themselves in \u2014 POV:, me when\u2026, when he\u2026"
+        "desc": "Names a scenario the viewer is meant to see themselves in — POV:, me when…, when he…"
       },
       {
         "id": "transition",

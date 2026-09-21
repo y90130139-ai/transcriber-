@@ -712,6 +712,17 @@ const statements = [
   // are allowed to repeat. Dropping and recreating rather than adding a second
   // index, because two rules on the same columns is how a constraint gets
   // enforced by whichever one someone happened to read.
+  // ------------------------------------------------- her brand, once accepted
+  //
+  // Derived by lib/insights.ts and offered for a tap. Only what a human
+  // accepted lands here; until then the planner works off the live proposal.
+  //   verticals  [{format, name, tier}] — her 3-5 branded verticals, A/B/C
+  //   similar_creators  the 3 watched creators she is benchmarked against
+  //                     (not `similar` — that is a reserved word, SIMILAR TO)
+  `alter table transcriber.models
+     add column if not exists verticals jsonb,
+     add column if not exists similar_creators text[]`,
+
   // ------------------------------------------------- what the card says to her
   //
   // brief_short     the T6 short brief — a DM-ready paragraph in her voice,

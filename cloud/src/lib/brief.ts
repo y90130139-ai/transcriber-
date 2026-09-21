@@ -16,6 +16,11 @@ import type { OnScreenCaption } from './autotag'
 /** The shape of the video, keyed by format tag. First match in this order wins,
  *  because a clip tagged both `talking-head` and `rant` is a rant. */
 const SHAPE: [string, string][] = [
+  // Most specific first: a car confession is a confession is talking.
+  ['car-confession', 'Parked, phone on the dash or the wheel, talking to camera like it is a friend in the passenger seat.'],
+  ['confession', 'Admit something to camera. Lower your voice a little on the admission — it should feel like a secret.'],
+  ['reveal', 'Build to the reveal. Everything before the cut exists to make the cut land.'],
+  ['mirror', 'In the mirror, phone in frame. The pose and the caption carry it.'],
   ['grwm', 'Film it while you actually get ready — start bare, end done.'],
   ['try-on', 'Several outfits back to back. Cut on the change, not after it.'],
   ['fit-check', 'One outfit, head to toe, then the details close up.'],
@@ -534,6 +539,8 @@ export const BACKGROUND_RULE =
  *  actually implies somewhere: guessing "In the kitchen" off a talking head
  *  would group her whole week under a room she never went into. */
 const LOCATION: Record<string, string> = {
+  'car-confession': 'In the car',
+  mirror: 'At the mirror',
   gym: 'At the gym',
   grwm: 'Getting ready',
   'try-on': 'At the mirror',

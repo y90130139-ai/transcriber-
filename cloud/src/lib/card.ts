@@ -19,6 +19,10 @@
  *  often works because of the expression, and "just sending the caption" loses
  *  it. */
 const EXPRESSION: [string, string][] = [
+  ['car-confession', 'Relaxed and a little sheepish, like you are admitting it to a friend. Glance away, then back to the lens on the point.'],
+  ['confession', 'Soft and a little embarrassed on the admission, then own it. The honesty is the hook.'],
+  ['reveal', 'Neutral or unimpressed before the cut, then the look changes completely after it. The contrast is the payoff.'],
+  ['mirror', 'Confident, looking at the phone in the mirror rather than at yourself. A small smile, never a posed grin.'],
   ['rage-bait', 'Dead serious. You believe every word, and you are slightly annoyed anyone would disagree.'],
   ['rant', 'Fed up but in control. Eye contact, no smiling until the very end, if at all.'],
   ['pov-skit', 'In character from the first frame. React to the viewer as if they really are the person in the caption.'],

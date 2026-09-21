@@ -138,9 +138,21 @@ export async function modelsForJob(jobId: string) {
   )
 }
 
-/** Library items that fit one model and are not already on a plan of hers. */
-export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT) {
+/**
+ * Library items that fit one model and are not already on a plan of hers.
+ *
+ * `formats`, when given, stands in for `models.formats`. That is how a model
+ * whose profile nobody filled in still gets matched: the planner passes her
+ * *derived* verticals, or the manual's three starting ones, instead of the
+ * empty column that used to make `EXPLAINABLE` reject every item — which is
+ * why 9 of 24 models had never been given a plan at all. A typed profile still
+ * wins; the override is only ever passed when the column is empty.
+ */
+export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT, formats?: string[]) {
   const capped = Math.min(Math.max(Math.round(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT)
+  const override = formats && formats.length > 0
+  const fit = override ? FIT.replaceAll('m.formats', '$2::text[]') : FIT
+  const why = override ? MATCHED.replaceAll('m.formats', '$2::text[]') : MATCHED
   return sql.query(
     `with ${SCORING_CTE}, ${ITEM_TAGS}
      select ranked.* from (
@@ -148,8 +160,8 @@ export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT) {
               (t.thumbnail is not null) as has_thumb,
               ${preview('t.plain', 150, 't.on_screen_text')} as preview,
               round((s.score / nullif(b.median_score, 0))::numeric, 2)::float as outperformance,
-              (${FIT})::float as fit,
-              ${MATCHED} as matched,
+              (${fit})::float as fit,
+              ${why} as matched,
               ${alsoOn('j.id', 'm.id')} as also_on
          from transcriber.models m
          join transcriber.jobs j on j.status = 'done'
@@ -162,6 +174,6 @@ export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT) {
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc
       limit ${capped}`,
-    [modelId],
+    override ? [modelId, formats] : [modelId],
   )
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { previewBatch, writeBatch } from '@/lib/batch'
+import { draftRoster } from '@/lib/draft'
 import { isScheduler, PLANNING_TZ, weekdayIn } from '@/lib/cron'
 import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
@@ -90,11 +90,9 @@ async function startSweep(request: Request) {
 async function draftNextWeek() {
   const weekOf = mondayOf(addDays(todayIn(PLANNING_TZ), 1))
 
-  const batch = await previewBatch(weekOf)
-  const picks = batch.rows
-    .map((row) => ({ model_id: row.model_id, job_ids: row.picks.map((pick) => pick.job_id) }))
-    .filter((row) => row.job_ids.length > 0)
-  const result = await writeBatch(weekOf, picks)
+  // The 70/20/10 split: reskins of her own winners, iterations, and the
+  // library as the 10% — not the whole week, as the old batch drafted it.
+  const result = await draftRoster(weekOf)
 
   await sql.query(
     `insert into transcriber.scout_runs (id, started_at, notes)

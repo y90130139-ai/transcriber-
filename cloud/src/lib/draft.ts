@@ -113,6 +113,11 @@ export type DraftResult = {
  * runs on. Nothing reaches her until a human marks the week sent.
  */
 export async function draftWeek(modelId: string, weekOf: string): Promise<DraftResult | null> {
+  // Once per week, ever. A ladder's cards are allowed to repeat the same job —
+  // that is the point of a ladder — so drafting the same week twice would lay a
+  // second copy of every batch on top of the first. The unique index cannot
+  // catch it, so this has to.
+  if (await alreadyDrafted(modelId, weekOf)) return null
   const week = await weekFor(modelId)
   if (!week) return null
 
@@ -196,8 +201,64 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   }
 }
 
+async function alreadyDrafted(modelId: string, weekOf: string): Promise<boolean> {
+  const [row] = await sql.query(
+    `select count(*)::int as n from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+      where p.model_id = $1 and p.week_of = $2::date and i.bucket is not null`,
+    [modelId, weekOf],
+  )
+  return Number(row?.n ?? 0) > 0
+}
+
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
 const newId = () => nanoid(12)
+
+export type RosterDraft = {
+  weekOf: string
+  opened: number
+  added: number
+  models: number
+  /** Models whose week came up short, and by how much — the one thing worth
+   *  reading when nobody was watching the run. */
+  short: { name: string; short: number }[]
+  /** Models not reached before the time budget ran out; the next call does them. */
+  remaining: number
+}
+
+/** Stop starting new models after this, well inside a 60-second function. */
+const ROSTER_BUDGET_MS = 40_000
+
+/**
+ * Every active model's week, drafted from the 70/20/10 split — what the
+ * Sunday job runs. Replaces `previewBatch`/`writeBatch`, which built every
+ * week from other creators' reels and so drafted the 10% as the whole plan.
+ * Still drafts only: nothing reaches a model until a human marks it sent.
+ */
+export async function draftRoster(weekOf: string): Promise<RosterDraft> {
+  const models = await sql.query(
+    `select id from transcriber.models where status = 'active'
+      order by priority nulls last, name`,
+  )
+  let opened = 0
+  let added = 0
+  let remaining = 0
+  const short: RosterDraft['short'] = []
+  const started = Date.now()
+  for (const model of models) {
+    // About five seconds a model, measured; the function has sixty. Stop with
+    // room to spare and let the next call — the Mac's 17:00 run, or the cron
+    // tomorrow — pick up where this left off. Already-drafted weeks are skipped.
+    if (Date.now() - started > ROSTER_BUDGET_MS) { remaining += 1; continue }
+    const result = await draftWeek(String(model.id), weekOf)
+    if (!result) continue
+    if (result.created) opened += 1
+    added += result.written
+    const gap = result.week.target - result.week.cards.length + result.skipped.length
+    if (gap > 0) short.push({ name: result.name, short: gap })
+  }
+  return { weekOf, opened, added, models: models.length, short, remaining }
+}

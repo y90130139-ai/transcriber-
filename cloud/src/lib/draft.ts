@@ -118,6 +118,10 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   // second copy of every batch on top of the first. The unique index cannot
   // catch it, so this has to.
   if (await alreadyDrafted(modelId, weekOf)) return null
+  // A sent week is on her phone. Appending to it would put cards in front of
+  // her that nobody reviewed — Blair's and Ria's weeks of 2026-09-21 were one
+  // button away from that.
+  if (await alreadySent(modelId, weekOf)) return null
   const week = await weekFor(modelId)
   if (!week) return null
 
@@ -209,6 +213,15 @@ async function alreadyDrafted(modelId: string, weekOf: string): Promise<boolean>
     [modelId, weekOf],
   )
   return Number(row?.n ?? 0) > 0
+}
+
+async function alreadySent(modelId: string, weekOf: string): Promise<boolean> {
+  const [row] = await sql.query(
+    `select 1 from transcriber.plans
+      where model_id = $1 and week_of = $2::date and status <> 'draft'`,
+    [modelId, weekOf],
+  )
+  return Boolean(row)
 }
 
 function isText(value: unknown): value is string {

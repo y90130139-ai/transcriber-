@@ -29,6 +29,7 @@ import { bankFor, type Bank, type BankPost } from './bank'
 import { ladderFor, nextAxis, RUNGS_PER_WINNER, type Axis, type Rung } from './ladder'
 import { suggestionsFor } from './match'
 import { sql } from './db'
+import { unfetchable } from './hers'
 import { TARGET_MIX } from './mix'
 import { schedule, scheduleSummary, type Scheduled } from './schedule'
 import { STARTER_VERTICALS, effectiveFormats, levelFor, verticalsFor, type Level } from './insights'
@@ -148,7 +149,16 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // Reskins. Each winner is a batch of five: two controls and three of one
   // axis. Whole batches only — half a batch answers nothing, and the controls
   // are the half that would get dropped.
-  const winners = testingRound ? [] : bank?.winners ?? []
+  const graded = [...(bank?.winners ?? []), ...(bank?.iterations ?? [])]
+  const blocked = await unfetchable(graded.map((post) => post.post_id))
+  const fetchable = (post: BankPost) => !blocked.has(post.post_id)
+  if (!testingRound && blocked.size > 0) {
+    notes.push(
+      `${blocked.size} of her graded reel${blocked.size === 1 ? '' : 's'} could not be ` +
+      'downloaded — Instagram age-restricts them — so they were passed over for the next best.',
+    )
+  }
+  const winners = testingRound ? [] : (bank?.winners ?? []).filter(fetchable)
   let batches = await batchesRun(modelId)
   for (const winner of winners) {
     if (cards.filter(is('reskin')).length + RUNGS_PER_WINNER > counts.reskin) break
@@ -171,7 +181,7 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // Iterations: her medium performers, run again as they were. No axis — the
   // question an iteration asks is whether the post was under-served, not which
   // variable matters.
-  for (const post of (testingRound ? [] : bank?.iterations ?? []).slice(0, counts.iteration)) {
+  for (const post of (testingRound ? [] : (bank?.iterations ?? []).filter(fetchable)).slice(0, counts.iteration)) {
     cards.push({
       bucket: 'iteration',
       source_post: post.post_id,

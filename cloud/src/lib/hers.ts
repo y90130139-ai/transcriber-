@@ -111,8 +111,33 @@ export async function jobsForPosts(postIds: string[]): Promise<Map<string, strin
        left join transcriber.transcripts t on t.post_id = x.code
        left join transcriber.jobs j
               on j.source like '%' || x.code || '%'
+             and j.status <> 'failed'
       where coalesce(t.job_id, j.id) is not null`,
     [postIds],
   )
   return new Map(rows.map((row) => [String(row.code), String(row.job_id)]))
+}
+
+/**
+ * Her posts the Mac tried and could not fetch, and never transcribed.
+ *
+ * Measured 2026-09-21: 5 of 62 came back "can't be seen by certain audiences"
+ * — Instagram age-gates them, and the cookies retry is refused the same way,
+ * so re-queuing changes nothing. A failed job was still matched by
+ * `jobsForPosts`, which turned her 908× winner into five cards pointing at a
+ * video that never arrived. The planner passes these over instead.
+ */
+export async function unfetchable(postIds: string[]): Promise<Set<string>> {
+  if (postIds.length === 0) return new Set()
+  const rows = await sql.query(
+    `select x.code
+       from unnest($1::text[]) as x(code)
+      where exists (select 1 from transcriber.jobs j
+                     where j.source like '%' || x.code || '%' and j.status = 'failed')
+        and not exists (select 1 from transcriber.jobs j
+                         where j.source like '%' || x.code || '%' and j.status <> 'failed')
+        and not exists (select 1 from transcriber.transcripts t where t.post_id = x.code)`,
+    [postIds],
+  )
+  return new Set(rows.map((row) => String(row.code)))
 }

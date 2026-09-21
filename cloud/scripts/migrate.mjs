@@ -699,6 +699,22 @@ const statements = [
   // How many ladder batches a model has run, which decides the next axis.
   `create index if not exists plan_items_source_idx
      on transcriber.plan_items (source_post) where source_post is not null`,
+
+  // The uniqueness rule has to change shape for the ladder.
+  //
+  // (plan_id, job_id) unique is what stops a re-drafted week handing her the
+  // same library reel twice, and it should keep doing exactly that. But a
+  // Double Down batch is *deliberately* the same video five times — two
+  // controls and three single-variable variants — so under the old index a
+  // batch of five collapsed to one card without a word.
+  //
+  // So it becomes partial: library cards keep the guarantee, her own reskins
+  // are allowed to repeat. Dropping and recreating rather than adding a second
+  // index, because two rules on the same columns is how a constraint gets
+  // enforced by whichever one someone happened to read.
+  `drop index if exists transcriber.plan_items_unique_idx`,
+  `create unique index if not exists plan_items_unique_idx
+     on transcriber.plan_items (plan_id, job_id) where source_post is null`,
 ]
 
 for (const statement of statements) {

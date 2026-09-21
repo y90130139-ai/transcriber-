@@ -396,6 +396,28 @@ export async function keysForModel(modelId: string): Promise<string[]> {
 }
 
 /**
+ * What a 70/20/10 card carries beyond its brief: which bucket it belongs to,
+ * the single variable under test, and which of her own posts it recreates.
+ *
+ * Written in the **same insert** as the card, not stamped on afterwards. A
+ * Double Down batch is the same job five times, and the unique index that
+ * stops a library reel being added twice is partial on `source_post is null` —
+ * so a rung inserted without its `source_post` collides with the rung before
+ * it and silently vanishes. The fields have to be there when the row lands.
+ */
+export type CardExtras = {
+  bucket?: string | null
+  axis?: string | null
+  source_post?: string | null
+  source_url?: string | null
+  hold?: string | null
+  slot_day?: number | null
+  slot_time?: string | null
+  /** Put above the drafted direction, because it is what she does first. */
+  lead?: string | null
+}
+
+/**
  * Put library items on a plan, each with a drafted brief.
  *
  * The unique index on (plan_id, job_id) means adding the same reference twice
@@ -405,6 +427,7 @@ export async function appendItems(
   planId: string,
   modelId: string,
   jobIds: string[],
+  extrasFor?: (jobId: string, index: number) => CardExtras,
 ): Promise<number> {
   const [row] = await sql.query(
     `select coalesce(max(position), -1) as last from transcriber.plan_items where plan_id = $1`,
@@ -413,7 +436,8 @@ export async function appendItems(
   let position = Number(row?.last ?? -1)
   let added = 0
 
-  for (const jobId of jobIds) {
+  for (const [index, jobId] of jobIds.entries()) {
+    const extras = extrasFor?.(jobId, index) ?? {}
     const input = await briefInputFor(jobId, modelId)
     // `notes` stays the direction and is still written on every insert — it is
     // what her card renders as prose and what everything from before phase 3
@@ -421,7 +445,7 @@ export async function appendItems(
     // are now fields of their own, because showing them twice is worse than
     // the wall of text this was meant to break up.
     const fields = draftFields(input)
-    const notes = fields.direction
+    const notes = [extras.lead, fields.direction].filter(Boolean).join('\n\n')
     const inserted = await sql.query(
       // `card_no` counts on from the highest this model has ever been given,
       // across every week. It is read inside the insert so a batch of adds
@@ -431,13 +455,18 @@ export async function appendItems(
       `insert into transcriber.plan_items
          (id, plan_id, job_id, position, notes,
           wardrobe, camera, takes, sound, hook, caption,
-          location, title, card_no)
+          location, title, card_no,
+          bucket, axis, source_post, source_url, hold, slot_day, slot_time)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                (select coalesce(max(prior.card_no), 0) + 1
                   from transcriber.plan_items prior
                   join transcriber.plans owner on owner.id = prior.plan_id
-                 where owner.model_id = $14))
-       on conflict (plan_id, job_id) do nothing
+                 where owner.model_id = $14),
+               $15, $16, $17, $18, $19, $20, $21)
+       -- The index is partial, so the predicate has to be named for Postgres
+       -- to infer it. Her own reskins are meant to repeat; library reels are
+       -- not, and that is exactly the line the predicate draws.
+       on conflict (plan_id, job_id) where source_post is null do nothing
        returning id`,
       [
         newId(), planId, jobId, position + 1, notes,
@@ -446,6 +475,9 @@ export async function appendItems(
         draftLocation(input.formats),
         draftTitle(input.formats, (tag) => labelOf('format', tag)),
         modelId,
+        extras.bucket ?? null, extras.axis ?? null,
+        extras.source_post ?? null, extras.source_url ?? null,
+        extras.hold ?? null, extras.slot_day ?? null, extras.slot_time ?? null,
       ],
     )
     if (inserted.length > 0) {

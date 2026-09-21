@@ -90,16 +90,29 @@ function labelFor(post: BankPost): string {
   return `${LABEL} · ${multiple}× @${post.handle}`.slice(0, 80)
 }
 
-/** The job rows already ingested for her posts, keyed by shortcode, so a card
- *  can be written against one. Her posts reach the library under her own
- *  handle, the same as any other author. */
+/**
+ * The job rows already ingested for her posts, keyed by shortcode.
+ *
+ * Two ways in, because a post can reach the library by either and only one of
+ * them fills `transcripts.post_id`: her own ingest here, or the scout picking
+ * her reel off the watchlist when her account is also being researched (which
+ * happens — her handles are on it). Matching on `post_id` alone missed the
+ * second, measured on Milky Sins: two winners, one match.
+ *
+ * The shortcode is matched against the job's source URL rather than pattern-
+ * matched out of it: the URL is the thing the job was keyed on, and a
+ * shortcode is unique enough that a containment test cannot collide.
+ */
 export async function jobsForPosts(postIds: string[]): Promise<Map<string, string>> {
   if (postIds.length === 0) return new Map()
   const rows = await sql.query(
-    `select t.post_id, t.job_id
-       from transcriber.transcripts t
-      where t.post_id = any($1::text[])`,
+    `select x.code, coalesce(t.job_id, j.id) as job_id
+       from unnest($1::text[]) as x(code)
+       left join transcriber.transcripts t on t.post_id = x.code
+       left join transcriber.jobs j
+              on j.source like '%' || x.code || '%'
+      where coalesce(t.job_id, j.id) is not null`,
     [postIds],
   )
-  return new Map(rows.map((row) => [String(row.post_id), String(row.job_id)]))
+  return new Map(rows.map((row) => [String(row.code), String(row.job_id)]))
 }

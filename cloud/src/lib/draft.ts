@@ -59,7 +59,7 @@ export function draftIntro(week: Week): { title: string; intro: string } {
       `${reskins.length} of these are your own reel again — the one that did ` +
       `${multiple ? `${Math.round(multiple)}×` : 'far better than'} your normal. ` +
       'The first two are exactly as it was, on purpose: they are what the rest get ' +
-      `measured against. The other three change one thing${axis ? `, the ${axis}` : ''} ` +
+      `measured against. The other three change one thing${axis ? ` — the ${axis} — ` : ' '}` +
       'and nothing else, because one change at a time is the only way to find out ' +
       'what actually made it work.',
     )

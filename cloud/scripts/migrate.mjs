@@ -712,6 +712,17 @@ const statements = [
   // are allowed to repeat. Dropping and recreating rather than adding a second
   // index, because two rules on the same columns is how a constraint gets
   // enforced by whichever one someone happened to read.
+  // ------------------------------------------------- where a date came from
+  //
+  // `taken_at` when the page sent one, `id` when it was read out of the
+  // shortcode (lib/postid.ts). The reels tab never sends a date, so without
+  // the second most new reels were stored undated — 1,429 rows on
+  // 2026-09-21. Labelled so a real date always replaces a derived one.
+  `alter table transcriber.creator_posts
+     add column if not exists posted_at_source text`,
+  `alter table transcriber.sightings
+     add column if not exists posted_at_source text`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

@@ -23,6 +23,7 @@
 import { nanoid } from 'nanoid'
 import { sql } from './db'
 import { normalizeUrl } from './links'
+import { dateFromShortcode, type DateSource } from './postid'
 
 /** A reel must beat its creator's median plays by this much to be fetched.
  *
@@ -67,6 +68,10 @@ export type Sighting = {
   url: string
   source_key: string
   posted_at: string | null
+  /** `taken_at` when the page said so, `id` when it was read off the shortcode.
+   *  See lib/postid.ts: the reels tab carries no date, so most new reels need
+   *  the second. */
+  posted_at_source: DateSource | null
   plays: number | null
   likes: number | null
   comments: number | null
@@ -137,13 +142,14 @@ export function parseSighting(raw: unknown): Sighting | null {
   if (!via) return null
 
   const url = `https://instagram.com/reel/${postId}`
-  const posted = typeof r.posted_at === 'string' ? new Date(r.posted_at) : null
+  const dated = datedOf(r.posted_at, postId)
   return {
     post_id: postId,
     handle,
     url,
     source_key: normalizeUrl(url),
-    posted_at: posted && !Number.isNaN(posted.getTime()) ? posted.toISOString() : null,
+    posted_at: dated.at,
+    posted_at_source: dated.source,
     plays: count(r.plays),
     likes: count(r.likes),
     comments: count(r.comments),
@@ -214,22 +220,31 @@ export async function storeSightings(input: Sighting[]): Promise<number> {
   if (rows.length === 0) return 0
   const written = await sql.query(
     `insert into transcriber.sightings
-       (post_id, handle, url, source_key, posted_at, plays, likes, comments,
+       (post_id, handle, url, source_key, posted_at, posted_at_source, plays, likes, comments,
         duration_sec, caption, audio_id, audio_title, audio_artist, original_audio,
         collaborators, tagged, pinned, via, audio_url, video_url, poster_url, media_until)
-     select x.post_id, x.handle, x.url, x.source_key, x.posted_at, x.plays, x.likes,
+     select x.post_id, x.handle, x.url, x.source_key, x.posted_at, x.posted_at_source, x.plays, x.likes,
             x.comments, x.duration_sec, x.caption, x.audio_id, x.audio_title,
             x.audio_artist, x.original_audio,
             coalesce(x.collaborators, '{}'), coalesce(x.tagged, '{}'),
             coalesce(x.pinned, false), x.via, x.audio_url, x.video_url, x.poster_url, x.media_until
        from jsonb_to_recordset($1::jsonb) as x(
             post_id text, handle text, url text, source_key text, posted_at timestamptz,
+            posted_at_source text,
             plays bigint, likes bigint, comments bigint, duration_sec real, caption text,
             audio_id text, audio_title text, audio_artist text, original_audio boolean,
             collaborators text[], tagged text[], pinned boolean, via text,
             audio_url text, video_url text, poster_url text, media_until timestamptz)
      on conflict (post_id) do update
-        set plays          = coalesce(excluded.plays, transcriber.sightings.plays),
+        -- Same rule as creator_posts: a real date upgrades a derived one, a
+        -- derived one only ever fills a gap.
+        set posted_at      = case
+                               when excluded.posted_at_source = 'taken_at' then excluded.posted_at
+                               else coalesce(transcriber.sightings.posted_at, excluded.posted_at) end,
+            posted_at_source = case
+                               when excluded.posted_at_source = 'taken_at' then 'taken_at'
+                               else coalesce(transcriber.sightings.posted_at_source, excluded.posted_at_source) end,
+            plays          = coalesce(excluded.plays, transcriber.sightings.plays),
             -- Keep the previous reading whenever this one is higher: the pair
             -- is what makes "still climbing" a measurement instead of a guess.
             plays_prev     = case
@@ -491,6 +506,7 @@ export type CreatorPost = {
   post_id: string
   handle: string
   posted_at: string | null
+  posted_at_source: DateSource | null
   kind: string | null
   product_type: string | null
   carousel_count: number | null
@@ -521,15 +537,34 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
 const CAPTION_MAX = 2200   // Instagram's own caption limit
 
+/**
+ * A post's date, and where it came from.
+ *
+ * The page's own `taken_at` when it sent one; otherwise the date read out of
+ * the shortcode, which the reels tab always has even though it never sends a
+ * date field. Labelled either way, so a real date can replace a derived one
+ * on the next sweep and never the reverse.
+ */
+function datedOf(value: unknown, postId: string): { at: string | null; source: DateSource | null } {
+  if (typeof value === 'string') {
+    const at = new Date(value)
+    if (!Number.isNaN(at.getTime())) return { at: at.toISOString(), source: 'taken_at' }
+  }
+  const derived = dateFromShortcode(postId)
+  return derived ? { at: derived, source: 'id' } : { at: null, source: null }
+}
+
 export function parseCreatorPost(raw: unknown): CreatorPost | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   const post_id = text(r.post_id, 64)
   const handle = text(r.handle, 64)?.toLowerCase()
   if (!post_id || !handle) return null
+  const dated = datedOf(r.posted_at, post_id)
   return {
     post_id, handle,
-    posted_at: text(r.posted_at, 40),
+    posted_at: dated.at,
+    posted_at_source: dated.source,
     kind: text(r.kind, 16),
     product_type: text(r.product_type, 32),
     carousel_count: num(r.carousel_count),
@@ -569,18 +604,30 @@ export async function storeCreatorPosts(input: CreatorPost[]): Promise<number> {
   if (rows.length === 0) return 0
   const written = await sql.query(
     `insert into transcriber.creator_posts
-       (post_id, handle, posted_at, kind, product_type, carousel_count,
+       (post_id, handle, posted_at, posted_at_source, kind, product_type, carousel_count,
         plays, likes, comments, reposts, caption, audio_title, is_paid_partnership, collaborators)
-     select x.post_id, x.handle, x.posted_at, x.kind, x.product_type, x.carousel_count,
+     select x.post_id, x.handle, x.posted_at, x.posted_at_source, x.kind, x.product_type, x.carousel_count,
             x.plays, x.likes, x.comments, x.reposts, x.caption, x.audio_title,
             x.is_paid_partnership, coalesce(x.collaborators, '{}')
        from jsonb_to_recordset($1::jsonb) as x(
-            post_id text, handle text, posted_at timestamptz, kind text,
+            post_id text, handle text, posted_at timestamptz, posted_at_source text, kind text,
             product_type text, carousel_count int, plays bigint, likes bigint,
             comments bigint, reposts bigint, caption text, audio_title text,
             is_paid_partnership boolean, collaborators text[])
      on conflict (post_id) do update
-        set plays    = coalesce(excluded.plays, transcriber.creator_posts.plays),
+        -- A date is only ever upgraded: a real taken_at replaces a derived or
+        -- missing one; a derived one fills a gap and never replaces a real one.
+        -- Before this the date was never touched on conflict at all, so a post
+        -- first seen without one stayed undated forever.
+        set posted_at = case
+                          when excluded.posted_at_source = 'taken_at' then excluded.posted_at
+                          else coalesce(transcriber.creator_posts.posted_at, excluded.posted_at)
+                        end,
+            posted_at_source = case
+                          when excluded.posted_at_source = 'taken_at' then 'taken_at'
+                          else coalesce(transcriber.creator_posts.posted_at_source, excluded.posted_at_source)
+                        end,
+            plays    = coalesce(excluded.plays, transcriber.creator_posts.plays),
             likes    = coalesce(excluded.likes, transcriber.creator_posts.likes),
             comments = coalesce(excluded.comments, transcriber.creator_posts.comments),
             reposts  = coalesce(excluded.reposts, transcriber.creator_posts.reposts),

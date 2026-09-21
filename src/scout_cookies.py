@@ -58,21 +58,70 @@ def write(path: Path, cookies: dict) -> Path:
     return path
 
 
+# Cookies worth keeping out of a pasted header. `sessionid` is the one that
+# authenticates; the rest travel with it and a session that arrives without
+# them looks more like a script than a browser.
+WANTED = ("sessionid", "csrftoken", "ds_user_id", "mid", "ig_did", "datr", "rur", "shbid", "shbts")
+
+
+def from_header(raw: str) -> dict:
+    """Pull the cookies we want out of a pasted `Cookie:` header.
+
+    Written because the alternative is asking a person to find one value in a
+    table of nine columns at 2am, which is exactly the step that gets pasted
+    wrong. Accepts the line with or without the leading `Cookie:`, with or
+    without quotes, split on `;` the way the header itself is.
+    """
+    text = raw.strip().strip("'\"")
+    if text.lower().startswith("cookie:"):
+        text = text.split(":", 1)[1]
+    found = {}
+    for part in text.split(";"):
+        if "=" not in part:
+            continue
+        name, _, value = part.partition("=")
+        name = name.strip()
+        value = value.strip().strip("'\"")
+        if name in WANTED and value:
+            found[name] = value
+    return found
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scout-cookies",
         description="Write the Scout burner's Instagram cookie file from the phone's values.",
     )
-    parser.add_argument("--sessionid", required=True, help="the sessionid cookie's value, or - to read stdin")
+    parser.add_argument("--sessionid", help="the sessionid cookie's value, or - to read stdin")
+    parser.add_argument("--header", nargs="?", const="-", metavar="COOKIE",
+                        help="paste the whole Cookie: header instead and let this pull the "
+                             "values out of it; - or no value reads stdin")
     parser.add_argument("--ds-user-id", default="", help="optional; the ds_user_id cookie")
     parser.add_argument("--csrftoken", default="", help="optional but preferred; the csrftoken cookie")
     parser.add_argument("--path", default=None, help="where to write (default: scout.burner_cookies)")
     args = parser.parse_args(argv)
 
-    session = sys.stdin.read().strip() if args.sessionid == "-" else args.sessionid.strip()
-    session = session.strip("'\"")
-    if not session or len(session) < 20:
-        sys.exit("that does not look like a sessionid — copy the whole value from DevTools")
+    if args.header is not None:
+        raw_header = sys.stdin.read() if args.header == "-" else args.header
+        found = from_header(raw_header)
+        if "sessionid" not in found:
+            sys.exit(
+                "no sessionid in that. Paste the whole Cookie header — the long line of\n"
+                "name=value pairs from Network → any instagram.com request → Request Headers."
+            )
+        cookies = found
+    else:
+        if not args.sessionid:
+            sys.exit("pass --sessionid, or --header to paste the whole Cookie line")
+        session = sys.stdin.read().strip() if args.sessionid == "-" else args.sessionid.strip()
+        session = session.strip("'\"")
+        if not session or len(session) < 20:
+            sys.exit("that does not look like a sessionid — copy the whole value from DevTools")
+        cookies = {
+            "sessionid": session,
+            "ds_user_id": args.ds_user_id.strip().strip("'\""),
+            "csrftoken": args.csrftoken.strip().strip("'\""),
+        }
 
     settings = config.load_user_config().get("scout") or {}
     raw = args.path or settings.get("burner_cookies") or DEFAULT_PATH
@@ -80,12 +129,10 @@ def main(argv: list[str] | None = None) -> int:
     if not path.is_absolute():
         path = config.ROOT / path
 
-    write(path, {
-        "sessionid": session,
-        "ds_user_id": args.ds_user_id.strip().strip("'\""),
-        "csrftoken": args.csrftoken.strip().strip("'\""),
-    })
-    print(f"wrote {path} (0600). Now: ./bin/scout --check-burner <a gated handle>")
+    write(path, cookies)
+    named = ", ".join(sorted(k for k in cookies if cookies[k]))
+    print(f"wrote {path} (0600) — {named}")
+    print("Now prove it: ./bin/scout --session")
     return 0
 
 

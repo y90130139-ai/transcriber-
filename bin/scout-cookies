@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Write the burner session cookie file from values copied out of Chrome.
+# Write the burner session cookie file from values copied off the tethered
+# phone (docs/SCOUT-SETUP.md). Never from a browser signed in on this Mac.
 set -euo pipefail
 SOURCE="${BASH_SOURCE[0]}"
 while [ -L "$SOURCE" ]; do

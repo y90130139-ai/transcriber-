@@ -419,6 +419,41 @@ def roster() -> int:
     return 0 if posts else 1
 
 
+def session(handle: str) -> int:
+    """Is the burner still signed in? One page load, header only.
+
+    What proves it is where Instagram *sends* us: a dead or challenged session
+    is redirected to /accounts/login or /challenge, which the reader raises as
+    `BurnerStopped`. A header that comes back is a header a signed-in browser
+    was allowed to read.
+
+    This is the check to run after a renewal from the phone, and the cheapest
+    thing that can answer "is it still alive" without starting a whole pass.
+    """
+    _, settings = _settings()
+    cookies = _resolve(settings.get("burner_cookies"))
+    if not cookies or not cookies.is_file():
+        sys.exit("no burner cookie jar — see docs/SCOUT-SETUP.md")
+
+    jar_age = (time.time() - cookies.stat().st_mtime) / 86400
+    state = cookies.with_name(scout_browser.STATE_NAME)
+    log(f"jar written {jar_age:.1f} days ago"
+        + (f" · browser state {(time.time() - state.stat().st_mtime) / 86400:.1f} days ago"
+           if state.is_file() else " · no saved browser state yet"))
+
+    snapshots, stopped = scout_browser.light_sweep([handle], cookies, log=log)
+    if stopped or not snapshots:
+        log(f"SESSION DEAD — {stopped or 'nothing came back'}")
+        log("  Re-read the cookies from the phone (docs/SCOUT-SETUP.md, steps 6-9),")
+        log("  write them with ./bin/scout-cookies, then run this again.")
+        return 1
+
+    snap = snapshots[0]
+    log(f"SESSION ALIVE — read @{handle}: {snap.get('followers')} followers, "
+        f"{'a story up' if snap.get('has_story') else 'no story'}")
+    return 0
+
+
 def check_burner(handle: str) -> int:
     """One profile, one feed, printed — to prove a freshly exported burner
     session works before trusting it with a whole pass."""
@@ -436,18 +471,18 @@ def check_burner(handle: str) -> int:
         reels = sorted(found, key=lambda r: r.get("posted_at") or "", reverse=True)
     except scout_ig.BurnerStopped as error:
         log(f"burner stopped: {error}")
-        if "429" in str(error):
-            log("  Before guessing, separate the address from the session. Anonymously:")
-            log("    curl -so/dev/null -w '%{http_code}\\n' -H 'X-IG-App-ID: 936619743392459' \\")
-            log("      'https://www.instagram.com/api/v1/users/web_profile_info/?username=instagram'")
-            log("  401 there means the address is fine and the 429 belongs to this session or")
-            log("  account — measured 2026-09-19, first authenticated call on a fresh jar. 429")
-            log("  there means the Mac has simply asked for too much too recently; wait.")
-            log("  A fresh session's first 429 is often transient: wait tens of minutes, retry")
-            log("  once, and only then start changing headers.")
+        # The old advice here told you to curl /api/v1/users/web_profile_info.
+        # That endpoint is retired — it answers nothing now, so a reading taken
+        # from it would send you after the wrong fault. The browser reader
+        # loads the pages a person loads, so its own verdict is the finding.
+        if "login" in str(error) or "challenge" in str(error):
+            log("  the session is dead or challenged, not the address. Re-read the cookies")
+            log("  from the phone (docs/SCOUT-SETUP.md, steps 6-9), write the jar again with")
+            log("  ./bin/scout-cookies, then prove it with ./bin/scout --session.")
         else:
-            log("  that reads as the session, not the address. Re-read the cookies from the")
-            log("  phone (docs/SCOUT-SETUP.md, steps 6-9) and write the jar again.")
+            log("  Instagram pushed back without sending us to a login or a challenge, so")
+            log("  the session is probably fine and the pass is being paced. Wait tens of")
+            log("  minutes and retry once before changing anything.")
         return 1
     except FileNotFoundError as error:
         sys.exit(str(error))
@@ -464,6 +499,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, help="sweep only the first N watched accounts")
     parser.add_argument("--only", choices=("apify", "burner"), help="run one reader only")
     parser.add_argument("--check-burner", metavar="HANDLE", help="test the burner session on one account")
+    parser.add_argument("--session", nargs="?", const="instagram", metavar="HANDLE",
+                        help="is the burner still signed in? one page load, header only")
     parser.add_argument("--daily", action="store_true",
                         help="the daily header-only pass: stories, followers, post counts")
     parser.add_argument("--roster", action="store_true",
@@ -473,6 +510,8 @@ def main(argv: list[str] | None = None) -> int:
         return daily()
     if args.roster:
         return roster()
+    if args.session:
+        return session(args.session.lstrip("@").lower())
     if args.check_burner:
         return check_burner(args.check_burner.lstrip("@").lower())
     return sweep(limit_handles=args.limit, dry=args.dry, only=args.only)

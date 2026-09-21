@@ -1,9 +1,17 @@
-"""Write the burner's cookie jar from values copied out of Chrome.
+"""Write the burner's cookie jar from values copied off the tethered phone.
+
+**Chrome on this Mac is not where these come from.** The burner lives on an
+old iPhone and nowhere else, because this Mac holds Geno's own signed-in
+accounts and a mis-click there would hand Scout the wrong session. Safari on
+the Mac remote-debugs Safari on the phone: Develop → the iPhone →
+instagram.com → Storage → Cookies. Full steps in docs/SCOUT-SETUP.md.
 
 Instagram's `sessionid` is http-only: no extension, no in-page script and no
-browser agent can read it, which is why this cannot be automated away. What it
-*can* be is three seconds of copying instead of installing a cookie exporter —
-Chrome → DevTools → Application → Cookies → instagram.com → copy `sessionid`.
+browser agent can read it, which is why this cannot be automated away. When
+the panel hides it, read it out of a request's `Cookie` header instead —
+Network → reload → any instagram.com request.
+
+After writing, prove it with `./bin/scout --session`.
 
 Writes a Netscape cookie file (what `MozillaCookieJar` and yt-dlp both read) to
 `scout.burner_cookies`, chmod 600, and never prints the value back.
@@ -53,7 +61,7 @@ def write(path: Path, cookies: dict) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scout-cookies",
-        description="Write the Scout burner's Instagram cookie file from Chrome values.",
+        description="Write the Scout burner's Instagram cookie file from the phone's values.",
     )
     parser.add_argument("--sessionid", required=True, help="the sessionid cookie's value, or - to read stdin")
     parser.add_argument("--ds-user-id", default="", help="optional; the ds_user_id cookie")

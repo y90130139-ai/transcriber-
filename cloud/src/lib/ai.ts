@@ -9,6 +9,11 @@
 const MODEL = '@cf/mistralai/mistral-small-3.1-24b-instruct'
 const API = 'https://api.cloudflare.com/client/v4'
 
+/** For writing: text only, and follows a long list of rules far better than the
+ *  small vision model — measured on the caption engine, whose first runs
+ *  ignored "never a compliment" three times out of three. */
+export const WRITER_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+
 export function aiReady(): boolean {
   return Boolean(process.env.CLOUDFLARE_AI_TOKEN && (process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.R2_ACCOUNT_ID))
 }
@@ -18,7 +23,7 @@ type Part = { type: 'text'; text: string } | { type: 'image_url'; image_url: { u
 /** Ask, and return the first JSON object in the answer — or null. */
 export async function askJson<T>(
   text: string,
-  options: { images?: string[]; maxTokens?: number; temperature?: number } = {},
+  options: { images?: string[]; maxTokens?: number; temperature?: number; model?: string } = {},
 ): Promise<T | null> {
   if (!aiReady()) return null
   const account = process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.R2_ACCOUNT_ID
@@ -26,7 +31,7 @@ export async function askJson<T>(
     { type: 'text', text },
     ...(options.images ?? []).map((url) => ({ type: 'image_url' as const, image_url: { url } })),
   ]
-  const response = await fetch(`${API}/accounts/${account}/ai/run/${MODEL}`, {
+  const response = await fetch(`${API}/accounts/${account}/ai/run/${options.model ?? MODEL}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_AI_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

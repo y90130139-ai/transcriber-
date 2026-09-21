@@ -14,7 +14,7 @@
  * location, length, caption, what to avoid, why it fits her).
  */
 import { sql } from './db'
-import { askJson } from './ai'
+import { WRITER_MODEL, askJson } from './ai'
 import { labelOf } from './taxonomy'
 import { expressionFor, copyRuleFor, type Bucket } from './card'
 import type { CaptionOption } from './plans'
@@ -28,6 +28,26 @@ const FORMULAS = [
 ]
 
 type Written = { dm?: unknown; captions?: unknown }
+
+/** A "baited" comment that is really praise. Nobody needs a caption to type
+ *  "love this"; the manual's QC pass cuts exactly these. */
+const PRAISE = /\b(love (this|it|you)|so (you|true|cute|pretty|hot)|killing it|slay|nailed|queen|obsessed|gorgeous|beautiful|stunning|yes girl|you go|amazing|perfect|obsessed)\b/i
+
+/** Our own vocabulary, which must never reach her. */
+const JARGON: [RegExp, string][] = [
+  [/\bwinner card\b/gi, 'reel'],
+  [/\bfor a card\b/gi, ''],
+  [/\bcard\b/gi, 'video'],
+  [/\breskin(ned|s)?\b/gi, 'redo'],
+  [/\biterations?\b/gi, 'another go'],
+  [/\bverticals?\b/gi, 'style'],
+]
+
+function cleanDm(text: string): string {
+  let out = text.trim()
+  for (const [pattern, replacement] of JARGON) out = out.replace(pattern, replacement)
+  return out.replace(/\s{2,}/g, ' ').slice(0, 900)
+}
 
 export type WriteResult = { item_id: string; ok: boolean; reason?: string }
 
@@ -98,10 +118,10 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     'Hard bans: no emojis, no hashtags, no em-dash asides, no "not just X but Y", no politics, race, religion or body-shaming.',
   ].filter(Boolean).join('\n')
 
-  const written = await askJson<Written>(prompt, { maxTokens: 520, temperature: 0.6 })
+  const written = await askJson<Written>(prompt, { maxTokens: 520, temperature: 0.6, model: WRITER_MODEL })
   if (!written) return { item_id: itemId, ok: false, reason: 'the model returned nothing usable' }
 
-  const dm = typeof written.dm === 'string' ? written.dm.trim().slice(0, 900) : null
+  const dm = typeof written.dm === 'string' ? cleanDm(written.dm) : null
   const captions: CaptionOption[] = (Array.isArray(written.captions) ? written.captions : [])
     .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
     .map((c) => ({
@@ -109,8 +129,10 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
       caption: String(c.caption ?? '').trim().slice(0, 140),
       baits: String(c.baits ?? '').trim().slice(0, 140),
     }))
-    // The manual's one test: if you cannot type the comment it provokes, it baits nothing.
-    .filter((c) => c.caption.length > 0 && c.baits.length > 0)
+    // The manual's one test: if you cannot type the comment it provokes, it baits
+    // nothing — and a compliment is not a comment anyone needed a caption to type.
+    // Enforced here rather than trusted to the prompt, which the first runs ignored.
+    .filter((c) => c.caption.length > 0 && c.baits.length > 0 && !PRAISE.test(c.baits))
     .slice(0, 3)
 
   await sql.query(

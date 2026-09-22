@@ -30,7 +30,27 @@ exporter, can see it. So step 2 is three seconds of copying — and
 
 `config.json` is gitignored and never leaves the Mac.
 
-## Step 2 — the burner's session, from an old iPhone over USB
+## Step 2 — the burner's session, signed in on the Mac (since 2026-09-22)
+
+**This replaced the phone on 2026-09-22, at Geno's call** — renewing over the
+cable was more hassle than the risk it guarded against. The 2026-09-19 concern
+still holds and is still met: the burner is never signed into Chrome or Safari.
+`./bin/scout-login` opens a separate Chromium window that belongs to Scout
+alone, with nothing else signed in to mis-click into.
+
+1. `./bin/scout-login` — a window opens on Instagram's sign-in page.
+2. Sign in as the **burner**. If Instagram asks for a code, get it from the
+   burner's email or phone and enter it.
+3. Tap "Not now" on any save-login or notifications prompt. The window closes by
+   itself once the home feed loads; it writes `secrets/scout-cookies.txt` and
+   `secrets/scout-state.json` (the old pair is kept as `*.prev`).
+4. `./bin/scout --session` — must say the session is alive.
+
+When the Today tab says the session died, do 1–4 again.
+
+The phone method below is kept for reference only.
+
+## (Old) Step 2 — the burner's session, from an old iPhone over USB
 
 **This replaced the Chrome-profile method on 2026-09-19, at Geno's call.** He
 would not sign the burner into a browser on the Mac: that Mac holds his own

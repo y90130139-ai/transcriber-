@@ -24,6 +24,6 @@ export async function GET() {
     last_snapshot: row?.last_snapshot ?? null,
     hours: hours === null ? null : Math.round(hours * 10) / 10,
     alive: hours !== null && hours <= STALE_HOURS,
-    fix: 'Renew it from the phone: docs/SCOUT-SETUP.md, then ./bin/scout-cookies --header and ./bin/scout --session',
+    fix: 'Sign the burner in again on the Mac: ./bin/scout-login, then ./bin/scout --session',
   })
 }

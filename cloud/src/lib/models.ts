@@ -438,13 +438,26 @@ export async function appendItems(
 
   for (const [index, jobId] of jobIds.entries()) {
     const extras = extrasFor?.(jobId, index) ?? {}
-    const input = await briefInputFor(jobId, modelId)
+    // A reskin or an iteration points at HER reel, so the brief must stop
+    // coaching her to fix its opening. `source_post` is what says whose it is.
+    const input = { ...await briefInputFor(jobId, modelId), ownReel: Boolean(extras.source_post) }
     // `notes` stays the direction and is still written on every insert — it is
     // what her card renders as prose and what everything from before phase 3
     // falls back to. What it no longer carries is the handful of facts that
     // are now fields of their own, because showing them twice is worse than
     // the wall of text this was meant to break up.
     const fields = draftFields(input)
+    // On her own reel the wardrobe line is not a suggestion. A control means
+    // the same clothes; an outfit rung means one deliberate change and nothing
+    // else. "Your call — pick it before the camera is up" said neither, and on
+    // a card whose whole point is the single variable it reads as permission
+    // to change something that must not move.
+    if (extras.source_post) {
+      fields.wardrobe = extras.axis === 'outfit'
+        ? 'A different outfit from the original — that is the one thing being tested. ' +
+          'Same place, same hair, same everything else.'
+        : 'Exactly what you wore in the original.'
+    }
     const notes = [extras.lead, fields.direction].filter(Boolean).join('\n\n')
     const inserted = await sql.query(
       // `card_no` counts on from the highest this model has ever been given,

@@ -131,7 +131,59 @@ export const HOOK_WORDS = {
                   'boys', 'meanwhile'],
 } as const
 
+/** What a video is ABOUT.
+ *
+ * The axis that was missing until 2026-09-22: 43 golf reels sat in the library
+ * with nothing saying they were golf, so the golf model got generic tests.
+ * Phrases are deliberately specific — "tee off" rather than "tee", "shot" only
+ * with a golf word beside it — because a topic that over-fires routes a
+ * stranger's reel to a model whose whole account is the subject.
+ *
+ * `relatable` and `unknown` are never keyed here: the first is what is left
+ * when a reel is funny and about nothing (decided in autotag), the second is
+ * what is left when nothing at all matched.
+ */
+export const TOPIC_WORDS: Lexicon = {
+  golf: ['golf', 'golfing', 'golf course', 'driving range', 'putt', 'putting', 'birdie', 'bogey',
+         'par 3', 'par 5', 'tee off', 'tee box', 'fairway', 'caddie', 'golf cart', 'my swing',
+         'topgolf', 'nine holes', '18 holes', 'golf sim'],
+  cars: ['my car', 'his car', 'the car', 'truck', 'mustang', 'bmw', 'corvette', 'porsche', 'jeep',
+         'drifting', 'car meet', 'horsepower', 'stick shift', 'test drive', 'new whip', 'engine',
+         'dealership', 'road trip'],
+  gym: ['gym', 'workout', 'leg day', 'deadlift', 'squats', 'bench press', 'reps', 'personal trainer',
+        'pre workout', 'lifting', 'at the gym', 'cardio', 'my split', 'pilates', 'crossfit'],
+  gaming: ['gaming', 'gamer', 'twitch', 'stream', 'anime', 'cosplay', 'call of duty', 'fortnite',
+           'minecraft', 'valorant', 'xbox', 'playstation', 'my setup', 'speedrun', 'manga'],
+  chess: ['chess', 'checkmate', 'grandmaster', 'poker', 'blackjack', 'texas holdem', 'casino',
+          'board game', 'dungeons and dragons', 'card game'],
+  food: ['recipe', 'cooking', 'i cooked', 'air fryer', 'restaurant', 'this meal', 'taste test',
+         'my coffee', 'starbucks', 'dinner', 'breakfast', 'meal prep', 'baking', 'margarita'],
+  travel: ['airport', 'my flight', 'hotel room', 'this trip', 'vacation', 'airbnb', 'road tripping',
+           'landed in', 'travelling', 'traveling', 'cruise', 'passport', 'tourist'],
+  pets: ['my dog', 'my cat', 'puppy', 'kitten', 'my horse', 'vet', 'shelter dog', 'good boy',
+         'she is a rescue', 'my pup'],
+  medical: ['nurse', 'nursing', 'scrubs', 'night shift', 'my patients', 'the er', 'hospital',
+            'clinicals', 'nursing school', 'med surg', 'charting'],
+  college: ['college', 'campus', 'my dorm', 'finals', 'my professor', 'lecture', 'sorority',
+            'freshman', 'student loans', 'my major', 'exam'],
+  motherhood: ['my kids', 'my son', 'my daughter', 'mom life', 'toddler', 'school run', 'my baby',
+               'being a mom', 'single mom', 'nap time', 'daycare'],
+  outdoors: ['fishing', 'caught a fish', 'hunting', 'camping', 'hiking', 'the lake', 'kayak',
+             'campfire', 'four wheeler', 'atv', 'the cabin', 'deer season'],
+  'sports-fan': ['game day', 'my team', 'touchdown', 'super bowl', 'nfl', 'nba', 'football game',
+                 'baseball game', 'hockey', 'the playoffs', 'my jersey', 'tailgate'],
+  music: ['concert', 'festival', 'the dj', 'the club', 'my playlist', 'this song is', 'karaoke',
+          'rave', 'front row', 'night out', 'the bar last night'],
+  trivia: ['did you know', 'fun fact', 'fact:', 'most people do not know', 'here is why',
+           'the reason is', 'in history', 'scientists', 'studies show', 'actually means'],
+  work: ['my boss', 'my shift', 'my job', 'quit my job', 'nine to five', '9 to 5', 'corporate',
+         'paycheck', 'my coworker', 'side hustle', 'work from home', 'clocked in', 'minimum wage'],
+  dating: ['my ex', 'first date', 'talking stage', 'situationship', 'my boyfriend', 'red flag',
+           'dating apps', 'hinge', 'tinder', 'he texted', 'love bombing', 'ghosted me'],
+}
+
 export const LEXICONS: Partial<Record<Axis, Lexicon>> = {
   format: FORMAT_WORDS,
   persona: PERSONA_WORDS,
+  topic: TOPIC_WORDS,
 }

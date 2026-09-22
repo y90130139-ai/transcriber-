@@ -35,7 +35,7 @@ const MAX_WEEKLY_TARGET = 200
 /** Persona is a claim about a person, so one stray word must not carry it —
  *  the same two-hit rule `autotag.ts` applies to a whole transcript. Format
  *  and hook can stand on one unambiguous phrase. */
-const KEYWORD_HITS_NEEDED: Record<Axis, number> = { persona: 2, format: 1, hook: 1 }
+const KEYWORD_HITS_NEEDED: Record<Axis, number> = { persona: 2, format: 1, hook: 1, topic: 1 }
 
 /** Answers that mean "I did not answer". Kept out of `unmapped` so the review
  *  list is short enough to actually read. */
@@ -227,6 +227,7 @@ const NAMES: Record<Axis, { id: string; names: string[] }[]> = {
   persona: taxonomy.persona.tags.map((tag) => ({ id: tag.id, names: namesFor(tag) })),
   format: taxonomy.format.tags.map((tag) => ({ id: tag.id, names: namesFor(tag) })),
   hook: taxonomy.hook.tags.map((tag) => ({ id: tag.id, names: namesFor(tag) })),
+  topic: taxonomy.topic.tags.map((tag) => ({ id: tag.id, names: namesFor(tag) })),
 }
 
 const LEXICON: Partial<Record<Axis, Record<string, string[]>>> = {

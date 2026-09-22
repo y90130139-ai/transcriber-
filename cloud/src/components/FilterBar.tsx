@@ -7,6 +7,7 @@ export type Filters = {
   persona: string[]
   format: string[]
   hook: string[]
+  topic: string[]
   creator: string
   window: '' | 'week' | '30' | '90'
   hot: boolean
@@ -14,7 +15,7 @@ export type Filters = {
 }
 
 export const EMPTY_FILTERS: Filters = {
-  persona: [], format: [], hook: [], creator: '', window: '', hot: false, sort: 'recent',
+  persona: [], format: [], hook: [], topic: [], creator: '', window: '', hot: false, sort: 'recent',
 }
 
 export function toQuery(filters: Filters, query: string): string {

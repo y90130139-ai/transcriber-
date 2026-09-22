@@ -10,11 +10,20 @@ import { SCORING_CTE } from './hot'
 import { preview } from './sql'
 
 /** Format weighs most: it is the thing she physically has to be able to shoot.
- *  Persona is next — it is a claim about a person and is stable. Hook is a
+ *  Topic is level with it — a golf reel handed to the golf model is the whole
+ *  point of the axis, and before it existed 51 golf reels sat in the library
+ *  while the golf model got generic tests. Persona is next; hook is a
  *  tiebreaker, because almost any hook can be re-shot in any format. */
 const FORMAT_WEIGHT = 3
+const TOPIC_WEIGHT = 3
 const PERSONA_WEIGHT = 2
 const HOOK_WEIGHT = 1
+
+/** A reel about nothing in particular. It belongs to no model and suits any of
+ *  them, so it scores on its own rather than on overlap — below a topic match,
+ *  above nothing. What keeps it from filling a week is the cap in `split.ts`,
+ *  not this number. */
+const RELATABLE_WEIGHT = 1.5
 
 /** A proven video is worth surfacing, but fit has to win. The cap stops one
  *  viral outlier outranking a video she can actually make. */
@@ -42,20 +51,32 @@ const ITEM_TAGS = `
     select job_id,
            array_agg(tag) filter (where axis = 'persona') as persona,
            array_agg(tag) filter (where axis = 'format')  as format,
-           array_agg(tag) filter (where axis = 'hook')    as hook
+           array_agg(tag) filter (where axis = 'hook')    as hook,
+           array_agg(tag) filter (where axis = 'topic')   as topic
       from transcriber.tags
      group by job_id
   )
 `
 
+/** Is this one of the reels any model can be handed with a twist? */
+const IS_RELATABLE = `(case when 'relatable' = any(coalesce(g.topic, '{}'::text[])) then 1 else 0 end)`
+
 const FIT = `
   ${FORMAT_WEIGHT} * ${overlap('g.format', 'm.formats')}
+  + ${TOPIC_WEIGHT} * ${overlap('g.topic', 'm.topics')}
   + ${PERSONA_WEIGHT} * ${overlap('g.persona', 'm.persona')}
   + ${HOOK_WEIGHT} * ${overlap('g.hook', 'm.hooks')}
+  + ${RELATABLE_WEIGHT} * ${IS_RELATABLE}
   + least(coalesce(s.score / nullif(b.median_score, 0), 0), ${OUTPERFORMANCE_CAP})
 `
 
-const MATCHED = `${matched('g.format', 'm.formats')} || ${matched('g.persona', 'm.persona')}`
+/** What the card says the match was. Topic joins format and persona: "golf" is
+ *  the most convincing reason a reel is hers that this system can give. A
+ *  relatable reel explains itself as `relatable`, which is what makes it
+ *  offerable at all — `EXPLAINABLE` drops anything with an empty reason, and
+ *  370 reels of the library have no topic and nothing else to say. */
+const MATCHED = `${matched('g.format', 'm.formats')} || ${matched('g.topic', 'm.topics')} || ${matched('g.persona', 'm.persona')}`
+  + ` || (case when ${IS_RELATABLE} = 1 then array['relatable'] else '{}'::text[] end)`
 
 /**
  * A score with nothing behind it is not a recommendation.
@@ -148,11 +169,24 @@ export async function modelsForJob(jobId: string) {
  * why 9 of 24 models had never been given a plan at all. A typed profile still
  * wins; the override is only ever passed when the column is empty.
  */
-export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT, formats?: string[]) {
+export async function suggestionsFor(
+  modelId: string,
+  limit = DEFAULT_LIMIT,
+  formats?: string[],
+  topics?: string[],
+) {
   const capped = Math.min(Math.max(Math.round(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT)
   const override = formats && formats.length > 0
-  const fit = override ? FIT.replaceAll('m.formats', '$2::text[]') : FIT
-  const why = override ? MATCHED.replaceAll('m.formats', '$2::text[]') : MATCHED
+  // Her niches, derived from her own reels when the column is empty — the same
+  // "never make her type it" rule the formats override follows.
+  const niches = topics && topics.length > 0
+  let fit = override ? FIT.replaceAll('m.formats', '$2::text[]') : FIT
+  let why = override ? MATCHED.replaceAll('m.formats', '$2::text[]') : MATCHED
+  if (niches) {
+    const slot = override ? '$3::text[]' : '$2::text[]'
+    fit = fit.replaceAll('m.topics', slot)
+    why = why.replaceAll('m.topics', slot)
+  }
   return sql.query(
     `with ${SCORING_CTE}, ${ITEM_TAGS}
      select ranked.* from (
@@ -174,6 +208,6 @@ export async function suggestionsFor(modelId: string, limit = DEFAULT_LIMIT, for
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc
       limit ${capped}`,
-    override ? [modelId, formats] : [modelId],
+    [modelId, ...(override ? [formats] : []), ...(niches ? [topics] : [])],
   )
 }

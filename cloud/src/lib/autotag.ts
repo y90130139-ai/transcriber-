@@ -5,8 +5,8 @@
  * Suggestions are marked `auto` in the database and are replaced wholesale on
  * a re-run; anything a human touched is marked `human` and is never overwritten.
  */
-import { FORMAT_WORDS, HOOK_WORDS, PERSONA_WORDS } from './lexicon'
-import type { Axis } from './taxonomy'
+import { FORMAT_WORDS, HOOK_WORDS, PERSONA_WORDS, TOPIC_WORDS } from './lexicon'
+import { RELATABLE, UNKNOWN_TOPIC, type Axis } from './taxonomy'
 
 export type Suggestion = { axis: Axis; tag: string; score: number }
 
@@ -38,12 +38,12 @@ export type TagInput = {
   creatorPersona?: string[]
 }
 
-const MAX_PER_AXIS = { persona: 2, format: 3, hook: 1 } as const
+const MAX_PER_AXIS = { persona: 2, format: 3, hook: 1, topic: 2 } as const
 
 /** Persona is a claim about a person, so one stray word must not carry it —
  *  at 0.6 it takes two separate hits across everything they have said. A
  *  format or a hook can stand on a single unambiguous phrase. */
-const KEEP_ABOVE: Record<Axis, number> = { persona: 0.6, format: 0.5, hook: 0.45 }
+const KEEP_ABOVE: Record<Axis, number> = { persona: 0.6, format: 0.5, hook: 0.45, topic: 0.55 }
 // A keyword is worth this much, and each extra one nudges it up without ever
 // letting a single lexicon run away with the whole score.
 const HIT_BASE = 0.55
@@ -360,9 +360,79 @@ export function personaProposal(creatorText: string): PersonaProposal[] {
   }))
 }
 
-/** Every suggestion for one video, across all three axes. */
+// ------------------------------------------------------------------ topic
+
+/** Words that carry no subject of their own. A reel built out of these and
+ *  nothing else is the "relatable" case: a mood or a joke anyone recognises,
+ *  which any model can be handed by keeping the structure and changing what it
+ *  is about. Measured against the library, these are what is left when every
+ *  topic lexicon comes back empty and somebody is still clearly talking. */
+const RELATABLE_WORDS = [
+  'me when', 'when you', 'nobody:', 'why do i', 'why am i', 'tell me why', 'the way i',
+  'literally me', 'every time', 'i cannot be the only', 'am i the only one', 'pov:',
+  'it is giving', 'the girls that get it', 'if you know you know', 'iykyk', 'no because',
+  'not me', 'bestie', 'this is so me',
+]
+
+/**
+ * What the video is about.
+ *
+ * Three outcomes and no fourth: a real topic when a lexicon fires, `relatable`
+ * when nothing does but the reel is still saying something a stranger would
+ * recognise, and `unknown` when there is not enough to tell. `unknown` is a
+ * decision, not a gap — `match.ts` refuses to route on it, which is what keeps
+ * a silent thirst trap from being filed as a golf reel.
+ *
+ * The caption and on-screen text count as much as the transcript: a golf reel
+ * is often silent with `topgolf` burned into the corner.
+ */
+function topicSuggestions(input: TagInput, format: Suggestion[]): Suggestion[] {
+  const scores = new Map<string, number>()
+  const text = `${lower(spokenWords(input.plain))} ${lower(input.caption)} ${lower(input.onScreenText)}`
+
+  for (const [tag, phrases] of Object.entries(TOPIC_WORDS)) {
+    const score = keywordScore(text, phrases)
+    if (score > 0) bump(scores, tag, score)
+  }
+
+  const ranked = rank(scores, 'topic')
+  if (ranked.length > 0) return ranked
+
+  // Nothing is about anything here. Either it is relatable — which is a real,
+  // useful answer — or there was too little to read, which is not.
+  const said = spokenWords(input.plain).split(/\s+/).filter(Boolean).length
+  const stamped = lower(input.onScreenText).split(/\s+/).filter(Boolean).length
+  const enough = said + stamped >= RELATABLE_WORDS_MIN
+  if (keywordScore(text, RELATABLE_WORDS) > 0) {
+    return [{ axis: 'topic', tag: RELATABLE, score: 0.7 }]
+  }
+  // A format that is a structure rather than a subject — a skit, a rant, a
+  // storytime — is twistable even when it never says anything recognisable:
+  // the beat is the part another model reuses.
+  if (enough && format.some((tag) => TWISTABLE_FORMATS.has(tag.tag))) {
+    return [{ axis: 'topic', tag: RELATABLE, score: 0.6 }]
+  }
+  return [{ axis: 'topic', tag: UNKNOWN_TOPIC, score: 0.3 }]
+}
+
+/** Enough said or stamped on screen to be a joke rather than a silent clip.
+ *  Below this there is nothing for another model to twist. */
+const RELATABLE_WORDS_MIN = 12
+
+/** Formats that carry a reusable shape. Measured over the library 2026-09-22:
+ *  this rule is the difference between 60 relatable reels and 138, and without
+ *  it the other 78 fell to `unknown` and were offered to nobody. Length alone
+ *  was tried first and took 448 — most of the library, which is how a tag
+ *  stops meaning anything. */
+const TWISTABLE_FORMATS = new Set([
+  'comedy', 'skit', 'pov-skit', 'rant', 'storytime', 'reaction', 'confession', 'car-confession',
+])
+
+/** Every suggestion for one video, across all four axes. */
 export function suggestTags(input: TagInput): Suggestion[] {
-  return [...personaSuggestions(input), ...formatSuggestions(input), ...hookSuggestions(input)]
+  const format = formatSuggestions(input)
+  return [...personaSuggestions(input), ...format, ...hookSuggestions(input),
+          ...topicSuggestions(input, format)]
 }
 
 /** The opening line of a transcript, which is what the hook rules read. */

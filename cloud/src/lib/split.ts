@@ -32,12 +32,24 @@ import { sql } from './db'
 import { unfetchable } from './hers'
 import { TARGET_MIX } from './mix'
 import { schedule, scheduleSummary, type Scheduled } from './schedule'
-import { STARTER_VERTICALS, effectiveFormats, levelFor, verticalsFor, type Level } from './insights'
+import { RELATABLE } from './taxonomy'
+import { STARTER_VERTICALS, effectiveFormats, levelFor, topicsFor, verticalsFor, type Level } from './insights'
 
 /** The manual's onboarding testing round: 6 reels, feedback, then 15 — before
  *  any branded week. Only for a creator the level read calls new; the manual is
  *  explicit that a bigger creator should be personalised immediately. */
 export const TESTING_ROUNDS = [6, 15] as const
+
+/** At most this many relatable reels in one week — Geno's call, 2026-09-22.
+ *  They fit everyone, so without a cap the same handful of twistable reels
+ *  would land in every model's week and her own niche would be crowded out. */
+const MAX_RELATABLE = 2
+
+/** A pick the matcher could explain only as "relatable" — the reel that is
+ *  about nothing in particular and travels on its shape. */
+function isRelatable(pick: { matched?: unknown }): boolean {
+  return Array.isArray(pick.matched) && pick.matched.includes(RELATABLE)
+}
 
 export type Bucket = 'reskin' | 'iteration' | 'test'
 
@@ -95,7 +107,7 @@ export type Week = {
 /** Her week, proposed. Reads only; nothing is written until a human says so. */
 export async function weekFor(modelId: string): Promise<Week | null> {
   const [model] = await sql.query(
-    `select m.id, m.name, coalesce(m.weekly_target, 21) as target, m.persona, m.formats,
+    `select m.id, m.name, coalesce(m.weekly_target, 21) as target, m.persona, m.formats, m.topics,
             (select count(*)::int from transcriber.plans p
               where p.model_id = m.id and p.status = 'sent') as sent
        from transcriber.models m where m.id = $1`,
@@ -118,6 +130,11 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // The testing round, for a creator who reads as new and has not had two
   // weeks sent yet. Everything in it is a new test on the starter verticals:
   // there is no brand to build from until she has filmed something.
+  // Her niches: the column when a human set it, otherwise what her own reels
+  // say. A golf model gets golf reels without anyone typing "golf".
+  const typedTopics = (model.topics as string[]) ?? []
+  const niches = typedTopics.length > 0 ? typedTopics : await topicsFor(modelId)
+
   const level = bank ? (await levelFor(modelId, bank)).level : 'new'
   const sent = Number(model.sent ?? 0)
   // New *and* nothing to go on. The round exists to collect data, so a small
@@ -202,8 +219,21 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   const wantTests = target - cards.length
   if (wantTests > 0) {
     const formats = testingRound ? [...STARTER_VERTICALS] : override
-    const picks = await suggestionsFor(modelId, Math.min(wantTests * 2, 40), formats)
-    for (const pick of picks.slice(0, wantTests)) {
+    const picks = await suggestionsFor(modelId, Math.min(wantTests * 2, 40), formats, niches)
+    // Relatable reels suit everybody, which is exactly why they are rationed:
+    // left alone they would outrank her own niche and every model would get
+    // the same week. Her matches come first; these fill what is left, capped.
+    let relatable = 0
+    const chosen: typeof picks = []
+    for (const pick of picks) {
+      if (chosen.length >= wantTests) break
+      if (isRelatable(pick)) {
+        if (relatable >= MAX_RELATABLE) continue
+        relatable += 1
+      }
+      chosen.push(pick)
+    }
+    for (const pick of chosen) {
       cards.push({
         bucket: 'test',
         source_post: null,
@@ -212,9 +242,29 @@ export async function weekFor(modelId: string): Promise<Week | null> {
         source_multiple: null,
         job_id: String(pick.id),
         axis: null,
-        instruction: 'New concept. Recreate the structure — your outfit, your place, your words.',
+        instruction: isRelatable(pick)
+          // The Adam Sandler case: the reel is not about her world and does not
+          // need to be. What travels is the shape — the setup, the beat, the
+          // turn — and the subject is swapped for something she would say.
+          ? 'This one is not about your world — it works because of how it is built. ' +
+            'Keep the structure and the timing, and change what it is about to something ' +
+            'from your life. Your words, your subject.'
+          : 'New concept. Recreate the structure — your outfit, your place, your words.',
         hold: null,
       })
+    }
+    if (niches.length > 0 && picks.length > 0) {
+      notes.push(
+        `Matched on her niche — ${niches.join(', ')} — ` +
+        (typedTopics.length > 0 ? 'set for her.' : 'read off her own reels; nobody typed it.'),
+      )
+    }
+    if (relatable > 0) {
+      notes.push(
+        `${relatable} of the new ${relatable === 1 ? 'test is a' : 'tests are'} relatable ` +
+        `${relatable === 1 ? 'reel' : 'reels'} rather than ${relatable === 1 ? 'a reel' : 'reels'} ` +
+        'from her own niche — kept to a twist of the format, not a copy of the subject.',
+      )
     }
     if (picks.length === 0) {
       notes.push(

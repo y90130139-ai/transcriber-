@@ -117,6 +117,14 @@ export type BriefInput = {
    *  must never rewrite a card that has already been authored, which is the
    *  same contract phase 3 set for the direction. */
   overrides?: BriefOverrides
+  /** True when the reference IS her own reel — a reskin or an iteration.
+   *
+   *  Everything in `OPENING` is advice for rebuilding *someone else's* video,
+   *  and on her own winner it contradicts the card it sits on: "nothing
+   *  changes, this is the control" directly above "their opening is slow, give
+   *  yours a real first line". Found on Magnus's week, 2026-09-22, on all 156
+   *  reskin and iteration cards of the roster. */
+  ownReel?: boolean
 }
 
 /** Does she have a standing rule against being on camera? */
@@ -442,7 +450,16 @@ export function draftFields(input: BriefInput): BriefFields {
   // long it runs. Everything else has become a field of its own.
   const lines: string[] = []
   if (shape) lines.push(shape[1])
-  if (hookTag) lines.push(OPENING[hookTag])
+  if (input.ownReel) {
+    // Her own reel: the opening is not a thing to fix, it is the thing that
+    // worked. Quote it back so she can hit it again; what may change is said
+    // by the card's own hold line, one variable at a time.
+    lines.push(opening?.quote
+      ? `Your own opening, word for word: "${opening.quote}"`
+      : 'Open exactly the way you opened it the first time.')
+  } else if (hookTag) {
+    lines.push(OPENING[hookTag])
+  }
 
   const cast = castLine(input.speakerCount, input.wordCount)
   if (cast) lines.push(cast)

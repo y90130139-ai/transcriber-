@@ -90,7 +90,7 @@ const statements = [
   // re-run can replace its own guesses without touching confirmed tags.
   `create table if not exists transcriber.tags (
      job_id text not null references transcriber.jobs(id) on delete cascade,
-     axis   text not null check (axis in ('persona','format','hook')),
+     axis   text not null check (axis in ('persona','format','hook','topic')),
      tag    text not null,
      origin text not null default 'auto' check (origin in ('auto','human')),
      score  real,
@@ -785,6 +785,18 @@ const statements = [
      add column if not exists video_url text,
      add column if not exists poster_url text,
      add column if not exists media_until timestamptz`,
+
+  // The fourth axis. The table was created when there were three, and its
+  // check constraint would refuse every topic tag.
+  `alter table transcriber.tags drop constraint if exists tags_axis_check`,
+  `alter table transcriber.tags add constraint tags_axis_check
+     check (axis in ('persona','format','hook','topic'))`,
+
+  // Her niches — golf, cars, trivia. The fourth tag axis, added 2026-09-22:
+  // the library held 51 golf reels and nothing said they were golf, so the
+  // golf model got generic tests instead.
+  `alter table transcriber.models
+     add column if not exists topics text[]`,
 
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx

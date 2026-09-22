@@ -1,5 +1,5 @@
 {
-  "note": "Tag vocabulary for the content library. Three independent axes: a creator is positioned in a persona niche, a video takes a format, and it opens with a hook. Tag all three.",
+  "note": "Tag vocabulary for the content library. Four independent axes: a creator is positioned in a persona niche, a video takes a format, it opens with a hook, and it is about a topic. Tag all four. `relatable` is the topic of a video about nothing in particular that any model can be handed with a twist; `unknown` is left alone.",
   "persona": {
     "label": "Persona / niche",
     "hint": "How the creator is positioned. Usually stable per creator, so this drives the Models tab.",
@@ -365,6 +365,107 @@
         "id": "none",
         "label": "No clear hook",
         "desc": "Slow or absent opening"
+      }
+    ]
+  },
+  "topic": {
+    "label": "Topic / niche",
+    "hint": "What the video is ABOUT, as opposed to who is in it (persona) or what it does (format). This is what routes a golf reel to a golf model. Most reels have one; `relatable` and `unknown` are the two that are not subjects at all.",
+    "tags": [
+      {
+        "id": "golf",
+        "label": "Golf",
+        "desc": "On a course, range or simulator; putting, swinging, golf clothes"
+      },
+      {
+        "id": "cars",
+        "label": "Cars",
+        "desc": "Driving, car interiors as the subject, builds, racing, car culture"
+      },
+      {
+        "id": "gym",
+        "label": "Gym & fitness",
+        "desc": "Training, lifting, running, fitness routines"
+      },
+      {
+        "id": "gaming",
+        "label": "Gaming & anime",
+        "desc": "Games, streaming, anime, cosplay as subject matter"
+      },
+      {
+        "id": "chess",
+        "label": "Chess & tabletop",
+        "desc": "Chess, poker, cards, board games"
+      },
+      {
+        "id": "food",
+        "label": "Food & cooking",
+        "desc": "Cooking, eating, recipes, restaurants, drinks"
+      },
+      {
+        "id": "travel",
+        "label": "Travel",
+        "desc": "Trips, airports, hotels, being somewhere as the point"
+      },
+      {
+        "id": "pets",
+        "label": "Pets & animals",
+        "desc": "Dogs, cats, horses, animals as the subject"
+      },
+      {
+        "id": "medical",
+        "label": "Nursing & medical",
+        "desc": "Nurses, scrubs, clinics, shift-work life"
+      },
+      {
+        "id": "college",
+        "label": "College & school",
+        "desc": "Campus, classes, dorms, student life"
+      },
+      {
+        "id": "motherhood",
+        "label": "Motherhood",
+        "desc": "Kids, pregnancy as life rather than body, mom life"
+      },
+      {
+        "id": "outdoors",
+        "label": "Outdoors",
+        "desc": "Fishing, hunting, camping, hiking, the lake"
+      },
+      {
+        "id": "sports-fan",
+        "label": "Sports fan",
+        "desc": "Game day, teams, jerseys, watching sport"
+      },
+      {
+        "id": "music",
+        "label": "Music & nightlife",
+        "desc": "Concerts, DJs, festivals, clubs, singing"
+      },
+      {
+        "id": "trivia",
+        "label": "Facts & trivia",
+        "desc": "Facts, explainers, did-you-know, history"
+      },
+      {
+        "id": "work",
+        "label": "Work & money",
+        "desc": "Jobs, bosses, shifts, side hustles, money talk"
+      },
+      {
+        "id": "dating",
+        "label": "Dating & relationships",
+        "desc": "Dating life, exes, talking stages, relationship takes"
+      },
+      {
+        "id": "relatable",
+        "label": "Relatable (twistable)",
+        "desc": "About nothing in particular — a joke, a mood, a moment anyone recognises. Can be handed to any model by keeping the structure and changing the subject to her world."
+      },
+      {
+        "id": "unknown",
+        "label": "Unknown",
+        "desc": "Nothing said it. Left alone rather than guessed, and never matched on."
       }
     ]
   }

@@ -322,3 +322,37 @@ export function effectiveFormats(
   }
   return { formats: [...STARTER_VERTICALS], basis: 'starter' }
 }
+
+/**
+ * Her niches, read off her own reels rather than typed.
+ *
+ * The same shape as `verticalsFor`, one axis over: what her posts are *about*.
+ * Kaytie's account is golf and the library holds 51 golf reels; before the
+ * topic axis existed (2026-09-22) nothing connected the two and she was handed
+ * generic tests. Derived from everything of hers that reached the library, not
+ * only her winners — a niche is what she posts, not only what took off.
+ *
+ * `relatable` and `unknown` are never returned: neither is a subject, and a
+ * model whose "niche" was relatable would match the entire library.
+ */
+export async function topicsFor(modelId: string): Promise<string[]> {
+  const rows = await sql.query(
+    `select g.tag, count(*)::int as posts
+       from transcriber.jobs j
+       join transcriber.tags g on g.job_id = j.id
+      where j.batch_id = $1 and g.axis = 'topic'
+        and g.tag not in ('relatable', 'unknown')
+      group by g.tag
+      having count(*) >= ${MIN_TOPIC_POSTS}
+      order by count(*) desc
+      limit ${MAX_TOPICS}`,
+    [`hers-${modelId}`],
+  )
+  return rows.map((row) => String(row.tag))
+}
+
+/** One reel about golf is a day out; two is a niche. */
+const MIN_TOPIC_POSTS = 2
+
+/** More than this and it is not a niche any more. */
+const MAX_TOPICS = 3

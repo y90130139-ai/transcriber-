@@ -1,10 +1,10 @@
 import raw from './taxonomy.json'
 
-export type Axis = 'persona' | 'format' | 'hook'
+export type Axis = 'persona' | 'format' | 'hook' | 'topic'
 export type Tag = { id: string; label: string; desc: string }
 export type AxisSpec = { label: string; hint: string; tags: Tag[] }
 
-export const AXES: Axis[] = ['persona', 'format', 'hook']
+export const AXES: Axis[] = ['persona', 'format', 'hook', 'topic']
 
 const spec = raw as unknown as Record<Axis, AxisSpec> & { note: string }
 
@@ -12,7 +12,15 @@ export const taxonomy: Record<Axis, AxisSpec> = {
   persona: spec.persona,
   format: spec.format,
   hook: spec.hook,
+  topic: spec.topic,
 }
+
+/** The topic that is not a subject: any model can be handed one of these, with
+ *  the structure kept and the subject swapped for her own world. */
+export const RELATABLE = 'relatable'
+
+/** Nothing said what it was about. Never matched on, never guessed at. */
+export const UNKNOWN_TOPIC = 'unknown'
 
 const index = new Map<string, Tag>(
   AXES.flatMap((axis) => taxonomy[axis].tags.map((tag) => [`${axis}:${tag.id}`, tag])),

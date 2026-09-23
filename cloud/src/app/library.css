@@ -1297,6 +1297,12 @@ textarea.field { resize: vertical; }
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
+/* Her best posts, on the profile: the thumbnail opens Instagram, these two
+   are what we can do with the reel ourselves. */
+.toppost-acts { display: flex; gap: var(--sc-space-1); margin: 2px 0 var(--sc-space-2) 0; }
+.toppost-acts .btn { font-size: 0.58rem; padding: 2px 6px; }
+.toppost-acts .btn[data-on] { border-color: var(--sc-ink-900); color: var(--sc-ink-900); font-weight: 600; }
+
 /* The two decisions a winner of hers can become, under her thumbnail: she
    shoots it again, or we repost it ourselves through the batcher. Stacked
    rather than inline so the strip stays one thumbnail wide per post. */

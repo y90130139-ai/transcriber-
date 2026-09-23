@@ -17,6 +17,7 @@ import { nanoid } from 'nanoid'
 import { sql } from './db'
 import { addDays, todayIn } from './dates'
 import { bankFor } from './bank'
+import { linksFor, mediaBase } from './media'
 
 /** The manual's specific edit moves, in the order it lists them. */
 export const EDIT_MOVES = [
@@ -43,6 +44,11 @@ export type EditorTask = {
   id: string
   source_post: string
   source_url: string
+  /** The clip itself, off the Mac, for the batcher. Null when the Mac is
+   *  asleep or the reel never made it into the library — every one of these
+   *  tasks is "re-cut this video", so a task with no video to open is the one
+   *  thing the queue must not pretend it has. */
+  download: string | null
   kind: 'edit' | 'trial'
   move: string
   due_date: string
@@ -101,6 +107,24 @@ export async function editorQueueFor(modelId: string): Promise<EditorQueue | nul
     [modelId],
   )
 
+  // The folder each winner's clip lives in on the Mac, keyed by shortcode.
+  // Matched on the job's source URL, the same way `hers.ts` binds her posts:
+  // the shortcode is what both sides agree on.
+  const base = await mediaBase()
+  const folders = new Map<string, string>()
+  if (base && tasks.length > 0) {
+    const codes = [...new Set(tasks.map((task) => String(task.source_post)))]
+    const rows = await sql.query(
+      `select x.code, t.folder
+         from unnest($1::text[]) as x(code)
+         join transcriber.jobs j on j.source like '%/' || x.code || '/%'
+         join transcriber.transcripts t on t.job_id = j.id
+        where t.folder is not null`,
+      [codes],
+    )
+    for (const row of rows) folders.set(String(row.code), String(row.folder))
+  }
+
   return {
     model_id: modelId,
     stage,
@@ -110,6 +134,9 @@ export async function editorQueueFor(modelId: string): Promise<EditorQueue | nul
       id: String(task.id),
       source_post: String(task.source_post),
       source_url: `https://www.instagram.com/reel/${task.source_post}/`,
+      download: base && folders.has(String(task.source_post))
+        ? linksFor(base, folders.get(String(task.source_post))!).download
+        : null,
       kind: task.kind === 'trial' ? 'trial' : 'edit',
       move: String(task.move),
       due_date: String(task.due_date),

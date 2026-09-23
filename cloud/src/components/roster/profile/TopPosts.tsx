@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { COMMENT_WEIGHT } from '@/lib/hot'
 import { formatDate } from '@/lib/dates'
 import type { HerPost } from '../types'
@@ -23,7 +24,41 @@ const SHOWN = 6
  * "good" is how you end up briefing her against one and judging her by the
  * other.
  */
-export default function TopPosts({ posts, handle }: { posts: HerPost[]; handle: string }) {
+export default function TopPosts(
+  { posts, handle, modelId, onChange }:
+  { posts: HerPost[]; handle: string; modelId: string | null; onChange?: () => void },
+) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  /** The two things one of her winners can become. Same endpoint the week
+   *  editor's strip uses — this is just the other place they are looked at,
+   *  and a decision you can only take in one of two places is one you will
+   *  take in neither. */
+  async function act(postId: string, action: 'recreate' | 'repurpose' | 'unrepurpose') {
+    // A model who has not been saved yet has no id to act against; the buttons
+    // are hidden in that case, and this is the belt to that pair of braces.
+    if (!modelId) return
+    setBusy(postId)
+    const response = await fetch(`/api/models/${modelId}/posts/${postId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    const body = await response.json().catch(() => ({}))
+    setBusy(null)
+    if (!response.ok) { setNote(body.error ?? 'That did not go through.'); return }
+    if (action === 'recreate') {
+      setNote(body.added ? 'On her week as a reskin — shoot it again as it was.' : 'Already on her week.')
+    } else if (action === 'repurpose') {
+      if (body.download) window.location.href = body.download
+      setNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')
+    } else {
+      setNote('No longer marked to repost.')
+    }
+    onChange?.()
+  }
+
   const ranked = [...posts]
     .map((post) => ({ post, score: scoreOf(post) }))
     // A post nobody has counts for scores zero and sinks, rather than being
@@ -75,10 +110,24 @@ export default function TopPosts({ posts, handle }: { posts: HerPost[]; handle: 
                 </span>
                 <span className="toppost-rank">{index + 1}</span>
               </a>
+              {/* The thumbnail opens Instagram, which is the one thing it can
+                  do that we cannot. These are the two things we can. */}
+              <span className="toppost-acts" hidden={!modelId}>
+                <button className="btn btn-small btn-quiet" disabled={busy === post.id}
+                        onClick={() => void act(post.id, 'recreate')}>
+                  She shoots it again
+                </button>
+                <button className="btn btn-small btn-quiet" disabled={busy === post.id}
+                        data-on={post.repurposed ? true : undefined}
+                        onClick={() => void act(post.id, post.repurposed ? 'unrepurpose' : 'repurpose')}>
+                  {post.repurposed ? 'Reposting ✓' : 'Get the video to repost'}
+                </button>
+              </span>
             </li>
           ))}
         </ul>
       )}
+      {note && <span className="hint">{note}</span>}
     </div>
   )
 }

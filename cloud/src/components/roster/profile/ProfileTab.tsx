@@ -95,7 +95,7 @@ export default function ProfileTab({
         onRecorded={onRecorded}
       />
 
-      <TopPosts posts={posts} handle={form.handle} />
+      <TopPosts posts={posts} handle={form.handle} modelId={modelId} />
 
       {/* Only a professional (Business or Creator) account can ever authorise
           Insights, which is where views, saves and watch time come from. Asked

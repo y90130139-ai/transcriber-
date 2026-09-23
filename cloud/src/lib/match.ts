@@ -123,6 +123,25 @@ export const alsoOn = (job: string, model: string) => `
 /** She has said no to this video's format. A hard exclusion, applied before scoring. */
 const NOT_REFUSED = `not (coalesce(g.format, '{}'::text[]) && m.wont_do)`
 
+/**
+ * A reel about a subject goes only to a model in that subject.
+ *
+ * Weight alone was not enough: with topic merely *adding* to the score, three
+ * golf reels landed in Helwife's week and three more in Juno's on the first
+ * run — neither has anything to do with golf, and neither has a course to
+ * film on. A subject is a gate, not a bonus.
+ *
+ * `relatable` and `unknown` are not subjects, so they pass: the first is meant
+ * for everyone, and the second means nobody could tell, which is not grounds
+ * to refuse it.
+ */
+const TOPIC_ALLOWED = `
+  not exists (
+    select 1 from unnest(coalesce(g.topic, '{}'::text[])) as subject
+     where subject not in ('relatable', 'unknown')
+       and not (subject = any(coalesce(m.topics, '{}'::text[])))
+  )
+`
 /** She already has it. Recommending what is on her plan is noise. */
 const NOT_ASSIGNED = `
   not exists (
@@ -152,6 +171,7 @@ export async function modelsForJob(jobId: string) {
            left join scored   s on s.job_id = t.job_id
            left join baseline b on b.author = t.author
           where m.status = 'active' and ${NOT_REFUSED} and ${NOT_ASSIGNED}
+            and ${TOPIC_ALLOWED}
        ) ranked
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.name`,
@@ -182,10 +202,12 @@ export async function suggestionsFor(
   const niches = topics && topics.length > 0
   let fit = override ? FIT.replaceAll('m.formats', '$2::text[]') : FIT
   let why = override ? MATCHED.replaceAll('m.formats', '$2::text[]') : MATCHED
+  let gate = TOPIC_ALLOWED
   if (niches) {
     const slot = override ? '$3::text[]' : '$2::text[]'
     fit = fit.replaceAll('m.topics', slot)
     why = why.replaceAll('m.topics', slot)
+    gate = gate.replaceAll('m.topics', slot)
   }
   return sql.query(
     `with ${SCORING_CTE}, ${ITEM_TAGS}
@@ -203,7 +225,7 @@ export async function suggestionsFor(
          join transcriber.transcripts t on t.job_id = j.id
          left join scored   s on s.job_id = t.job_id
          left join baseline b on b.author = t.author
-        where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED}
+        where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED} and ${gate}
      ) ranked
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc

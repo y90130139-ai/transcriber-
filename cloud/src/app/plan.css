@@ -1759,3 +1759,91 @@
   line-height: var(--sc-leading-body);
   color: var(--sc-ink-500);
 }
+
+/* ============================================================
+   THE HEADER THAT STAYS — Geno, 2026-09-23.
+   It rides along as she scrolls, so which week it is and how
+   many are filmed never leave the screen. Condensed once it
+   leaves its own space, because the full block is half a phone
+   and she came here to read the cards, and tuckable because a
+   thing that will not get out of the way is worse than one that
+   was never there.
+   ============================================================ */
+.plan-mark { height: 0; }
+
+.plan-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  transition: padding var(--sc-dur) var(--sc-ease),
+              transform var(--sc-dur) var(--sc-ease),
+              box-shadow var(--sc-dur) var(--sc-ease);
+}
+
+/* Off its own space: everything that was scene-setting goes, and what is
+   left is the three facts she is actually tracking — which week, how many
+   filmed, and the way into her run. */
+.plan-head[data-stuck] {
+  padding: var(--sc-space-3) var(--sc-space-4);
+  box-shadow: var(--sc-lift-2);
+}
+.plan-head[data-stuck] .plan-face { width: 2rem; height: 2rem; }
+.plan-head[data-stuck] .plan-week { font-size: var(--sc-text-lg); margin: var(--sc-space-2) 0 0; }
+.plan-head[data-stuck] .plan-title,
+.plan-head[data-stuck] .plan-eyebrow { display: none; }
+.plan-head[data-stuck] .plan-bar { margin-top: var(--sc-space-2); }
+.plan-head[data-stuck] .plan-facts { margin-top: var(--sc-space-1); font-size: 0.62rem; }
+
+/* Out of the way, on her say-so. It is lifted rather than unmounted so the
+   scroll position underneath does not jump by the height of the header. */
+.plan-head[data-tucked] {
+  transform: translateY(-140%);
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.plan-tuck {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(246, 243, 238, 0.30);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--plan-on-ink);
+  cursor: pointer;
+}
+.plan-tuck:active { transform: scale(0.96); }
+
+/* The way back: small, fixed, and carrying the one number worth keeping in
+   view while it is gone. */
+.plan-untuck {
+  position: fixed;
+  top: var(--sc-space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-height: 2.25rem;
+  padding: 0 var(--sc-space-4);
+  border: 1px solid var(--sc-ember);
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-900);
+  color: var(--sc-ember-light);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--sc-lift-2);
+}
+:root[data-theme='light'] .plan-untuck { background: var(--sc-ink-900); }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-head { transition: none; }
+}

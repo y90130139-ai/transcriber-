@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
 import RunSheet from './RunSheet'
 import ThemeToggle from './ThemeToggle'
@@ -81,6 +81,25 @@ export default function PlanView({
    *  preview: it reads live figures for a real model and there is nothing to
    *  check by opening it from Geno's screen. */
   const [runOpen, setRunOpen] = useState(false)
+  /** Her week's header rides along as she scrolls, condensed once it has left
+   *  its own space, and tucked away entirely if she wants the screen back. */
+  const [stuck, setStuck] = useState(false)
+  const [tucked, setTucked] = useState(false)
+  const topMark = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const sentinel = topMark.current
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return
+    // A sentinel above the header rather than a scroll listener: it fires
+    // twice per screen instead of on every pixel, which is what keeps this
+    // from costing her a frame on an old phone.
+    const watch = new IntersectionObserver(
+      ([entry]) => setStuck(!entry.isIntersecting),
+      { threshold: 0 },
+    )
+    watch.observe(sentinel)
+    return () => watch.disconnect()
+  }, [])
 
   // Either half is enough to have something to say. Neither, and every
   // delivery render on this page is skipped rather than drawn empty.
@@ -114,9 +133,12 @@ export default function PlanView({
   return (
     <main className="plan">
       {runOpen && !preview && <RunSheet token={token} onClose={() => setRunOpen(false)} />}
+      {/* What says the header has left its own space. Zero height, no paint. */}
+      <div ref={topMark} className="plan-mark" aria-hidden="true" />
+
       {/* The week is the headline, not her name — she knows who she is, and
           what she opens this to find out is which week she is looking at. */}
-      <header className="plan-head">
+      <header className="plan-head" data-stuck={stuck || undefined} data-tucked={tucked || undefined}>
         <div className="plan-who">
           {model.photo_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -145,6 +167,20 @@ export default function PlanView({
               Your run
             </button>
             <ThemeToggle />
+            {/* Only worth offering once it is actually in her way. */}
+            {stuck && (
+              <button
+                type="button"
+                className="plan-tuck"
+                onClick={() => setTucked(true)}
+                aria-label="Tuck this out of the way"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M6 15l6-6 6 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -180,6 +216,16 @@ export default function PlanView({
           <span>Filming {filmingDaysLabel(model.filming_days)}</span>
         </p>
       </header>
+
+      {tucked && (
+        <button type="button" className="plan-untuck" onClick={() => setTucked(false)}>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+          {done}/{total} filmed
+        </button>
+      )}
 
       <div className="plan-body" ref={body}>
         {plan.intro && <p className="plan-intro">{plan.intro}</p>}

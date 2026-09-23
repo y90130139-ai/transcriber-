@@ -807,6 +807,29 @@ const statements = [
    )`,
   `create index if not exists repurposes_model_idx on transcriber.repurposes (model_id, created_at desc)`,
 
+  // Her "no", kept apart from the card it was said on.
+  //
+  // Declines lived only on `plan_items`, and matching skipped a reel because
+  // that row still existed — delete the card and the same reel could be
+  // offered to her again next week. This is the record that outlives the
+  // card: one row per model per reel, the first refusal kept.
+  `create table if not exists transcriber.declines (
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     job_id     text not null references transcriber.jobs(id) on delete cascade,
+     code       text,
+     reason     text,
+     declined_at timestamptz not null default now(),
+     primary key (model_id, job_id)
+   )`,
+
+  // Who the creator is. Added 2026-09-23, after the caption writer addressed
+  // Magnus — a man — as "a Connecticut girl" for a whole week, because nothing
+  // on a model said otherwise and the roster's default reading is female.
+  // `unknown` is a real answer and the default: nobody has said is not the
+  // same as nobody knows.
+  `alter table transcriber.models
+     add column if not exists creator_type text not null default 'unknown'`,
+
   // Her niches — golf, cars, trivia. The fourth tag axis, added 2026-09-22:
   // the library held 51 golf reels and nothing said they were golf, so the
   // golf model got generic tests instead.

@@ -22,12 +22,27 @@ const MAX_WEEKLY_TARGET = 200
  *  open", short enough that it never becomes a second brief. */
 const MAX_DELIVERY_NOTE = 600
 
+/**
+ * Who the creator is, in the words the writing actually needs.
+ *
+ * Not a taxonomy of identity — a fact the caption engine has to have before it
+ * can write a line in her voice. Kept deliberately short, and `unknown` never
+ * guesses: a caption written for the wrong person is worse than one written
+ * for nobody in particular.
+ */
+export const CREATOR_TYPES = ['unknown', 'woman', 'man', 'trans-woman', 'trans-man', 'non-binary', 'couple'] as const
+export type CreatorType = (typeof CREATOR_TYPES)[number]
+
+export function isCreatorType(value: unknown): value is CreatorType {
+  return typeof value === 'string' && (CREATOR_TYPES as readonly string[]).includes(value)
+}
+
 /** Every column of a model row the console is allowed to see. `notes` and
  *  `access_token` are in here on purpose — this is the operator's own view. */
 export const MODEL_COLUMNS = `
   id, name, handle, photo_url, persona, formats, hooks, wont_do,
   status, tier, filming_days, weekly_target, timezone, place, standing_rules, notes,
-  drive_url, delivery_note, ig_account_type, socials,
+  drive_url, delivery_note, ig_account_type, creator_type, socials,
   access_token, token_revoked_at, created_at
 `
 
@@ -66,6 +81,7 @@ export type ModelInput = {
    *  gate on views, saves and watch time for her — asked at intake, and
    *  `unknown` until somebody has actually checked rather than assumed. */
   ig_account_type: 'unknown' | 'personal' | 'professional'
+  creator_type: CreatorType
   /** Every account of hers worth opening. Ordered — the order is the order the
    *  buttons render in, and it is stated rather than sorted. */
   socials: Social[]
@@ -147,6 +163,7 @@ export function readModelInput(body: Record<string, unknown>): ModelInput | { er
       body.ig_account_type === 'professional' || body.ig_account_type === 'personal'
         ? body.ig_account_type
         : 'unknown',
+    creator_type: isCreatorType(body.creator_type) ? body.creator_type : 'unknown',
     // Rows that will not parse are dropped rather than stored, the same way a
     // non-http Drive URL is: a button that opens nothing is worse on a phone
     // than no button, because there is no way to tell the two apart until it
@@ -436,7 +453,18 @@ export async function appendItems(
   let position = Number(row?.last ?? -1)
   let added = 0
 
+  // Anything she already said no to never goes back on her week — not by the
+  // planner, not by a bulk add, not by a mis-tap on the assign rail. The rail
+  // blocks it in the UI; this is the same rule where it cannot be clicked past.
+  const refused = await sql.query(
+    `select job_id from transcriber.declines
+      where model_id = $1 and job_id = any($2::text[])`,
+    [modelId, jobIds],
+  )
+  const declined = new Set(refused.map((row) => String(row.job_id)))
+
   for (const [index, jobId] of jobIds.entries()) {
+    if (declined.has(jobId)) continue
     const extras = extrasFor?.(jobId, index) ?? {}
     // A reskin or an iteration points at HER reel, so the brief must stop
     // coaching her to fix its opening. `source_post` is what says whose it is.

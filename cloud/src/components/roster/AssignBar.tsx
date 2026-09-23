@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { currentWeekOf } from '@/lib/dates'
 import ModelWeekPicker from './ModelWeekPicker'
 import { labelOf } from '@/lib/taxonomy'
+import { DECLINE_LABEL, isDeclineCode } from '@/lib/decline'
 import type { ModelFit } from './types'
 
 const DONE_RESET_MS = 2400
@@ -17,6 +18,13 @@ type Choice = { id: string; name: string; week_items: number }
  * is created if it does not exist yet. The brief is drafted on the way in, so
  * the item never lands blank.
  */
+/** Why she is blocked, in her own words where she gave any. */
+function declinedTitle(fit: ModelFit): string | null {
+  if (!fit.declined_code && !fit.declined_reason) return null
+  const said = isDeclineCode(fit.declined_code) ? DECLINE_LABEL[fit.declined_code] : null
+  return ['She turned this reel down', said, fit.declined_reason].filter(Boolean).join(' — ')
+}
+
 export default function AssignBar({ jobId }: { jobId: string }) {
   const [models, setModels] = useState<Choice[]>([])
   const [modelId, setModelId] = useState('')
@@ -82,11 +90,18 @@ export default function AssignBar({ jobId }: { jobId: string }) {
               className="chip"
               data-on={modelId === fit.id}
               data-done={added.has(fit.id) || undefined}
+              // She said no to this exact reel. Left visible and unpressable:
+              // a name that simply vanished from the rail reads as a bug, and
+              // the useful thing is knowing she was asked and said no.
+              data-declined={fit.declined_code || fit.declined_reason ? true : undefined}
+              disabled={Boolean(fit.declined_code || fit.declined_reason)}
               onClick={() => setModelId(fit.id)}
-              title={fit.matched.join(', ')}
+              title={declinedTitle(fit) ?? fit.matched.join(', ')}
             >
               {added.has(fit.id) ? '✓ ' : ''}{fit.name}
-              {fit.matched.length > 0 && (
+              {fit.declined_code || fit.declined_reason ? (
+                <em> said no</em>
+              ) : fit.matched.length > 0 && (
                 <em> {fit.matched.slice(0, 2).map((tag) => labelOf('format', tag)).join(', ')}</em>
               )}
             </button>

@@ -15,6 +15,19 @@ const IG_CHOICES = [
   ['personal', 'Personal'],
 ] as const
 
+/** Who the creator is. Not a taxonomy of identity — the caption engine writes
+ *  in her voice and has to know whose voice it is. Left at "not set", it
+ *  wrote a week of "3 reasons to date a Connecticut girl" for Magnus. */
+const CREATOR_CHOICES = [
+  ['unknown', 'Not set'],
+  ['woman', 'Woman'],
+  ['man', 'Man'],
+  ['trans-woman', 'Trans woman'],
+  ['trans-man', 'Trans man'],
+  ['non-binary', 'Non-binary'],
+  ['couple', 'Couple'],
+] as const
+
 const IG_HINT: Record<ProfileForm['ig_account_type'], string> = {
   professional: 'Her numbers are readable once the app is approved — views, saves, watch time.',
   personal: 'Switch her to a Creator account, or we never see how her posts did.',
@@ -96,6 +109,28 @@ export default function ProfileTab({
       />
 
       <TopPosts posts={posts} handle={form.handle} modelId={modelId} />
+
+      <div className="form-row">
+        <span className="axis-name">Who the creator is</span>
+        <div className="chips" role="group" aria-label="Creator type">
+          {CREATOR_CHOICES.map(([value, label]) => (
+            <button
+              key={value}
+              className="chip"
+              data-on={form.creator_type === value}
+              aria-pressed={form.creator_type === value}
+              onClick={() => set('creator_type', value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="hint">
+          {form.creator_type === 'unknown'
+            ? 'Captions and DMs are written in her voice — left unset, the writer guesses, and it guesses female.'
+            : 'Used by the caption and DM writer, and nowhere else.'}
+        </span>
+      </div>
 
       {/* Only a professional (Business or Creator) account can ever authorise
           Insights, which is where views, saves and watch time come from. Asked

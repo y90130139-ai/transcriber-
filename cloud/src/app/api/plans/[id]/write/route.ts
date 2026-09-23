@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
+import { isSignedIn, isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { aiReady } from '@/lib/ai'
 import { writeCard } from '@/lib/writer'
@@ -16,7 +16,12 @@ const PER_REQUEST = 5
 /** Write the T6 DM and three captions for the cards on this plan that do not
  *  have them yet. On demand only: the allowance is shared with Whisper. */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  // The console button, or the worker secret — the same pair `/api/retag`
+  // takes, so this can be run for a whole week from a terminal or a timer
+  // rather than only by somebody holding the page open.
+  if (!(isWorker(request) || (await isSignedIn()))) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
   if (!aiReady()) return NextResponse.json({ error: 'Workers AI is not configured' }, { status: 503 })
   const { id } = await params
   const body = await request.json().catch(() => ({}))

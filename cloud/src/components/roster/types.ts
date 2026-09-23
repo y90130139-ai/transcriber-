@@ -28,6 +28,7 @@ export type Model = {
    *  (Business or Creator) account can authorise Insights. `unknown` on every
    *  row saved before intake asked the question. */
   ig_account_type: 'unknown' | 'personal' | 'professional'
+  creator_type?: string | null
   /** Every account of hers worth opening, in the order the buttons render.
    *  Empty on any row saved before the column existed — her `handle` still
    *  renders an Instagram button, see `withImpliedInstagram`. */
@@ -186,7 +187,15 @@ export type HerPost = {
 }
 
 /** A model scored against one library item, for the assign control. */
-export type ModelFit = { id: string; name: string; fit: number; matched: string[] }
+export type ModelFit = {
+  id: string
+  name: string
+  fit: number
+  matched: string[]
+  /** She turned this exact reel down. Shown and blocked rather than hidden. */
+  declined_code?: string | null
+  declined_reason?: string | null
+}
 
 /** A library item scored against one model, for "suggested for her". */
 export type Suggestion = {

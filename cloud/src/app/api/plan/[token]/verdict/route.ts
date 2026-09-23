@@ -61,6 +61,27 @@ export async function POST(request: Request, { params }: Params) {
   )
   if (!item) return notFound()
 
+  // Her "no", kept where a deleted card cannot take it with her. Matching
+  // reads this, so a reel she turned down is never offered to her again —
+  // and a change of mind removes it, because an undo that only half-undoes
+  // is worse than no undo.
+  if (verdict === 'declined') {
+    await sql.query(
+      `insert into transcriber.declines (model_id, job_id, code, reason)
+       select $1, i.job_id, $3::text, $4::text from transcriber.plan_items i where i.id = $2
+       on conflict (model_id, job_id) do update
+          set code = excluded.code, reason = excluded.reason, declined_at = now()`,
+      [owned.modelId, owned.id, code, reason],
+    )
+  } else {
+    await sql.query(
+      `delete from transcriber.declines d
+        using transcriber.plan_items i
+        where i.id = $2 and d.job_id = i.job_id and d.model_id = $1`,
+      [owned.modelId, owned.id],
+    )
+  }
+
   // Only a change is an act, as with filming. Recorded after the response so
   // measurement never costs her a moment on the tap.
   if (verdict !== owned.verdict) {

@@ -142,6 +142,21 @@ const TOPIC_ALLOWED = `
        and not (subject = any(coalesce(m.topics, '{}'::text[])))
   )
 `
+/**
+ * She said no to this one.
+ *
+ * `NOT_ASSIGNED` below already skips anything sitting on a plan of hers, which
+ * covered a declined card only for as long as the card existed — delete it and
+ * the same reel came back the following week. This reads the decline itself,
+ * so her "no" survives the card, the week and the plan.
+ */
+const NOT_DECLINED = `
+  not exists (
+    select 1 from transcriber.declines d
+     where d.model_id = m.id and d.job_id = j.id
+  )
+`
+
 /** She already has it. Recommending what is on her plan is noise. */
 const NOT_ASSIGNED = `
   not exists (
@@ -161,10 +176,13 @@ const NOT_ASSIGNED = `
 export async function modelsForJob(jobId: string) {
   return sql.query(
     `with ${SCORING_CTE}, ${ITEM_TAGS}
-     select ranked.id, ranked.name, ranked.fit, ranked.matched
+     select ranked.id, ranked.name, ranked.fit, ranked.matched,
+            ranked.declined_code, ranked.declined_reason
        from (
-         select m.id, m.name, (${FIT})::float as fit, ${MATCHED} as matched
+         select m.id, m.name, (${FIT})::float as fit, ${MATCHED} as matched,
+                d.code as declined_code, d.reason as declined_reason
            from transcriber.models m
+           left join transcriber.declines d on d.model_id = m.id and d.job_id = $1
            join transcriber.jobs j on j.id = $1
            join item_tags g on g.job_id = j.id
            left join transcriber.transcripts t on t.job_id = j.id
@@ -225,7 +243,7 @@ export async function suggestionsFor(
          join transcriber.transcripts t on t.job_id = j.id
          left join scored   s on s.job_id = t.job_id
          left join baseline b on b.author = t.author
-        where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED} and ${gate}
+        where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED} and ${NOT_DECLINED} and ${gate}
      ) ranked
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc

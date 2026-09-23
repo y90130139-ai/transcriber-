@@ -29,6 +29,52 @@ const FORMULAS = [
 
 type Written = { dm?: unknown; captions?: unknown }
 
+/**
+ * How the writer is told to address the creator.
+ *
+ * Deliberately about words rather than identity: the caption engine writes a
+ * line somebody will read as hers, and the only thing it needs to know is
+ * which words are hers. `unknown` refuses to guess — no gendered word at all
+ * is a safe caption; the wrong one is not.
+ */
+const WHO: Record<string, string> = {
+  woman: 'The creator is a woman. Use she/her, and words like girl or woman where they fit.',
+  man: 'The creator is a MAN. Use he/him. Never write girl, woman, she or her about him, '
+    + 'and never write a caption addressed to men about a woman.',
+  'trans-woman': 'The creator is a trans woman. Use she/her. Do not make being trans the subject '
+    + 'of a caption unless her own words already do.',
+  'trans-man': 'The creator is a trans man. Use he/him. Do not make being trans the subject '
+    + 'of a caption unless his own words already do.',
+  'non-binary': 'The creator is non-binary. Use they/them, and no gendered nouns at all.',
+  couple: 'The creator is a couple — two people. Use we/us in captions and they/them about them.',
+  unknown: 'Nobody has said who this creator is, so use NO gendered words at all: '
+    + 'no she, he, girl, guy, woman or man, and no gendered framing.',
+}
+
+/**
+ * Words that give away the wrong person.
+ *
+ * The prompt says who the creator is and the model still wrote "3 reasons to
+ * date a Connecticut girl" on 7 of 21 cards for a man (2026-09-23, second
+ * run). Same lesson as the praise filter directly below: state it in the
+ * prompt, then enforce it here, because the prompt is advice and this is not.
+ */
+const WRONG_WORDS: Record<string, RegExp> = {
+  woman: /\b(he|him|his|guy|guys|dude|man|men|boyfriend material)\b/i,
+  man: /\b(she|her|hers|girl|girls|woman|women|ladies|queen)\b/i,
+  'trans-woman': /\b(he|him|his|guy|dude|man|men)\b/i,
+  'trans-man': /\b(she|her|hers|girl|girls|woman|women|ladies)\b/i,
+  'non-binary': /\b(he|him|his|she|her|hers|girl|girls|guy|guys|woman|women|man|men)\b/i,
+  unknown: /\b(he|him|his|she|her|hers|girl|girls|guy|guys|woman|women|man|men)\b/i,
+}
+
+/** Two captions are "the same" when what they say is the same. Numbers and
+ *  punctuation move around freely — "2 reasons to date a Connecticut girl" and
+ *  "3 reasons to date a Connecticut girl" are one caption, not two. */
+function shapeOf(caption: string): string {
+  return caption.toLowerCase().replace(/[0-9]+/g, '#').replace(/[^a-z#\s]/g, '').replace(/\s+/g, ' ').trim()
+}
+
 /** A "baited" comment that is really praise. Nobody needs a caption to type
  *  "love this"; the manual's QC pass cuts exactly these. */
 const PRAISE = /\b(love (this|it|you)|so (you|true|cute|pretty|hot)|killing it|slay|nailed|queen|obsessed|gorgeous|beautiful|stunning|yes girl|you go|amazing|perfect|obsessed)\b/i
@@ -56,6 +102,7 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     `select i.id, i.bucket, i.axis, i.hook, i.caption, i.notes, i.wardrobe, i.location, i.title,
             t.duration_sec, left(coalesce(t.plain, ''), 600) as reference_words,
             m.name, m.persona, m.place, m.standing_rules, m.wont_do, m.verticals, m.handle,
+            m.creator_type, i.plan_id,
             coalesce((select array_agg(g.tag) from transcriber.tags g
                        where g.job_id = i.job_id and g.axis = 'format'), '{}') as formats,
             (select string_agg(left(coalesce(h.plain, ''), 200), ' ')
@@ -73,6 +120,26 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
 
   const formats = (row.formats as string[]) ?? []
   const persona = ((row.persona as string[]) ?? []).map((tag) => labelOf('persona', tag))
+
+  // Whose voice this is. Left unset the model reads the roster's centre of
+  // gravity and writes female — which is how Magnus, a man, was given a week
+  // of "3 reasons to date a Connecticut girl" (2026-09-23).
+  const who = WHO[String(row.creator_type ?? 'unknown')] ?? WHO.unknown
+
+  // What has already been written for this week, so twenty cards stop
+  // converging on the same three sentences. Each card is one call and knows
+  // nothing about its siblings unless it is told.
+  const siblings = await sql.query(
+    `select caption_options from transcriber.plan_items
+      where plan_id = $1 and id <> $2 and caption_options is not null
+      order by position limit 24`,
+    [row.plan_id, itemId],
+  )
+  const already = siblings
+    .flatMap((r) => (Array.isArray(r.caption_options) ? r.caption_options as CaptionOption[] : []))
+    .map((option) => option.caption)
+    .filter(Boolean)
+    .slice(0, 40)
   const rule = copyRuleFor((row.bucket as Bucket | null) ?? null, (row.axis as string | null) ?? null)
   const verticals = Array.isArray(row.verticals)
     ? (row.verticals as { name: string }[]).map((v) => v.name).join(', ')
@@ -84,10 +151,11 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     '',
     'CREATOR',
     `- Name: ${row.name}`,
+    `- ${who}`,
     persona.length ? `- Persona: ${persona.join(', ')}` : '',
-    row.place ? `- Where she is: ${row.place}` : '',
+    row.place ? `- Where they are: ${row.place}` : '',
     verticals ? `- Her verticals: ${verticals}` : '',
-    row.her_words ? `- Words she actually uses (from her own videos): ${String(row.her_words).slice(0, 500)}` : '',
+    row.her_words ? `- Words the creator actually uses (from their own videos): ${String(row.her_words).slice(0, 500)}` : '',
     row.standing_rules ? `- Always: ${row.standing_rules}` : '',
     (row.wont_do as string[] | null)?.length ? `- Never: ${(row.wont_do as string[]).map((t) => labelOf('format', t)).join(', ')}` : '',
     '',
@@ -108,9 +176,17 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
       : '- This is a new idea for her.',
     'Never mention any other creator, handle, account, source, or model. Never use the words card, reskin, iteration, vertical, bucket or winner card.',
     '',
-    'TASK 2 — "captions": exactly 3 captions, each using a different formula from:',
+    // Five asked for, three kept. The manual has five formulas and the filters
+    // below drop anything written for the wrong person or already said this
+    // week — asking for exactly three left cards with one caption on it.
+    'TASK 2 — "captions": exactly 5 captions, one for each formula:',
     ...FORMULAS.map((f, i) => `${i + 1}. ${f}`),
-    'Each caption under 12 words, sounding like her, using only traits she actually has from the profile above.',
+    'Each caption under 12 words, sounding like the creator, using only traits they actually have above.',
+    already.length
+      ? 'ALREADY USED THIS WEEK — do not repeat or paraphrase any of these:\n' + already.map((c) => `- ${c}`).join('\n')
+      : '',
+    'Do not build every caption around where they live, and do not borrow an incidental detail '
+      + 'from the reference words (a prop, a one-off line) as if it were her subject.',
     '"baits" is the exact comment a real stranger would type in reply. It must be a disagreement, a correction,',
     'a question, tagging a friend, or "this is literally me" — NEVER a compliment or praise for her.',
     'A caption that only draws "love this" baits nothing and fails.',
@@ -118,7 +194,7 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     'Hard bans: no emojis, no hashtags, no em-dash asides, no "not just X but Y", no politics, race, religion or body-shaming.',
   ].filter(Boolean).join('\n')
 
-  const written = await askJson<Written>(prompt, { maxTokens: 520, temperature: 0.6, model: WRITER_MODEL })
+  const written = await askJson<Written>(prompt, { maxTokens: 760, temperature: 0.75, model: WRITER_MODEL })
   if (!written) return { item_id: itemId, ok: false, reason: 'the model returned nothing usable' }
 
   const dm = typeof written.dm === 'string' ? cleanDm(written.dm) : null
@@ -133,13 +209,33 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     // nothing — and a compliment is not a comment anyone needed a caption to type.
     // Enforced here rather than trusted to the prompt, which the first runs ignored.
     .filter((c) => c.caption.length > 0 && c.baits.length > 0 && !PRAISE.test(c.baits))
-    .slice(0, 3)
+
+  const wrong = WRONG_WORDS[String(row.creator_type ?? 'unknown')] ?? WRONG_WORDS.unknown
+  const seen = new Set(already.map(shapeOf))
+  const kept: CaptionOption[] = []
+  for (const option of captions) {
+    // Written for the wrong person, or already said this week. Either way it
+    // is dropped rather than stored: a card with two captions she can use is
+    // worth more than three with one that calls her the wrong thing.
+    if (wrong.test(option.caption)) continue
+    const shape = shapeOf(option.caption)
+    if (seen.has(shape)) continue
+    seen.add(shape)
+    kept.push(option)
+    if (kept.length === 3) break
+  }
 
   await sql.query(
     `update transcriber.plan_items set brief_short = coalesce($2, brief_short),
             caption_options = case when $3::jsonb = '[]'::jsonb then caption_options else $3::jsonb end
       where id = $1`,
-    [itemId, dm, JSON.stringify(captions)],
+    [itemId, dm, JSON.stringify(kept)],
   )
-  return { item_id: itemId, ok: Boolean(dm || captions.length) }
+  return {
+    item_id: itemId,
+    ok: Boolean(dm || kept.length),
+    reason: kept.length === 0 && captions.length > 0
+      ? 'every caption was written for the wrong person or already used this week'
+      : undefined,
+  }
 }

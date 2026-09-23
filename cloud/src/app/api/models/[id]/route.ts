@@ -82,6 +82,7 @@ export async function PUT(request: Request, { params }: Params) {
             filming_days = $10::int[], weekly_target = $11, timezone = $12,
             standing_rules = $13, notes = $14, tier = $18, place = $19,
             drive_url = $20, delivery_note = $21, ig_account_type = $22,
+            creator_type = $24,
             socials = $23::jsonb,
             access_token = case when $15 then $16 else access_token end,
             token_revoked_at = case when $15 then null
@@ -99,6 +100,7 @@ export async function PUT(request: Request, { params }: Params) {
       input.tier, input.place,
       input.drive_url, input.delivery_note, input.ig_account_type,
       JSON.stringify(input.socials),
+      input.creator_type,
     ],
   )
   if (!model) return notFound()

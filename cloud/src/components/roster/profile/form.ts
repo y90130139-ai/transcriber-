@@ -3,6 +3,7 @@
  *  Lifted out of the sheet itself so each tab can be typed against it without
  *  importing the component that owns it, and so `BLANK` and `fromModel` stay
  *  the single answer to "what does a new model start as". */
+import { isCreatorType, type CreatorType } from '@/lib/models'
 import type { Social } from '@/lib/socials'
 import { DEFAULT_ZONE, displayPlace, placeFor } from '@/lib/timezones'
 import type { Model } from '../types'
@@ -37,6 +38,7 @@ export type ProfileForm = {
   drive_url: string
   delivery_note: string
   ig_account_type: 'unknown' | 'personal' | 'professional'
+  creator_type: CreatorType
 }
 
 export type SetField = <K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) => void
@@ -62,6 +64,7 @@ export const BLANK: ProfileForm = {
   // Unknown until somebody has looked at her account, which is not the same
   // as personal. Only a professional account can ever hand back Insights.
   ig_account_type: 'unknown',
+  creator_type: 'unknown',
   delivery_note: DELIVERY_NOTE_DEFAULT,
 }
 
@@ -89,5 +92,6 @@ export function fromModel(model: Model): ProfileForm {
     // preserving.
     delivery_note: model.delivery_note ?? DELIVERY_NOTE_DEFAULT,
     ig_account_type: model.ig_account_type ?? 'unknown',
+    creator_type: isCreatorType(model.creator_type) ? model.creator_type : 'unknown',
   }
 }

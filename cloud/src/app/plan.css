@@ -1296,9 +1296,24 @@
   border-radius: var(--r-sm);
   color: var(--sc-ink-700);
 }
+/* "Your winner" is the one chip that is good news, so it is set solid rather
+   than outlined — the same treatment the card's primary button gets, and for
+   the same reason: an outline reads as a label, a fill reads as a fact.
+   Geno, 2026-09-23. The other buckets stay outlined; if every chip were
+   filled, none of them would mean anything. */
 .plan-bucket[data-bucket='reskin'] {
   border-color: var(--sc-ember);
   color: var(--sc-ember-deep);
+}
+/* Filled on the light ground only. On white an ember outline reads as a
+   label; filled, it reads as a fact, which is what "your winner" is. Night
+   already carries it as ember type on a dark card and filling it there would
+   put a third block of orange in the same 200 pixels. */
+:root[data-theme='light'] .plan-bucket[data-bucket='reskin'] {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #FFFFFF;
+  font-weight: 500;
 }
 
 /* Keep / change / your face — the part of the brief the manual says gets lost

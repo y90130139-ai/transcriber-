@@ -22,6 +22,12 @@
   --r-sm:   10px;   /* controls — anything she presses           */
   --r-pill: 999px;  /* counters and the item badge               */
 
+  /* Type that sits ON the ink header or the run sheet, in BOTH themes.
+     `--sc-bone` cannot do this job: it is the page ground, and night
+     inverts it to #060605, which is how "YOUR RUN" came out black on a
+     black header (2026-09-23, her screenshot). This one never inverts. */
+  --plan-on-ink: #F6F3EE;
+
   max-width: 34rem;
   margin: 0 auto;
   padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-24);
@@ -1102,6 +1108,14 @@
    from tokens.css: ember lightens on black because #C2410C on
    #0A0A0A is only 3.8:1.
    ============================================================ */
+/* Light, and actually light. Bone is the brand's ground and stays the
+   brand's ground everywhere else; her plan is the one surface read at arm's
+   length on a phone, and at that size bone read as dim rather than as warm.
+   Paper under white cards keeps the warmth in the rules and the type. */
+:root[data-theme='light'] body { background: var(--sc-paper); }
+:root[data-theme='light'] .plan-item,
+:root[data-theme='light'] .plan-group-bar { background: #FFFFFF; }
+
 /* Her choice, not her phone's. The palette below was reached through
    `prefers-color-scheme` alone until 2026-09-23, which meant a model whose
    phone was set to light could never have the dark plan and vice versa. The
@@ -1358,9 +1372,10 @@
   justify-content: center;
   gap: var(--sc-space-2);
   border-radius: var(--r-pill);
-  border: 1px solid rgba(237, 233, 227, 0.22);
-  background: rgba(237, 233, 227, 0.06);
-  color: var(--sc-bone);
+  /* `--plan-on-ink`, never `--sc-bone`: the header is ink in both themes, and
+     bone inverts to near-black on night — which printed YOUR RUN in black on
+     a black header. */
+  color: var(--plan-on-ink);
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
   letter-spacing: var(--sc-track-label);
@@ -1372,12 +1387,29 @@
               border-color var(--sc-dur) var(--sc-ease);
 }
 
-.plan-run { padding: 0 var(--sc-space-4) 0 var(--sc-space-3); }
-/* Square, so the pair balances: the pill carries the words, this carries
-   one glyph and the same height. */
-.plan-theme { width: 2.5rem; padding: 0; }
-
+/* The run is the invitation, so it is drawn in the accent rather than in a
+   hairline: ember ring, ember glyph, ember words, on a tint of itself. At
+   this size that is 6:1 on the ink header and reads from a metre away. */
+.plan-run {
+  padding: 0 var(--sc-space-4) 0 var(--sc-space-3);
+  border: 1px solid var(--sc-ember-light);
+  background: rgba(232, 102, 58, 0.14);
+  color: var(--sc-ember-light);
+  font-weight: 500;
+}
 .plan-run svg { color: var(--sc-ember-light); }
+
+/* The theme control is not an invitation — it is a setting she looks for once.
+   Same height and shape, quieter ink, so the pair balances without competing. */
+.plan-theme {
+  width: 2.5rem;
+  padding: 0;
+  border: 1px solid rgba(246, 243, 238, 0.30);
+  background: rgba(246, 243, 238, 0.08);
+}
+.plan-theme:hover,
+.plan-theme:focus-visible { border-color: rgba(246, 243, 238, 0.65); }
+
 .plan-run:active,
 .plan-theme:active { transform: scale(0.96); }
 
@@ -1387,18 +1419,18 @@
    stops being a signal and becomes wallpaper. Also stopped outright for
    anyone who asked their phone for less motion. */
 @keyframes plan-run-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 102, 58, 0.00); border-color: rgba(237, 233, 227, 0.22); }
-  50%      { box-shadow: 0 0 0 6px rgba(232, 102, 58, 0.14); border-color: rgba(232, 102, 58, 0.85); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 102, 58, 0); }
+  50%      { box-shadow: 0 0 0 7px rgba(232, 102, 58, 0.16); }
 }
 
 .plan-run {
   animation: plan-run-glow 2.6s var(--sc-ease) infinite;
 }
 .plan-run:hover,
-.plan-run:focus-visible { animation: none; border-color: rgba(232, 102, 58, 0.85); }
+.plan-run:focus-visible { animation: none; background: rgba(232, 102, 58, 0.24); }
 
 @media (prefers-reduced-motion: reduce) {
-  .plan-run { animation: none; border-color: rgba(232, 102, 58, 0.55); }
+  .plan-run { animation: none; }
 }
 
 /* ---------------------------------------------------------- THE SHEET */
@@ -1423,15 +1455,30 @@
   max-height: 92vh;
   overflow-y: auto;
   padding: var(--sc-space-5) var(--sc-space-4) var(--sc-space-8);
-  background: var(--sc-ink-900);
-  color: var(--sc-bone);
+  /* The sheet follows her choice like everything else — "either dark or
+     white, the entire thing" (Geno, 2026-09-23). Four local tokens carry it,
+     so night restates those four and nothing else in this section. */
+  --run-ground: #FFFFFF;
+  --run-ink: var(--sc-ink-900);
+  --run-quiet: var(--sc-ink-300);
+  --run-line: var(--sc-ink-150);
+  --run-fill: rgba(10, 10, 10, 0.06);
+
+  background: var(--run-ground);
+  color: var(--run-ink);
   border-radius: var(--r) var(--r) 0 0;
   animation: run-rise var(--sc-dur-slow) var(--sc-ease) both;
 }
 
 /* On her ground the sheet is already the dark surface; in night mode the
    header block is #000 and the sheet has to lift off it rather than melt in. */
-:root[data-theme='dark'] .run-sheet { background: #17151400; background-color: #171514; }
+:root[data-theme='dark'] .run-sheet {
+  --run-ground: #1B1918;
+  --run-ink: var(--plan-on-ink);
+  --run-quiet: rgba(246, 243, 238, 0.62);
+  --run-line: rgba(246, 243, 238, 0.16);
+  --run-fill: rgba(246, 243, 238, 0.08);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .run-scrim, .run-sheet { animation: none; }
@@ -1461,7 +1508,7 @@
   font-size: var(--sc-text-xl);
   letter-spacing: var(--sc-track-tight);
   text-transform: none;
-  color: var(--sc-bone);
+  color: var(--run-ink);
 }
 
 .run-close {
@@ -1473,7 +1520,7 @@
   justify-content: center;
   border: 0;
   background: transparent;
-  color: var(--sc-ink-150);
+  color: var(--run-quiet);
   cursor: pointer;
 }
 
@@ -1481,7 +1528,7 @@
   margin: 0 0 var(--sc-space-4);
   font-size: var(--sc-text-sm);
   line-height: var(--sc-leading-body);
-  color: rgba(237, 233, 227, 0.72);
+  color: var(--run-quiet);
 }
 
 /* Her three headline figures. A definition list because that is what they
@@ -1497,14 +1544,14 @@
   font-size: 0.625rem;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: rgba(237, 233, 227, 0.58);
+  color: var(--run-quiet);
 }
 .run-figures dd {
   margin: 0;
   font-family: var(--sc-font-display);
   font-size: var(--sc-text-2xl);
   letter-spacing: var(--sc-track-tight);
-  color: var(--sc-bone);
+  color: var(--run-ink);
 }
 .run-figures dd[data-hot] { color: var(--sc-ember-light); }
 
@@ -1530,7 +1577,7 @@
   flex-direction: column;
   gap: var(--sc-space-1);
   text-decoration: none;
-  color: var(--sc-bone);
+  color: var(--run-ink);
   transition: transform var(--sc-dur) var(--sc-ease);
 }
 .run-card:active { transform: scale(0.98); }
@@ -1541,7 +1588,7 @@
   aspect-ratio: 9 / 13;
   border-radius: var(--r-sm);
   overflow: hidden;
-  background: rgba(237, 233, 227, 0.08);
+  background: var(--run-fill);
 }
 .run-still img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .run-still-blank { display: block; width: 100%; height: 100%; }
@@ -1574,7 +1621,7 @@
   font-size: 0.625rem;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: rgba(237, 233, 227, 0.58);
+  color: var(--run-quiet);
 }
 
 .run-nudge {
@@ -1586,7 +1633,7 @@
   font-size: 0.625rem;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: rgba(237, 233, 227, 0.50);
+  color: var(--run-quiet);
 }
 .run-nudge button {
   width: 2.75rem;
@@ -1594,15 +1641,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(237, 233, 227, 0.22);
+  border: 1px solid var(--run-line);
   border-radius: var(--r-pill);
   background: transparent;
-  color: var(--sc-bone);
+  color: var(--run-ink);
   cursor: pointer;
 }
 
 /* ---------------------------------------------------------- KEPT UP */
-.run-kept { border-top: 1px solid rgba(237, 233, 227, 0.14); padding-top: var(--sc-space-4); }
+.run-kept { border-top: 1px solid var(--run-line); padding-top: var(--sc-space-4); }
 .run-kept h2 {
   margin: 0 0 var(--sc-space-3);
   font-family: var(--sc-font-mono);
@@ -1610,7 +1657,7 @@
   font-weight: 400;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: rgba(237, 233, 227, 0.58);
+  color: var(--run-quiet);
 }
 
 /* Seven days, Monday first. A day she missed is an unlit box, never a red
@@ -1623,8 +1670,8 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--r-sm);
-  background: rgba(237, 233, 227, 0.08);
-  color: rgba(237, 233, 227, 0.45);
+  background: var(--run-fill);
+  color: var(--run-quiet);
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
   letter-spacing: 0.04em;
@@ -1635,7 +1682,7 @@
   margin: var(--sc-space-3) 0 0;
   font-size: var(--sc-text-sm);
   line-height: var(--sc-leading-body);
-  color: rgba(237, 233, 227, 0.86);
+  color: var(--run-ink);
 }
-.run-said b { color: var(--sc-bone); font-weight: 500; }
-.run-quiet { color: rgba(237, 233, 227, 0.62); }
+.run-said b { color: var(--run-ink); font-weight: 500; }
+.run-quiet { color: var(--run-quiet); }

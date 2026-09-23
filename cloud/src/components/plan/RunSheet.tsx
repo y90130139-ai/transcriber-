@@ -104,7 +104,7 @@ export default function RunSheet({ token, onClose }: { token: string; onClose: (
                       <span className="run-still">
                         {reel.job_id ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={`/api/thumb/${reel.job_id}`} alt="" loading="lazy" />
+                          <img src={`/api/plan/${token}/thumb/${reel.job_id}`} alt="" loading="lazy" />
                         ) : (
                           <span className="run-still-blank" aria-hidden="true" />
                         )}

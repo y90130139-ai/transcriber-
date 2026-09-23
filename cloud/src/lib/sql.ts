@@ -42,3 +42,17 @@ export function preview(column: string, length: number, screen?: string): string
   const body = screen ? `coalesce(nullif(${said}, ''), ${trimmed(unpiped(screen))})` : said
   return `left(${body}, ${length})`
 }
+
+/**
+ * A job whose URL is this post's shortcode.
+ *
+ * `like '%/CODE/%'` was wrong and quietly so: half the library is stored as
+ * `instagram.com/reel/CODE` with no trailing slash, so Kaytie's two winners
+ * sat in the library with their files while the editor queue, the download
+ * fallback and the re-queue all reported nothing (measured 2026-09-22).
+ *
+ * Anchored on the slash before the code and on the end of the code, so a
+ * shortcode cannot match a longer one that merely starts with it.
+ */
+export const jobMatchesCode = (source: string, code: string) =>
+  `${source} ~ ('/' || ${code} || '/?([?#].*)?$')`

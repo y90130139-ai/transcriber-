@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
+import { jobMatchesCode } from '@/lib/sql'
 import { expiredObjects, orphanedKeys, pendingUploads } from '@/lib/r2queue'
 
 // A job still 'running' after this long means the worker died mid-transcribe.
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
              select post_id, video_url, poster_url, caption, handle, posted_at,
                     null::real, media_until
                from transcriber.creator_posts
-           ) m on j.source like '%/' || m.post_id || '/%'
+           ) m on ${jobMatchesCode('j.source', 'm.post_id')}
           where j.id = any($1::text[])
             and m.video_url is not null
             and m.media_until > now()

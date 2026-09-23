@@ -15,6 +15,7 @@
  */
 import { nanoid } from 'nanoid'
 import { sql } from './db'
+import { jobMatchesCode } from './sql'
 import { addDays, todayIn } from './dates'
 import { bankFor } from './bank'
 import { linksFor, mediaBase } from './media'
@@ -117,7 +118,7 @@ export async function editorQueueFor(modelId: string): Promise<EditorQueue | nul
     const rows = await sql.query(
       `select x.code, t.folder
          from unnest($1::text[]) as x(code)
-         join transcriber.jobs j on j.source like '%/' || x.code || '/%'
+         join transcriber.jobs j on ${jobMatchesCode('j.source', 'x.code')}
          join transcriber.transcripts t on t.job_id = j.id
         where t.folder is not null`,
       [codes],

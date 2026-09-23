@@ -19,6 +19,7 @@
  */
 import { nanoid } from 'nanoid'
 import { sql } from './db'
+import { jobMatchesCode } from './sql'
 import { bankFor, type BankPost } from './bank'
 import { normalizeUrl } from './links'
 
@@ -159,7 +160,7 @@ export async function requeueWithFreshLinks(): Promise<number> {
       where j.status = 'failed'
         and j.error like 'could not download%'
         and exists (select 1 from transcriber.creator_posts cp
-                     where j.source like '%/' || cp.post_id || '/%'
+                     where ${jobMatchesCode('j.source', 'cp.post_id')}
                        and cp.video_url is not null and cp.media_until > now())
       returning j.id`,
   )

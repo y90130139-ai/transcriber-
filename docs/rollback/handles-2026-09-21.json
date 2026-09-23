@@ -1,0 +1,31 @@
+[
+ {
+  "id": "bf1m6FSpGtrp",
+  "name": "Juno Mae",
+  "handle": "only_junomae",
+  "socials": [
+   {
+    "url": "https://www.instagram.com/only_junomae/",
+    "handle": "only_junomae",
+    "platform": "instagram"
+   }
+  ]
+ },
+ {
+  "id": "TeOY1IHMoHs1",
+  "name": "Elizabeth",
+  "handle": "dreamgirl_eli",
+  "socials": [
+   {
+    "url": "https://www.instagram.com/dreamgirl_eli/",
+    "handle": "dreamgirl_eli",
+    "platform": "instagram"
+   },
+   {
+    "url": "https://www.instagram.com/misselizabethsuzanne/",
+    "handle": "misselizabethsuzanne",
+    "platform": "instagram"
+   }
+  ]
+ }
+]

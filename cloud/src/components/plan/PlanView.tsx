@@ -94,7 +94,14 @@ export default function PlanView({
     // twice per screen instead of on every pixel, which is what keeps this
     // from costing her a frame on an old phone.
     const watch = new IntersectionObserver(
-      ([entry]) => setStuck(!entry.isIntersecting),
+      ([entry]) => {
+        setStuck(!entry.isIntersecting)
+        // Back at the top, the header comes back by itself. Tucking it is her
+        // saying "not while I am reading the cards", not "never again", and
+        // making her find the pill to undo it at the top of her own week is
+        // the kind of small toll that turns into a habit of not tucking it.
+        if (entry.isIntersecting) setTucked(false)
+      },
       { threshold: 0 },
     )
     watch.observe(sentinel)

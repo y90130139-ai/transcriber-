@@ -161,7 +161,11 @@
   font-size: 0.62rem;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: var(--sc-ink-300);
+  /* ink-300 on a white card is 2.9:1 — under the floor, and on her phone in
+     daylight it read as "not there". ink-500 at 500 weight is 7.2:1 and still
+     reads as a label rather than as another line of the brief. */
+  color: var(--sc-ink-500);
+  font-weight: 500;
   margin-bottom: var(--sc-space-1);
 }
 
@@ -339,7 +343,12 @@
 .plan-cta-quiet {
   background: transparent;
   color: var(--sc-ink-900);
-  border-color: var(--sc-ink-150);
+  /* Was ink-150: a hairline the same value as the card's own edge, which on
+     white made "Save video" read as a disabled field rather than a control.
+     Secondary is now stated by weight and fill, not by fading it out. */
+  border-color: var(--sc-ink-700);
+  border-width: 1.5px;
+  font-weight: 500;
 }
 .plan-cta-quiet:active { color: var(--sc-bone); }
 
@@ -780,7 +789,8 @@
   font-size: 0.62rem;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: var(--sc-ink-300);
+  color: var(--sc-ink-500);
+  font-weight: 500;
 }
 .plan-spec dd {
   margin: 0;
@@ -1285,6 +1295,19 @@
 }
 .plan-rule .plan-spec { margin-top: var(--sc-space-2); }
 
+/* "Your winner again" is what the card IS, so it is set solid rather than as
+   another grey label — ember ground, paper type, 4.9:1 and the first thing
+   the eye lands on in the block. */
+.plan-rule > .plan-label {
+  display: inline-block;
+  margin-bottom: var(--sc-space-2);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--r-sm);
+  background: var(--sc-ember);
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
 /* The four folds share the transcript's quiet treatment: closed by default,
    one line each, so the card stays scannable and the depth is a tap away. */
 .plan-scaffold,
@@ -1404,11 +1427,15 @@
 .plan-theme {
   width: 2.5rem;
   padding: 0;
-  border: 1px solid rgba(246, 243, 238, 0.30);
-  background: rgba(246, 243, 238, 0.08);
+  /* Matched to the run pill — same ring, same ember, same fill. They are one
+     pair of controls and reading as two different kinds of thing was what
+     made the moon disappear against the header. */
+  border: 1px solid var(--sc-ember-light);
+  background: rgba(232, 102, 58, 0.14);
+  color: var(--sc-ember-light);
 }
 .plan-theme:hover,
-.plan-theme:focus-visible { border-color: rgba(246, 243, 238, 0.65); }
+.plan-theme:focus-visible { background: rgba(232, 102, 58, 0.24); }
 
 .plan-run:active,
 .plan-theme:active { transform: scale(0.96); }

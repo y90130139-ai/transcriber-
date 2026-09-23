@@ -100,6 +100,17 @@ export function copyRuleFor(bucket: Bucket | null, axis: string | null): CopyRul
       change: 'Nothing on purpose. It did well without taking off — this tells us whether it was the idea or the day.',
     }
   }
+  if (axis === 'twist') {
+    // The reel that is about nothing in particular — a joke, a mood, a moment.
+    // It travels on its shape, so the shape is the part she keeps and the
+    // subject is the part she replaces with something out of her own life.
+    return {
+      label: 'A new idea — make it about your world',
+      keep: 'How it is built: the opening, the timing, where the turn lands.',
+      change: 'What it is about. This one is not from your world — swap the subject for '
+        + 'something out of your life, in your words. Everything else about it stays.',
+    }
+  }
   return {
     label: 'A new idea',
     keep: 'The structure: how it opens, the pacing, where the turn lands.',

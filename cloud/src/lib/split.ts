@@ -53,6 +53,10 @@ function isRelatable(pick: { matched?: unknown }): boolean {
 
 export type Bucket = 'reskin' | 'iteration' | 'test'
 
+/** A relatable reel's card: keep the shape, change the subject. */
+export const TWIST = 'twist'
+export type TwistAxis = typeof TWIST
+
 export type Counts = Record<Bucket, number>
 
 /** How many of each bucket a week of `target` reels wants.
@@ -76,8 +80,10 @@ export type PlannedCard = {
   source_multiple: number | null
   /** The library item to film, for a new test. */
   job_id: string | null
-  /** The single variable under test. Null on controls and on library cards. */
-  axis: Axis | null
+  /** The single variable under test. Null on controls and on library cards.
+   *  `twist` on a relatable reel: not a variable, but the one thing that has
+   *  to change about it — what it is about. */
+  axis: Axis | TwistAxis | null
   /** What she does, in one line. */
   instruction: string
   /** What must not move, so the result means something. */
@@ -241,7 +247,7 @@ export async function weekFor(modelId: string): Promise<Week | null> {
         source_plays: null,
         source_multiple: null,
         job_id: String(pick.id),
-        axis: null,
+        axis: isRelatable(pick) ? TWIST : null,
         instruction: isRelatable(pick)
           // The Adam Sandler case: the reel is not about her world and does not
           // need to be. What travels is the shape — the setup, the beat, the

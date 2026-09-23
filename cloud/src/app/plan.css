@@ -1229,6 +1229,22 @@
 
 /* The bar's unlit segments need to sit above pure black to stay countable. */
 :root[data-theme='dark'] .plan-bar i { background: #2B2926; }
+/* The lit segments, restated. Inside the old media query this rule carried
+   less weight than `.plan-bar i[data-on]` and the filled half stayed ember on
+   its own; prefixed with the theme it outweighs it, and her whole week went
+   grey in the dark (2026-09-23, Mona's header). Every state the dark block
+   repaints now says what the lit version is, rather than relying on which
+   selector happens to win. */
+:root[data-theme='dark'] .plan-bar i[data-on='true'] { background: var(--sc-ember-light); }
+
+/* Same trap on the pressed states: the theme rule outweighs `:active`, so a
+   tap in the dark would have stopped flashing ember. */
+:root[data-theme='dark'] .plan-cta:active {
+  background: var(--sc-ember-light);
+  border-color: var(--sc-ember-light);
+  color: #0A0A0A;
+}
+:root[data-theme='dark'] .plan-cta-quiet:active { color: var(--sc-ember-light); }
 
 /* Phase 4. The group bar paints ink-900 as a *surface* and its name paints
    bone as *text* — on the ink ground both of those have flipped, so left

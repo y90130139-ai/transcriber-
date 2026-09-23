@@ -1102,134 +1102,138 @@
    from tokens.css: ember lightens on black because #C2410C on
    #0A0A0A is only 3.8:1.
    ============================================================ */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --sc-ink-900: #EDE9E3;
-    --sc-ink-700: #D6D1C8;
-    --sc-ink-500: #A8A29A;
-    --sc-ink-300: #7C776F;
-    --sc-ink-150: #33302C;
+/* Her choice, not her phone's. The palette below was reached through
+   `prefers-color-scheme` alone until 2026-09-23, which meant a model whose
+   phone was set to light could never have the dark plan and vice versa. The
+   sun/moon in her header now writes `data-theme` on <html> and the inline
+   script in the page resolves the system preference before first paint, so
+   the OS is still the default — it is simply no longer the only answer. */
+:root[data-theme='dark'] {
+  --sc-ink-900: #EDE9E3;
+  --sc-ink-700: #D6D1C8;
+  --sc-ink-500: #A8A29A;
+  --sc-ink-300: #7C776F;
+  --sc-ink-150: #33302C;
 
-    --sc-bone:       #060605;
-    --sc-bone-light: #1B1917;
-    --sc-paper:      #121110;
+  --sc-bone:       #060605;
+  --sc-bone-light: #1B1917;
+  --sc-paper:      #121110;
 
-    --sc-ember:      #E8663A;
-    --sc-ember-deep: #F08460;
-    --sc-ember-tint: #2A1710;
+  --sc-ember:      #E8663A;
+  --sc-ember-deep: #F08460;
+  --sc-ember-tint: #2A1710;
 
-    /* Desaturated so they read on black without shouting. */
-    --sc-positive: #4E9E76;
-    --sc-caution:  #C0942A;
-    --sc-critical: #E0685E;
+  /* Desaturated so they read on black without shouting. */
+  --sc-positive: #4E9E76;
+  --sc-caution:  #C0942A;
+  --sc-critical: #E0685E;
 
-    --sc-rule-hair: 1px solid #33302C;
-    --sc-rule-firm: 1px solid #EDE9E3;
-    /* Restored 2026-09-16. This line was in globals.css's dark block and
-       missing here, which broke the "byte-identical, edit both" invariant the
-       phase-6 notes rely on. Nothing under `.plan` reads it, so it was never
-       a visible bug — but the next person to diff the two blocks needed them
-       to actually match. */
-    --sc-rule-lock: 2px solid #EDE9E3;
+  --sc-rule-hair: 1px solid #33302C;
+  --sc-rule-firm: 1px solid #EDE9E3;
+  /* Restored 2026-09-16. This line was in globals.css's dark block and
+     missing here, which broke the "byte-identical, edit both" invariant the
+     phase-6 notes rely on. Nothing under `.plan` reads it, so it was never
+     a visible bug — but the next person to diff the two blocks needed them
+     to actually match. */
+  --sc-rule-lock: 2px solid #EDE9E3;
 
-    /* Phase 9. A warm low-alpha shadow is invisible on a near-black ground,
-       so the whole elevation scale is restated deeper and neutral. Without
-       this, dark mode loses every plane the light theme just gained and the
-       page flattens back to what it was. Identical to the block in
-       globals.css — edit both. */
-    --sc-lift-1: 0 1px 2px rgba(0, 0, 0, 0.40),
-                 0 2px 10px rgba(0, 0, 0, 0.36);
-    --sc-lift-2: 0 2px 6px rgba(0, 0, 0, 0.48),
-                 0 12px 28px rgba(0, 0, 0, 0.44);
-    --sc-lift-3: 0 10px 20px rgba(0, 0, 0, 0.52),
-                 0 32px 72px rgba(0, 0, 0, 0.62);
-  }
-
-  body { background: var(--sc-bone); color: var(--sc-ink-500); }
-
-  /* Anything that painted itself with ink-900 as a *surface* has to be
-     restated — that token is now light, and a header that flipped to bone
-     would put cream behind cream. */
-  /* These paint text with --sc-bone, which on the ink ground is near-black.
-     Left alone they render black on black — the week vanished entirely. */
-  /* `background-color`, NOT the `background` shorthand. Phase 9 paints the
-     header's atmosphere with `background-image`, and the shorthand would
-     reset it to none — the wash would exist in light mode and silently
-     vanish in dark, which is the exact class of bug the phase-2b notes warn
-     about. The gradient is already tuned for a dark ground. */
-  .plan-head { background-color: #000; color: var(--sc-ink-900); }
-  .plan-week,
-  .plan-name,
-  .plan-facts b { color: var(--sc-ink-900); }
-  .plan-player { background: #000; }
-  .plan-item-head .plan-no { background: var(--sc-ember); color: #0A0A0A; }
-  .plan-item[data-filmed] .plan-item-head .plan-no {
-    background: var(--sc-positive);
-    color: #0A0A0A;
-  }
-
-  .plan-cta {
-    background: var(--sc-ink-900);
-    color: #0A0A0A;
-    border-color: var(--sc-ink-900);
-  }
-  .plan-cta-quiet {
-    background: transparent;
-    color: var(--sc-ink-900);
-    border-color: #3A3733;
-  }
-  .plan-send { background: var(--sc-ink-900); color: #0A0A0A; }
-
-  /* The pressed answers, restated: both paint a ground token as text and would
-     otherwise render near-black on their own fill. Critical is light enough on
-     this ground to carry dark type, same as the filmed button does. */
-  .plan-verdict button[aria-pressed='true'] {
-    background: var(--sc-ink-900);
-    color: #0A0A0A;
-  }
-  .plan-verdict .plan-no[aria-pressed='true'] {
-    background: var(--sc-critical);
-    border-color: var(--sc-critical);
-    color: #0A0A0A;
-  }
-  /* Same trap, same fix: `--sc-paper` is near-black on this ground, so a chip
-     painting paper as *text* over a light critical fill reads as nothing. */
-  .plan-code[aria-pressed='true'] { color: #0A0A0A; }
-  .plan-filmed { color: var(--sc-ink-900); border-color: var(--sc-ink-900); }
-  .plan-item[data-filmed] .plan-filmed { color: #0A0A0A; }
-
-  /* The bar's unlit segments need to sit above pure black to stay countable. */
-  .plan-bar i { background: #2B2926; }
-
-  /* Phase 4. The group bar paints ink-900 as a *surface* and its name paints
-     bone as *text* — on the ink ground both of those have flipped, so left
-     alone it would put cream on cream. Same trap as .plan-head. */
-  /* #000 on the #060605 ground is very nearly no edge at all, and unlike the
-     header this band is only three lines tall. A hairline gives it one without
-     moving it off the ink. */
-  .plan-group-bar { background: #000; border: 1px solid #2B2926; }
-  .plan-group-name { color: var(--sc-ink-900); }
-
-  /* Phase 3. The hook tint is #2A1710 on the ink ground, so its type has to be
-     restated light — left alone it inherits ink-900's light value only because
-     the token flipped, and the copy button's active fill would still paint
-     paper-on-paper. */
-  .plan-copy:active {
-    background: var(--sc-ink-900);
-    color: #0A0A0A;
-    border-color: var(--sc-ink-900);
-  }
-
-  /* Phase 9. The well's inset edge is ink at 10% — invisible against the
-     black it now sits on. Restated light so a card carrying a video still
-     reads as having something set into it rather than a hole cut in it. */
-  .plan-player { box-shadow: inset 0 0 0 1px rgba(237, 233, 227, 0.10); }
-
-  /* A card at rest gets no useful shadow on black, so the plane is carried by
-     the surface being lighter than the page plus a slightly firmer edge.
-     Hovering still deepens it, which is what the pointer needs. */
-  .plan-item { border-color: #33302C; }
+  /* Phase 9. A warm low-alpha shadow is invisible on a near-black ground,
+     so the whole elevation scale is restated deeper and neutral. Without
+     this, dark mode loses every plane the light theme just gained and the
+     page flattens back to what it was. Identical to the block in
+     globals.css — edit both. */
+  --sc-lift-1: 0 1px 2px rgba(0, 0, 0, 0.40),
+               0 2px 10px rgba(0, 0, 0, 0.36);
+  --sc-lift-2: 0 2px 6px rgba(0, 0, 0, 0.48),
+               0 12px 28px rgba(0, 0, 0, 0.44);
+  --sc-lift-3: 0 10px 20px rgba(0, 0, 0, 0.52),
+               0 32px 72px rgba(0, 0, 0, 0.62);
 }
+
+:root[data-theme='dark'] body { background: var(--sc-bone); color: var(--sc-ink-500); }
+
+/* Anything that painted itself with ink-900 as a *surface* has to be
+   restated — that token is now light, and a header that flipped to bone
+   would put cream behind cream. */
+/* These paint text with --sc-bone, which on the ink ground is near-black.
+   Left alone they render black on black — the week vanished entirely. */
+/* `background-color`, NOT the `background` shorthand. Phase 9 paints the
+   header's atmosphere with `background-image`, and the shorthand would
+   reset it to none — the wash would exist in light mode and silently
+   vanish in dark, which is the exact class of bug the phase-2b notes warn
+   about. The gradient is already tuned for a dark ground. */
+:root[data-theme='dark'] .plan-head { background-color: #000; color: var(--sc-ink-900); }
+:root[data-theme='dark'] .plan-week,
+:root[data-theme='dark'] .plan-name,
+:root[data-theme='dark'] .plan-facts b { color: var(--sc-ink-900); }
+:root[data-theme='dark'] .plan-player { background: #000; }
+:root[data-theme='dark'] .plan-item-head .plan-no { background: var(--sc-ember); color: #0A0A0A; }
+:root[data-theme='dark'] .plan-item[data-filmed] .plan-item-head .plan-no {
+  background: var(--sc-positive);
+  color: #0A0A0A;
+}
+
+:root[data-theme='dark'] .plan-cta {
+  background: var(--sc-ink-900);
+  color: #0A0A0A;
+  border-color: var(--sc-ink-900);
+}
+:root[data-theme='dark'] .plan-cta-quiet {
+  background: transparent;
+  color: var(--sc-ink-900);
+  border-color: #3A3733;
+}
+:root[data-theme='dark'] .plan-send { background: var(--sc-ink-900); color: #0A0A0A; }
+
+/* The pressed answers, restated: both paint a ground token as text and would
+   otherwise render near-black on their own fill. Critical is light enough on
+   this ground to carry dark type, same as the filmed button does. */
+:root[data-theme='dark'] .plan-verdict button[aria-pressed='true'] {
+  background: var(--sc-ink-900);
+  color: #0A0A0A;
+}
+:root[data-theme='dark'] .plan-verdict .plan-no[aria-pressed='true'] {
+  background: var(--sc-critical);
+  border-color: var(--sc-critical);
+  color: #0A0A0A;
+}
+/* Same trap, same fix: `--sc-paper` is near-black on this ground, so a chip
+   painting paper as *text* over a light critical fill reads as nothing. */
+:root[data-theme='dark'] .plan-code[aria-pressed='true'] { color: #0A0A0A; }
+:root[data-theme='dark'] .plan-filmed { color: var(--sc-ink-900); border-color: var(--sc-ink-900); }
+:root[data-theme='dark'] .plan-item[data-filmed] .plan-filmed { color: #0A0A0A; }
+
+/* The bar's unlit segments need to sit above pure black to stay countable. */
+:root[data-theme='dark'] .plan-bar i { background: #2B2926; }
+
+/* Phase 4. The group bar paints ink-900 as a *surface* and its name paints
+   bone as *text* — on the ink ground both of those have flipped, so left
+   alone it would put cream on cream. Same trap as .plan-head. */
+/* #000 on the #060605 ground is very nearly no edge at all, and unlike the
+   header this band is only three lines tall. A hairline gives it one without
+   moving it off the ink. */
+:root[data-theme='dark'] .plan-group-bar { background: #000; border: 1px solid #2B2926; }
+:root[data-theme='dark'] .plan-group-name { color: var(--sc-ink-900); }
+
+/* Phase 3. The hook tint is #2A1710 on the ink ground, so its type has to be
+   restated light — left alone it inherits ink-900's light value only because
+   the token flipped, and the copy button's active fill would still paint
+   paper-on-paper. */
+:root[data-theme='dark'] .plan-copy:active {
+  background: var(--sc-ink-900);
+  color: #0A0A0A;
+  border-color: var(--sc-ink-900);
+}
+
+/* Phase 9. The well's inset edge is ink at 10% — invisible against the
+   black it now sits on. Restated light so a card carrying a video still
+   reads as having something set into it rather than a hole cut in it. */
+:root[data-theme='dark'] .plan-player { box-shadow: inset 0 0 0 1px rgba(237, 233, 227, 0.10); }
+
+/* A card at rest gets no useful shadow on black, so the plane is carried by
+   the surface being lighter than the page plus a slightly firmer edge.
+   Hovering still deepens it, which is what the pointer needs. */
+:root[data-theme='dark'] .plan-item { border-color: #33302C; }
 
 /* ------------------------------------------------ THE 70/20/10 CARD
    When it goes out and what kind of card it is, above everything else. The
@@ -1328,3 +1332,310 @@
 }
 .plan-extras > p { font-size: var(--sc-text-sm); line-height: var(--sc-leading-body); color: var(--sc-ink-700); margin: 0 0 var(--sc-space-2); }
 .plan-extras .plan-spec { margin-bottom: var(--sc-space-3); }
+
+/* ============================================================
+   HER RUN — the pill, the sun/moon, and the sheet behind them.
+   Added 2026-09-23. The first thing on this page that gives her
+   something back rather than asking her for something.
+   ============================================================ */
+
+/* Two controls of the same height, top right of the header block. Same
+   height and gap on purpose — they read as a pair — while only one of
+   them carries a label, because only one of them is worth discovering. */
+.plan-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-shrink: 0;
+}
+
+.plan-run,
+.plan-theme {
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(237, 233, 227, 0.22);
+  background: rgba(237, 233, 227, 0.06);
+  color: var(--sc-bone);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--sc-dur-fast) var(--sc-ease),
+              background var(--sc-dur) var(--sc-ease),
+              border-color var(--sc-dur) var(--sc-ease);
+}
+
+.plan-run { padding: 0 var(--sc-space-4) 0 var(--sc-space-3); }
+/* Square, so the pair balances: the pill carries the words, this carries
+   one glyph and the same height. */
+.plan-theme { width: 2.5rem; padding: 0; }
+
+.plan-run svg { color: var(--sc-ember-light); }
+.plan-run:active,
+.plan-theme:active { transform: scale(0.96); }
+
+/* The glow. It is the only invitation on the page, so it breathes rather
+   than blinks: two and a half seconds, ember at low alpha, and it stops
+   for good once she has opened the sheet — an animation that never ends
+   stops being a signal and becomes wallpaper. Also stopped outright for
+   anyone who asked their phone for less motion. */
+@keyframes plan-run-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 102, 58, 0.00); border-color: rgba(237, 233, 227, 0.22); }
+  50%      { box-shadow: 0 0 0 6px rgba(232, 102, 58, 0.14); border-color: rgba(232, 102, 58, 0.85); }
+}
+
+.plan-run {
+  animation: plan-run-glow 2.6s var(--sc-ease) infinite;
+}
+.plan-run:hover,
+.plan-run:focus-visible { animation: none; border-color: rgba(232, 102, 58, 0.85); }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-run { animation: none; border-color: rgba(232, 102, 58, 0.55); }
+}
+
+/* ---------------------------------------------------------- THE SHEET */
+.run-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: run-fade var(--sc-dur) var(--sc-ease) both;
+}
+
+@keyframes run-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes run-rise { from { transform: translateY(14px); } to { transform: translateY(0); } }
+
+.run-sheet {
+  width: 100%;
+  max-width: 34rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: var(--sc-space-5) var(--sc-space-4) var(--sc-space-8);
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+  border-radius: var(--r) var(--r) 0 0;
+  animation: run-rise var(--sc-dur-slow) var(--sc-ease) both;
+}
+
+/* On her ground the sheet is already the dark surface; in night mode the
+   header block is #000 and the sheet has to lift off it rather than melt in. */
+:root[data-theme='dark'] .run-sheet { background: #17151400; background-color: #171514; }
+
+@media (prefers-reduced-motion: reduce) {
+  .run-scrim, .run-sheet { animation: none; }
+}
+
+.run-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-4);
+}
+
+.run-eyebrow {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-light);
+}
+.run-eyebrow b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  text-transform: none;
+  color: var(--sc-bone);
+}
+
+.run-close {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--sc-ink-150);
+  cursor: pointer;
+}
+
+.run-empty {
+  margin: 0 0 var(--sc-space-4);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: rgba(237, 233, 227, 0.72);
+}
+
+/* Her three headline figures. A definition list because that is what they
+   are — a label and its value, which is also what a screen reader needs. */
+.run-figures {
+  margin: 0 0 var(--sc-space-4);
+  display: flex;
+  gap: var(--sc-space-6);
+}
+.run-figures div { display: flex; flex-direction: column-reverse; gap: 2px; }
+.run-figures dt {
+  font-family: var(--sc-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: rgba(237, 233, 227, 0.58);
+}
+.run-figures dd {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-2xl);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-bone);
+}
+.run-figures dd[data-hot] { color: var(--sc-ember-light); }
+
+/* The carousel. Native scroll with snap rather than a transform: it keeps
+   her thumb's momentum, which is the whole feel of the thing. */
+.run-rail {
+  display: flex;
+  gap: var(--sc-space-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: var(--sc-space-2);
+  margin: 0 calc(var(--sc-space-4) * -1);
+  padding-inline: var(--sc-space-4);
+}
+.run-rail::-webkit-scrollbar { display: none; }
+
+.run-card {
+  flex: 0 0 13.5rem;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  text-decoration: none;
+  color: var(--sc-bone);
+  transition: transform var(--sc-dur) var(--sc-ease);
+}
+.run-card:active { transform: scale(0.98); }
+
+.run-still {
+  position: relative;
+  display: block;
+  aspect-ratio: 9 / 13;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: rgba(237, 233, 227, 0.08);
+}
+.run-still img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.run-still-blank { display: block; width: 100%; height: 100%; }
+
+/* The flame, on winners only. Ember ground with ink type, which is the one
+   arrangement of those two that passes contrast at this size. */
+.run-flame {
+  position: absolute;
+  top: var(--sc-space-2);
+  left: var(--sc-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember-light);
+  color: #0A0A0A;
+  font-family: var(--sc-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+}
+
+.run-plays {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+}
+.run-when {
+  font-family: var(--sc-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: rgba(237, 233, 227, 0.58);
+}
+
+.run-nudge {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: var(--sc-space-3) 0 var(--sc-space-6);
+  font-family: var(--sc-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: rgba(237, 233, 227, 0.50);
+}
+.run-nudge button {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(237, 233, 227, 0.22);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--sc-bone);
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------- KEPT UP */
+.run-kept { border-top: 1px solid rgba(237, 233, 227, 0.14); padding-top: var(--sc-space-4); }
+.run-kept h2 {
+  margin: 0 0 var(--sc-space-3);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: rgba(237, 233, 227, 0.58);
+}
+
+/* Seven days, Monday first. A day she missed is an unlit box, never a red
+   one: the point is the row she is building, not the one she broke. */
+.run-days { display: flex; gap: var(--sc-space-2); }
+.run-days span {
+  flex: 1 1 0;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: rgba(237, 233, 227, 0.08);
+  color: rgba(237, 233, 227, 0.45);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.04em;
+}
+.run-days span[data-on] { background: var(--sc-ember-light); color: #0A0A0A; }
+
+.run-said {
+  margin: var(--sc-space-3) 0 0;
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: rgba(237, 233, 227, 0.86);
+}
+.run-said b { color: var(--sc-bone); font-weight: 500; }
+.run-quiet { color: rgba(237, 233, 227, 0.62); }

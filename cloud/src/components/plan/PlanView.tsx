@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
+import RunSheet from './RunSheet'
+import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
 import { BACKGROUND_RULE } from '@/lib/brief'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
@@ -75,6 +77,10 @@ export default function PlanView({
   const [filmed, setFilmed] = useState<Set<string>>(
     () => new Set(items.filter((item) => item.filmed).map((item) => item.id)),
   )
+  /** Her own numbers, opened from the pill in the header. Never in the console
+   *  preview: it reads live figures for a real model and there is nothing to
+   *  check by opening it from Geno's screen. */
+  const [runOpen, setRunOpen] = useState(false)
 
   // Either half is enough to have something to say. Neither, and every
   // delivery render on this page is skipped rather than drawn empty.
@@ -107,6 +113,7 @@ export default function PlanView({
 
   return (
     <main className="plan">
+      {runOpen && !preview && <RunSheet token={token} onClose={() => setRunOpen(false)} />}
       {/* The week is the headline, not her name — she knows who she is, and
           what she opens this to find out is which week she is looking at. */}
       <header className="plan-head">
@@ -119,6 +126,26 @@ export default function PlanView({
             Your content plan
             <b className="plan-name">{model.name}</b>
           </p>
+
+          {/* Two controls, one size, top right: what she is looking at, and
+              how it looks. The run glows because nothing else on this page
+              has ever been worth tapping out of curiosity — it is the only
+              thing here that gives her something back. */}
+          <div className="plan-tools">
+            <button
+              type="button"
+              className="plan-run"
+              onClick={() => setRunOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3c0 4-4 5-4 9a4 4 0 0 0 8 0c0-2-1-3-1-3s3 2 3 6a8 8 0 0 1-8 8 8 8 0 0 1-8-8c0-7 10-8 10-12z" />
+              </svg>
+              Your run
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
 
         <h1 className="plan-week">Week of {formatDate(plan.week_of)}</h1>

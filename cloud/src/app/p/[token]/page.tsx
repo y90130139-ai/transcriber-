@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { after } from 'next/server'
 import PlanView from '@/components/plan/PlanView'
+import { THEME_SCRIPT } from '@/components/plan/ThemeToggle'
 import { logEvent } from '@/lib/events'
 import { loadPlan, markOpened } from '@/lib/plans'
 
@@ -25,5 +26,13 @@ export default async function PlanPage({ params }: { params: Promise<{ token: st
   // the page is sent so it never costs her render a round trip.
   after(() => logEvent({ modelId: plan.model.id, planId: plan.plan.id, kind: 'visit' }))
 
-  return <PlanView token={token} model={plan.model} plan={plan.plan} items={plan.items} />
+  return (
+    <>
+      {/* Before the first paint, so a dark phone never flashes cream at 6am.
+          A fixed string with nothing interpolated into it — see THEME_SCRIPT,
+          which is the only reason this is safe to set this way. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      <PlanView token={token} model={plan.model} plan={plan.plan} items={plan.items} />
+    </>
+  )
 }

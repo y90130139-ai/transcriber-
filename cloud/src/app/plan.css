@@ -1436,6 +1436,10 @@
 }
 .plan-theme:hover,
 .plan-theme:focus-visible { background: rgba(232, 102, 58, 0.24); }
+/* Both glyphs are drawn on the same optical centre. The sun is symmetrical
+   and the moon is not, so without this the crescent drifted toward the edge
+   of its circle while the sun sat true. */
+.plan-theme svg { display: block; margin: 0 auto; }
 
 .plan-run:active,
 .plan-theme:active { transform: scale(0.96); }

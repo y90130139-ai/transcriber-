@@ -556,17 +556,20 @@
    The console's dark ground redefines --sc-bone to near-black, so anything
    that painted itself bone on an ink surface disappears. Same block, same
    reason, as the one globals.css keeps for the panels. */
-@media (prefers-color-scheme: dark) {
-  .sheet-cover, .sheet-topbar { background: #000; }
-  .sheet-cover h2 { color: var(--sc-ink-900); }
-  .sheet-close { background: #000; border-color: #33302C; }
-  .sheet-avatar { border-color: var(--sc-bone-light); background: var(--sc-ink-150); }
-  .sheet-avatar-empty { color: var(--sc-ink-900); }
-  .sheet-link:hover,
-  .sheet-link:focus-visible,
-  .card-link:hover,
-  .card-link:focus-visible { color: var(--sc-bone); }
-}
+/* Follows the OS only while nobody has chosen. Her plan writes `data-theme`
+   on <html>, and this stylesheet loads there too — so without the guard a Mac
+   set to dark inverted every token underneath her choice, and she got a light
+   header on a dark page with washed-out type on white cards (2026-09-23). */
+:root:not([data-theme]) .sheet-cover,
+:root:not([data-theme]) .sheet-topbar { background: #000; }
+:root:not([data-theme]) .sheet-cover h2 { color: var(--sc-ink-900); }
+:root:not([data-theme]) .sheet-close { background: #000; border-color: #33302C; }
+:root:not([data-theme]) .sheet-avatar { border-color: var(--sc-bone-light); background: var(--sc-ink-150); }
+:root:not([data-theme]) .sheet-avatar-empty { color: var(--sc-ink-900); }
+:root:not([data-theme]) .sheet-link:hover,
+:root:not([data-theme]) .sheet-link:focus-visible,
+:root:not([data-theme]) .card-link:hover,
+:root:not([data-theme]) .card-link:focus-visible { color: var(--sc-bone); }
 
 /* The trend arrow beside her photo, outside the circle that would clip it. */
 .sheet-avatar-wrap { position: relative; width: fit-content; }

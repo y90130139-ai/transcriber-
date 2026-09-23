@@ -62,6 +62,12 @@ export default function PersonaProposals() {
     setProposals((current) => current.filter((one) => one.handle !== handle))
   }, [])
 
+  /** Posters that 404 — the Mac serves them and the Mac sleeps. A broken
+   *  image icon in the column is worse than an empty frame. */
+  const [broken, setBroken] = useState<Record<string, boolean>>({})
+  /** Whose full persona list is open for correcting. */
+  const [openTags, setOpenTags] = useState<Record<string, boolean>>({})
+
   const toggle = (handle: string, tag: string, current: string[]) => {
     const next = current.includes(tag) ? current.filter((one) => one !== tag) : [...current, tag]
     setEdits((all) => ({ ...all, [handle]: next }))
@@ -95,9 +101,17 @@ export default function PersonaProposals() {
               const chosen = edits[one.handle] ?? one.tags
               return (
                 <li key={one.handle}>
-                  {one.poster && (
+                  {one.poster && !broken[one.handle] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={one.poster} alt="" width={64} height={80} />
+                    <img
+                      src={one.poster}
+                      alt=""
+                      width={64}
+                      height={80}
+                      onError={() => setBroken((all) => ({ ...all, [one.handle]: true }))}
+                    />
+                  ) : (
+                    <span className="proposals-blank" />
                   )}
                   <div className="proposals-who">
                     <a href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
@@ -106,18 +120,45 @@ export default function PersonaProposals() {
                     <span>{Number(one.followers ?? 0).toLocaleString()} followers · {one.reels} reels seen</span>
                     {one.why && <em>{one.why}</em>}
                   </div>
+                  {/* What was read off her, first and on its own line. The
+                      other thirty-one are the correction, and a correction
+                      nobody is making should not be the loudest thing in the
+                      row — thirty-two identical chips per creator, three
+                      creators at a time, is a wall to read past rather than a
+                      decision to take. */}
                   <div className="proposals-tags">
-                    {PERSONA.map((tag) => (
+                    {chosen.length === 0 && <span className="hint">Nothing read — pick what she is.</span>}
+                    {chosen.map((tag) => (
                       <button
-                        key={tag.id}
+                        key={tag}
                         className="chip"
-                        data-on={chosen.includes(tag.id) || undefined}
-                        onClick={() => toggle(one.handle, tag.id, chosen)}
+                        data-on
+                        title="Tap to remove"
+                        onClick={() => toggle(one.handle, tag, chosen)}
                       >
-                        {labelFor(tag.id)}
+                        {labelFor(tag)}
                       </button>
                     ))}
+                    <button
+                      className="chip proposals-more"
+                      onClick={() => setOpenTags((all) => ({ ...all, [one.handle]: !all[one.handle] }))}
+                    >
+                      {openTags[one.handle] ? 'Close' : 'Change'}
+                    </button>
                   </div>
+                  {openTags[one.handle] && (
+                    <div className="proposals-tags proposals-tags-all">
+                      {PERSONA.filter((tag) => !chosen.includes(tag.id)).map((tag) => (
+                        <button
+                          key={tag.id}
+                          className="chip"
+                          onClick={() => toggle(one.handle, tag.id, chosen)}
+                        >
+                          {labelFor(tag.id)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="proposals-actions">
                     <button className="pill" disabled={busy || chosen.length === 0}
                             onClick={() => void settle(one.handle, chosen)}>

@@ -1271,12 +1271,24 @@ body {
   padding-bottom: 0.9rem; border-bottom: var(--sc-rule-hair);
 }
 .proposals-list img { object-fit: cover; width: 64px; height: 80px; }
-.proposals-who { display: grid; gap: 0.2rem; font-size: 0.9rem; }
+/* Held open when there is no face, or when the Mac that serves it is asleep.
+   Without it the text fell into the 64px image column and wrapped one word to
+   a line, with the chips stacked alongside — every creator whose poster was
+   missing rendered as a broken row. */
+.proposals-blank { display: block; width: 64px; height: 80px; background: var(--sc-bone-light); }
+/* Pinned rather than flowed: the row is two columns and everything that is
+   not the face belongs in the second one, whether or not a face rendered. */
+.proposals-who { grid-column: 2; display: grid; gap: 0.2rem; font-size: 0.9rem; }
 .proposals-who span { color: var(--sc-ink-500); font-size: 0.78rem; }
 .proposals-who em { font-style: normal; color: var(--sc-ink-700); font-size: 0.82rem; }
 .proposals-tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .proposals-actions { grid-column: 2; display: flex; gap: 0.6rem; }
+/* The correction list, only while it is open. Dimmed against the read chips
+   above it: those are the answer, these are the alternatives. */
+.proposals-tags-all { grid-column: 2; padding: 0.5rem 0; border-top: var(--sc-rule-hair); }
+.proposals-tags-all .chip { color: var(--sc-ink-300); }
+.proposals-more { border-style: dashed; }
 @media (max-width: 640px) {
   .proposals-list li { grid-template-columns: 48px minmax(0, 1fr); }
-  .proposals-list img { width: 48px; height: 60px; }
+  .proposals-list img, .proposals-blank { width: 48px; height: 60px; }
 }

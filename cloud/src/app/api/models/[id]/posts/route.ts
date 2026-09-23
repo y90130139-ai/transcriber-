@@ -41,7 +41,8 @@ export async function GET(_request: Request, { params }: Params) {
             t.webpage_url, t.upload_date, t.duration_sec,
             t.like_count, t.comment_count,
             (t.thumbnail is not null) as has_thumb,
-            bound.item_id, bound.card_no
+            bound.item_id, bound.card_no,
+            (r.post_id is not null) as repurposed, r.destination
        from transcriber.jobs j
        join transcriber.transcripts t on t.job_id = j.id
        left join lateral (
@@ -53,6 +54,7 @@ export async function GET(_request: Request, { params }: Params) {
           where p.model_id = $2 and i.post_url = t.webpage_url
           limit 1
        ) bound on true
+       left join transcriber.repurposes r on r.post_id = j.id
       where lower(t.author) = lower($1)
       order by t.upload_date desc nulls last, t.transcribed_at desc
       limit ${RECENT}`,

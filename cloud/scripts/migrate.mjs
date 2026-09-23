@@ -792,6 +792,21 @@ const statements = [
   `alter table transcriber.tags add constraint tags_axis_check
      check (axis in ('persona','format','hook','topic'))`,
 
+  // A winner she should shoot again is one decision; a winner we repost
+  // ourselves is another. Added 2026-09-22: the reel goes through a batcher
+  // that rewrites its metadata, then out again on trial reels or the main
+  // feed. Tracked so the same reel is not quietly reposted twice.
+  `create table if not exists transcriber.repurposes (
+     post_id     text primary key,
+     model_id    text not null references transcriber.models(id) on delete cascade,
+     job_id      text references transcriber.jobs(id) on delete set null,
+     destination text not null default 'trial' check (destination in ('trial','main','both')),
+     note        text,
+     created_at  timestamptz not null default now(),
+     posted_at   timestamptz
+   )`,
+  `create index if not exists repurposes_model_idx on transcriber.repurposes (model_id, created_at desc)`,
+
   // Her niches — golf, cars, trivia. The fourth tag axis, added 2026-09-22:
   // the library held 51 golf reels and nothing said they were golf, so the
   // golf model got generic tests instead.

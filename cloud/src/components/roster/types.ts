@@ -180,6 +180,9 @@ export type HerPost = {
   has_thumb: boolean
   item_id: string | null
   card_no: number | null
+  /** Already marked as ours to repost, and where it is going. */
+  repurposed?: boolean
+  destination?: 'trial' | 'main' | 'both' | null
 }
 
 /** A model scored against one library item, for the assign control. */

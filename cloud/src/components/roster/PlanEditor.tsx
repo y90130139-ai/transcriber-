@@ -45,6 +45,9 @@ export default function PlanEditor({
   const [suggested, setSuggested] = useState<Suggestion[]>([])
   const [posts, setPosts] = useState<HerPost[]>([])
   const [pasting, setPasting] = useState('')
+  /** Which of her posts is mid-action, and what the last one said. */
+  const [postBusy, setPostBusy] = useState<string | null>(null)
+  const [postNote, setPostNote] = useState<string | null>(null)
   const [ingesting, setIngesting] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -204,6 +207,43 @@ export default function PlanEditor({
 
   async function unlinkPost(itemId: string) {
     await patchItem(itemId, { post_url: '' })
+    await loadPosts()
+  }
+
+  /**
+   * The two things one of her winners can become.
+   *
+   * `recreate` puts it on her week as a control reskin — shoot it again as it
+   * was. `repurpose` marks it ours to repost and hands back the file for the
+   * batcher. Independent on purpose: a reel can be worth both.
+   */
+  async function actOnPost(postId: string, action: 'recreate' | 'repurpose' | 'unrepurpose') {
+    setPostBusy(postId)
+    const response = await fetch(`/api/models/${modelId}/posts/${postId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    const body = await response.json().catch(() => ({}))
+    setPostBusy(null)
+    if (!response.ok) {
+      setPostNote(body.error ?? 'That did not go through.')
+      return
+    }
+    if (action === 'recreate') {
+      setPostNote(body.added ? 'Added to her week as a reskin — shoot it again as it was.'
+                             : 'Already on her week.')
+      await loadPlan()
+      return
+    }
+    if (action === 'repurpose') {
+      // Straight to the file: the batcher is the next step and it needs the
+      // video, so the tap that marks it is the tap that downloads it.
+      if (body.download) window.location.href = body.download
+      setPostNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')
+    } else {
+      setPostNote('No longer marked to repost.')
+    }
     await loadPosts()
   }
 
@@ -740,10 +780,37 @@ export default function PlanEditor({
                             ? formatDate(post.upload_date) : '—'}
                         </span>
                       </a>
+                      {/* One reel, two decisions. She shoots it again, or we
+                          repost it ourselves through the batcher — and the
+                          same reel can be worth both, so neither hides the
+                          other. */}
+                      <span className="postcard-acts">
+                        <button
+                          className="btn btn-small btn-quiet"
+                          disabled={postBusy === post.id}
+                          title="Add it to her week as a reskin — shoot it again as it was"
+                          onClick={() => void actOnPost(post.id, 'recreate')}
+                        >
+                          Recreate
+                        </button>
+                        <button
+                          className="btn btn-small btn-quiet"
+                          disabled={postBusy === post.id}
+                          data-on={post.repurposed ? true : undefined}
+                          title={post.repurposed
+                            ? `Marked for ${post.destination ?? 'trial'} — click to unmark`
+                            : 'Download the file and mark it ours to repost'}
+                          onClick={() => void actOnPost(post.id, post.repurposed ? 'unrepurpose' : 'repurpose')}
+                        >
+                          {post.repurposed ? 'Reposting ✓' : 'Repurpose'}
+                        </button>
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
+
+              {postNote && <span className="hint">{postNote}</span>}
 
               <div className="form-row">
                 <label className="axis-name" htmlFor="her-posts">

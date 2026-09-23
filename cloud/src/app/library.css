@@ -1297,6 +1297,28 @@ textarea.field { resize: vertical; }
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
+/* The two decisions a winner of hers can become, under her thumbnail: she
+   shoots it again, or we repost it ourselves through the batcher. Stacked
+   rather than inline so the strip stays one thumbnail wide per post. */
+.postcard-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+.postcard-acts .btn {
+  font-size: 0.55rem;
+  padding: 2px 4px;
+  width: 100%;
+  letter-spacing: 0.03em;
+}
+.postcard-acts .btn[data-on] {
+  border-color: var(--sc-ink-900);
+  color: var(--sc-ink-900);
+  font-weight: 600;
+}
+.poststrip > li { display: flex; flex-direction: column; }
+
 /* Already the delivery of a card, so it is not offered for a second one. */
 .postcard[data-bound] { border-color: var(--sc-positive); color: var(--sc-positive); }
 

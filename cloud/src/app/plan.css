@@ -1748,3 +1748,14 @@
 }
 .run-said b { color: var(--run-ink); font-weight: 500; }
 .run-quiet { color: var(--run-quiet); }
+
+/* What her answer does, under the reason box. Quiet: it is a confirmation,
+   not an instruction — and "you will not be sent this one again" is the one
+   line on this page that has to be believable. */
+.plan-why-said {
+  display: block;
+  margin-top: var(--sc-space-2);
+  font-size: var(--sc-text-xs);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-500);
+}

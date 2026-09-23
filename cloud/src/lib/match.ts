@@ -7,6 +7,7 @@
  */
 import { sql } from './db'
 import { SCORING_CTE } from './hot'
+import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { preview } from './sql'
 
 /** Format weighs most: it is the thing she physically has to be able to shoot.
@@ -154,6 +155,14 @@ const NOT_DECLINED = `
   not exists (
     select 1 from transcriber.declines d
      where d.model_id = m.id and d.job_id = j.id
+       and (
+         -- "Not comfortable with it" is her saying the idea is not her, and
+         -- that does not expire. Everything else is circumstance — no time,
+         -- the wrong outfit, nowhere to film — so the reel is held back for a
+         -- while and then allowed to come round again.
+         d.code = any('{${PERMANENT_DECLINES.join(',')}}'::text[])
+         or d.declined_at > now() - interval '${DECLINE_COOLDOWN_DAYS} days'
+       )
   )
 `
 

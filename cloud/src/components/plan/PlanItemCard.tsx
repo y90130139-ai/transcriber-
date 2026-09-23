@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { DECLINE_CODES, DECLINE_LABEL, type DeclineCode } from '@/lib/decline'
+import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
 import { BUCKET_LABEL, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
@@ -451,6 +451,10 @@ export default function PlanItemCard({
                 onClick={() => {
                   const next = code === option ? null : option
                   setCode(next)
+                  // "Something else" holds until she has written what it was:
+                  // the code on its own tells nobody anything, and the save
+                  // would be rejected. Every other answer saves on the tap.
+                  if (needsReason(next) && !reason.trim()) return
                   void save('declined', next, reason)
                 }}
               >
@@ -464,11 +468,25 @@ export default function PlanItemCard({
             value={reason}
             rows={2}
             maxLength={500}
-            placeholder="Nowhere to film this one…"
+            placeholder={needsReason(code) ? 'Say what it was — this one needs it' : 'Nowhere to film this one…'}
+            aria-required={needsReason(code) || undefined}
             onChange={(event) => setReason(event.target.value)}
             // Saves the words. It must not re-answer the question — see `save`.
             onBlur={(event) => void save('declined', code, event.target.value)}
           />
+
+          {/* What her answer actually does, said plainly. "Not comfortable"
+              retires the idea for good, and she should know that is what she
+              is choosing; the others only move it out of the way. */}
+          <span className="plan-why-said">
+            {needsReason(code) && !reason.trim()
+              ? 'Tell me what it was and this saves.'
+              : isPermanentDecline(code)
+                ? 'Got it — you will not be sent this one again.'
+                : code
+                  ? 'Fine. It goes away for now and may come back another week.'
+                  : ''}
+          </span>
         </div>
       )}
 

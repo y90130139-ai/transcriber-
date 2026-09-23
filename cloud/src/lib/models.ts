@@ -8,6 +8,7 @@ import {
 } from './brief'
 import type { OnScreenCaption } from './autotag'
 import { sql } from './db'
+import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { isDateString, mondayOf } from './dates'
 import { readSocials, type Social } from './socials'
 import { isValidTag, labelOf } from './taxonomy'
@@ -458,8 +459,9 @@ export async function appendItems(
   // blocks it in the UI; this is the same rule where it cannot be clicked past.
   const refused = await sql.query(
     `select job_id from transcriber.declines
-      where model_id = $1 and job_id = any($2::text[])`,
-    [modelId, jobIds],
+      where model_id = $1 and job_id = any($2::text[])
+        and (code = any($3::text[]) or declined_at > now() - ($4 || ' days')::interval)`,
+    [modelId, jobIds, [...PERMANENT_DECLINES], String(DECLINE_COOLDOWN_DAYS)],
   )
   const declined = new Set(refused.map((row) => String(row.job_id)))
 

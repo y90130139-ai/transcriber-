@@ -37,3 +37,32 @@ export const DECLINE_LABEL: Record<DeclineCode, string> = {
 
 export const isDeclineCode = (value: unknown): value is DeclineCode =>
   typeof value === 'string' && (DECLINE_CODES as readonly string[]).includes(value)
+
+/**
+ * Which "no" is forever, and which is only this week.
+ *
+ * Geno's rule, 2026-09-23: **not comfortable is permanent.** It is her saying
+ * the idea is not her, and sending it back later is how a model stops reading
+ * her plan at all. Everything else is circumstance — no time, the wrong
+ * outfit, nowhere to film it — and circumstance changes, so the reel is held
+ * back rather than destroyed.
+ */
+export const PERMANENT_DECLINES: readonly DeclineCode[] = ['not-comfortable']
+
+export function isPermanentDecline(code: unknown): boolean {
+  return isDeclineCode(code) && PERMANENT_DECLINES.includes(code)
+}
+
+/**
+ * How long a circumstance keeps a reel off her week.
+ *
+ * Long enough that "no time this week" is honoured well past that week, short
+ * enough that a good reel is not lost to one busy fortnight.
+ */
+export const DECLINE_COOLDOWN_DAYS = 45
+
+/** "Something else" is not an answer on its own — it is the one code that
+ *  tells us nothing, so it has to come with her words. */
+export function needsReason(code: unknown): boolean {
+  return code === 'other'
+}

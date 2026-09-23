@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { sql } from '@/lib/db'
-import { isDeclineCode } from '@/lib/decline'
+import { isDeclineCode, needsReason } from '@/lib/decline'
 import { logEvent } from '@/lib/events'
 import { itemForToken } from '@/lib/plans'
 import { rateLimit } from '@/lib/ratelimit'
@@ -45,6 +45,13 @@ export async function POST(request: Request, { params }: Params) {
       : null
 
   const code = verdict === 'declined' && isDeclineCode(body.code) ? body.code : null
+
+  // "Something else" is the one code that says nothing on its own, so it is
+  // not an answer until she has written what it was. Her phone disables the
+  // save until then; this is the same rule where it cannot be worked around.
+  if (needsReason(code) && !reason) {
+    return NextResponse.json({ error: 'reason_required' }, { status: 400 })
+  }
 
   const [item] = await sql.query(
     `update transcriber.plan_items

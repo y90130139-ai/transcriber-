@@ -3,7 +3,7 @@
  *  Lifted out of the sheet itself so each tab can be typed against it without
  *  importing the component that owns it, and so `BLANK` and `fromModel` stay
  *  the single answer to "what does a new model start as". */
-import { isCreatorType, type CreatorType } from '@/lib/models'
+import { isCreatorType, type CreatorType } from '@/lib/creator-type'
 import type { Social } from '@/lib/socials'
 import { DEFAULT_ZONE, displayPlace, placeFor } from '@/lib/timezones'
 import type { Model } from '../types'

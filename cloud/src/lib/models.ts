@@ -7,6 +7,7 @@ import {
   type BriefFields, type BriefInput, type BriefOverrides, type OverrideField,
 } from './brief'
 import type { OnScreenCaption } from './autotag'
+import { isCreatorType, type CreatorType } from './creator-type'
 import { sql } from './db'
 import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { isDateString, mondayOf } from './dates'
@@ -23,20 +24,8 @@ const MAX_WEEKLY_TARGET = 200
  *  open", short enough that it never becomes a second brief. */
 const MAX_DELIVERY_NOTE = 600
 
-/**
- * Who the creator is, in the words the writing actually needs.
- *
- * Not a taxonomy of identity — a fact the caption engine has to have before it
- * can write a line in her voice. Kept deliberately short, and `unknown` never
- * guesses: a caption written for the wrong person is worse than one written
- * for nobody in particular.
- */
-export const CREATOR_TYPES = ['unknown', 'woman', 'man', 'trans-woman', 'trans-man', 'non-binary', 'couple'] as const
-export type CreatorType = (typeof CREATOR_TYPES)[number]
+export { CREATOR_TYPES, isCreatorType, type CreatorType } from './creator-type'
 
-export function isCreatorType(value: unknown): value is CreatorType {
-  return typeof value === 'string' && (CREATOR_TYPES as readonly string[]).includes(value)
-}
 
 /** Every column of a model row the console is allowed to see. `notes` and
  *  `access_token` are in here on purpose — this is the operator's own view. */

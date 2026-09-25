@@ -112,7 +112,9 @@ export type PlanItem = {
 
 /** One caption from the engine: which formula, the line, and the comment it
  *  is built to provoke — the manual's test for whether a caption baits at all. */
-export type CaptionOption = { formula: string; caption: string; baits: string }
+/** `formula` is a label: once the manual's formula name, now where the real
+ *  caption came from. `from` is the library caption it was adapted from. */
+export type CaptionOption = { formula: string; caption: string; baits: string; from?: string }
 
 export type Plan = {
   id: string

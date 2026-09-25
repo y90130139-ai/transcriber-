@@ -368,9 +368,9 @@ export default function PlanItemCard({
         </div>
       )}
 
-      {/* Written against the five caption formulas. Each one names the comment
-          it is built to provoke — the manual's test for whether a caption is
-          doing anything at all. */}
+      {/* Real captions from the library, adapted to her. Each one names the
+          comment it is built to provoke — the manual's test for whether a
+          caption is doing anything at all. */}
       {item.caption_options && item.caption_options.length > 0 && (
         <details className="plan-captions" open>
           <summary>Caption options</summary>
@@ -379,6 +379,11 @@ export default function PlanItemCard({
               <li key={index}>
                 <p>{option.caption}</p>
                 <span className="plan-quiet">Gets people commenting: &ldquo;{option.baits}&rdquo;</span>
+                {/* Console only: the real library caption this was adapted
+                    from, so Geno can see it was borrowed, not invented. */}
+                {preview && option.from && (
+                  <span className="plan-quiet">Real caption ({option.formula}): &ldquo;{option.from}&rdquo;</span>
+                )}
               </li>
             ))}
           </ul>

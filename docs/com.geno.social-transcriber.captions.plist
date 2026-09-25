@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.captions</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/captions-nightly</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-captions.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-captions.log</string>
+	<!-- 20:10 local, ten minutes after Workers AI's free allowance resets at
+	     00:00 UTC (20:00 EDT; 19:00 in winter, still inside the new day). Writes
+	     captions for draft weeks with uncaptioned cards and stops at the first
+	     429, so the rest carry to the next night. -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>20</integer>
+		<key>Minute</key>
+		<integer>10</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+</dict>
+</plist>

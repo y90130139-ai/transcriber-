@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Write captions for every draft week that still has cards without them, one
+# week at a time, stopping at the first sign the free Workers AI allowance is
+# used up (it resets 00:00 UTC; launchd runs this at 20:10 local, just after).
+# Only cards with no captions are written, so a stopped night resumes the next.
+set -uo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+stamp() { date '+%Y-%m-%d %H:%M:%S'; }
+SECRET=$(python3 -c "import json;print(json.load(open('config.json'))['worker_secret'])")
+BASE=$(python3 -c "import json;print(json.load(open('config.json'))['cloud_url'].rstrip('/'))")
+DUE=$(cd cloud && node scripts/captions-due.mjs) || { echo "[$(stamp)] could not list weeks"; exit 1; }
+[ -z "$DUE" ] && { echo "[$(stamp)] every draft week has captions"; exit 0; }
+while read -r id name; do
+  out=$(curl -s --max-time 320 -X POST -H "Authorization: Bearer $SECRET" \
+        -H 'Content-Type: application/json' -d '{}' "$BASE/api/plans/$id/write")
+  # Stop the whole night at the first sign the allowance is gone.
+  case "$out" in *'Workers AI 429'*|*'daily free'*) echo "[$(stamp)] ${name//_/ }: allowance used up — the rest tomorrow"; exit 0;; esac
+  line=$(printf '%s' "$out" | python3 -c "import json,sys
+try:
+    b=json.load(sys.stdin); c=b.get('captions') or {}
+    e=(c.get('errors') or [])
+    print(f\"{c.get('cards',0)} cards, {c.get('captions',0)} captions, {c.get('short',0)} short\" + (f' | ERR {e[0][:100]}' if e else ''))
+except Exception as x: print('bad response')")
+  echo "[$(stamp)] ${name//_/ }: $line"
+done <<< "$DUE"
+echo "[$(stamp)] done"

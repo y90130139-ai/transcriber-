@@ -908,7 +908,7 @@ export default function PlanEditor({
                     disabled={writing !== null}
                     onClick={() => void writeCopy(planId)}
                   >
-                    {writing ?? 'Write captions & DMs'}
+                    {writing ?? 'Write captions'}
                   </button>
                   <button
                     className="chip"

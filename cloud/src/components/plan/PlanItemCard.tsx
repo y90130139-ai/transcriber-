@@ -70,6 +70,29 @@ export default function PlanItemCard({
   const [openThread, setOpenThread] = useState(item.unread > 0)
   const [unread, setUnread] = useState(item.unread)
   const [copied, setCopied] = useState(false)
+  /** The DM, once written — on the card already, or written on request. */
+  const [dm, setDm] = useState<string | null>(item.brief_short)
+  const [dmState, setDmState] = useState<'idle' | 'writing' | 'copied'>('idle')
+  const [dmError, setDmError] = useState<string | null>(null)
+
+  /** First press writes it (one model call, this card only); after that the
+   *  button copies. Two presses rather than write-then-copy in one, because a
+   *  clipboard write after a network wait is refused by some browsers. */
+  async function dmAction() {
+    if (dm) {
+      await navigator.clipboard?.writeText(dm).catch(() => null)
+      setDmState('copied')
+      setTimeout(() => setDmState('idle'), COPIED_RESET_MS)
+      return
+    }
+    setDmState('writing')
+    setDmError(null)
+    const response = await fetch(`/api/dm/${item.id}`, { method: 'POST' }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    if (response?.ok && body?.dm) setDm(String(body.dm))
+    else setDmError(body?.error ?? 'Could not write it — try again.')
+    setDmState('idle')
+  }
   /** Set only by a real tap, never by the card arriving already filmed — a
    *  page that celebrates last week's work every time she opens it is noise. */
   const [justFilmed, setJustFilmed] = useState(false)
@@ -390,17 +413,19 @@ export default function PlanItemCard({
         </details>
       )}
 
-      {/* The DM version, for Geno to send wherever she reads her messages.
-          Console only: on her own page the card already says all of it. */}
-      {preview && item.brief_short && (
+      {/* The DM version, written only when Geno asks — he sends the portal
+          link, not a message per video (2026-09-25). Console only: on her own
+          page the card already says all of it. */}
+      {preview && (
         <div className="plan-caption">
           <div className="plan-caption-top">
             <span className="plan-label">DM version</span>
-            <button type="button" className="plan-copy" onClick={() => void navigator.clipboard.writeText(item.brief_short ?? '')}>
-              Copy
+            <button type="button" className="plan-copy" disabled={dmState === 'writing'} onClick={() => void dmAction()}>
+              {dmState === 'writing' ? 'Writing…' : dmState === 'copied' ? 'Copied' : dm ? 'Copy' : 'Write DM'}
             </button>
           </div>
-          <p>{item.brief_short}</p>
+          {dm && <p>{dm}</p>}
+          {dmError && <p className="plan-quiet">{dmError}</p>}
         </div>
       )}
 

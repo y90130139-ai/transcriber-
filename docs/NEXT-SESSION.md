@@ -111,3 +111,14 @@ browser window. Untested; the phone method still works and is documented.
   dead. The worker also runs it when a download fails with cookies.
   `--test-alert` proves Telegram; log at
   `~/Library/Logs/social-transcriber-sessions.log`.
+- **No personal Instagram account in any automation, ever.** On 2026-09-25
+  Geno's own account (the downloader's cookie) was warned for automated
+  behaviour after 62 downloads in a burst. `config.json` has no `cookies_file`
+  on purpose; the old jar is `secrets/cookies.txt.retired-2026-09-25`. Reels
+  that need a login go to the **viewer burner** (`src/viewer.py`,
+  `docs/SCOUT-SETUP.md`), which reports the page's own video link to
+  `/api/worker/viewed`; the worker fetches the file from the CDN with no
+  account. Instagram downloads are paced 20–60 s apart (`INSTAGRAM_GAP_SEC`).
+- Scout's reader (`scout_browser.py`) still launches Playwright's headless
+  Chromium with its default user agent, which says "HeadlessChrome". The viewer
+  uses installed Chrome with an ordinary UA; Scout should get the same.

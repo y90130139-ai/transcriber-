@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.viewer</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/viewer</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-viewer.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-viewer.log</string>
+	<!-- Every 20 minutes. The viewer decides for itself whether to open
+	     anything: waking hours only, clear of Scout's passes, at most 5 reels a
+	     run, 15 an hour, 60 a day, and nothing at all until the viewer burner
+	     is signed in (./bin/scout-login --viewer). See src/viewer.py. -->
+	<key>StartInterval</key>
+	<integer>1200</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+</dict>
+</plist>

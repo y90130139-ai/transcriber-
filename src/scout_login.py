@@ -16,6 +16,11 @@ The previous pair is kept as `*.prev` until this one is proven. Values are
 never printed.
 
     ./bin/scout-login          # then: ./bin/scout --session
+    ./bin/scout-login --viewer # the VIEWER burner instead (src/viewer.py)
+
+`--viewer` writes only `secrets/viewer-cookies.txt` and `viewer-state.json`, so
+signing the viewer in can never replace Scout's session — the swap that cost a
+working login on 2026-09-25.
 """
 from __future__ import annotations
 
@@ -27,6 +32,9 @@ from pathlib import Path
 from . import config
 from .scout_browser import STATE_NAME
 from .scout_cookies import WANTED, write
+
+VIEWER_JAR = "secrets/viewer-cookies.txt"
+VIEWER_STATE = "viewer-state.json"
 
 LOGIN_URL = "https://www.instagram.com/accounts/login/"
 WAIT_SEC = 15 * 60          # long enough to fetch a code from the burner's inbox
@@ -59,14 +67,21 @@ def _signed_in(context, page) -> dict | None:
     return {name: cookies[name] for name in WANTED if cookies.get(name)}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     from playwright.sync_api import sync_playwright
 
-    jar = _jar_path()
-    state = jar.with_name(STATE_NAME)
+    viewer = "--viewer" in (sys.argv[1:] if argv is None else argv)
+    if viewer:
+        jar = config.ROOT / VIEWER_JAR
+        state = jar.with_name(VIEWER_STATE)
+        who, account, prove = "the viewer's", "the VIEWER burner", "./bin/viewer --check"
+    else:
+        jar = _jar_path()
+        state = jar.with_name(STATE_NAME)
+        who, account, prove = "Scout's", "the BURNER account", "./bin/scout --session"
 
-    print("A browser window is opening. It is Scout's alone — nothing else is signed in there.")
-    print("Sign in as the BURNER account. The window closes by itself when it's done.\n")
+    print(f"A browser window is opening. It is {who} alone — nothing else is signed in there.")
+    print(f"Sign in as {account}. The window closes by itself when it's done.\n")
 
     with sync_playwright() as play:
         browser = play.chromium.launch(headless=False)
@@ -89,7 +104,7 @@ def main() -> int:
 
         if not cookies:
             browser.close()
-            print("No session was issued — nothing was changed. Run ./bin/scout-login again.")
+            print("No session was issued — nothing was changed. Run the login again.")
             return 1
 
         # Let the home feed settle so Instagram hands over its follow-up cookies.
@@ -101,8 +116,8 @@ def main() -> int:
         state.chmod(0o600)
         browser.close()
 
-    print(f"Saved the burner's session ({', '.join(sorted(cookies))}).")
-    print("Now prove it: ./bin/scout --session")
+    print(f"Saved {account}'s session ({', '.join(sorted(cookies))}) to {jar.name}.")
+    print(f"Now prove it: {prove}")
     return 0
 
 

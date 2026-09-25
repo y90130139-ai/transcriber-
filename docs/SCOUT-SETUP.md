@@ -50,6 +50,33 @@ When the Today tab says the session died, do 1–4 again.
 
 The phone method below is kept for reference only.
 
+## The viewer burner — a second spare account, for reels behind a login
+
+**Why (2026-09-25):** the downloader reached age-gated reels with Geno's own
+account's cookie; 62 back to back got that account warned for automated
+behaviour. No personal account is used by any automation now
+(`config.json` has no `cookies_file`, on purpose). Reels that need a login are
+opened by a dedicated spare account instead, in its own browser, at a person's
+pace — `src/viewer.py`, launchd `com.geno.social-transcriber.viewer`.
+
+Setting it up, once:
+
+1. On the phone, create a new Instagram account with its own email. Not
+   Geno's, not a model's, not Scout's burner.
+2. **Warm it up for 3–5 days by hand:** add a photo and a bio, follow 20–40
+   accounts in the roster's niches, watch reels, like a few. A new account that
+   goes straight to heavy viewing is the pattern Instagram flags first.
+3. Turn on two-factor authentication for it (its own email or an authenticator).
+4. On the Mac: `./bin/scout-login --viewer`, sign in as the **viewer** account.
+   It writes only `secrets/viewer-cookies.txt` and `viewer-state.json` — never
+   Scout's files.
+5. `./bin/viewer --check` — must say VIEWER ALIVE.
+
+From then on it runs by itself: waking hours only (09:00–23:00), clear of
+Scout's passes, at most 5 reels a run, 15 an hour, 60 a day, 1–3 minutes
+between reels. At the first login wall or warning it stops for the day and posts
+to the OPS group. `./bin/viewer --status` shows the budget and the queue.
+
 ## (Old) Step 2 — the burner's session, from an old iPhone over USB
 
 **This replaced the Chrome-profile method on 2026-09-19, at Geno's call.** He

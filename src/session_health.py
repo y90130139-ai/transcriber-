@@ -81,11 +81,15 @@ def _has_session(jar: Path) -> bool:
 
 
 def check_downloader(user_config: dict) -> tuple[str, str]:
-    """('alive' | 'dead' | 'unknown', why)."""
+    """('alive' | 'dead' | 'unknown' | 'off', why)."""
     raw = user_config.get("cookies_file")
-    jar = (config.ROOT / raw).expanduser() if raw else None
-    if not jar or not jar.is_file():
-        return "dead", "no cookie file configured"
+    if not raw:
+        # Deliberate since 2026-09-25: no personal account's cookies are used
+        # by the downloader, so there is no login here to die.
+        return "off", "the downloader uses no login"
+    jar = (config.ROOT / raw).expanduser()
+    if not jar.is_file():
+        return "dead", "the configured cookie file is missing"
     if not _has_session(jar):
         return "dead", "the cookie file has no sessionid — Instagram ended the session"
     probe = user_config.get("session_probe_url") or DEFAULT_PROBE
@@ -160,6 +164,11 @@ def _report(which: str, status: str, why: str, state: dict) -> None:
     before = entry.get("status")
     entry["checked_at"] = now
     entry["last_result"] = f"{status}: {why}"
+    if status == "off":
+        log(f"{which}: off — {why}")
+        entry["status"] = "off"
+        state[which] = entry
+        return
     if status == "unknown":
         log(f"{which}: could not tell — {why}")
         state[which] = entry

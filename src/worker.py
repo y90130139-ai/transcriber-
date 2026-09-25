@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import dataclasses
 import json
+import random
 import shutil
 import signal
 import subprocess
@@ -25,6 +26,11 @@ from . import config, media, mediaserv, pipeline, r2, tunnel
 
 POLL_IDLE_SEC = 6.0
 POLL_ERROR_SEC = 30.0
+# Between two Instagram downloads, a person's pause rather than a burst. Every
+# download leaves from this Mac's connection — the same one Geno's phone is on —
+# and 62 back to back is what got his own account warned for automated
+# behaviour (2026-09-25). Slower is free: nothing here is urgent.
+INSTAGRAM_GAP_SEC = (20.0, 60.0)
 HEARTBEAT_SEC = 30.0
 REQUEST_TIMEOUT_SEC = 60.0
 THUMBNAIL_WIDTH = 420
@@ -457,6 +463,8 @@ def serve(*, model: str = "best") -> None:
             idle_notice = True
             for job in jobs:
                 run_job(cloud, job, options, user_config)
+                if "instagram.com" in str(job.get("source") or ""):
+                    time.sleep(random.uniform(*INSTAGRAM_GAP_SEC))
     except KeyboardInterrupt:
         print("\nstopped.")
     finally:

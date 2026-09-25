@@ -80,6 +80,13 @@ export async function POST(request: Request) {
                 m.handle, m.posted_at, m.duration_sec
            from transcriber.jobs j
            join (
+             -- What the viewer burner saw on the reel's own page, keyed by the
+             -- job, so it matches whatever the reel's shortcode.
+             select substring(jj.source from '/(?:reels?|p)/([A-Za-z0-9_-]+)') as post_id,
+                    jm.video_url, jm.poster_url, null::text, null::text, null::timestamptz,
+                    null::real, jm.media_until
+               from transcriber.job_media jm join transcriber.jobs jj on jj.id = jm.job_id
+             union all
              select post_id, video_url, poster_url, caption, handle, posted_at,
                     duration_sec, media_until
                from transcriber.sightings

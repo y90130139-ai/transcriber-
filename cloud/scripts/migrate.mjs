@@ -836,6 +836,20 @@ const statements = [
   `alter table transcriber.models
      add column if not exists topics text[]`,
 
+  // What the viewer burner saw for a reel Instagram only shows signed-in
+  // accounts: the video link on the page, which expires in about a day, and
+  // how often it has tried. The worker fetches the file from that link with no
+  // account at all (2026-09-25, after Geno's own account was warned).
+  `create table if not exists transcriber.job_media (
+     job_id       text primary key references transcriber.jobs(id) on delete cascade,
+     video_url    text,
+     poster_url   text,
+     media_until  timestamptz,
+     viewed_at    timestamptz,
+     tries        integer not null default 0,
+     last_error   text
+   )`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

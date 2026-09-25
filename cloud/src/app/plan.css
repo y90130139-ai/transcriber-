@@ -28,9 +28,13 @@
      black header (2026-09-23, her screenshot). This one never inverts. */
   --plan-on-ink: #F6F3EE;
 
+  /* The page's side margin, named because the stuck header has to reach
+     back across exactly this much to meet the screen's edges. */
+  --plan-gutter: var(--sc-space-3);
+
   max-width: 34rem;
   margin: 0 auto;
-  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-24);
+  padding: var(--sc-space-3) var(--plan-gutter) var(--sc-space-24);
 }
 
 /* ---------------------------------------------------------- HEADER
@@ -550,7 +554,7 @@
 }
 
 @media (min-width: 560px) {
-  .plan { padding: var(--sc-space-6) var(--sc-space-4) var(--sc-space-24); }
+  .plan { --plan-gutter: var(--sc-space-4); padding: var(--sc-space-6) var(--plan-gutter) var(--sc-space-24); }
   .plan-head { padding: var(--sc-space-8) var(--sc-space-6) var(--sc-space-6); }
   .plan-body { padding: var(--sc-space-6) 0 0; }
   .plan-face { width: 4.5rem; height: 4.5rem; }
@@ -1777,14 +1781,22 @@
   z-index: 20;
   transition: padding var(--sc-dur) var(--sc-ease),
               transform var(--sc-dur) var(--sc-ease),
-              box-shadow var(--sc-dur) var(--sc-ease);
+              box-shadow var(--sc-dur) var(--sc-ease),
+              border-radius var(--sc-dur) var(--sc-ease);
 }
 
 /* Off its own space: everything that was scene-setting goes, and what is
    left is the three facts she is actually tracking — which week, how many
    filmed, and the way into her run. */
+/* And it becomes a banner. Inset with rounded corners, the page showed
+   through the gutters and behind the corners as she scrolled — cards and
+   their ember edges peeking past the header (Geno, 2026-09-23, both
+   themes). Stuck, it reaches back across the gutter and squares off, so it
+   meets both edges of the screen. At rest it stays the rounded block. */
 .plan-head[data-stuck] {
-  padding: var(--sc-space-3) var(--sc-space-4);
+  margin-inline: calc(-1 * var(--plan-gutter));
+  border-radius: 0;
+  padding: var(--sc-space-3) calc(var(--sc-space-4) + var(--plan-gutter));
   box-shadow: var(--sc-lift-2);
 }
 .plan-head[data-stuck] .plan-face { width: 2rem; height: 2rem; }

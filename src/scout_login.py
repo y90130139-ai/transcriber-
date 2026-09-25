@@ -29,7 +29,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import config
+from . import config, ig_browser
 from .scout_browser import STATE_NAME
 from .scout_cookies import WANTED, write
 
@@ -84,10 +84,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Sign in as {account}. The window closes by itself when it's done.\n")
 
     with sync_playwright() as play:
-        browser = play.chromium.launch(headless=False)
+        # The same Chrome, size and user agent the passes use afterwards, so
+        # the session is never signed in on one browser and used from another.
+        browser = ig_browser.launch(play, headless=False)
         # A fresh store on purpose: never the saved state, so a dead session
         # cannot sit in the window and look like a live one.
-        context = browser.new_context(viewport={"width": 1100, "height": 860})
+        context = browser.new_context(**ig_browser.context_options(browser))
         page = context.new_page()
         page.goto(LOGIN_URL)
 

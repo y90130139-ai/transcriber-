@@ -119,6 +119,7 @@ browser window. Untested; the phone method still works and is documented.
   `docs/SCOUT-SETUP.md`), which reports the page's own video link to
   `/api/worker/viewed`; the worker fetches the file from the CDN with no
   account. Instagram downloads are paced 20–60 s apart (`INSTAGRAM_GAP_SEC`).
-- Scout's reader (`scout_browser.py`) still launches Playwright's headless
-  Chromium with its default user agent, which says "HeadlessChrome". The viewer
-  uses installed Chrome with an ordinary UA; Scout should get the same.
+- **Every Instagram browser goes through `src/ig_browser.py`**: Scout's reader,
+  the viewer and both sign-in windows. Installed Google Chrome, an ordinary
+  user agent, no `navigator.webdriver`. Playwright's default headless Chromium
+  says "HeadlessChrome" — never launch Instagram any other way.

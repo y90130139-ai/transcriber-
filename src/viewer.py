@@ -42,7 +42,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from . import alerts, config
+from . import alerts, config, ig_browser
 
 JAR = config.ROOT / "secrets" / "viewer-cookies.txt"
 STATE = config.ROOT / "secrets" / "viewer-state.json"
@@ -69,11 +69,6 @@ WALL = ("/accounts/login", "/challenge", "/accounts/suspended", "/accounts/disab
 # unlikely to contain, so a reel about "suspicious" exes does not end the day.
 WARNING_WORDS = ("automated behavior", "automated behaviour", "try again later",
                  "we restrict certain activity")
-# What an ordinary Chrome on a Mac sends, with the real engine's version so the
-# claim and the engine agree. Headless Chromium's default says "HeadlessChrome",
-# which is a bot flag on its own.
-USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36")
 SHORTCODE = re.compile(r"/(?:reels?|p)/([A-Za-z0-9_-]+)")
 
 
@@ -179,21 +174,12 @@ class Viewer:
     def __init__(self) -> None:
         from playwright.sync_api import sync_playwright
         self._play = sync_playwright().start()
-        args = ["--disable-blink-features=AutomationControlled"]
-        # The Google Chrome installed on this Mac, in Chrome's own new headless
-        # mode — the same browser a person has, rather than Playwright's
-        # stripped-down build, whose browser hints still say headless.
-        try:
-            self._browser = self._play.chromium.launch(channel="chrome", headless=True, args=args)
-        except Exception:
-            self._browser = self._play.chromium.launch(channel="chromium", headless=True, args=args)
-        major = self._browser.version.split(".")[0]
-        self._ctx = self._browser.new_context(
-            viewport={"width": 1280, "height": 860},
-            user_agent=USER_AGENT.format(major=major),
-            locale="en-US",
+        # The installed Chrome, dressed as an ordinary one (ig_browser.py).
+        self._browser = ig_browser.launch(self._play, headless=True)
+        self._ctx = self._browser.new_context(**ig_browser.context_options(
+            self._browser,
             storage_state=str(STATE) if STATE.is_file() else None,
-        )
+        ))
         self._ctx.add_cookies(_cookies())
 
     def close(self) -> None:

@@ -36,6 +36,7 @@ import random
 import time
 from pathlib import Path
 
+from . import ig_browser
 from .scout_ig import BurnerStopped, to_sighting
 
 PAUSE_SEC = (8.0, 15.0)
@@ -159,15 +160,17 @@ class Reader:
             raise FileNotFoundError(f"burner cookies not found at {path}")
         self._state = path.with_name(STATE_NAME)
         self._play = sync_playwright().start()
-        self._browser = self._play.chromium.launch(headless=True)
+        # Installed Chrome with an ordinary user agent, not Playwright's
+        # headless build, which says "HeadlessChrome" (ig_browser.py).
+        self._browser = ig_browser.launch(self._play, headless=True)
         # Carry the previous run's cookies forward when there are any. Instagram
         # refreshes a session as it is used, so a browser that keeps its own
         # state stays signed in on its own — which is what stops this needing a
         # trip to the tethered phone every time the jar goes stale.
-        self._ctx = self._browser.new_context(
-            viewport={"width": 1280, "height": 900},
+        self._ctx = self._browser.new_context(**ig_browser.context_options(
+            self._browser,
             storage_state=str(self._state) if self._state.is_file() else None,
-        )
+        ))
         # The jar from the phone is the floor, not the ceiling: adding it after
         # the saved state means a hand-refreshed session always wins.
         self._ctx.add_cookies(_cookies(path))

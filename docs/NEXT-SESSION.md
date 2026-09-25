@@ -96,3 +96,18 @@ browser window. Untested; the phone method still works and is documented.
 - Local `.env.local` cannot hold `CLOUDFLARE_AI_TOKEN`; test AI routes against
   production (same database).
 - Never run two browser passes on the burner at once.
+- **Two Instagram logins, two files, never swap them.** `secrets/cookies.txt`
+  is the downloader's own account (yt-dlp); `secrets/scout-cookies.txt` is
+  Scout's burner. `./bin/scout-cookies` writes Scout's file unless given
+  `--path secrets/cookies.txt`; `./bin/scout-login` only ever writes Scout's.
+  On 2026-09-25 the downloader's cookie was saved over the burner's by leaving
+  `--path` off.
+- **A dead downloader login is silent.** yt-dlp saves the jar back without its
+  `sessionid` and every gated reel fails "could not download … tried
+  anonymously, then with cookies" — 62 did, 2026-09-22 → 25.
+  `./bin/session-check` (launchd `com.geno.social-transcriber.sessions`,
+  01:30/07:30/13:30/22:30) proves both logins and posts to the Telegram OPS
+  group through the Gosian bot (`secrets/alerts.json`) on a change, daily while
+  dead. The worker also runs it when a download fails with cookies.
+  `--test-alert` proves Telegram; log at
+  `~/Library/Logs/social-transcriber-sessions.log`.

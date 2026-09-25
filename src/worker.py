@@ -14,6 +14,7 @@ import dataclasses
 import json
 import shutil
 import signal
+import subprocess
 import threading
 import time
 import urllib.error
@@ -227,9 +228,25 @@ def run_job(cloud: Cloud, job: dict, options: pipeline.Options, user_config: dic
         message = str(exc).strip() or exc.__class__.__name__
         print(f"    failed: {message.splitlines()[0][:160]}")
         cloud.fail(job["id"], message[:900])
+        if "tried anonymously, then with" in message:
+            _check_login_soon()
     finally:
         if temp is not None:
             temp.unlink(missing_ok=True)
+
+
+def _check_login_soon() -> None:
+    """A download failed even with cookies — the shape a dead downloader login
+    takes. Prove it and alert, in the background so the queue keeps moving;
+    session-check itself skips if it ran in the last half hour, so a batch of
+    sixty failures is one probe, not sixty."""
+    try:
+        subprocess.Popen(
+            [str(config.ROOT / "bin" / "session-check"), "--downloader", "--from-worker"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+    except OSError as error:
+        print(f"    could not start the login check: {error}")
 
 
 _warned_no_r2 = False

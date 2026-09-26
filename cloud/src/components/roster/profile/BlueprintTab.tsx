@@ -18,14 +18,14 @@ export default function BlueprintTab({ modelId }: { modelId: string }) {
     return () => { live = false }
   }, [modelId])
 
-  if (!data) return <p className="hint">Assembling her blueprint…</p>
+  if (!data) return <p className="hint">Assembling their blueprint…</p>
 
   return (
     <div className="brand">
       <section className="axis">
         <div className="axis-head"><span className="axis-name">The split</span></div>
         <p>
-          {data.split.total} reels a week — <b>{data.split.reskin}</b> reskins of her winners,{' '}
+          {data.split.total} reels a week — <b>{data.split.reskin}</b> reskins of their winners,{' '}
           <b>{data.split.iteration}</b> iterations, <b>{data.split.test}</b> new tests.
         </p>
       </section>
@@ -53,10 +53,10 @@ export default function BlueprintTab({ modelId }: { modelId: string }) {
 
       <section className="axis">
         <div className="axis-head"><span className="axis-name">What is working — double down</span></div>
-        {data.working.length === 0 ? <span className="hint">No reel past 10× her normal yet.</span> : (
+        {data.working.length === 0 ? <span className="hint">No reel past 10× their normal yet.</span> : (
           <ul className="brand-list">
             {data.working.map((post) => (
-              <li key={post.post_id}><b>{Math.round(post.multiple)}×</b><a href={post.url} target="_blank" rel="noreferrer">her reel</a></li>
+              <li key={post.post_id}><b>{Math.round(post.multiple)}×</b><a href={post.url} target="_blank" rel="noreferrer">their reel</a></li>
             ))}
           </ul>
         )}
@@ -71,7 +71,7 @@ export default function BlueprintTab({ modelId }: { modelId: string }) {
       </section>
 
       <section className="axis">
-        <div className="axis-head"><span className="axis-name">Her creators</span></div>
+        <div className="axis-head"><span className="axis-name">Their creators</span></div>
         <span className="hint">{data.similar.length ? data.similar.map((h) => `@${h}`).join(' · ') : 'None proposed yet.'}</span>
       </section>
 

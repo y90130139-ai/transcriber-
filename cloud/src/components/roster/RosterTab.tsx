@@ -159,7 +159,7 @@ export default function RosterTab({
 
       {models.length === 0 && !loading ? (
         <div className="empty">
-          <p>No models yet. Add one, then tag videos to her from the library.</p>
+          <p>No models yet. Add one, then tag videos to them from the library.</p>
         </div>
       ) : (
         GROUPS.filter((group) => models.some((model) => groupOf(model) === group.key))

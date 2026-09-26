@@ -90,7 +90,7 @@ export default function DigestTab({ onFilterTo }: { onFilterTo: (handle: string)
                       </p>
                       <p className="rung-meta">
                         {[item.author ? `@${item.author}` : null, item.upload_date,
-                          item.why?.multiple != null ? 'plays vs her median' : 'engagement vs her median']
+                          item.why?.multiple != null ? 'plays vs their median' : 'engagement vs their median']
                           .filter(Boolean).join(' · ')}
                         {item.webpage_url && (
                           <> · <a href={item.webpage_url} target="_blank" rel="noreferrer">open</a></>

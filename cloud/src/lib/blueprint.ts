@@ -112,11 +112,11 @@ export async function blueprintFor(modelId: string): Promise<Blueprint | null> {
   // still a starter after her winners had the chance to replace it.
   const cut: string[] = []
   for (const format of (model.wont_do as string[] | null) ?? []) {
-    cut.push(`${labelOf('format', format)} — she said it is not her; never sent.`)
+    cut.push(`${labelOf('format', format)} — they said it is not them; never sent.`)
   }
   for (const pillar of pillars) {
     if (pillar.starter && bank.winners.length >= 3) {
-      cut.push(`${pillar.name} — still a starter with no winners of hers behind it. Swap it for the next best vertical after this month.`)
+      cut.push(`${pillar.name} — still a starter with no winners of theirs behind it. Swap it for the next best vertical after this month.`)
     }
   }
 

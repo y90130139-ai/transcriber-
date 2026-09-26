@@ -263,7 +263,7 @@ export default function ItemView({
               </p>
               {shown.has_speech === null && (
                 <button className="btn btn-quiet" onClick={askForSpeech} disabled={asking}>
-                  {asking ? 'Queueing' : 'She talks — transcribe it'}
+                  {asking ? 'Queueing' : 'They talk — transcribe it'}
                 </button>
               )}
             </div>

@@ -22,7 +22,7 @@ type Choice = { id: string; name: string; week_items: number }
 function declinedTitle(fit: ModelFit): string | null {
   if (!fit.declined_code && !fit.declined_reason) return null
   const said = isDeclineCode(fit.declined_code) ? DECLINE_LABEL[fit.declined_code] : null
-  return ['She turned this reel down', said, fit.declined_reason].filter(Boolean).join(' — ')
+  return ['They turned this reel down', said, fit.declined_reason].filter(Boolean).join(' — ')
 }
 
 export default function AssignBar({ jobId }: { jobId: string }) {
@@ -71,7 +71,7 @@ export default function AssignBar({ jobId }: { jobId: string }) {
     // the bar — it marks that one done and leaves the rest reachable.
     setAdded((current) => new Set(current).add(modelId))
     setNote({
-      text: body.added > 0 ? 'On her plan, with a drafted brief.' : 'Already on that week.',
+      text: body.added > 0 ? 'On their plan, with a drafted brief.' : 'Already on that week.',
     })
     setTimeout(() => setNote(null), DONE_RESET_MS)
   }

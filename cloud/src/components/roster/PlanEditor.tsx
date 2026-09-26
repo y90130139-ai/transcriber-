@@ -17,12 +17,12 @@ const COPY_RESET_MS = 1600
 /** Phase 3. The brief as discrete fields, in the order her card renders them.
  *  `notes` stays the prose direction above these and is not in this list. */
 const BRIEF_FIELDS: { key: BriefKey; label: string; placeholder: string }[] = [
-  { key: 'wardrobe', label: 'Wardrobe', placeholder: 'What she puts on' },
+  { key: 'wardrobe', label: 'Wardrobe', placeholder: 'What they put on' },
   { key: 'camera', label: 'Camera', placeholder: 'How the phone is held' },
   { key: 'takes', label: 'Takes', placeholder: 'How many goes' },
   { key: 'sound', label: 'Sound', placeholder: 'Where the audio comes from' },
-  { key: 'hook', label: 'Hook', placeholder: 'The opening line, quoted on her card' },
-  { key: 'caption', label: 'Caption', placeholder: 'What she posts under it' },
+  { key: 'hook', label: 'Hook', placeholder: 'The opening line, quoted on their card' },
+  { key: 'caption', label: 'Caption', placeholder: 'What they post under it' },
 ]
 
 type BriefKey = 'wardrobe' | 'camera' | 'takes' | 'sound' | 'hook' | 'caption'
@@ -231,8 +231,8 @@ export default function PlanEditor({
       return
     }
     if (action === 'recreate') {
-      setPostNote(body.added ? 'Added to her week as a reskin — shoot it again as it was.'
-                             : 'Already on her week.')
+      setPostNote(body.added ? 'Added to their week as a reskin — shoot it again as it was.'
+                             : 'Already on their week.')
       await loadPlan()
       return
     }
@@ -320,7 +320,7 @@ export default function PlanEditor({
     const count = items.length
     const ok = confirm(
       `Move ${count} video${count === 1 ? '' : 's'} to the week of ${formatDate(toWeek)}?\n\n` +
-      'Her replies, accepts and filmed marks move with them, and this empty week is deleted.',
+      'Their replies, accepts and filmed marks move with them, and this empty week is deleted.',
     )
     if (!ok) return
     setBusy(true)
@@ -413,7 +413,7 @@ export default function PlanEditor({
           </div>
 
           {!plan ? (
-            <div className="empty"><p>Open a week, then tag videos to her from the library.</p></div>
+            <div className="empty"><p>Open a week, then tag videos to them from the library.</p></div>
           ) : (
             <>
               {carryTo && (
@@ -454,7 +454,7 @@ export default function PlanEditor({
               </div>
 
               <div className="form-row">
-                <label className="axis-name" htmlFor="plan-intro">Intro — the first thing she reads</label>
+                <label className="axis-name" htmlFor="plan-intro">Intro — the first thing they read</label>
                 <textarea
                   id="plan-intro"
                   className="field"
@@ -483,7 +483,7 @@ export default function PlanEditor({
               {plan.weekly_target > 0 && items.length < plan.weekly_target && (
                 <div className="planstate planstate-short">
                   <span>
-                    {items.length} on this week · her target is {plan.weekly_target}
+                    {items.length} on this week · their target is {plan.weekly_target}
                     {' — '}{plan.weekly_target - items.length} short.
                     {' '}Send it anyway if that is deliberate.
                   </span>
@@ -507,17 +507,17 @@ export default function PlanEditor({
                     setTimeout(() => setCopied(false), COPY_RESET_MS)
                   }}
                 >
-                  {copied ? 'Copied' : 'Copy her link'}
+                  {copied ? 'Copied' : 'Copy their link'}
                 </button>
                 <button className="btn btn-quiet" onClick={deletePlan}>Delete week</button>
                 {plan.status !== 'sent' && (
-                  <span className="hint">A draft is invisible to her until it is marked sent.</span>
+                  <span className="hint">A draft is invisible to them until it is marked sent.</span>
                 )}
               </div>
 
               {items.length === 0 ? (
                 <div className="empty">
-                  <p>Nothing on this week. Open a video in the library and tag it to her.</p>
+                  <p>Nothing on this week. Open a video in the library and tag it to them.</p>
                 </div>
               ) : (
                 <ol className="planlist">
@@ -558,17 +558,17 @@ export default function PlanEditor({
 
                         {item.declined_at && (
                           <div className="planrow-declined">
-                            <p className="axis-name">She turned this one down</p>
+                            <p className="axis-name">They turned this one down</p>
                             {item.decline_reason && <p>{item.decline_reason}</p>}
                             <p className="hint">
                               Take it off and put something else on from Suggested
-                              for her, below — the slot is empty until you do.
+                              for them, below — the slot is empty until you do.
                             </p>
                           </div>
                         )}
 
                         {item.accepted_at && !item.declined_at && (
-                          <p className="planrow-accepted">She has taken this one on.</p>
+                          <p className="planrow-accepted">They have taken this one on.</p>
                         )}
 
                         {/* The conversation. Reading it is not enough — this is
@@ -580,7 +580,7 @@ export default function PlanEditor({
                             </p>
                             {item.messages.map((message) => (
                               <p key={message.id} className="planrow-msg" data-from={message.author}>
-                                <b>{message.author === 'model' ? 'She' : 'You'}</b>
+                                <b>{message.author === 'model' ? 'Them' : 'You'}</b>
                                 {message.body}
                               </p>
                             ))}
@@ -588,7 +588,7 @@ export default function PlanEditor({
                         )}
 
                         <label className="axis-name" htmlFor={`reply-${item.id}`}>
-                          Reply to her — she sees this on the card
+                          Reply to them — they see this on the card
                         </label>
                         <textarea
                           id={`reply-${item.id}`}
@@ -621,7 +621,7 @@ export default function PlanEditor({
                         <div className="form-pair">
                           <div className="form-row">
                             <label className="axis-name" htmlFor={`loc-${item.id}`}>
-                              Location — groups her plan
+                              Location — groups their plan
                             </label>
                             <input
                               id={`loc-${item.id}`}
@@ -702,7 +702,7 @@ export default function PlanEditor({
                           <p className="planrow-posted">
                             <span className="axis-name">Posted</span>
                             <a href={item.post_url} target="_blank" rel="noreferrer">
-                              {item.posted_at ? formatDate(item.posted_at.slice(0, 10)) : 'her post'}
+                              {item.posted_at ? formatDate(item.posted_at.slice(0, 10)) : 'their post'}
                             </a>
                             <button className="chip" onClick={() => unlinkPost(item.id)}>
                               Unlink
@@ -710,7 +710,7 @@ export default function PlanEditor({
                           </p>
                         ) : unbound.length > 0 ? (
                           <details className="planrow-link">
-                            <summary>Link one of her posts</summary>
+                            <summary>Link one of their posts</summary>
                             <ul className="poststrip">
                               {unbound.map((post) => (
                                 <li key={post.id}>
@@ -750,7 +750,7 @@ export default function PlanEditor({
                   card so the week's delivery can be seen in one look; binding
                   happens per card, under "Link one of her posts". */}
               <div className="section-head">
-                <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Her posts</h2>
+                <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Their posts</h2>
                 <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
                   {posts.length > 0
                     ? `${posts.length} held · ${posts.length - unbound.length} linked`
@@ -788,7 +788,7 @@ export default function PlanEditor({
                         <button
                           className="btn btn-small btn-quiet"
                           disabled={postBusy === post.id}
-                          title="Add it to her week as a reskin — shoot it again as it was"
+                          title="Add it to their week as a reskin — shoot it again as it was"
                           onClick={() => void actOnPost(post.id, 'recreate')}
                         >
                           Recreate
@@ -814,7 +814,7 @@ export default function PlanEditor({
 
               <div className="form-row">
                 <label className="axis-name" htmlFor="her-posts">
-                  Paste her recent posts — metadata only, no transcript
+                  Paste their recent posts — metadata only, no transcript
                 </label>
                 <textarea
                   id="her-posts"
@@ -826,12 +826,12 @@ export default function PlanEditor({
                 />
                 <div className="copybar" style={{ position: 'static' }}>
                   <button className="btn btn-small" disabled={!pasting.trim()} onClick={ingestPosts}>
-                    Add her posts
+                    Add their posts
                   </button>
                   {ingesting && <span className="hint">{ingesting}</span>}
                   {!ingesting && posts.length === 0 && (
                     <span className="hint">
-                      Nothing of hers is held yet. Her handle has to match the
+                      Nothing of theirs is held yet. Their handle has to match the
                       author on the post for it to land in this strip.
                     </span>
                   )}
@@ -848,7 +848,7 @@ export default function PlanEditor({
               </datalist>
 
               <div className="section-head">
-                <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Suggested for her</h2>
+                <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Suggested for them</h2>
                 <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
                   {suggested.length > 0 ? `${suggested.length} not on a plan yet` : ''}
                 </span>
@@ -856,7 +856,7 @@ export default function PlanEditor({
 
               {suggested.length === 0 ? (
                 <p className="hint">
-                  Nothing scores yet. Tick the formats she does in her profile — an
+                  Nothing scores yet. Tick the formats they do in their profile — an
                   untagged model matches nothing rather than everything.
                 </p>
               ) : (
@@ -899,7 +899,7 @@ export default function PlanEditor({
             {planId && (
               <div className="planpane-side">
                 <div className="planpane-head">
-                  <span className="axis-name">What she sees</span>
+                  <span className="axis-name">What they see</span>
                   {/* Writes the DM and three captions for every card that lacks
                       them, five a request until none are left. On demand only:
                       the model allowance is shared with Whisper. */}
@@ -922,8 +922,8 @@ export default function PlanEditor({
                   <>
                     <PlanPreview planId={planId} revision={revision} />
                     <p className="planpane-note">
-                      Live, and safe to touch — nothing here writes to her week.
-                      {plan?.status === 'draft' && ' This week is still a draft, so her link does not show it yet.'}
+                      Live, and safe to touch — nothing here writes to their week.
+                      {plan?.status === 'draft' && ' This week is still a draft, so their link does not show it yet.'}
                     </p>
                   </>
                 )}

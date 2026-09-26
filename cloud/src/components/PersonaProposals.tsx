@@ -86,8 +86,8 @@ export default function PersonaProposals() {
       {open && (
         <div className="proposals-body">
           <p className="watchlist-note">
-            Read from her best frames, captions and bio. Tap a chip to change it, then take it —
-            the persona carries to everything she posts.
+            Read from their best frames, captions and bio. Tap a chip to change it, then take it —
+            the persona carries to everything they post.
           </p>
           <div className="watchlist-actions">
             <button className="pill" disabled={busy} onClick={() => void findMore()}>
@@ -127,7 +127,7 @@ export default function PersonaProposals() {
                       creators at a time, is a wall to read past rather than a
                       decision to take. */}
                   <div className="proposals-tags">
-                    {chosen.length === 0 && <span className="hint">Nothing read — pick what she is.</span>}
+                    {chosen.length === 0 && <span className="hint">Nothing read — pick what fits them.</span>}
                     {chosen.map((tag) => (
                       <button
                         key={tag}

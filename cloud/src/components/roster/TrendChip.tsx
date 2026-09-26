@@ -29,7 +29,7 @@ export default function TrendChip({
       className="trendchip"
       data-variant={variant}
       data-direction={trend.direction}
-      title={`${words}: ${trend.previous} → ${trend.previous + trend.delta} since her previous sent week`}
+      title={`${words}: ${trend.previous} → ${trend.previous + trend.delta} since their previous sent week`}
       aria-label={`${words}, ${signed} points`}
     >
       <span aria-hidden="true">{arrow}</span> {signed}

@@ -107,7 +107,7 @@ function promptFor(
   const vocabulary = PERSONA.map((tag) => `${tag.id}: ${tag.desc ?? tag.label}`).join('\n')
   const said = captions.map((line) => `- ${line.replace(/\s+/g, ' ').slice(0, 160)}`).join('\n')
   const screen = onScreen.length > 0
-    ? `\nText shown on screen in her reels:\n${onScreen.map((t) => `- ${t.replace(/\s+/g, ' ').slice(0, 120)}`).join('\n')}`
+    ? `\nText shown on screen in their reels:\n${onScreen.map((t) => `- ${t.replace(/\s+/g, ' ').slice(0, 120)}`).join('\n')}`
     : ''
   return `You label Instagram creators for a talent agency's research library, so that a creator's work is shown to the right performer. Choose ONLY ids from this vocabulary:
 ${vocabulary}

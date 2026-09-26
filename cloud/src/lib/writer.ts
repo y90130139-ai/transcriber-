@@ -101,26 +101,26 @@ export async function writeCard(itemId: string): Promise<WriteResult> {
     `- ${who}`,
     persona.length ? `- Persona: ${persona.join(', ')}` : '',
     row.place ? `- Where they are: ${row.place}` : '',
-    verticals ? `- Her verticals: ${verticals}` : '',
+    verticals ? `- Their verticals: ${verticals}` : '',
     row.her_words ? `- Words the creator actually uses (from their own videos): ${String(row.her_words).slice(0, 500)}` : '',
     row.standing_rules ? `- Always: ${row.standing_rules}` : '',
     (row.wont_do as string[] | null)?.length ? `- Never: ${(row.wont_do as string[]).map((t) => labelOf('format', t)).join(', ')}` : '',
     '',
     'THIS CARD',
     `- Format: ${formats.map((t) => labelOf('format', t)).join(', ') || 'general'}`,
-    `- What she does: ${rule.label}. Keep: ${rule.keep} Change: ${rule.change}`,
-    `- Her face: ${expressionFor(formats)}`,
+    `- What they do: ${rule.label}. Keep: ${rule.keep} Change: ${rule.change}`,
+    `- Their face: ${expressionFor(formats)}`,
     row.hook ? `- The reference opens with: "${row.hook}"` : '',
     row.wardrobe ? `- Outfit: ${row.wardrobe}` : '',
     row.location ? `- Where: ${row.location}` : '',
     row.duration_sec ? `- Length: about ${Math.round(Number(row.duration_sec) / 5) * 5} seconds` : '',
     '',
-    'TASK — "dm": a short message (under 90 words) she could receive as a DM, in a warm direct friend tone:',
-    'what the concept is, the hook, what to film, what to wear and where, how long, and one line on why it fits her lane.',
+    'TASK — "dm": a short message (under 90 words) they could receive as a DM, in a warm direct friend tone:',
+    'what the concept is, the hook, what to film, what to wear and where, how long, and one line on why it fits their lane.',
     (row.bucket === 'reskin' || row.bucket === 'iteration')
-      ? '- This is HER OWN reel that already did well. Say so plainly: she is re-filming her own video' +
-        (row.axis ? `, changing only ${row.axis === 'location' ? 'where she films it' : row.axis === 'hook' ? 'the opening line' : 'her outfit'}.` : ', exactly as it was.')
-      : '- This is a new idea for her.',
+      ? '- This is THEIR OWN reel that already did well. Say so plainly: they are re-filming their own video' +
+        (row.axis ? `, changing only ${row.axis === 'location' ? 'where they film it' : row.axis === 'hook' ? 'the opening line' : 'their outfit'}.` : ', exactly as it was.')
+      : '- This is a new idea for them.',
     'Never mention any other creator, handle, account, source, or model. Never use the words card, reskin, iteration, vertical, bucket or winner card.',
   ].filter(Boolean).join('\n')
 

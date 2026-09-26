@@ -93,9 +93,9 @@ export async function attributionFor(modelId: string): Promise<Attribution> {
       controls: stats.controls.length,
       variants: stats.variants.length,
       verdict:
-        lift >= 1.2 ? `Changing the ${axis} helps her — variants ran ${lift}× the controls.`
-        : lift <= 0.8 ? `Changing the ${axis} costs her — keep it as the winner had it.`
-        : `The ${axis} barely matters for her. Change it freely.`,
+        lift >= 1.2 ? `Changing the ${axis} helps them — variants ran ${lift}× the controls.`
+        : lift <= 0.8 ? `Changing the ${axis} costs them — keep it as the winner had it.`
+        : `The ${axis} barely matters for them. Change it freely.`,
     }
   })
 

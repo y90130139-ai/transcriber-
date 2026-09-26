@@ -56,10 +56,10 @@ export default function PlanPreview({
   useEffect(() => { void load() }, [load, revision])
 
   if (failed) {
-    return <p className="planpane-note">The preview could not load. Her link itself is unaffected.</p>
+    return <p className="planpane-note">The preview could not load. Their link itself is unaffected.</p>
   }
   if (!payload) {
-    return <p className="planpane-note">Loading her page…</p>
+    return <p className="planpane-note">Loading their page…</p>
   }
 
   return (

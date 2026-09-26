@@ -15,7 +15,7 @@ function title(answer: boolean | null, human: boolean, running: boolean): string
   }
   if (human) {
     return answer
-      ? 'You said she talks in this.'
+      ? 'You said they talk in this.'
       : 'You said nothing here is worth keeping.'
   }
   return answer

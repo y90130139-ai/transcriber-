@@ -29,9 +29,9 @@ const CREATOR_CHOICES = [
 ] as const
 
 const IG_HINT: Record<ProfileForm['ig_account_type'], string> = {
-  professional: 'Her numbers are readable once the app is approved — views, saves, watch time.',
-  personal: 'Switch her to a Creator account, or we never see how her posts did.',
-  unknown: 'Ask her, or look: a professional account shows a category under the handle.',
+  professional: 'Their numbers are readable once the app is approved — views, saves, watch time.',
+  personal: 'Switch them to a Creator account, or we never see how their posts did.',
+  unknown: 'Ask them, or look: a professional account shows a category under the handle.',
 }
 
 /** Who she is and where she is — the half of the sheet you open to review her
@@ -63,7 +63,7 @@ export default function ProfileTab({
             className="field"
             value={form.name}
             onChange={(event) => set('name', event.target.value)}
-            placeholder="What she goes by"
+            placeholder="What they go by"
           />
         </div>
         <div className="form-row">
@@ -78,7 +78,7 @@ export default function ProfileTab({
           {/* Not decoration: this is the key her own posts are matched on, so
               getting it wrong empties "her best posts" below without saying so. */}
           <span className="hint">
-            How her own posts are found in the library, and the Instagram button
+            How their own posts are found in the library, and the Instagram button
             above when no accounts are listed.
           </span>
         </div>
@@ -89,7 +89,7 @@ export default function ProfileTab({
           <span className="axis-name">Photo</span>
           <span>
             <button className="btn btn-quiet btn-small" onClick={() => set('photo_url', null)}>
-              Remove her photo
+              Remove their photo
             </button>
           </span>
           <span className="hint">Tap the picture at the top to replace it instead.</span>
@@ -127,7 +127,7 @@ export default function ProfileTab({
         </div>
         <span className="hint">
           {form.creator_type === 'unknown'
-            ? 'Captions and DMs are written in her voice — left unset, the writer guesses, and it guesses female.'
+            ? 'Captions and DMs are written in their voice — left unset, the writer guesses, and it guesses female.'
             : 'Used by the caption and DM writer, and nowhere else.'}
         </span>
       </div>
@@ -139,7 +139,7 @@ export default function ProfileTab({
           afternoon's work rather than a survey. `unknown` is a real answer and
           stays the default: nobody has looked is not the same as no. */}
       <div className="form-row">
-        <span className="axis-name">Her Instagram account</span>
+        <span className="axis-name">Their Instagram account</span>
         <div className="chips" role="group" aria-label="Instagram account type">
           {IG_CHOICES.map(([value, label]) => (
             <button

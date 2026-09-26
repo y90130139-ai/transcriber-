@@ -57,7 +57,7 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
         <button className="pill" disabled={week >= thisWeek} onClick={() => setWeek(addDays(week, 7))}>Later →</button>
       </div>
 
-      {!data ? <p className="hint">Reviewing her week…</p> : (
+      {!data ? <p className="hint">Reviewing their week…</p> : (
         <>
           <section className="axis">
             <div className="axis-head">
@@ -69,7 +69,7 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
 
           <section className="axis">
             <div className="axis-head">
-              <span className="axis-name">What she posted</span>
+              <span className="axis-name">What they posted</span>
               <span className="hint">
                 {data.counts.reels} reels · {data.counts.carousels} carousels · {data.mix.winners} winners · {data.mix.good} good
               </span>
@@ -83,7 +83,7 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
                       {formatDate(post.posted_at.slice(0, 10))} · @{post.handle}
                     </a>
                     <span className="hint">
-                      {' '}{post.multiple !== null ? `${post.multiple}× her normal` : 'no baseline'}
+                      {' '}{post.multiple !== null ? `${post.multiple}× their normal` : 'no baseline'}
                       {post.action ? ` → ${post.action}` : ''}
                     </span>
                   </li>
@@ -96,11 +96,11 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
             <div className="axis-head">
               <span className="axis-name">Quality check</span>
               <button className="axis-confirm" disabled={scanning} onClick={scan}>
-                {scanning ? 'Checking…' : 'Check her latest reels'}
+                {scanning ? 'Checking…' : 'Check their latest reels'}
               </button>
             </div>
             {!checks || checks.length === 0 ? (
-              <span className="hint">Nothing checked yet. Each run looks at her three newest unchecked reels.</span>
+              <span className="hint">Nothing checked yet. Each run looks at their three newest unchecked reels.</span>
             ) : (
               <ul className="brand-list">
                 {checks.map((check) => (
@@ -117,12 +117,12 @@ export default function ReviewTab({ modelId }: { modelId: string }) {
           </section>
 
           <section className="axis">
-            <div className="axis-head"><span className="axis-name">What her ladders have taught</span></div>
+            <div className="axis-head"><span className="axis-name">What their ladders have taught</span></div>
             {data.attribution.axes.length === 0 ? (
               <span className="hint">
                 No finished batches yet.
                 {data.attribution.unbound > 0
-                  ? ` ${data.attribution.unbound} ladder card${data.attribution.unbound === 1 ? ' is' : 's are'} waiting to be matched to the reel she posted.`
+                  ? ` ${data.attribution.unbound} ladder card${data.attribution.unbound === 1 ? ' is' : 's are'} waiting to be matched to the reel they posted.`
                   : ''}
               </span>
             ) : (

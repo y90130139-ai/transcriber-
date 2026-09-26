@@ -80,7 +80,7 @@ export default function FollowerLog({
       </div>
 
       {modelId === null ? (
-        <span className="hint">Add her first, then her numbers can be logged.</span>
+        <span className="hint">Add them first, then their numbers can be logged.</span>
       ) : (
         <>
           <div className="socialrow">
@@ -131,7 +131,7 @@ export default function FollowerLog({
                 ? 'That is not a number I can read.'
                 : parsed !== null
                   ? `Recording ${parsed.toLocaleString('en-US')} against today.`
-                  : 'Whatever her profile says, as it says it. Typed by hand until App Review clears.')}
+                  : 'Whatever their profile says, as it says it. Typed by hand until App Review clears.')}
           </span>
 
           {readings.length > 0 && (

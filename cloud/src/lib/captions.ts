@@ -244,7 +244,7 @@ function offerFor(reel: Reel, bank: BankCaption[], taken: Set<string>, creator: 
   if (reel.caption) take(reel.caption, 'the caption on the original')
   const fits = bank.filter((c) => topicFits(c, reel.topic))
   const labelOf = (c: BankCaption) => c.handle === creator.handle
-    ? 'her own caption'
+    ? 'their own caption'
     : c.reach ? `from a reel at ${c.reach}x its creator's usual views` : 'from the library'
   // Proven first, always. A same-format caption only jumps the queue when its
   // own reel beat its creator's usual views; otherwise a 0.9x caption that
@@ -349,7 +349,7 @@ export async function writeWeekCaptions(planId: string, options: WeekCaptionOpti
   const empty = { cards: 0, captions: 0, short: 0 }
   const week = await load(planId)
   if (!week) return { ok: false, reason: 'no such week', ...empty }
-  if (week.status !== 'draft') return { ok: false, reason: 'this week has been sent; its captions stay as she got them', ...empty }
+  if (week.status !== 'draft') return { ok: false, reason: 'this week has been sent; its captions stay as they got them', ...empty }
 
   const todo = week.cards.filter((c) => rewrite || !c.hasCaptions)
   if (!todo.length) return { ok: true, ...empty }

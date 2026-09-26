@@ -210,7 +210,7 @@ export default function ModelProfile({
 
   async function save(tokenAction?: 'rotate' | 'revoke') {
     if (!form.name.trim()) {
-      setNote({ text: 'She needs a name.', bad: true })
+      setNote({ text: 'They need a name.', bad: true })
       setTab('profile')
       return
     }
@@ -275,7 +275,7 @@ export default function ModelProfile({
 
   async function remove() {
     if (!model) return
-    if (!confirm(`Remove ${model.name} and every plan of hers?`)) return
+    if (!confirm(`Remove ${model.name} and every plan of theirs?`)) return
     setBusy(true)
     await fetch(`/api/models/${model.id}`, { method: 'DELETE' })
     setBusy(false)
@@ -368,7 +368,7 @@ export default function ModelProfile({
 
         <div className="sheet-bar">
           <button className="btn" disabled={busy} onClick={() => void save()}>
-            {busy ? 'Working' : model ? 'Save' : 'Add her'}
+            {busy ? 'Working' : model ? 'Save' : 'Add them'}
           </button>
           {model && (
             <button className="btn btn-quiet" disabled={busy} onClick={() => void remove()}>

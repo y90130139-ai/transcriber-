@@ -153,8 +153,8 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   if (testingRound === 1) {
     notes.push(
       'Testing round 1 of 2: six reels across the three starter verticals, then ' +
-      'feedback before anything else is sent. The point is to see how she looks, ' +
-      'talks and moves on camera — not to brand her yet.',
+      'feedback before anything else is sent. The point is to see how they look, ' +
+      'talk and move on camera — not to brand them yet.',
     )
   } else if (testingRound === 2) {
     notes.push('Testing round 2 of 2: fifteen more, shaped by what the first six showed.')
@@ -162,9 +162,9 @@ export async function weekFor(modelId: string): Promise<Week | null> {
 
   if (!bank || bank.empty) {
     notes.push(
-      'No baseline yet: none of her accounts has enough recent reels with play ' +
+      'No baseline yet: none of their accounts has enough recent reels with play ' +
       'counts to take a median from. Until the roster pass fills that in, there ' +
-      'is nothing of hers to reskin, so the whole week comes from the library ' +
+      'is nothing of theirs to reskin, so the whole week comes from the library ' +
       'as new tests — the manual\'s own answer for a creator with no history.',
     )
   }
@@ -177,7 +177,7 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   const fetchable = (post: BankPost) => !blocked.has(post.post_id)
   if (!testingRound && blocked.size > 0) {
     notes.push(
-      `${blocked.size} of her graded reel${blocked.size === 1 ? '' : 's'} could not be ` +
+      `${blocked.size} of their graded reel${blocked.size === 1 ? '' : 's'} could not be ` +
       'downloaded — Instagram age-restricts them — so they were passed over for the next best.',
     )
   }
@@ -261,28 +261,28 @@ export async function weekFor(modelId: string): Promise<Week | null> {
     }
     if (niches.length > 0 && picks.length > 0) {
       notes.push(
-        `Matched on her niche — ${niches.join(', ')} — ` +
-        (typedTopics.length > 0 ? 'set for her.' : 'read off her own reels; nobody typed it.'),
+        `Matched on their niche — ${niches.join(', ')} — ` +
+        (typedTopics.length > 0 ? 'set for them.' : 'read off their own reels; nobody typed it.'),
       )
     }
     if (relatable > 0) {
       notes.push(
         `${relatable} of the new ${relatable === 1 ? 'test is a' : 'tests are'} relatable ` +
         `${relatable === 1 ? 'reel' : 'reels'} rather than ${relatable === 1 ? 'a reel' : 'reels'} ` +
-        'from her own niche — kept to a twist of the format, not a copy of the subject.',
+        'from their own niche — kept to a twist of the format, not a copy of the subject.',
       )
     }
     if (picks.length === 0) {
       notes.push(
         `The library returned nothing on ${matchedOn.formats.map((f) => f).join(', ')}. ` +
         'That is a library short of those formats, not a profile problem — tag more ' +
-        'references in them, or accept different verticals for her.',
+        'references in them, or accept different verticals for them.',
       )
     }
     if (override && picks.length > 0 && !testingRound) {
       notes.push(
         matchedOn.basis === 'derived'
-          ? 'Matched on the verticals her own winners point to — nobody has typed a profile for her.'
+          ? 'Matched on the verticals their own winners point to — nobody has typed a profile for them.'
           : 'Matched on the manual\'s three starter verticals — she has no profile and no winners to derive one from yet.',
       )
     }

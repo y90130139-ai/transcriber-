@@ -51,7 +51,7 @@ export default function AccessTab({
     <>
       <div className="form-row">
         <label className="axis-name" htmlFor="model-notes">
-          Your notes — she never sees these
+          Your notes — they never see these
         </label>
         <textarea
           id="model-notes"
@@ -71,7 +71,7 @@ export default function AccessTab({
           already been authored. */}
       <div className="axis">
         <div className="axis-head">
-          <span className="axis-name">Her own brief lines</span>
+          <span className="axis-name">Their own brief lines</span>
           <button
             className="axis-confirm"
             onClick={() =>
@@ -102,7 +102,7 @@ export default function AccessTab({
                       at === index ? { ...one, format: event.target.value } : one))
                   }
                 >
-                  <option value={ANY_FORMAT}>Every format of hers</option>
+                  <option value={ANY_FORMAT}>Every format of theirs</option>
                   {form.formats.map((tag) => (
                     <option key={tag} value={tag}>
                       {taxonomy.format.tags.find((one) => one.id === tag)?.label ?? tag}
@@ -127,7 +127,7 @@ export default function AccessTab({
                 <input
                   className="field"
                   value={row.value}
-                  placeholder="What her card should say instead"
+                  placeholder="What their card should say instead"
                   onChange={(event) =>
                     setDefaults((current) => current.map((one, at) =>
                       at === index ? { ...one, value: event.target.value } : one))
@@ -146,7 +146,7 @@ export default function AccessTab({
         )}
         {form.standing_rules && /face/i.test(form.standing_rules) && (
           <span className="hint">
-            Her standing rules mention her face, so the camera line stays the
+            Their standing rules mention their face, so the camera line stays the
             no-face framing whatever is set here.
           </span>
         )}
@@ -159,7 +159,7 @@ export default function AccessTab({
       {declines.length > 0 && (
         <div className="axis">
           <div className="axis-head">
-            <span className="axis-name">What she has turned down</span>
+            <span className="axis-name">What they have turned down</span>
             <span className="hint">
               {declines.reduce((total, row) => total + row.n, 0)} in all
             </span>
@@ -179,7 +179,7 @@ export default function AccessTab({
 
       {hasModel && (
         <div className="axis">
-          <div className="axis-head"><span className="axis-name">Her link</span></div>
+          <div className="axis-head"><span className="axis-name">Their link</span></div>
           {revoked ? (
             <p className="hint" data-tone="bad">Revoked. The old URL now 404s.</p>
           ) : (

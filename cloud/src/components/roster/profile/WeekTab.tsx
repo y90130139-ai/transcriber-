@@ -58,7 +58,7 @@ export default function WeekTab({
         </div>
 
         <div className="form-row">
-          <label className="axis-name" htmlFor="model-tz">Where she is</label>
+          <label className="axis-name" htmlFor="model-tz">Where they are</label>
           {/* Keyed on the place, never the zone. Thirty US entries share
               `America/New_York`, and a controlled select matches the first
               option carrying its value — so keying on the zone snapped every
@@ -103,7 +103,7 @@ export default function WeekTab({
 
       <div className="form-row">
         <label className="axis-name" htmlFor="model-rules">
-          Standing rules — she sees these on every plan
+          Standing rules — they see these on every plan
         </label>
         <textarea
           id="model-rules"
@@ -121,7 +121,7 @@ export default function WeekTab({
           renders no delivery block at all rather than an empty box. */}
       <div className="form-row">
         <label className="axis-name" htmlFor="model-drive">
-          Where she sends the footage — she sees this on every plan
+          Where they send the footage — they see this on every plan
         </label>
         <input
           id="model-drive"
@@ -132,7 +132,7 @@ export default function WeekTab({
           placeholder="https://drive.google.com/drive/folders/…"
         />
         <span className="hint">
-          Her own Drive folder — the one she already has access to. Left empty,
+          Their own Drive folder — the one they already have access to. Left empty,
           the line below stands on its own.
         </span>
       </div>

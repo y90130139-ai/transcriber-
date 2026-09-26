@@ -154,7 +154,7 @@ export function engagementOf(
 
   // Order matters: a clear is the loudest fact, an unopened week the next.
   if (cleared) {
-    return { ...base, heat: 'fire', why: `Cleared ${newest.filmed}/${expected(newest)} on her newest week` }
+    return { ...base, heat: 'fire', why: `Cleared ${newest.filmed}/${expected(newest)} on their newest week` }
   }
   if (!newest.opened_at && daysSinceSent >= UNOPENED_COLD_DAYS) {
     return { ...base, heat: 'cold', why: `Newest week unopened for ${Math.floor(daysSinceSent)} days` }
@@ -179,7 +179,7 @@ export type Suggestion = {
 
 export const SITUATION_LABEL: Record<Situation, string> = {
   star: 'Star — protect',
-  at_risk: 'At risk — talk to her',
+  at_risk: 'At risk — talk to them',
   rising: 'Rising — invest',
   steady: 'Steady',
   dormant: 'Dormant',
@@ -201,7 +201,7 @@ function drive(engagement: Engagement): 'high' | 'low' | 'mid' {
  * stopped using the plan.
  */
 export function suggestPriority(revenue: RevenueBand | null, engagement: Engagement): Suggestion {
-  if (!revenue) return { priority: null, situation: null, why: 'Set her revenue band to get a suggestion' }
+  if (!revenue) return { priority: null, situation: null, why: 'Set their revenue band to get a suggestion' }
   if (engagement.heat === 'new' && !engagement.cleared) {
     return { priority: null, situation: null, why: 'Not enough sent weeks to judge yet' }
   }

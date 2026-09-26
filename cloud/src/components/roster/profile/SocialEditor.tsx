@@ -31,7 +31,7 @@ export default function SocialEditor({
   return (
     <div className="axis">
       <div className="axis-head">
-        <span className="axis-name">Her accounts</span>
+        <span className="axis-name">Their accounts</span>
         <button
           className="axis-confirm"
           onClick={() => onChange([...socials, { platform: 'instagram', handle: '', url: '' }])}
@@ -43,7 +43,7 @@ export default function SocialEditor({
       {socials.length === 0 ? (
         <span className="hint">
           Nothing on file. Paste a link — Instagram, TikTok, OnlyFans, X, Reddit,
-          anything — and it becomes a button on her profile and on her card.
+          anything — and it becomes a button on their profile and on their card.
         </span>
       ) : (
         <ul className="sociallist">
@@ -75,7 +75,7 @@ export default function SocialEditor({
                   character lands at the end of it. */}
               <input
                 className="field"
-                aria-label="Her handle or the link"
+                aria-label="Their handle or the link"
                 value={row.url}
                 placeholder="@handle, or paste the link"
                 onChange={(event) => {

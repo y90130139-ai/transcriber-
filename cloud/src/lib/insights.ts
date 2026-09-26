@@ -52,7 +52,7 @@ export type LevelRead = {
 const ROUTE: Record<Level, string> = {
   new: 'Test first: a testing round of 6, feedback, then 15 — collect data before branding.',
   growing: 'Test lightly, then brand: run the three starter verticals and lean into what wins.',
-  established: 'Personalise now: she expects strategy, so build from her own winners from week one.',
+  established: 'Personalise now: they expect strategy, so build from their own winners from week one.',
 }
 
 export async function levelFor(modelId: string, bank: Bank): Promise<LevelRead> {
@@ -74,7 +74,7 @@ export async function levelFor(modelId: string, bank: Bank): Promise<LevelRead> 
   const reels = Number(row?.reels_30d ?? 0)
 
   const reasons: string[] = []
-  if (followers !== null) reasons.push(`${followers.toLocaleString('en-US')} followers on her biggest account`)
+  if (followers !== null) reasons.push(`${followers.toLocaleString('en-US')} followers on their biggest account`)
   if (median !== null) reasons.push(`${Math.round(median).toLocaleString('en-US')} median plays`)
   reasons.push(`${reels} reel${reels === 1 ? '' : 's'} in the last 30 days`)
 
@@ -87,12 +87,12 @@ export async function levelFor(modelId: string, bank: Bank): Promise<LevelRead> 
              (median ?? 0) >= LEVEL.establishedMedianAtLeast) {
     level = 'established'
   }
-  if (followers === null && median === null) reasons.push('nothing swept yet, so she reads as new until it is')
+  if (followers === null && median === null) reasons.push('nothing swept yet, so they read as new until it is')
 
   // Small is not the same as untested. The round exists to collect data; an
   // account that already produced a 10x reel has, and the planner skips it.
   const route = level === 'new' && bank.winners.length > 0
-    ? `Small, but already proven: ${bank.winners.length} reel${bank.winners.length === 1 ? '' : 's'} past 10x her median, so skip the testing round and build from those.`
+    ? `Small, but already proven: ${bank.winners.length} reel${bank.winners.length === 1 ? '' : 's'} past 10x their median, so skip the testing round and build from those.`
     : ROUTE[level]
   return { level, route, followers, median_plays: median, reels_30d: reels, reasons }
 }

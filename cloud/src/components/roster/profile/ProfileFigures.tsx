@@ -68,7 +68,7 @@ export default function ProfileFigures({
       )}
 
       <div className="sheet-stat">
-        <u>Her posts here</u>
+        <u>Their posts here</u>
         <b>{posts}</b>
         <span className="sheet-delta">
           {posts === 0 ? 'none ingested' : 'in the library'}

@@ -9,9 +9,9 @@ type Payload = Insights & {
 }
 
 const BASIS: Record<Insights['matching']['basis'], string> = {
-  'her-profile': 'the formats accepted for her',
-  derived: 'the verticals her own winners point to',
-  starter: "the manual's three starter verticals — she has no winners to derive from yet",
+  'her-profile': 'the formats accepted for them',
+  derived: 'the verticals their own winners point to',
+  starter: "the manual's three starter verticals — they have no winners to derive from yet",
 }
 
 /** T0's bands in words that describe what we watch, not a ruling on the
@@ -75,8 +75,8 @@ export default function BrandTab({ modelId }: { modelId: string }) {
     else setFailed(true)
   }
 
-  if (failed) return <p className="hint" data-tone="bad">Her brand did not load. Try again in a moment.</p>
-  if (!data) return <p className="hint">Working her out from her accounts…</p>
+  if (failed) return <p className="hint" data-tone="bad">Their brand did not load. Try again in a moment.</p>
+  if (!data) return <p className="hint">Working them out from their accounts…</p>
 
   const accepted = data.accepted
   const verticalsAccepted = Boolean(accepted?.verticals?.length)
@@ -113,13 +113,13 @@ export default function BrandTab({ modelId }: { modelId: string }) {
               <b>{vertical.tier ?? '·'}</b> {vertical.name}
               <span className="hint">
                 {vertical.source === 'starter'
-                  ? ' — starter vertical, no winners of hers in it yet'
-                  : ` — ${vertical.posts} of her graded reels, best ${vertical.best_multiple}×`}
+                  ? ' — starter vertical, no winners of theirs in it yet'
+                  : ` — ${vertical.posts} of their graded reels, best ${vertical.best_multiple}×`}
               </span>
             </li>
           ))}
         </ol>
-        <span className="hint">Matching her on {BASIS[data.matching.basis]}.</span>
+        <span className="hint">Matching them on {BASIS[data.matching.basis]}.</span>
       </section>
 
       <section className="axis">
@@ -131,7 +131,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
             {data.niches.hers.map((niche) => <NicheRow key={niche.topic} niche={niche} />)}
           </ol>
         ) : (
-          <span className="hint">No niche read off her reels yet — they are relatable or untagged.</span>
+          <span className="hint">No niche read off their reels yet — they are relatable or untagged.</span>
         )}
         {data.niches.strongest.length > 0 && (
           <>
@@ -149,7 +149,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
 
       <section className="axis">
         <div className="axis-head">
-          <span className="axis-name">Her three creators</span>
+          <span className="axis-name">Their three creators</span>
           {data.similar.length > 0 && !similarAccepted && (
             <button
               className="axis-confirm"
@@ -162,7 +162,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
           {similarAccepted && <span className="hint">confirmed</span>}
         </div>
         {data.similar.length === 0 ? (
-          <span className="hint">Nobody on the watchlist shares enough of her formats yet.</span>
+          <span className="hint">Nobody on the watchlist shares enough of their formats yet.</span>
         ) : (
           <ol className="brand-list">
             {data.similar.map((creator) => (

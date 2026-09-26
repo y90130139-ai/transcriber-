@@ -68,7 +68,7 @@ export default function ProfileHead({
 
       <div className="sheet-id">
         <div className="sheet-avatar-wrap">
-        <label className="sheet-avatar" aria-label={form.photo_url ? 'Replace her photo' : 'Add a photo'}>
+        <label className="sheet-avatar" aria-label={form.photo_url ? 'Replace their photo' : 'Add a photo'}>
           {form.photo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={form.photo_url} alt="" width={264} height={264} />

@@ -71,7 +71,7 @@ async function recreate(modelId: string, post: Record<string, unknown>) {
   )
   if (plan && String(plan.status) !== 'draft') {
     return NextResponse.json(
-      { error: 'Her week is already sent. Open next week and add it there.' },
+      { error: 'Their week is already sent. Open next week and add it there.' },
       { status: 409 },
     )
   }

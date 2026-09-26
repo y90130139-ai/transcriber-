@@ -22,15 +22,15 @@ export default function TagsTab({
         title="Persona"
         axis="persona"
         chosen={form.persona}
-        hint="Where she sits, in the same vocabulary as the library."
+        hint="Where they sit, in the same vocabulary as the library."
         onChange={(next) => set('persona', next)}
       />
 
       <AxisPicker
-        title="Formats she does"
+        title="Formats they do"
         axis="format"
         chosen={form.formats}
-        hint="Tick what she can actually shoot. This is what drives recommendations."
+        hint="Tick what they can actually shoot. This is what drives recommendations."
         onChange={(next) =>
           setForm((current) => ({
             ...current,
@@ -41,7 +41,7 @@ export default function TagsTab({
       />
 
       <AxisPicker
-        title="Hooks that work for her"
+        title="Hooks that work for them"
         axis="hook"
         chosen={form.hooks}
         hint="Optional — a tiebreaker, not a requirement."

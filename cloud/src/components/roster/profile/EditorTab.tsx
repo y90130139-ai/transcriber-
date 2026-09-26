@@ -26,7 +26,7 @@ export default function EditorTab({ modelId }: { modelId: string }) {
     void load()
   }
 
-  if (!queue) return <p className="hint">Building the queue from her winners…</p>
+  if (!queue) return <p className="hint">Building the queue from their winners…</p>
   const open = queue.tasks.filter((task) => !task.done)
   const shown = showDone ? queue.tasks : open
 
@@ -56,8 +56,8 @@ export default function EditorTab({ modelId }: { modelId: string }) {
       <section className="axis">
         <div className="axis-head"><span className="axis-name">What this queue is</span></div>
         <span className="hint">
-          Editing work on reels she has <b>already filmed</b> — she films nothing for any of
-          this, which is why it is here and not on her week. Each <b>Edit</b> line is her
+          Editing work on reels they have <b>already filmed</b> — they film nothing for any of
+          this, which is why it is here and not on their week. Each <b>Edit</b> line is their
           winning clip re-cut one way and posted again; the cadence is one every three days.
           Each <b>Trial</b> line is one of five different cuts of the same winner, posted as
           trial reels. <b>Get the video</b> downloads the clip to run through the batcher,
@@ -76,7 +76,7 @@ export default function EditorTab({ modelId }: { modelId: string }) {
         {shown.length === 0 ? (
           <span className="hint">
             {queue.tasks.length === 0
-              ? 'No winners yet — edit reskins start the week she has a reel past 10× her normal.'
+              ? 'No winners yet — edit reskins start the week they have a reel past 10× their normal.'
               : 'All done.'}
           </span>
         ) : (

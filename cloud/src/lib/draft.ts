@@ -150,8 +150,8 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
       skipped.push({
         bucket: card.bucket,
         why: card.source_post
-          ? `Her post ${card.source_post} is not in the library yet — ingest it first, ` +
-            'or the card would ask her to recreate a video she cannot watch.'
+          ? `Their post ${card.source_post} is not in the library yet — ingest it first, ` +
+            'or the card would ask them to recreate a video they cannot watch.'
           : 'No library item behind this card.',
       })
       continue

@@ -18,7 +18,7 @@ const BANDS: { key: RevenueBand; label: string }[] = [
 ]
 const HEAT_LABEL = { fire: 'On fire', cold: 'Cold', steady: 'Steady', new: 'Too early to read' }
 const PARTS: { key: 'filmed' | 'answered' | 'posted' | 'opened' | 'talked'; label: string }[] = [
-  { key: 'filmed', label: 'Filmed what she took on' },
+  { key: 'filmed', label: 'Filmed what they took on' },
   { key: 'answered', label: 'Answered every card' },
   { key: 'posted', label: 'Posted (bound by you)' },
   { key: 'opened', label: 'Opened, and how fast' },
@@ -53,7 +53,7 @@ export default function StandingTab({
   const load = useCallback(async () => {
     const response = await fetch(`/api/models/${modelId}/standing`)
     if (response.ok) setStanding((await response.json()).standing ?? null)
-    else setError('Her standing did not load.')
+    else setError('Their standing did not load.')
   }, [modelId])
 
   useEffect(() => { void load() }, [load])
@@ -76,7 +76,7 @@ export default function StandingTab({
     onChanged?.()
   }
 
-  if (!standing) return <p className="hint">{error ?? 'Reading her weeks…'}</p>
+  if (!standing) return <p className="hint">{error ?? 'Reading their weeks…'}</p>
 
   const { engagement, suggestion } = standing
   const mark = HEAT_MARK[engagement.heat]
@@ -95,13 +95,13 @@ export default function StandingTab({
             <p className="standing-trend">
               <TrendChip trend={standing.trend} variant="inline" />
               <span>
-                {standing.trend.previous} → {standing.trend.previous + standing.trend.delta} since her previous sent week
+                {standing.trend.previous} → {standing.trend.previous + standing.trend.delta} since their previous sent week
               </span>
             </p>
             <TrendLine trend={standing.trend} />
           </>
         ) : (
-          <p className="hint">A trend appears once she has two sent weeks.</p>
+          <p className="hint">A trend appears once they have two sent weeks.</p>
         )}
         {standing.backlog > 0 && (
           <p className="hint">
@@ -189,7 +189,7 @@ export default function StandingTab({
 
       {standing.weeks.length > 0 && (
         <div className="form-row">
-          <span className="axis-name">Her sent weeks</span>
+          <span className="axis-name">Their sent weeks</span>
           <ul className="standing-weeks">
             {standing.weeks.map((week) => (
               <li key={week.week_of} data-cleared={isCleared(week) || undefined}>

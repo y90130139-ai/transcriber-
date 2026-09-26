@@ -164,19 +164,19 @@ function callSheet(
   const best = [...graded].sort((a, b) => (b.multiple ?? 0) - (a.multiple ?? 0))[0]
   if (winners.length > 0) {
     lines.push(
-      `Lead with the win: ${winners.length} reel${winners.length === 1 ? '' : 's'} went past 10× her normal` +
+      `Lead with the win: ${winners.length} reel${winners.length === 1 ? '' : 's'} went past 10× their normal` +
       (best?.multiple ? ` — the best did ${Math.round(best.multiple)}×.` : '.') +
       ' Every one of those becomes five more next week.',
     )
   } else if (best?.multiple) {
-    lines.push(`Best of the week did ${best.multiple}× her normal. Say it — progress she can see keeps her filming.`)
+    lines.push(`Best of the week did ${best.multiple}× their normal. Say it — progress they can see keeps them filming.`)
   }
   if (good.length > 0) {
     lines.push(`${good.length} did well without breaking out. Those get one more go, unchanged, to see if it was the idea or the day.`)
   }
   if (stops.length > 0) {
     lines.push(
-      `${stops.length} landed under half her normal. Drop those concepts — no need to ` +
+      `${stops.length} landed under half their normal. Drop those concepts — no need to ` +
       'dwell on them, just do not repeat them.',
     )
   }
@@ -186,12 +186,12 @@ function callSheet(
     const declined = Number(plan.declined)
     if (sent > 0) {
       lines.push(
-        `She filmed ${filmed} of the ${sent} sent.` +
-        (declined ? ` ${declined} declined — ask what did not feel like her, and listen.` : '') +
+        `They filmed ${filmed} of the ${sent} sent.` +
+        (declined ? ` ${declined} declined — ask what did not feel like them, and listen.` : '') +
         (filmed < sent / 2 ? ' Less than half: find out whether it was time, places to film, or the ideas.' : ''),
       )
     }
   }
-  lines.push(`She posted ${reelCount} reel${reelCount === 1 ? '' : 's'} this week against a target of 21. Confirm her shoot day for next week before hanging up.`)
+  lines.push(`They posted ${reelCount} reel${reelCount === 1 ? '' : 's'} this week against a target of 21. Confirm their shoot day for next week before hanging up.`)
   return lines
 }

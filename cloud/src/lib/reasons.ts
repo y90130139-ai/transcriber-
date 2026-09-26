@@ -50,9 +50,9 @@ export function reasonLine(reason: Reason): string {
     case 'sound':
       return `Rode "${reason.title}", which ${reason.creators} watched creators used within two weeks of it.`
     case 'run':
-      return `She was already hot: ${reason.hits} other reel${reason.hits === 1 ? '' : 's'} passed 3× her median in the week before.`
+      return `They were already hot: ${reason.hits} other reel${reason.hits === 1 ? '' : 's'} passed 3× their median in the week before.`
     case 'format':
-      return `${reason.times} more of her reels in the library are ${labelOf('format', reason.format).toLowerCase()} — the format keeps paying for her.`
+      return `${reason.times} more of their reels in the library are ${labelOf('format', reason.format).toLowerCase()} — the format keeps paying for her.`
     case 'shared':
       return `${reason.per1k} shares per 1,000 plays — top tenth of every reel swept. People sent it on.`
     case 'new':

@@ -94,7 +94,7 @@ export default function BulkAssign({
     const added = Number(body.added ?? 0)
     setNote({
       text: added === jobIds.length
-        ? `${added} on her week, each with a drafted brief.`
+        ? `${added} on their week, each with a drafted brief.`
         : `${added} added · ${jobIds.length - added} already on that week.`,
     })
     onAdded()
@@ -120,7 +120,7 @@ export default function BulkAssign({
         onWeek={setWeekOf}
       />
       <button className="btn btn-small" onClick={() => void add()} disabled={busy || !modelId}>
-        {busy ? 'Adding' : `Add ${jobIds.length} to her week`}
+        {busy ? 'Adding' : `Add ${jobIds.length} to their week`}
       </button>
 
       {/* Warned before committing, never blocked — two creators on one trend is

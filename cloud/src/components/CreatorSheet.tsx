@@ -174,7 +174,7 @@ export default function CreatorSheet({
                     </span> {post.is_hot && <span>🔥</span>}
                   </p>
                   <p className="rung-meta">
-                    {[post.why?.multiple != null ? `${post.why.multiple}× her median plays` : null,
+                    {[post.why?.multiple != null ? `${post.why.multiple}× their median plays` : null,
                       post.upload_date, `${compact(post.like_count)} likes`,
                       `${compact(post.comment_count)} cm`, clock(post.duration_sec)]
                       .filter(Boolean).join(' · ')}

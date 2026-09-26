@@ -23,7 +23,7 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'ourSide',
     title: 'Our side',
-    blurb: 'No brief has gone out for this week. Nothing below is her fault until this list is empty.',
+    blurb: 'No brief has gone out for this week. Nothing below is their fault until this list is empty.',
     tone: 'ours',
     line: (row) =>
       row.plan_id === null
@@ -35,7 +35,7 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'questions',
     title: 'Waiting on an answer',
-    blurb: 'She asked something and nobody has read it.',
+    blurb: 'They asked something and nobody has read it.',
     tone: 'ours',
     line: (row) => `${row.unread} unread`,
   },
@@ -48,7 +48,7 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'overdue',
     title: 'Overdue',
-    blurb: 'Past the due date where she is, with videos still outstanding.',
+    blurb: 'Past the due date where they are, with videos still outstanding.',
     tone: 'bad',
     line: (row) =>
       `${row.filmed}/${row.items} filmed · ${Math.abs(row.days_left ?? 0)} day` +
@@ -61,14 +61,14 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'neverOpened',
     title: 'Never opened it',
-    blurb: 'Sent, and the link has never been opened. Check it reached her before chasing the work.',
+    blurb: 'Sent, and the link has never been opened. Check it reached them before chasing the work.',
     tone: 'ours',
     line: (row) => `sent ${row.days_since_sent} days ago · never opened`,
   },
   {
     key: 'openedNoAnswer',
     title: 'Opened, no answer',
-    blurb: 'She has seen the week and said nothing about it. This one is a conversation.',
+    blurb: 'They have seen the week and said nothing about it. This one is a conversation.',
     line: (row) => `sent ${row.days_since_sent} days ago · opened, nothing back`,
   },
 ]
@@ -100,12 +100,12 @@ const HEAT_LISTS: {
   {
     key: 'fire',
     title: '🔥 On fire',
-    blurb: 'Cleared her newest week, or scoring high across several. Keep her supplied first.',
+    blurb: 'Cleared their newest week, or scoring high across several. Keep them supplied first.',
     pick: (standing) => standing.engagement.heat === 'fire',
   },
   {
     key: 'at_risk',
-    title: 'At risk — talk to her',
+    title: 'At risk — talk to them',
     blurb: 'High revenue, low engagement. More plans will not fix this one; a conversation might.',
     pick: (standing) => standing.suggestion.situation === 'at_risk',
     tone: 'ours',
@@ -119,13 +119,13 @@ const HEAT_LISTS: {
   {
     key: 'up',
     title: '▲ Trending up',
-    blurb: 'Her score rose 8 or more since her previous sent week. More active than she was.',
+    blurb: 'Their score rose 8 or more since their previous sent week. More active than they were.',
     pick: (standing) => standing.trend?.direction === 'up',
   },
   {
     key: 'down',
     title: '▼ Trending down',
-    blurb: 'Her score fell 8 or more since her previous sent week. Worth a look before it turns cold.',
+    blurb: 'Their score fell 8 or more since their previous sent week. Worth a look before it turns cold.',
     pick: (standing) => standing.trend?.direction === 'down',
   },
   {
@@ -191,7 +191,7 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
           <span className="score-of">{score.sentOnTime} of {score.sent} weeks</span>
         </div>
         <div className="score-cell">
-          <span className="axis-name">Accepted · her</span>
+          <span className="axis-name">Accepted · them</span>
           <b>{percent(score.accepted, score.items)}</b>
           <span className="score-of">
             {score.accepted} of {score.items}
@@ -199,18 +199,18 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
           </span>
         </div>
         <div className="score-cell">
-          <span className="axis-name">Filmed · her</span>
+          <span className="axis-name">Filmed · them</span>
           <b>{percent(score.filmed, score.items)}</b>
           <span className="score-of">{score.filmed} of {score.items}</span>
         </div>
         <div className="score-cell">
-          <span className="axis-name">Posted · her</span>
+          <span className="axis-name">Posted · them</span>
           <b>{percent(score.posted, score.items)}</b>
           <span className="score-of">{score.posted} of {score.items}</span>
         </div>
         <p className="score-foot">
           Across the last {score.weeks} weeks of sent plans. A week counts as on
-          time when the brief was in her hands before the week it is for started.
+          time when the brief was in their hands before the week it is for started.
         </p>
       </div>
 

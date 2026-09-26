@@ -100,8 +100,8 @@ export default function BatchWeek({ onBuilt }: { onBuilt: () => void }) {
       </div>
 
       <p className="hint">
-        Each model&rsquo;s own fit-ranked suggestions, up to her weekly target and
-        on top of whatever her week already holds. Taken in tier order, so when
+        Each model&rsquo;s own fit-ranked suggestions, up to their weekly target and
+        on top of whatever their week already holds. Taken in tier order, so when
         two of them want the same reel the bespoke tier gets first refusal and
         the rest are staggered onto their next best fit. Everything lands as a
         draft — nothing here can send anything.
@@ -121,18 +121,18 @@ export default function BatchWeek({ onBuilt }: { onBuilt: () => void }) {
                 <div className="backfill-who">
                   <b>{row.name}</b>
                   <span className="planrow-meta">
-                    {row.picks.length} to draft · her target is {row.weekly_target}
+                    {row.picks.length} to draft · their target is {row.weekly_target}
                     {row.already > 0 && ` · ${row.already} already on it`}
                     {row.short > 0 && ` · ${row.short} short`}
                   </span>
                 </div>
 
                 {row.wanted === 0 ? (
-                  <p className="hint">Her week is already at target. Nothing to add.</p>
+                  <p className="hint">Their week is already at target. Nothing to add.</p>
                 ) : row.picks.length === 0 ? (
                   <p className="hint">
-                    Nothing in the library scores for her. Tick the formats she
-                    does in her profile — an untagged model matches nothing
+                    Nothing in the library scores for them. Tick the formats they
+                    do in their profile — an untagged model matches nothing
                     rather than everything.
                   </p>
                 ) : null}
@@ -191,7 +191,7 @@ export default function BatchWeek({ onBuilt }: { onBuilt: () => void }) {
                       })
                     }
                   >
-                    {skipped.has(row.model_id) ? 'Put her back in' : 'Leave her out'}
+                    {skipped.has(row.model_id) ? 'Put them back in' : 'Leave them out'}
                   </button>
                   {row.picks.length > 0 && (
                     <button

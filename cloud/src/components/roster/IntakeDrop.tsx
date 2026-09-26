@@ -26,7 +26,7 @@ type Stored = {
 
 const AXIS_TITLE: Record<keyof Omit<IntakePick, 'intakeId' | 'fields'>, string> = {
   persona: 'Persona',
-  formats: 'Formats she does',
+  formats: 'Formats they do',
   hooks: 'Hooks',
   wont_do: "Won't do",
 }
@@ -34,7 +34,7 @@ const AXIS_TITLE: Record<keyof Omit<IntakePick, 'intakeId' | 'fields'>, string> 
 const FIELD_TITLE: Record<keyof IntakeFields, string> = {
   name: 'Name',
   handle: 'Handle',
-  place: 'Where she is',
+  place: 'Where they are',
   timezone: 'Timezone',
   filming_days: 'Filming days',
   weekly_target: 'Weekly target',
@@ -179,8 +179,8 @@ export default function IntakeDrop({
   if (!modelId) {
     return (
       <div className="axis">
-        <div className="axis-head"><span className="axis-name">Her intake form</span></div>
-        <span className="hint">Save her first, then drop the form in and it fills this sheet.</span>
+        <div className="axis-head"><span className="axis-name">Their intake form</span></div>
+        <span className="hint">Save them first, then drop the form in and it fills this sheet.</span>
       </div>
     )
   }
@@ -192,7 +192,7 @@ export default function IntakeDrop({
   return (
     <div className="axis intake">
       <div className="axis-head">
-        <span className="axis-name">Her intake form</span>
+        <span className="axis-name">Their intake form</span>
         <span className="hint">
           {stored
             ? `${stored.filename ?? 'Pasted'} · ${stored.applied_at ? 'applied' : 'not applied yet'}`
@@ -202,7 +202,7 @@ export default function IntakeDrop({
 
       <div className="chips">
         <label className="btn btn-quiet" style={{ display: 'inline-block', cursor: 'pointer' }}>
-          {stored ? 'Read another form' : 'Read her form'}
+          {stored ? 'Read another form' : 'Read their form'}
           <input
             type="file"
             accept=".txt,.md,.csv,.json,.pdf,.doc,.docx,.rtf,text/plain,text/markdown,text/csv,application/json,application/pdf"
@@ -275,7 +275,7 @@ export default function IntakeDrop({
                       data-on={picked.has(`${group}:${tag.tag}`)}
                       data-origin={tag.why === 'keyword' && !picked.has(`${group}:${tag.tag}`) ? 'auto' : undefined}
                       onClick={() => toggle(`${group}:${tag.tag}`)}
-                      title={tag.why === 'label' ? `She named it: ${tag.from}` : `Inferred from: ${tag.from}`}
+                      title={tag.why === 'label' ? `They named it: ${tag.from}` : `Inferred from: ${tag.from}`}
                     >
                       {tag.label}
                     </button>

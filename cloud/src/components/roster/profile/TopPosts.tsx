@@ -49,7 +49,7 @@ export default function TopPosts(
     setBusy(null)
     if (!response.ok) { setNote(body.error ?? 'That did not go through.'); return }
     if (action === 'recreate') {
-      setNote(body.added ? 'On her week as a reskin — shoot it again as it was.' : 'Already on her week.')
+      setNote(body.added ? 'On their week as a reskin — shoot it again as it was.' : 'Already on their week.')
     } else if (action === 'repurpose') {
       if (body.download) window.location.href = body.download
       setNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')
@@ -69,15 +69,15 @@ export default function TopPosts(
   return (
     <div className="axis">
       <div className="axis-head">
-        <span className="axis-name">Her best posts</span>
-        <span className="hint">{posts.length} of hers in the library</span>
+        <span className="axis-name">Their best posts</span>
+        <span className="hint">{posts.length} of theirs in the library</span>
       </div>
 
       {ranked.length === 0 ? (
         <span className="hint">
           {handle
-            ? `Nothing of @${handle}'s has been added yet. Paste her reels into the Queue and they land here.`
-            : 'Set her handle above and her own posts will be matched to her.'}
+            ? `Nothing of @${handle}'s has been added yet. Paste their reels into the Queue and they land here.`
+            : 'Set their handle above and their own posts will be matched to them.'}
         </span>
       ) : (
         <ul className="topposts">
@@ -115,7 +115,7 @@ export default function TopPosts(
               <span className="toppost-acts" hidden={!modelId}>
                 <button className="btn btn-small btn-quiet" disabled={busy === post.id}
                         onClick={() => void act(post.id, 'recreate')}>
-                  She shoots it again
+                  They shoot it again
                 </button>
                 <button className="btn btn-small btn-quiet" disabled={busy === post.id}
                         data-on={post.repurposed ? true : undefined}

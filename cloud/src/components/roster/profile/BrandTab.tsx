@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { Insights } from '@/lib/insights'
+import type { Niche } from '@/lib/niches'
 
 type Payload = Insights & {
   accepted: { verticals: { format: string; name: string; tier: string | null }[] | null; similar_creators: string[] | null; wont_do: string[] | null } | null
@@ -11,6 +12,34 @@ const BASIS: Record<Insights['matching']['basis'], string> = {
   'her-profile': 'the formats accepted for her',
   derived: 'the verticals her own winners point to',
   starter: "the manual's three starter verticals — she has no winners to derive from yet",
+}
+
+/** T0's bands in words that describe what we watch, not a ruling on the
+ *  niche: a thin count is as often thin coverage as a thin niche. */
+const BAND: Record<Niche['band'], string> = {
+  carries: 'carries winners',
+  thin: 'thin',
+  few: 'few winners in what we watch',
+}
+
+function NicheRow({ niche }: { niche: Niche }) {
+  return (
+    <li>
+      <b>{niche.label}</b> — {niche.winning} creator{niche.winning === 1 ? '' : 's'} winning of{' '}
+      {niche.watched} watched · {BAND[niche.band]}
+      {niche.top.length > 0 && (
+        <span className="hint">
+          {' '}· {niche.top.map((c, i) => (
+            <span key={c.handle}>
+              {i > 0 && ', '}
+              <a href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noreferrer">@{c.handle}</a>{' '}
+              {c.multiple}×
+            </span>
+          ))}
+        </span>
+      )}
+    </li>
+  )
 }
 
 /**
@@ -91,6 +120,31 @@ export default function BrandTab({ modelId }: { modelId: string }) {
           ))}
         </ol>
         <span className="hint">Matching her on {BASIS[data.matching.basis]}.</span>
+      </section>
+
+      <section className="axis">
+        <div className="axis-head">
+          <span className="axis-name">Niche strength</span>
+        </div>
+        {data.niches.hers.length > 0 ? (
+          <ol className="brand-list">
+            {data.niches.hers.map((niche) => <NicheRow key={niche.topic} niche={niche} />)}
+          </ol>
+        ) : (
+          <span className="hint">No niche read off her reels yet — they are relatable or untagged.</span>
+        )}
+        {data.niches.strongest.length > 0 && (
+          <>
+            <span className="hint">{data.niches.hers.length > 0 ? 'Strongest other niches' : 'Strongest niches'} in what we watch:</span>
+            <ol className="brand-list">
+              {data.niches.strongest.map((niche) => <NicheRow key={niche.topic} niche={niche} />)}
+            </ol>
+          </>
+        )}
+        <span className="hint">
+          Winning = a reel at 5× or more its creator&apos;s usual views in the last 90 days. Counts what we
+          watch, not the whole niche — a low number can mean we follow few creators in it.
+        </span>
       </section>
 
       <section className="axis">

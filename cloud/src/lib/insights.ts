@@ -23,6 +23,7 @@ import { jobsForPosts } from './hers'
 import { instagramAccounts, readSocials } from './socials'
 import { labelOf } from './taxonomy'
 import { FORMAT_GENERIC_SHARE } from './why'
+import { nicheStrength, type NicheStrength } from './niches'
 
 /* ----------------------------------------------------------------- level */
 
@@ -281,11 +282,13 @@ export type Insights = {
   wont_do: WontDo[]
   /** What the planner matches her on right now, and why. */
   matching: { formats: string[]; basis: 'her-profile' | 'derived' | 'starter' }
+  /** Whether her niches carry winners in what we watch (`niches.ts`). */
+  niches: NicheStrength
 }
 
 export async function insightsFor(modelId: string): Promise<Insights | null> {
   const [model] = await sql.query(
-    `select id, handle, socials, persona, formats, wont_do from transcriber.models where id = $1`,
+    `select id, handle, socials, persona, formats, wont_do, topics from transcriber.models where id = $1`,
     [modelId],
   )
   if (!model) return null
@@ -296,16 +299,22 @@ export async function insightsFor(modelId: string): Promise<Insights | null> {
   const typed = (model.formats as string[]) ?? []
   const handles = instagramAccounts(model.handle as string | null, readSocials(model.socials))
 
-  const [level, verticals, wontDo] = await Promise.all([
+  // Her niches as matching reads them: typed ones win, else read off her reels.
+  const typedTopics = (model.topics as string[] | null) ?? []
+  const [level, verticals, wontDo, topics] = await Promise.all([
     levelFor(modelId, bank),
     verticalsFor(modelId, bank, persona),
     wontDoProposals(modelId, (model.wont_do as string[]) ?? []),
+    typedTopics.length ? Promise.resolve(typedTopics) : topicsFor(modelId),
   ])
 
   const matching = effectiveFormats(typed, verticals)
-  const similar = await similarFor(handles, matching.formats, persona)
+  const [similar, niches] = await Promise.all([
+    similarFor(handles, matching.formats, persona),
+    nicheStrength(topics, handles),
+  ])
 
-  return { model_id: modelId, level, verticals, similar, wont_do: wontDo, matching }
+  return { model_id: modelId, level, verticals, similar, wont_do: wontDo, matching, niches }
 }
 
 /** What to match her on: her typed formats if anyone typed them, else her

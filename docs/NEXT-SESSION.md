@@ -119,12 +119,12 @@ live in `lib/creator-type.ts` with no imports.
    then watch `./bin/viewer --status` and the viewer log for the first few
    reels before trusting it. The claim route's `job_media` join is untested
    against a real viewer link.
-3. **Niche strength on the Brand tab** — T0's Gate B from our own data: per
-   niche, how many creators are winning in it now (≥5× their median, last 90
-   days), with real handles. Info, not a verdict: measured, only food (11) and
-   gym (6) clear T0's 6+ bar; golf is 3 because we watch few golf creators.
-   No AI, no cost. Geno agreed to take this part of T0; Gate C is not to be
-   built as written (it needs typed profiles), Gate A waits on the allowance.
+3. ~~Niche strength on the Brand tab~~ — **built 2026-09-25** (`lib/niches.ts`):
+   per niche, creators with a reel ≥5× their median in the last 90 days, of
+   how many we watch, top handles; her own accounts excluded. Only Kaytie
+   (golf 2/5) and Mona (trivia 3/6) have niches of their own; everyone else
+   sees the strongest niches we watch (food 11/13, gym 6/7). Information, not a
+   verdict. Gate C is not to be built as written; Gate A waits on the allowance.
 4. **Blair's re-shoots ignore won't-do.** `match.ts` excludes won't-do formats
    for new ideas (`NOT_REFUSED`), but her own winners queued as reskins are not
    checked, so her other thirst-trap winners can still reach her. Ask Geno.
@@ -160,6 +160,12 @@ live in `lib/creator-type.ts` with no imports.
   upload 20k files. It sometimes answers "Not authorized" once; retry works.
   `config.json`'s `cloud_url` is the team alias, which lags the deploy by
   seconds.
+- **SQL is invisible to typecheck and build.** A union takes its column names
+  from its first branch; unnamed `null::text` columns there broke every job
+  hand-off (`/api/worker/claim` 500, "column m.caption does not exist") from
+  the viewer deploy until Geno's links arrived that evening — 7 reels sat
+  "running". Run any changed query against the database (`scripts/_q.mjs`)
+  before deploying, and after a claim-route change watch one job go through.
 - **Anything a client component imports must not import `lib/db.ts`**, even
   transitively. `npx next build` then grep `.next/static` for
   "DATABASE_URL is not set" proves it.

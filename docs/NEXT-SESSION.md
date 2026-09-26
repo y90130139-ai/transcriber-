@@ -89,7 +89,10 @@ live in `lib/creator-type.ts` with no imports.
   Chelsea, Elizabeth, Erica (5 of 20 models, plus 5 of Faye's cards).
   **15 weeks still have uncaptioned cards** (Faye's 15, and Helwife, Ivy, Jane,
   Jennzz, Jordan, Juno, Lae, Milky, Mona, Nina, Rey Rey, Scarlett, Snow,
-  Sophia). The nightly job takes them at 20:10 on 2026-09-25; check its log.
+  Sophia). **Still true at the end of 2026-09-25:** the first 20:10 run failed
+  (`node: command not found` — launchd's bare PATH; fixed, `bin/captions-nightly`
+  now finds node itself), and the manual rerun at 22:37 found the allowance
+  **already used up**, 2½ hours after it reset. See Next, item 0.
   The free allowance ran out twice this session; Workers Paid ($5/mo) would
   remove the limit — **Geno's call, not taken**.
 - 4 weeks sent (Blair, Kaytie, Madylina, Ria) — untouched; they keep the old
@@ -112,6 +115,12 @@ live in `lib/creator-type.ts` with no imports.
 
 ## Next, in order
 
+0. **Find what spends the Workers AI allowance.** It reset at 20:00 EDT on
+   2026-09-25 and was gone by 22:37, before any caption call. Not the cloud
+   fallback (the Mac's heartbeat was fresh), not opening a profile (the persona
+   profiler runs only on its button). Check the Cloudflare dashboard → Workers AI
+   → usage by model. Until found, the nightly captions may never get a turn — or
+   take the $5/mo Workers Paid plan (Geno's call).
 1. **Read the caption log** after 20:10 (`~/Library/Logs/social-transcriber-captions.log`)
    and spot-check two weeks in the console preview. If it stopped at the
    allowance, the rest runs the next night.
@@ -166,6 +175,11 @@ live in `lib/creator-type.ts` with no imports.
   the viewer deploy until Geno's links arrived that evening — 7 reels sat
   "running". Run any changed query against the database (`scripts/_q.mjs`)
   before deploying, and after a claim-route change watch one job go through.
+- **launchd jobs get a bare PATH** (`/usr/bin:/bin:…`): `node` lives in
+  `/usr/local/bin` and is not found. Scheduled scripts must resolve tools
+  themselves; test one with `env -i HOME=$HOME PATH=/usr/bin:/bin ./bin/<it>`.
+- **Console copy is they/their** (2026-09-25, Geno): the roster is not all
+  women. New console text must not say her/she. Her portal says "you".
 - **Anything a client component imports must not import `lib/db.ts`**, even
   transitively. `npx next build` then grep `.next/static` for
   "DATABASE_URL is not set" proves it.

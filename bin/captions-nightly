@@ -9,7 +9,12 @@ cd "$ROOT"
 stamp() { date '+%Y-%m-%d %H:%M:%S'; }
 SECRET=$(python3 -c "import json;print(json.load(open('config.json'))['worker_secret'])")
 BASE=$(python3 -c "import json;print(json.load(open('config.json'))['cloud_url'].rstrip('/'))")
-DUE=$(cd cloud && node scripts/captions-due.mjs) || { echo "[$(stamp)] could not list weeks"; exit 1; }
+# launchd runs with a bare PATH, where `node` is not found (the first night,
+# 2026-09-25, failed on exactly that). Find it the way a login shell would.
+NODE="$(command -v node || true)"
+[ -z "$NODE" ] && for c in /opt/homebrew/bin/node /usr/local/bin/node "$HOME"/.nvm/versions/node/*/bin/node "$HOME"/.local/bin/node; do [ -x "$c" ] && NODE="$c"; done
+[ -z "$NODE" ] && { echo "[$(stamp)] node not found"; exit 1; }
+DUE=$(cd cloud && "$NODE" scripts/captions-due.mjs) || { echo "[$(stamp)] could not list weeks"; exit 1; }
 [ -z "$DUE" ] && { echo "[$(stamp)] every draft week has captions"; exit 0; }
 while read -r id name; do
   out=$(curl -s --max-time 320 -X POST -H "Authorization: Bearer $SECRET" \

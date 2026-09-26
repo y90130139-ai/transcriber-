@@ -82,9 +82,12 @@ export async function POST(request: Request) {
            join (
              -- What the viewer burner saw on the reel's own page, keyed by the
              -- job, so it matches whatever the reel's shortcode.
+             -- Named, every one: a union takes its column names from this
+             -- first branch, and unnamed nulls here broke every claim with
+             -- "column m.caption does not exist" (2026-09-25).
              select substring(jj.source from '/(?:reels?|p)/([A-Za-z0-9_-]+)') as post_id,
-                    jm.video_url, jm.poster_url, null::text, null::text, null::timestamptz,
-                    null::real, jm.media_until
+                    jm.video_url, jm.poster_url, null::text as caption, null::text as handle,
+                    null::timestamptz as posted_at, null::real as duration_sec, jm.media_until
                from transcriber.job_media jm join transcriber.jobs jj on jj.id = jm.job_id
              union all
              select post_id, video_url, poster_url, caption, handle, posted_at,

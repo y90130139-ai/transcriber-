@@ -14,7 +14,7 @@ import type { Model } from '../types'
  *  required, because the failure this exists to prevent is the field being
  *  left empty and her having nowhere to send a week of footage. */
 export const DELIVERY_NOTE_DEFAULT =
-  'Drop the finished videos in your Drive folder. If it will not open, send them in the Telegram channel.'
+  'Drop the finished videos in your Drive folder. If it will not open, send them in the Telegram "MARKETING" channel.'
 
 export type ProfileForm = {
   name: string

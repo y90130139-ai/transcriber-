@@ -10,6 +10,8 @@
  * does the move pick the target week by the same rule.
  */
 
+import { addDays } from './dates'
+
 export type WeekRef = { id: string; week_of: string; status: 'draft' | 'sent' }
 
 export type CarryTarget =
@@ -37,4 +39,36 @@ export function carryTarget(weeks: readonly WeekRef[], sourceId: string, thisWee
   return pick
     ? { kind: 'existing', id: pick.id, week_of: pick.week_of }
     : { kind: 'new', week_of: thisWeek }
+}
+
+/**
+ * The week the editor opens on: the latest week from this one on that already
+ * has videos — the one being planned. Late in a week, next week's plan is the
+ * one with ten cards on it, and opening on this week's hid it. Falls back to
+ * this week, then to whatever there is.
+ */
+export function openingWeek<T extends WeekRef & { items: number }>(weeks: readonly T[], thisWeek: string): T | null {
+  const planned = weeks
+    .filter((week) => week.items > 0 && !isPastWeek(week.week_of, thisWeek))
+    .sort((a, b) => b.week_of.localeCompare(a.week_of))
+  return planned[0] ?? weeks.find((week) => week.week_of === thisWeek) ?? weeks[0] ?? null
+}
+
+/**
+ * Where a card goes when no week is named (Recreate from the profile, which
+ * has no week open): the latest draft week from this one on. With none, the
+ * Monday after the latest sent week from this one on — or this week if there
+ * is nothing ahead at all — so a tap never lands on a plan she has already
+ * opened, nor on a week behind the one her link shows.
+ */
+export function workingWeek(
+  weeks: readonly WeekRef[],
+  thisWeek: string,
+): { kind: 'existing'; id: string; week_of: string } | { kind: 'new'; week_of: string } {
+  const ahead = weeks
+    .filter((week) => !isPastWeek(week.week_of, thisWeek))
+    .sort((a, b) => b.week_of.localeCompare(a.week_of))
+  const draft = ahead.find((week) => week.status === 'draft')
+  if (draft) return { kind: 'existing', id: draft.id, week_of: draft.week_of }
+  return { kind: 'new', week_of: ahead[0] ? addDays(ahead[0].week_of, 7) : thisWeek }
 }

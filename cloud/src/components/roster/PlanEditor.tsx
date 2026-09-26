@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
-import { carryTarget, isPastWeek } from '@/lib/carry'
+import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
@@ -89,7 +89,7 @@ export default function PlanEditor({
     const body = await response.json()
     const list: PlanSummary[] = body.plans ?? []
     setWeeks(list)
-    setPlanId((current) => current ?? list.find((week) => week.week_of === thisWeek)?.id ?? list[0]?.id ?? null)
+    setPlanId((current) => current ?? openingWeek(list, thisWeek)?.id ?? null)
   }, [modelId, thisWeek])
 
   const loadPlan = useCallback(async () => {
@@ -222,7 +222,8 @@ export default function PlanEditor({
     const response = await fetch(`/api/models/${modelId}/posts/${postId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      // Recreate lands on the week that is open, not always this one.
+      body: JSON.stringify({ action, plan_id: planId }),
     })
     const body = await response.json().catch(() => ({}))
     setPostBusy(null)
@@ -231,9 +232,11 @@ export default function PlanEditor({
       return
     }
     if (action === 'recreate') {
-      setPostNote(body.added ? 'Added to their week as a reskin — shoot it again as it was.'
-                             : 'Already on their week.')
+      const week = formatDate(body.week_of)
+      setPostNote(body.added ? `Added to the week of ${week} as a reskin — shoot it again as it was.`
+                             : `Already on the week of ${week}.`)
       await loadPlan()
+      void loadWeeks()
       return
     }
     if (action === 'repurpose') {
@@ -304,6 +307,26 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  /** One card to another week. It leaves this list; the week it went to
+   *  gains it, and a new week shows up in the rail. */
+  async function moveToWeek(itemId: string, weekOf: string) {
+    if (!planId || !weekOf) return
+    const from = planId
+    const response = await fetch(`/api/plans/${from}/items/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: itemId, week_of: weekOf }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setCarryNote({ planId: from, text: body.error ?? 'That did not move. Nothing was changed.' })
+      return
+    }
+    setItems((current) => current.filter((item) => item.id !== itemId))
+    setCarryNote({ planId: from, text: `Moved to the week of ${formatDate(body.plan?.week_of ?? weekOf)}.` })
+    void loadWeeks()
+  }
+
   async function deletePlan() {
     if (!planId || !confirm('Delete this whole week?')) return
     await fetch(`/api/plans/${planId}`, { method: 'DELETE' })
@@ -365,6 +388,14 @@ export default function PlanEditor({
     ? carryTarget(weeks, planId, herWeek)
     : null
   const nextWeek = addDays(thisWeek, 7)
+  // Where one card can go: any week from this one on but the open one, plus
+  // the next three Mondays even before they have a plan.
+  const moveTargets = [...new Set([
+    ...weeks.map((week) => week.week_of),
+    thisWeek, nextWeek, addDays(thisWeek, 14), addDays(thisWeek, 21),
+  ])]
+    .filter((week) => week !== plan?.week_of && !isPastWeek(week, thisWeek))
+    .sort()
 
   return (
     <>
@@ -552,6 +583,20 @@ export default function PlanEditor({
                           <span className="planrow-tools">
                             <button className="chip" onClick={() => move(index, -1)} aria-label="Move up">↑</button>
                             <button className="chip" onClick={() => move(index, 1)} aria-label="Move down">↓</button>
+                            <select
+                              className="chip"
+                              value=""
+                              aria-label="Move to another week"
+                              title="Move this card to another week"
+                              onChange={(event) => void moveToWeek(item.id, event.target.value)}
+                            >
+                              <option value="">Week →</option>
+                              {moveTargets.map((week) => (
+                                <option key={week} value={week}>
+                                  {formatDate(week)}{knownWeeks.has(week) ? '' : ' (new)'}
+                                </option>
+                              ))}
+                            </select>
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
                         </div>

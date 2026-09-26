@@ -49,7 +49,9 @@ export default function TopPosts(
     setBusy(null)
     if (!response.ok) { setNote(body.error ?? 'That did not go through.'); return }
     if (action === 'recreate') {
-      setNote(body.added ? 'On their week as a reskin — shoot it again as it was.' : 'Already on their week.')
+      // Named, because from here there is no week open to see it land on.
+      const week = formatDate(body.week_of)
+      setNote(body.added ? `On the week of ${week} as a reskin — shoot it again as it was.` : `Already on the week of ${week}.`)
     } else if (action === 'repurpose') {
       if (body.download) window.location.href = body.download
       setNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')

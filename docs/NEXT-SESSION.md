@@ -1,4 +1,32 @@
-# Handoff — 2026-09-25, captions from the library, and Geno's account out of the machine
+# Handoff — 2026-09-26 (on top of 2026-09-25: captions from the library, and Geno's account out of the machine)
+
+## 2026-09-26, in short
+
+Pushed through `beda050`, deployed. Three things landed, one was investigated:
+
+- **Recreate lands on the open week; one card can move weeks** (`beda050`).
+  Recreate used to write to `currentWeekOf()` always, so late in a week the card
+  landed on a plan about to end. Now the plan editor sends `plan_id` (the open
+  week, must be a draft); the profile's Recreate (no week open) uses
+  `workingWeek` in `lib/carry.ts` — latest draft week from this one on, else
+  the Monday after the latest sent week ahead, else this week. Each card has a
+  **Week →** menu (`POST /api/plans/<id>/items/move` `{item, week_of}`):
+  any week from this one on, created if missing, card re-pointed so thread /
+  accept / filmed come along, appended at the end, refused if that video is
+  already on the target. `carried_from` is set **only** when the card leaves a
+  *sent* week for a later one — standing counts carried, unfilmed cards as
+  backlog, and moving a draft card is planning, not a miss. The editor opens on
+  `openingWeek`: the newest week from this one on that has videos. The whole-week
+  "Move to …" carry button is unchanged (past weeks only). Rules checked against
+  real weeks (Faye → 28 Sep, Helwife → 5 Oct, Blair → 28 Sep); not clicked
+  through in the console (needs Geno's login).
+- **Delivery note names the channel** (`67c00ae`): default is now "…send them in
+  the Telegram "MARKETING" channel." All 25 models' stored `delivery_note`
+  updated in the database (22 had the old default; Blair, Milky, Susanna already
+  had the new text). Live on every portal.
+- **Comment-trends idea parked** (`f902818`) — see Ideas parked below.
+- **Item 0 (Workers AI allowance) investigated, then put on hold by Geno.**
+  Findings in Next, item 0.
 
 Read this, then `docs/CREATIVE-DIRECTOR.md` (decisions + build order) and
 `docs/CREATIVE-DIRECTOR-AUDIT.md` (the manual vs the code). The previous
@@ -115,12 +143,21 @@ live in `lib/creator-type.ts` with no imports.
 
 ## Next, in order
 
-0. **Find what spends the Workers AI allowance.** It reset at 20:00 EDT on
-   2026-09-25 and was gone by 22:37, before any caption call. Not the cloud
-   fallback (the Mac's heartbeat was fresh), not opening a profile (the persona
-   profiler runs only on its button). Check the Cloudflare dashboard → Workers AI
-   → usage by model. Until found, the nightly captions may never get a turn — or
-   take the $5/mo Workers Paid plan (Geno's call).
+0. **Workers AI allowance — investigated 2026-09-26, ON HOLD (Geno).** Nothing
+   else spends it. Cloudflare's GraphQL (`aiInferenceAdaptiveGroups`, by
+   `modelId` and hour) shows only this project's caption runs: 09-23 17,731
+   neurons, 09-24 none, 09-25 13,498 (all 04:00–07:00 UTC), 09-26 **zero** — yet
+   the 22:37 EDT rerun and two 8-token probes got `429 / code 4006 "used up your
+   daily free allocation"`. No other project on this Mac calls Workers AI.
+   Best explanation, **unconfirmed**: the cap is a rolling 24 h, not a 00:00 UTC
+   reset — the 09-25 spend was still inside the window at 22:37. Also: the cap
+   overshoots (both big days went past 10k), so one heavy night can block the
+   next. Options put to Geno, no decision yet: (a) stay free — probe once after
+   ~07:00 UTC to confirm, move the nightly to ~03:30 local, cap a night at ~8k
+   neurons, 15 weeks over ~4–5 nights; (b) Workers Paid $5/mo, 15 weeks ≈ 40k
+   neurons ≈ 35¢ past the included 10k. Either way `bin/captions-nightly`
+   should log Cloudflare's real error text — today it prints only "allowance
+   used up". Don't act on this until Geno says.
 1. **Read the caption log** after 20:10 (`~/Library/Logs/social-transcriber-captions.log`)
    and spot-check two weeks in the console preview. If it stopped at the
    allowance, the rest runs the next night.
@@ -197,7 +234,20 @@ live in `lib/creator-type.ts` with no imports.
   transitively. `npx next build` then grep `.next/static` for
   "DATABASE_URL is not set" proves it.
 - **Workers AI free allowance** is 10,000 neurons a day, shared with the Whisper
-  fallback, reset 00:00 UTC. Dry runs and comparisons spend it too.
+  fallback — documented as reset 00:00 UTC, but see Next item 0: it behaved like
+  a rolling 24 h on 2026-09-25/26. Dry runs and comparisons spend it too.
+- **Reading Workers AI usage:** wrangler is logged in as the account
+  (`npx -y wrangler@4 whoami` refreshes the OAuth token in
+  `~/Library/Preferences/.wrangler/config/default.toml`); that token can query
+  `https://api.cloudflare.com/client/v4/graphql` →
+  `viewer.accounts(accountTag).aiInferenceAdaptiveGroups` with
+  `sum{totalNeurons}` and `dimensions{modelId datetimeHour}`. Never print it.
+- **The database schema is `transcriber`** (`transcriber.models`,
+  `transcriber.plans`, …). `scripts/_q.mjs "select … from models"` fails with
+  "relation does not exist".
+- **Moving cards:** one card → `items/move`; a whole past week → `carry`. Both
+  re-point `plan_items` rows; never copy. Only `carry` and a move off a *sent*
+  week set `carried_from` (it feeds standing's backlog).
 - `--sc-bone` is the page **ground** and night inverts it. Never use it for
   type on the ink header — use `--plan-on-ink`.
 - Prefixing a dark rule with `:root[data-theme='dark']` **raises its

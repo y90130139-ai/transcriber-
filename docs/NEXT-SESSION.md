@@ -144,6 +144,19 @@ live in `lib/creator-type.ts` with no imports.
    `color_scheme='light'`. Unconfirmed whether that is by design.
 8. Walk 2–3 models' weeks with Geno before anything is sent.
 
+## Ideas parked (not scheduled — ask Geno before building)
+
+- **Comment trends** (Geno, 2026-09-26). Read the comment sections of the
+  library's posts — what viewers write, followers or not; **not** the post's
+  own caption, and leave out the account owner's own replies — and surface
+  what repeats: frequent comments, common sayings,
+  trending words, meme phrases, and the sounds/audios behind them — to steer
+  what the next video is. Today Scout keeps only `comment_count` and the audio
+  (`audio_id`, `audio_title` in `src/scout_ig.py`), not comment text. Reading
+  comments means more Instagram reads: burner only, through `ig_browser.py`,
+  within the viewer/Scout pacing — never a personal account. Audio trends can
+  start from what Scout already stores, with no new reads.
+
 ## Traps
 
 - **No personal Instagram account in any automation.** Not the downloader, not

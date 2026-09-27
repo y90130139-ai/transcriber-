@@ -28,7 +28,14 @@ while read -r id name; do
   # Stop the whole night at the first sign the allowance is gone.
   case "$out" in *'Workers AI 429'*|*'daily free'*)
     # Cloudflare's own words, so a changed limit is readable in the log.
-    why=$(printf '%s' "$out" | grep -o 'Workers AI 429[^"]*' | head -1 | cut -c1-200)
+    # The reply is JSON whose error text holds escaped JSON, so decode it
+    # before cutting — a plain grep stops at the first quote.
+    why=$(printf '%s' "$out" | python3 -c "import json,sys
+raw=sys.stdin.read()
+try: raw=str(json.loads(raw).get('error') or raw)
+except Exception: pass
+i=raw.find('Workers AI 429')
+print(' '.join(raw[max(i,0):].split())[:200])" 2>/dev/null)
     echo "[$(stamp)] ${name//_/ }: allowance used up — the rest tomorrow (${why:-no detail})"; exit 0;; esac
   line=$(printf '%s' "$out" | python3 -c "import json,sys
 try:

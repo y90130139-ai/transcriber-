@@ -188,47 +188,6 @@
   white-space: pre-wrap;
 }
 
-/* ------------------------------------------------------- HOW IT WORKS */
-.plan-how {
-  border: var(--sc-rule-hair);
-  border-radius: var(--r-sm);
-  margin-bottom: var(--sc-space-6);
-  padding: 0 var(--sc-space-4);
-  background: var(--sc-paper);
-}
-.plan-how summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-  color: var(--sc-ink-900);
-}
-.plan-how summary::-webkit-details-marker { display: none; }
-.plan-how summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
-.plan-how[open] summary::after { content: '–'; }
-.plan-how ol { list-style: none; margin: 0; padding: 0 0 var(--sc-space-4); }
-.plan-how li {
-  display: flex;
-  gap: var(--sc-space-3);
-  padding: var(--sc-space-2) 0;
-  color: var(--sc-ink-500);
-  font-size: var(--sc-text-sm);
-  line-height: var(--sc-leading-body);
-}
-.plan-step-no {
-  font-family: var(--sc-font-display);
-  font-weight: 700;
-  color: var(--sc-ember);
-  font-variant-numeric: tabular-nums;
-  flex: 0 0 1.2rem;
-}
-
 /* ------------------------------------------------------------ ITEMS
    Each item is a card. It used to be a slab separated by a rule,
    which on a phone reads as one endless page rather than as a
@@ -1084,12 +1043,10 @@
    The + / – markers rotated nothing and swapped a glyph, which on a phone
    reads as a flicker. One glyph, rotated, is the same information and is the
    part of the page most obviously "an app". */
-.plan-how summary::after,
 .plan-transcript summary::after,
 .plan-ask::after {
   transition: transform var(--sc-dur) var(--sc-spring);
 }
-.plan-how[open] summary::after,
 .plan-transcript[open] summary::after,
 .plan-ask[aria-expanded='true']::after {
   /* The rules above swap the glyph to an en dash when open. A dash cannot be

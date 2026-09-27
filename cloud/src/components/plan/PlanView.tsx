@@ -10,8 +10,6 @@ import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 
-/** The standing instructions, in the order she does them. Five beats, no more —
- *  anything longer stops being read after the first week. */
 /** One run of consecutive cards filmed in the same place. Runs, not buckets:
  *  the order on the plan is Geno's, and re-sorting it to collapse two visits to
  *  the kitchen into one would silently rewrite the week he sent her. */
@@ -28,35 +26,15 @@ function groupByLocation(items: PlanItem[]): Group[] {
   return groups
 }
 
-/** The standing instructions, in the order she does them. Five beats were
- *  never six because nothing on this page had ever said where the footage
- *  goes — the plan ended at "tick it off as filmed" and left the last step of
- *  the week to a conversation that had to happen somewhere else. */
-const STEPS = [
-  'Watch the example. Once through, no notes.',
-  'Read the directions under it. That is the whole brief.',
-  'Make it yours — copy the structure, not the person.',
-  'Get the sound from Instagram, off the original post.',
-  'Tick it off as filmed. If something will not work, say so in the box.',
-]
-
 /** The three things she does, pinned open at the top (2026-09-27): three
- *  creators needed the flow explained in chat because the full list above sat
- *  folded away. She edits her own videos; that is said once, here. */
+ *  creators needed the flow explained in chat. The folded "How your plan
+ *  works" list went the same day — every card now carries its own steps.
+ *  She edits her own videos; that is said once, here. */
 const QUICK_STEPS = [
   { title: 'Watch', text: 'Watch each video on your plan.' },
   { title: 'Yes or no', text: 'Tap “I’ll do this” or “Can’t do this” on every card.' },
   { title: 'Film', text: 'Film and edit your yeses — easiest first. Name each file by its number (V-1, V-2…).' },
 ]
-
-/** The sixth beat, and only when there is somewhere to name. A model with no
- *  folder and no note gets the five she has always had rather than an
- *  instruction pointing at nothing. */
-function deliveryStep(hasFolder: boolean): string {
-  return hasFolder
-    ? 'Send the finished videos to your folder — the link is at the bottom.'
-    : 'Send the finished videos where it says at the bottom of this page.'
-}
 
 export default function PlanView({
   token,
@@ -121,7 +99,6 @@ export default function PlanView({
   // delivery render on this page is skipped rather than drawn empty.
   const folder = model.drive_url
   const hasDelivery = Boolean(folder || model.delivery_note)
-  const steps = hasDelivery ? [...STEPS, deliveryStep(Boolean(folder))] : STEPS
 
   const overdue = useMemo(() => isOverdue(plan.due_date, model.timezone), [plan.due_date, model.timezone])
   // Her own reels are not this week's ideas (Susanna, 2026-09-27: "they look
@@ -296,18 +273,6 @@ export default function PlanView({
             You film and edit these yourself. Want us to edit one? Tap &ldquo;Ask about this one&rdquo; on that card and say so.
           </p>
         </section>
-
-        <details className="plan-how">
-          <summary>How your plan works</summary>
-          <ol>
-            {steps.map((step, index) => (
-              <li key={step}>
-                <span className="plan-step-no">{index + 1}</span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </details>
 
         {ideas.length === 0 ? (
           <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>

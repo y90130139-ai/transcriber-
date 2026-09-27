@@ -57,7 +57,7 @@ export type Shoutout = {
 type Post = { handle: string; post_id: string; posted_at: number; plays: number; likes: number | null; comments: number | null }
 
 /** Wall-clock parts of `now` in New York. */
-function eastern(now: number) {
+export function eastern(now: number) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
     timeZone: ZONE, weekday: 'short', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(new Date(now)).map((p) => [p.type, p.value]))
@@ -76,7 +76,7 @@ function easternMidnight(date: string): number {
   return Date.parse(`${date}T04:00:00Z`)
 }
 
-const addDays = (date: string, days: number) =>
+export const addDays = (date: string, days: number) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10)
 
 /** Her usual views: the median of her settled reels, or null when too few. */

@@ -910,6 +910,17 @@ const statements = [
   `alter table transcriber.plan_items
      add column if not exists repurposed_at timestamptz`,
 
+  // Weekly scorecards (2026-09-27): one row per card the Gosian bot sent (or
+  // failed to), so a week is never sent twice.
+  `create table if not exists transcriber.scorecards (
+     id         text primary key,
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     week_of    date not null,
+     sent_at    timestamptz,
+     error      text,
+     created_at timestamptz not null default now()
+   )`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

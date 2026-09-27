@@ -321,6 +321,12 @@ live in `lib/creator-type.ts` with no imports.
 - **The database schema is `transcriber`** (`transcriber.models`,
   `transcriber.plans`, …). `scripts/_q.mjs "select … from models"` fails with
   "relation does not exist".
+- **Two sessions can share this folder.** On 2026-09-27 another session was
+  building a "numbers"/audits feature here while this one shipped. Never
+  `git add -A` — add your own files by name. `vercel deploy` uploads the folder
+  as it is on disk, uncommitted work included: when someone else has work in
+  progress, deploy from a clean `git worktree` of HEAD (copy `cloud/.vercel` in;
+  do not symlink `node_modules` — Turbopack rejects it; Vercel installs its own).
 - **Bot integration is poll-only.** Each bot tick reads `/api/bot/outbox`,
   `/api/bot/questions`, `/api/bot/shoutouts` and answers each item; every answer
   is recorded so nothing repeats. Never run the bot locally (`npm start` double-

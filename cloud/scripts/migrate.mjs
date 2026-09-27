@@ -891,9 +891,111 @@ const statements = [
      add column if not exists relayed_at  timestamptz,
      add column if not exists relay_error text`,
 
+  // Shout-outs (2026-09-27): the Gosian bot congratulates a model on reels
+  // that beat her own usual — a weekly roundup and an instant note for a big
+  // hit. One row per message sent, so nothing is ever celebrated twice.
+  `create table if not exists transcriber.shoutouts (
+     id         text primary key,
+     model_id   text not null references transcriber.models(id) on delete cascade,
+     kind       text not null check (kind in ('weekly', 'instant')),
+     week_of    date,
+     post_ids   text[] not null default '{}',
+     sent_at    timestamptz,
+     error      text,
+     created_at timestamptz not null default now()
+   )`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,
+
+  // OnlyFans numbers (2026-09-27, lib/numbers, docs/NUMBERS.md). There is no
+  // OnlyFans API: numbers arrive as screenshots read by Claude or Infloww CSV
+  // exports, and nothing lands here until a person confirms it on the review
+  // screen. `metrics` is jsonb keyed by lib/numbers/metrics.ts DAY_METRICS;
+  // a missing key means "not read", never zero. A later confirmation merges
+  // over an earlier one key by key (`metrics || excluded.metrics`).
+  //
+  // An audit is the same numbers for someone not on the roster yet — a
+  // prospect. `subject` is either a model or an audit, never both.
+  `create table if not exists transcriber.of_audits (
+     id          text primary key,
+     name        text not null,
+     handle      text,
+     page_type   text check (page_type in ('free', 'paid')),
+     model_id    text references transcriber.models(id) on delete set null,
+     notes       text,
+     created_at  timestamptz not null default now(),
+     updated_at  timestamptz not null default now()
+   )`,
+  `alter table transcriber.models
+     add column if not exists of_page_type text check (of_page_type in ('free', 'paid')),
+     add column if not exists of_price     numeric`,
+  `create table if not exists transcriber.of_uploads (
+     id           text primary key,
+     model_id     text references transcriber.models(id) on delete cascade,
+     audit_id     text references transcriber.of_audits(id) on delete cascade,
+     kind         text not null check (kind in ('screenshot', 'csv')),
+     blob_url     text,
+     filename     text,
+     status       text not null default 'read' check (status in ('read', 'confirmed', 'failed', 'discarded')),
+     reading      jsonb,
+     error        text,
+     created_at   timestamptz not null default now(),
+     confirmed_at timestamptz,
+     check ((model_id is null) <> (audit_id is null))
+   )`,
+  `create index if not exists of_uploads_subject_idx on transcriber.of_uploads (model_id, audit_id, created_at desc)`,
+  `create table if not exists transcriber.of_days (
+     subject    text not null,
+     day        date not null,
+     metrics    jsonb not null default '{}',
+     source     text not null,
+     upload_id  text references transcriber.of_uploads(id) on delete set null,
+     updated_at timestamptz not null default now(),
+     primary key (subject, day)
+   )`,
+  `create table if not exists transcriber.of_periods (
+     subject    text not null,
+     date_from  date not null,
+     date_to    date not null,
+     metrics    jsonb not null default '{}',
+     source     text not null,
+     upload_id  text references transcriber.of_uploads(id) on delete set null,
+     updated_at timestamptz not null default now(),
+     primary key (subject, date_from, date_to)
+   )`,
+  `create table if not exists transcriber.of_links (
+     subject     text not null,
+     kind        text not null check (kind in ('tracking', 'trial')),
+     name        text not null,
+     captured_on date not null,
+     range_from  date,
+     range_to    date,
+     source      text,
+     clicks      numeric,
+     subs        numeric,
+     earnings    numeric,
+     spenders    numeric,
+     cost        numeric,
+     upload_id   text references transcriber.of_uploads(id) on delete set null,
+     primary key (subject, kind, name, captured_on)
+   )`,
+  // What happened on a day, for explaining spikes: mass messages read off a
+  // screenshot, promos and price changes typed in. Reels come from
+  // creator_posts and are not copied here.
+  `create table if not exists transcriber.of_events (
+     id         text primary key,
+     subject    text not null,
+     day        date not null,
+     kind       text not null check (kind in ('mass_message', 'promo', 'price', 'shoutout', 'note')),
+     label      text not null,
+     strength   numeric,
+     meta       jsonb not null default '{}',
+     upload_id  text references transcriber.of_uploads(id) on delete set null,
+     created_at timestamptz not null default now()
+   )`,
+  `create index if not exists of_events_subject_idx on transcriber.of_events (subject, day)`,
 ]
 
 for (const statement of statements) {

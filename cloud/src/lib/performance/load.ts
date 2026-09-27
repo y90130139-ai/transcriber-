@@ -73,7 +73,7 @@ export type Board = {
   top_reels: Reel[]
 }
 
-type ModelRow = {
+export type ModelRow = {
   id: string; name: string; photo_url: string | null; weekly_target: number
   performance_tag: TagKey | null; handles: string[]
 }
@@ -86,7 +86,7 @@ const num = (value: unknown): number | null => {
 
 const dayIn = (ms: number): string => new Intl.DateTimeFormat('en-CA', { timeZone: ZONE }).format(new Date(ms))
 
-async function loadModels(onlyId?: string): Promise<ModelRow[]> {
+export async function loadModels(onlyId?: string): Promise<ModelRow[]> {
   const rows = await sql.query(
     `select m.id, m.name, m.photo_url, m.weekly_target, m.performance_tag,
             array_remove(array(

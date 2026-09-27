@@ -734,12 +734,8 @@ body {
    Geno approves and reviews on a phone. A 0.3rem chip is not something a
    thumb can hit; on a pointer it stays exactly the size it was. */
 @media (max-width: 720px) {
-  .console .tabs {
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .console .tabs::-webkit-scrollbar { display: none; }
+  /* Wrapped, not scrolled: a hidden scrollbar hid the last tabs entirely. */
+  .console .tabs { gap: var(--sc-space-1) var(--sc-space-4); padding-bottom: 2px; }
   .console .tab { flex: 0 0 auto; min-height: 32px; }
 
   .console .chip,

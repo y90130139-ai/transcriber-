@@ -7,8 +7,10 @@
 /* ---------------------------------------------------------- TABS */
 .tabs {
   display: flex;
-  gap: var(--sc-space-6);
+  flex-wrap: wrap;           /* every tab stays on screen at any width */
+  gap: var(--sc-space-2) var(--sc-space-6);
   align-self: end;
+  min-width: 0;
 }
 
 .tab {
@@ -55,12 +57,12 @@
 
 .filter-rail {
   display: flex;
+  flex-wrap: wrap;           /* wraps to a second line rather than hiding
+                                the creator, time and sort controls off-screen */
   gap: var(--sc-space-2);
-  overflow-x: auto;
   padding-bottom: var(--sc-space-2);
-  scrollbar-width: none;
 }
-.filter-rail::-webkit-scrollbar { display: none; }
+.filter-rail .pill-select { max-width: 100%; }
 
 .pill {
   flex: 0 0 auto;

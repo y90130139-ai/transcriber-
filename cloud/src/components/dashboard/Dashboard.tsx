@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Board } from '@/lib/performance/load'
 import AccountsTable from './AccountsTable'
+import AttentionPanel from './AttentionPanel'
 import BarChart from './BarChart'
 import LeadingAccounts from './LeadingAccounts'
 import LineChart from './LineChart'
@@ -19,6 +20,7 @@ export default function Dashboard({ onOpenModel }: { onOpenModel: (id: string) =
   const [period, setPeriod] = useState<Period>(30)
   const [board, setBoard] = useState<Board | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showAttention, setShowAttention] = useState(false)
   const accounts = useRef<HTMLElement>(null)
 
   const load = useCallback(async (days: Period) => {
@@ -63,7 +65,10 @@ export default function Dashboard({ onOpenModel }: { onOpenModel: (id: string) =
 
       {board && (
         <>
-          <StatCards board={board} />
+          <StatCards board={board} onAttention={() => setShowAttention((open) => !open)} />
+          {showAttention && (
+            <AttentionPanel models={board.models} onOpen={onOpenModel} onClose={() => setShowAttention(false)} />
+          )}
           <div className="dash-grid-main">
             <section className="dash-panel dash-growth" aria-labelledby="dash-growth-h">
               <header className="dash-panel-head">

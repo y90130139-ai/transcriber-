@@ -5,7 +5,7 @@
  */
 import { sql } from '../db'
 import {
-  TAG_LABEL, autoTag, daysBetween, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
+  TAG_LABEL, attentionReasons, autoTag, daysBetween, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
   type Direction, type Post, type Snapshot, type TagKey,
 } from './math'
 
@@ -43,6 +43,8 @@ export type ModelPerf = {
   tag: TagKey | null
   tag_label: string | null
   tag_pinned: boolean
+  /** Why she reads Needs attention, in plain words (empty otherwise). */
+  attention_reasons: string[]
   followers_spark: number[]
 }
 
@@ -188,6 +190,17 @@ function perfFor(model: ModelRow, rows: Awaited<ReturnType<typeof loadRows>>, da
     trend,
   })
   const tag = model.performance_tag ?? auto
+  const reasons = tag !== 'attention' ? [] : model.performance_tag === 'attention'
+    ? ['Tagged Needs attention by hand.']
+    : attentionReasons({
+        reelsSeen: posts.filter((p) => p.kind === 'reel').length,
+        daysSinceLastPost: daysSince,
+        reelsPerWeek,
+        weeklyTarget: model.weekly_target,
+        trend,
+        viewsChange: views.change,
+        followersGain: gain,
+      })
 
   return {
     id: model.id,
@@ -213,6 +226,7 @@ function perfFor(model: ModelRow, rows: Awaited<ReturnType<typeof loadRows>>, da
     tag,
     tag_label: tag ? TAG_LABEL[tag] : null,
     tag_pinned: model.performance_tag !== null,
+    attention_reasons: reasons,
     followers_spark: series.map((point) => point.value),
   }
 }

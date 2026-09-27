@@ -3,7 +3,7 @@ import { compact, percent, shortDay, signed } from './format'
 import Sparkline from './Sparkline'
 
 /** The headline row. Each card is one number, what it covers, and which way. */
-export default function StatCards({ board }: { board: Board }) {
+export default function StatCards({ board, onAttention }: { board: Board; onAttention?: () => void }) {
   const tracked = board.models.filter((m) => m.followers !== null)
   const fs = board.followers_series
   const followers = fs.length ? fs[fs.length - 1].value : null
@@ -40,7 +40,12 @@ export default function StatCards({ board }: { board: Board }) {
         <h3>Models</h3>
         <p className="dash-stat-value">{board.models.length}</p>
         <p className="dash-stat-note">
-          {tracked.length} tracked on Instagram{attention > 0 && <> · <b data-sign="-1">{attention} need attention</b></>}
+          {tracked.length} tracked on Instagram
+          {attention > 0 && (
+            <> · <button type="button" className="dash-stat-link" data-sign="-1" onClick={onAttention}>
+              {attention} need attention →
+            </button></>
+          )}
         </p>
       </article>
       <article className="dash-stat">

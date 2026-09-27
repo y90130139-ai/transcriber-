@@ -179,3 +179,25 @@
 @media (prefers-reduced-motion: reduce) {
   .dash-bar, .dash-reel-play, .dash-table tbody tr { transition: none; }
 }
+
+/* ------------------------------------------------ who needs attention */
+.dash-stat-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.dash-stat-link:hover, .dash-stat-link:focus-visible { text-decoration-thickness: 2px; outline: none; }
+.dash-attention { border-color: var(--sc-caution); }
+.dash-attention-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sc-space-3); }
+.dash-att-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.dash-att-row { width: 100%; display: grid; grid-template-columns: auto minmax(10rem, 14rem) 1fr auto; align-items: center; gap: var(--sc-space-4); padding: var(--sc-space-3) var(--sc-space-2); background: none; border: 0; border-bottom: var(--sc-rule-hair); font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: var(--r-sm, 8px); transition: background var(--sc-dur-fast) var(--sc-ease); }
+.dash-att-list li:last-child .dash-att-row { border-bottom: 0; }
+.dash-att-row:hover, .dash-att-row:focus-visible { background: var(--sc-ember-tint); outline: none; }
+.dash-att-who { display: grid; min-width: 0; }
+.dash-att-who b { color: var(--sc-ink-900); }
+.dash-att-who small { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.dash-att-why { margin: 0; padding-left: 1.1rem; display: grid; gap: 2px; font-size: var(--sc-text-sm); color: var(--sc-ink-700); }
+.dash-att-why li::marker { color: var(--sc-caution); }
+.dash-att-go { color: var(--sc-ink-300); font-size: var(--sc-text-lg); }
+.dash-att-row:hover .dash-att-go { color: var(--sc-ember-deep); }
+@media (max-width: 720px) {
+  .dash-att-row { grid-template-columns: auto 1fr; }
+  .dash-att-why { grid-column: 1 / -1; }
+  .dash-att-go { display: none; }
+}

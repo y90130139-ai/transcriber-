@@ -167,6 +167,41 @@ export function autoTag(input: {
 }
 
 /**
+ * Why a model reads Needs attention, in plain words — every rule that holds,
+ * not just the first, so the dashboard can say all of it at once. Same rules
+ * and thresholds as `autoTag`; empty when none apply.
+ */
+export function attentionReasons(input: {
+  reelsSeen: number
+  daysSinceLastPost: number | null
+  reelsPerWeek: number
+  weeklyTarget: number
+  trend: Direction | null
+  viewsChange: number | null
+  followersGain: number | null
+}): string[] {
+  if (input.reelsSeen < RULES.minReels) return []
+  const target = input.weeklyTarget > 0 ? input.weeklyTarget : 21
+  const reasons: string[] = []
+  if (input.daysSinceLastPost === null) reasons.push('No posts seen on their Instagram.')
+  else if (input.daysSinceLastPost >= RULES.quietDays) reasons.push(`Nothing posted in ${Math.floor(input.daysSinceLastPost)} days.`)
+  if (input.trend === 'down') {
+    const parts: string[] = []
+    if (input.viewsChange !== null && input.viewsChange <= -RULES.viewsMove) {
+      parts.push(`views on recent reels are down ${Math.floor(-input.viewsChange * 100)}%`)
+    }
+    if (input.followersGain !== null && input.followersGain < 0) {
+      parts.push(`lost ${Math.abs(input.followersGain).toLocaleString('en-US')} followers`)
+    }
+    reasons.push(`Trending down${parts.length ? ` — ${parts.join(' and ')}` : ''}.`)
+  }
+  if (input.reelsPerWeek < target * RULES.attentionShare) {
+    reasons.push(`Posting ${input.reelsPerWeek.toFixed(1)} reels a week — under a quarter of their target of ${target}.`)
+  }
+  return reasons
+}
+
+/**
  * Several series added into one. Each part is held at its first value on the
  * days before it starts — a model whose tracking began on the 26th must not
  * arrive as a one-day jump of her whole following.

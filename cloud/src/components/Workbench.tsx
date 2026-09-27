@@ -10,13 +10,14 @@ import RosterTab from './roster/RosterTab'
 import SweepTab from './roster/SweepTab'
 import { EMPTY_FILTERS, toQuery, type Filters } from './FilterBar'
 import type { LibraryItem } from '@/lib/format'
+import Dashboard from './dashboard/Dashboard'
 
 type Counts = { queued: number; running: number; done: number; failed: number }
 type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
 // `creators` is the Instagram accounts we research — the word the database and
 // /api/creators already use. `models` is our own people, who are a different
 // entity in a different table and get their own tab.
-type Tab = 'queue' | 'library' | 'creators' | 'models' | 'today' | 'week'
+type Tab = 'dashboard' | 'queue' | 'library' | 'creators' | 'models' | 'today' | 'week'
 
 // Poll hard while the Mac is chewing on something, gently when it is idle.
 const POLL_BUSY_MS = 2500
@@ -35,7 +36,9 @@ const PAGE = 90
 const MAX_SPAN = PAGE * 20
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'queue', label: 'Queue' },
+  // First and where the console opens (Geno, 2026-09-27): where every model
+  // stands before anything else. The queue moved to the far end.
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'library', label: 'Library' },
   { id: 'creators', label: 'Creators' },
   { id: 'models', label: 'Models' },
@@ -43,13 +46,16 @@ const TABS: { id: Tab; label: string }[] = [
   // pointing at what they always did.
   { id: 'today', label: 'Today' },
   { id: 'week', label: 'Week' },
+  { id: 'queue', label: 'Queue' },
 ]
 
 export default function Workbench() {
-  const [tab, setTab] = useState<Tab>('library')
+  const [tab, setTab] = useState<Tab>('dashboard')
   // Set from the sweep, which hands the roster a model to open rather than
   // making Geno find her again in a grid.
   const [openModel, setOpenModel] = useState<string | null>(null)
+  /** A model the dashboard asked for: her profile, on Analytics. */
+  const [openProfile, setOpenProfile] = useState<string | null>(null)
   const [items, setItems] = useState<LibraryItem[]>([])
   const [pending, setPending] = useState<LibraryItem[]>([])
   const [counts, setCounts] = useState<Counts>({ queued: 0, running: 0, done: 0, failed: 0 })
@@ -147,6 +153,10 @@ export default function Workbench() {
       </header>
 
       <main className="page">
+        {tab === 'dashboard' && (
+          <Dashboard onOpenModel={(id) => { setOpenProfile(id); setTab('models') }} />
+        )}
+
         {tab === 'queue' && (
           <QueueTab
             pending={pending}
@@ -183,7 +193,11 @@ export default function Workbench() {
         )}
 
         {tab === 'models' && (
-          <RosterTab openPlanFor={openModel} onOpened={() => setOpenModel(null)} />
+          <RosterTab
+            openPlanFor={openModel}
+            openProfileFor={openProfile}
+            onOpened={() => { setOpenModel(null); setOpenProfile(null) }}
+          />
         )}
 
         {tab === 'week' && (

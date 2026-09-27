@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import ModelProfile from './ModelProfile'
+import ModelProfile, { type ProfileTab } from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
 import StandingBadge from './StandingBadge'
@@ -63,11 +63,14 @@ const PLAN_TYPE = { A: 'bespoke', B: 'mixed', C: 'library only' } as const
 
 export default function RosterTab({
   openPlanFor,
+  openProfileFor,
   onOpened,
 }: {
   /** A model the sweep asked for. Opening her plan straight away is the point
    *  of tapping a row over there. */
   openPlanFor?: string | null
+  /** A model the dashboard asked for: her profile, on its Analytics tab. */
+  openProfileFor?: string | null
   onOpened?: () => void
 } = {}) {
   const [models, setModels] = useState<RosterModel[]>([])
@@ -75,6 +78,7 @@ export default function RosterTab({
   const [weekOf, setWeekOf] = useState('')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
+  const [editingTab, setEditingTab] = useState<ProfileTab>('profile')
   const [planning, setPlanning] = useState<RosterModel | null>(null)
   const { standing, reload: loadStanding } = useStanding()
   const groupOf = (model: RosterModel): Group => standing[model.id]?.priority ?? 'none'
@@ -115,6 +119,15 @@ export default function RosterTab({
     setPlanning(wanted)
     onOpened?.()
   }, [openPlanFor, models, onOpened])
+
+  useEffect(() => {
+    if (!openProfileFor) return
+    const wanted = models.find((model) => model.id === openProfileFor)
+    if (!wanted) return
+    setEditingTab('analytics')
+    setEditing(wanted)
+    onOpened?.()
+  }, [openProfileFor, models, onOpened])
 
   const sweepRows = new Map<string, SweepRow>(
     (sweep?.rows ?? []).map((row) => [row.id, row]),
@@ -250,8 +263,9 @@ export default function RosterTab({
       {editing && (
         <ModelProfile
           model={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); void load(); void loadStanding() }}
+          initialTab={editingTab}
+          onClose={() => { setEditing(null); setEditingTab('profile') }}
+          onSaved={() => { setEditing(null); setEditingTab('profile'); void load(); void loadStanding() }}
           onStanding={() => void loadStanding()}
           standing={editing === 'new' ? undefined : standing[editing.id]}
         />

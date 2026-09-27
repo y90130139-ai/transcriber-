@@ -19,13 +19,17 @@ import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
 import TelegramLink from './profile/TelegramLink'
+import AnalyticsTab from './profile/AnalyticsTab'
 
-type Tab = 'profile' | 'brand' | 'blueprint' | 'review' | 'editor' | 'tags' | 'week' | 'standing' | 'access'
+export type ProfileTab = Tab
+type Tab = 'analytics' | 'profile' | 'brand' | 'blueprint' | 'review' | 'editor' | 'tags' | 'week' | 'standing' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
   // section each one opens says the rest.
   { key: 'profile', label: 'Profile' },
+  // Her Instagram numbers: growth, views, the auto tag. lib/performance/.
+  { key: 'analytics', label: 'Analytics' },
   // Worked out from her accounts, never typed — see lib/insights.ts.
   { key: 'brand', label: 'Brand' },
   { key: 'blueprint', label: 'Blueprint' },
@@ -63,6 +67,7 @@ export default function ModelProfile({
   onSaved,
   onStanding,
   standing,
+  initialTab = 'profile',
 }: {
   model: RosterModel | null
   onClose: () => void
@@ -72,9 +77,11 @@ export default function ModelProfile({
   onStanding?: () => void
   /** Her heat, priority and trend, for the corner of her photo. */
   standing?: Standing
+  /** Opened from the dashboard, it lands on Analytics. */
+  initialTab?: Tab
 }) {
   const [form, setForm] = useState<ProfileForm>(() => (model ? fromModel(model) : BLANK))
-  const [tab, setTab] = useState<Tab>('profile')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [token, setToken] = useState(model?.access_token ?? null)
   const [revoked, setRevoked] = useState(Boolean(model?.token_revoked_at))
   const [busy, setBusy] = useState(false)
@@ -316,7 +323,7 @@ export default function ModelProfile({
         />
 
         <nav className="sheet-tabs" aria-label="Profile sections">
-          {TABS.filter((one) => one.key !== 'standing' || modelId).map((one) => (
+          {TABS.filter((one) => (one.key !== 'standing' && one.key !== 'analytics') || modelId).map((one) => (
             <button
               key={one.key}
               className="sheet-tab"
@@ -344,6 +351,7 @@ export default function ModelProfile({
               onRecorded={loadReadings}
             />
           )}
+          {tab === 'analytics' && modelId && <AnalyticsTab modelId={modelId} />}
           {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}
           {tab === 'review' && modelId && <ReviewTab modelId={modelId} />}

@@ -870,6 +870,12 @@ const statements = [
      add column if not exists telegram_done_at    timestamptz,
      add column if not exists telegram_error      text`,
 
+  // The dashboard's performance tag, pinned by hand (2026-09-27). Null means
+  // the automatic tag from lib/performance/math.ts stands.
+  `alter table transcriber.models
+     add column if not exists performance_tag text
+       check (performance_tag in ('top', 'average', 'attention'))`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

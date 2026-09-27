@@ -33,6 +33,7 @@ export default function PlanItemCard({
   folder,
   onFilmed,
   preview = false,
+  inGroup = false,
 }: {
   token: string
   item: PlanItem
@@ -57,6 +58,8 @@ export default function PlanItemCard({
    * screen, silently, while he was only looking.
    */
   preview?: boolean
+  /** Her questions are also posted in her Telegram group (the Gosian bot). */
+  inGroup?: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -599,7 +602,9 @@ export default function PlanItemCard({
               {state === 'saving' ? 'Sending…' : 'Send'}
             </button>
             <p className="plan-saystate" role="status" data-tone={state === 'failed' ? 'bad' : undefined}>
-              {state === 'saved' && 'Sent.'}
+              {state === 'saved' && (inGroup
+                ? 'Sent — it is in your Telegram group chat too. We will answer there.'
+                : 'Sent. We will answer here on this card.')}
               {state === 'failed' && 'That did not send — your words are still here, tap Send again.'}
             </p>
           </div>

@@ -33,6 +33,8 @@ export type PlanModel = {
    *  thing the plan never told her and the one thing she cannot guess. */
   drive_url: string | null
   delivery_note: string | null
+  /** Linked to a Telegram group, so her questions are posted there too. */
+  in_group?: boolean
 }
 
 export type PlanBlock = { speaker: string | null; start: number; text: string }
@@ -144,7 +146,7 @@ export async function modelForToken(token: unknown): Promise<PlanModel | null> {
   if (!isPlausibleToken(token)) return null
   const [model] = await sql.query(
     `select id, name, photo_url, filming_days, timezone, weekly_target, standing_rules,
-            drive_url, delivery_note
+            drive_url, delivery_note, (telegram_chat_id is not null) as in_group
        from transcriber.models
       where access_token = $1 and token_revoked_at is null`,
     [token],

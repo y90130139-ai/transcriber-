@@ -336,6 +336,7 @@ export default function PlanView({
                     filmed={filmed.has(item.id)}
                     folder={folder}
                     preview={preview}
+                inGroup={Boolean(model.in_group)}
                     onFilmed={(next) => mark(item.id, next)}
                   />
                 ))}
@@ -353,6 +354,7 @@ export default function PlanView({
                 filmed={filmed.has(item.id)}
                 folder={folder}
                 preview={preview}
+                inGroup={Boolean(model.in_group)}
                 onFilmed={(next) => mark(item.id, next)}
               />
             ))}

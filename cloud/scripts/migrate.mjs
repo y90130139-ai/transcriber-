@@ -883,6 +883,14 @@ const statements = [
      add column if not exists archived_reason text`,
   `create index if not exists jobs_live_idx on transcriber.jobs (status) where archived_at is null`,
 
+  // Her questions go to Telegram (2026-09-27): the Gosian bot posts each one
+  // in her MARKETING topic and in OPS, then stamps relayed_at. Only questions
+  // from the last few days are offered, so linking a model later never floods
+  // her group with old ones.
+  `alter table transcriber.plan_messages
+     add column if not exists relayed_at  timestamptz,
+     add column if not exists relay_error text`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

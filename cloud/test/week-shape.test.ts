@@ -138,6 +138,7 @@ test('sign text caught at the edge of the frame comes off the line', () => {
   assert.equal(readableLine('R The kind of no that changes your whole life'), 'The kind of no that changes your whole life')
   assert.equal(readableLine('6 What it looks like to finally outgrow them'), 'What it looks like to finally outgrow them')
   assert.equal(readableLine('ar COLON BEACH O'), null)
+  assert.equal(readableLine('When the universe finally sends a sign RIPCUR'), 'When the universe finally sends a sign')
   // Real lines keep their start.
   assert.equal(readableLine('POV: A SLAVIC GIRL WHEN SHE IS HAPPY'), 'POV: A SLAVIC GIRL WHEN SHE IS HAPPY')
   assert.equal(readableLine('I know it’s gonna'), 'I know it’s gonna')

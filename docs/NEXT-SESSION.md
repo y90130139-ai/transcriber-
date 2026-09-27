@@ -59,6 +59,20 @@ called from `planItemsFor`):
   "You used this sound on <date>. Made this one already?" (`sound_used_on` in
   `planItemsFor`). Sound data is thin — 17 of her 282 posts, 32 of 67 cards —
   so the button, not detection, is the main path.
+- **Film it = shot list from the video itself** (Geno approved all 4 steps).
+  Mac: `src/shots.py` + `vendor/bin/look-frame` (Apple Vision, built by
+  setup.sh from `src/look/look.swift`) — cuts, people per shot, framing, phone
+  movement (edge-of-frame change), scene labels; keyframes in
+  `out/<folder>/look/`. `./bin/look --apply` (live weeks first) →
+  `transcripts.shots`. `./bin/look --describe` → `/api/worker/describe` →
+  one line per shot + camera judgement from Mistral Small vision
+  (`lib/describe.ts`). Both run in `bin/captions-nightly` AFTER captions;
+  describe is skipped if captions hit the allowance. Card: `lib/shotlist.ts` +
+  `ShotListView` replace Keep/Change/Face/Direction/Wardrobe/Camera/Takes/Sound
+  and "What to say" when measured; unmeasured cards keep the old brief.
+  Pilot: all 67 of Susanna's references measured 2026-09-27; review page
+  https://claude.ai/artifact/57FiQDKj5YdKJ5b4Efhw6j. Vision lines need the
+  deploy (the AI key is only on Vercel) and a night's allowance.
 - **"How your plan works" removed** from every page (the card steps replace it).
 - Tests: `node --import ./cloud/test/ts-resolve.mjs --test cloud/test/week-shape.test.ts`
   (same resolver file as the OnlyFans branch, identical content).

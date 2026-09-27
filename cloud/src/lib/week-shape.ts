@@ -109,7 +109,12 @@ function trimSigns(text: string): string {
     return /^\p{Lu}{2,}$/u.test(letters) && !/:$/.test(token) && Boolean(next && /^\p{Lu}\p{Ll}/u.test(next))
   }
   while (tokens.length > 1 && noise(tokens[0], tokens[1])) tokens.shift()
-  while (tokens.length > 1 && /^\p{L}$/u.test(tokens[tokens.length - 1]) && !KEEP_SHORT.test(tokens[tokens.length - 1])) tokens.pop()
+  // Off the end: a lone letter, or a capitals-only word after a sentence in
+  // ordinary case ("…finally sends a sign RIPCUR" — a logo on a shirt).
+  const trailing = (token: string, before: string | undefined) =>
+    (/^\p{L}$/u.test(token) && !KEEP_SHORT.test(token))
+    || (/^\p{Lu}{2,}$/u.test(token) && Boolean(before && /\p{Ll}/u.test(before)))
+  while (tokens.length > 1 && trailing(tokens[tokens.length - 1], tokens[tokens.length - 2])) tokens.pop()
   return tokens.join(' ')
 }
 

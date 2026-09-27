@@ -120,6 +120,8 @@ export type PlanItemRow = {
   source_post?: string | null
   /** Repurpose cards: null while it still needs repurposing. */
   repurposed_at?: string | null
+  /** Her thumbs on the reference: 1 up, -1 down, null not answered. */
+  rating?: number | null
   id: string
   job_id: string
   position: number

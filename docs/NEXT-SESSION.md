@@ -30,12 +30,16 @@ called from `planItemsFor`):
   flip his toggle if he films with a partner. Susanna's `couples` persona removed.
 - **Card = steps**: Watch it · Film it · What to say · What to write · Before
   you post. New-idea wording: copy the idea, people/reactions never have to match (V-30).
-- **More like this** button (`/api/plan/<token>/more`): sets
-  `plan_items.more_at`, posts "More like this one, please." on the thread →
-  bot relays to MARKETING + OPS. V-25 pre-marked (she asked by message).
+- **👍/👎 "Good reference for you?"** under every video (Geno, replaces the
+  first "More like this" button): `POST /api/plan/<token>/rate`
+  `{item_id, rating: 1|-1|0}` → `plan_items.rating` / `rated_at`. Not posted to
+  Telegram. **It steers picks**: `TASTE` in `match.ts` adds 0.5 per vote for
+  every tag a candidate shares with a rated reel and 1 per vote for the same
+  account, capped ±3 (one format match) — `suggestionsFor` returns it as
+  `taste`. Console plan rows show 👍/👎. V-25 carried over as 👍.
+  `suggestionsFor` also drops couple reels for solo models (fetches 2× first).
 - Tests: `node --import ./cloud/test/ts-resolve.mjs --test cloud/test/week-shape.test.ts`
   (same resolver file as the OnlyFans branch, identical content).
-- Not done: More-like-this does not yet steer the next week's picks automatically.
 
 ## 2026-09-27, late — read this first
 

@@ -1633,3 +1633,4 @@ textarea.field { resize: vertical; }
 .planrow-repurpose { font: inherit; font-size: 0.7rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--sc-caution); background: none; color: var(--sc-caution); cursor: pointer; }
 .planrow-repurpose[data-done='true'] { border-color: var(--sc-positive); color: var(--sc-positive); }
 .planrow-repurpose:hover { background: var(--sc-ember-tint); }
+.planrow-rate { font-size: 0.9rem; margin-right: 0.25rem; }

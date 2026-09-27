@@ -1994,34 +1994,58 @@
 }
 .plan-option-note { grid-column: 1 / -1; font-size: var(--sc-text-xs); }
 .plan-option .plan-copy { min-width: 72px; min-height: 44px; }
-.plan-copy:focus-visible,
-.plan-more:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
 
-/* More like this: same size as Ask, quieter until it has been said. */
-.plan-more {
-  width: 100%;
-  min-height: 48px;
-  margin-top: var(--sc-space-2);
-  padding: 0 var(--sc-space-4);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--sc-ink-900);
-  cursor: pointer;
+/* Good reference for her? Two round thumbs beside the question, a 44px target
+   each; the chosen one fills. Its own row under the video, apart from the
+   Yes/No at the foot of the card, because it answers a different question. */
+.plan-rate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+.plan-rate-q {
+  margin-right: auto;
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
   letter-spacing: var(--sc-track-label);
-  text-align: left;
   text-transform: uppercase;
-  transition: background var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+  color: var(--sc-ink-700);
 }
-.plan-more:hover:not(:disabled) { border-color: var(--sc-ember); }
-.plan-more[aria-pressed='true'] {
+.plan-thumb {
+  width: 48px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-pill);
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: background var(--sc-dur-fast) var(--sc-ease),
+              border-color var(--sc-dur-fast) var(--sc-ease),
+              transform var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-thumb:hover { border-color: var(--sc-ink-500); }
+.plan-thumb:active { transform: scale(0.94); }
+.plan-thumb:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+.plan-thumb[data-way='up'][aria-pressed='true'] {
+  border-color: var(--sc-positive);
+  background: color-mix(in srgb, var(--sc-positive) 16%, transparent);
+}
+.plan-thumb[data-way='down'][aria-pressed='true'] {
   border-color: var(--sc-ember);
   background: var(--sc-ember-tint);
-  color: var(--sc-ember-deep);
-  cursor: default;
 }
+.plan-rate-said {
+  flex-basis: 100%;
+  min-height: 1em;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+}
+.plan-rate-said:empty { display: none; }
+.plan-copy:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
 
 /* ------------------------------------------------------------ YOUR OWN VIDEOS
    Her own reels, after the week's ideas and folded — there if she wants to
@@ -2072,5 +2096,6 @@
 .plan .plan-kind[data-kind='yours'] b { color: var(--sc-ink-900); }
 
 @media (prefers-reduced-motion: reduce) {
-  .plan-more { transition: none; }
+  .plan-thumb { transition: none; }
+  .plan-thumb:active { transform: none; }
 }

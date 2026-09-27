@@ -643,6 +643,9 @@ export default function PlanEditor({
                               <span className="planrow-kind" data-kind={cardKind(item.bucket ?? null, item.source_post ?? null)}>
                                 {KIND_TEXT[cardKind(item.bucket ?? null, item.source_post ?? null)].label}
                               </span>{' '}
+                              {/* Her thumbs on the reference — what steers her next picks. */}
+                              {item.rating === 1 && <span className="planrow-rate" title="They rated this a good reference">👍</span>}
+                              {item.rating === -1 && <span className="planrow-rate" title="They rated this a poor reference">👎</span>}
                               {item.bucket === 'repurpose' && (
                                 item.repurposed_at
                                   ? <button className="planrow-repurpose" data-done="true" title="Undo — back to needs repurposing"

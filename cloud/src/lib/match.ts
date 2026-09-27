@@ -9,6 +9,7 @@ import { sql } from './db'
 import { SCORING_CTE } from './hot'
 import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { preview } from './sql'
+import { jobsNeedingOthers } from './solo'
 
 /** Format weighs most: it is the thing she physically has to be able to shoot.
  *  Topic is level with it — a golf reel handed to the golf model is the whole
@@ -30,10 +31,48 @@ const RELATABLE_WEIGHT = 1.5
  *  viral outlier outranking a video she can actually make. */
 const OUTPERFORMANCE_CAP = 3
 
+/**
+ * Her thumbs (👍/👎 on her cards, `plan_items.rating`). Each vote counts for
+ * every tag the rated reel shares with a candidate, and more for the same
+ * account. Capped at one format match either way: her taste steers the list,
+ * fit still decides it — one 👎 on a text overlay must not bury every text
+ * overlay she can film. Tags every reel carries (`unknown`, `relatable`) say
+ * nothing about taste and are left out.
+ */
+const TAG_VOTE = 0.5
+const ACCOUNT_VOTE = 1
+const TASTE_CAP = FORMAT_WEIGHT
+
+const TASTE = `
+  greatest(-${TASTE_CAP}, least(${TASTE_CAP},
+    ${TAG_VOTE} * coalesce((
+      select sum(vi.rating)
+        from transcriber.plan_items vi
+        join transcriber.plans vp on vp.id = vi.plan_id
+        join transcriber.tags voted on voted.job_id = vi.job_id
+        join transcriber.tags here on here.job_id = j.id and here.axis = voted.axis and here.tag = voted.tag
+       where vp.model_id = m.id and vi.rating is not null and vi.job_id <> j.id
+         and voted.axis in ('format', 'topic', 'hook', 'persona')
+         and voted.tag not in ('unknown', 'relatable')
+    ), 0)
+    + ${ACCOUNT_VOTE} * coalesce((
+      select sum(vi.rating)
+        from transcriber.plan_items vi
+        join transcriber.plans vp on vp.id = vi.plan_id
+        join transcriber.transcripts vt on vt.job_id = vi.job_id
+       where vp.model_id = m.id and vi.rating is not null and vi.job_id <> j.id
+         and lower(vt.author) = lower(t.author)
+    ), 0)
+  ))
+`
+
 /** Below this, say nothing. One format match, or a persona match plus a hook. */
 export const MIN_FIT = 3
 
 const DEFAULT_LIMIT = 12
+/** Fetched per slot asked for, so filtering out reels a solo model cannot
+ *  film still leaves a full list. */
+const SOLO_HEADROOM = 2
 const MAX_LIMIT = 40
 
 /** How many of `theirs` appear in `hers`. A scalar subquery rather than an
@@ -69,6 +108,7 @@ const FIT = `
   + ${HOOK_WEIGHT} * ${overlap('g.hook', 'm.hooks')}
   + ${RELATABLE_WEIGHT} * ${IS_RELATABLE}
   + least(coalesce(s.score / nullif(b.median_score, 0), 0), ${OUTPERFORMANCE_CAP})
+  + ${TASTE}
 `
 
 /** What the card says the match was. Topic joins format and persona: "golf" is
@@ -236,7 +276,7 @@ export async function suggestionsFor(
     why = why.replaceAll('m.topics', slot)
     gate = gate.replaceAll('m.topics', slot)
   }
-  return sql.query(
+  const rows = await sql.query(
     `with ${SCORING_CTE}, ${ITEM_TAGS}
      select ranked.* from (
        select j.id, t.author, t.duration_sec, t.upload_date,
@@ -244,6 +284,7 @@ export async function suggestionsFor(
               ${preview('t.plain', 150, 't.on_screen_text')} as preview,
               round((s.score / nullif(b.median_score, 0))::numeric, 2)::float as outperformance,
               (${fit})::float as fit,
+              (${TASTE})::float as taste,
               ${why} as matched,
               ${alsoOn('j.id', 'm.id')} as also_on
          from transcriber.models m
@@ -256,7 +297,13 @@ export async function suggestionsFor(
      ) ranked
       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc
-      limit ${capped}`,
+      limit ${capped * SOLO_HEADROOM}`,
     [modelId, ...(override ? [formats] : []), ...(niches ? [topics] : [])],
   )
+  // A solo model is never offered a reel that needs someone else on camera —
+  // `appendItems` would refuse it anyway, and a planner that picks what then
+  // gets refused hands her a short week.
+  const [who] = await sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId])
+  const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(rows.map((row) => String(row.id)))
+  return rows.filter((row) => !needsOthers.has(String(row.id))).slice(0, capped)
 }

@@ -39,7 +39,7 @@ export async function GET(_request: Request, { params }: Params) {
             i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
             -- t.title below is the reference's own title on Instagram, so the
             -- card's own name has to arrive under a different one.
-            i.card_no, i.title as item_title, i.location, i.bucket, i.source_post, i.repurposed_at,
+            i.card_no, i.title as item_title, i.location, i.bucket, i.source_post, i.repurposed_at, i.rating,
             i.filmed_at, i.posted_at, i.post_url,
             i.model_note, i.model_note_at, i.seen_at,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,

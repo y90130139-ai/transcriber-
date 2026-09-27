@@ -1017,10 +1017,12 @@ const statements = [
   // her page. On for everyone; turned off per model in the console.
   `alter table transcriber.models
      add column if not exists solo boolean not null default true`,
-  // She tapped "More like this" on a card. Relayed to her group like a
-  // question; kept so the console can see what she wants more of.
+  // Her thumbs on a card: is this a good reference for her? 1 up, -1 down,
+  // null unanswered. Steers what `suggestionsFor` picks for her next.
   `alter table transcriber.plan_items
-     add column if not exists more_at timestamptz`,
+     add column if not exists rating smallint check (rating in (-1, 1))`,
+  `alter table transcriber.plan_items
+     add column if not exists rated_at timestamptz`,
 ]
 
 for (const statement of statements) {

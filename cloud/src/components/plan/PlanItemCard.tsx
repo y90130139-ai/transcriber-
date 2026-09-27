@@ -75,9 +75,9 @@ export default function PlanItemCard({
   const [copied, setCopied] = useState(false)
   /** Which caption option was just copied, so only its button says so. */
   const [copiedOption, setCopiedOption] = useState<number | null>(null)
-  /** She asked for more like this one. */
-  const [more, setMore] = useState(Boolean(item.more_at))
-  const [moreState, setMoreState] = useState<'idle' | 'sending' | 'failed'>('idle')
+  /** Her thumbs on this reference, and whether the last tap failed to save. */
+  const [rating, setRating] = useState<1 | -1 | null>(item.rating)
+  const [rateFailed, setRateFailed] = useState(false)
   /** The DM, once written — on the card already, or written on request. */
   const [dm, setDm] = useState<string | null>(item.brief_short)
   const [dmState, setDmState] = useState<'idle' | 'writing' | 'copied'>('idle')
@@ -121,21 +121,23 @@ export default function PlanItemCard({
     setTimeout(() => setCopiedOption((current) => (current === index ? null : current)), COPIED_RESET_MS)
   }
 
-  /** "More like this" — she liked the idea and wants others like it. Goes to
-   *  her group chat like a question, so it is seen the same day. Once only. */
-  async function askForMore() {
-    if (more || moreState === 'sending') return
-    if (preview) { setMore(true); return }
-    setMoreState('sending')
-    const response = await fetch(`/api/plan/${token}/more`, {
+  /** 👍/👎: is this a good reference for her? Tapping the same thumb again
+   *  takes it back. Saved at once; it steers what she is sent next. */
+  async function rate(next: 1 | -1) {
+    const previous = rating
+    const chosen = rating === next ? null : next
+    setRating(chosen) // optimistic — a thumb has to feel instant
+    setRateFailed(false)
+    if (preview) return
+    const response = await fetch(`/api/plan/${token}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item_id: item.id }),
+      body: JSON.stringify({ item_id: item.id, rating: chosen ?? 0 }),
     }).catch(() => null)
-    if (response?.ok) {
-      setMore(true)
-      setMoreState('idle')
-    } else setMoreState('failed')
+    if (!response?.ok) {
+      setRating(previous)
+      setRateFailed(true)
+    }
   }
 
   async function toggleFilmed() {
@@ -351,6 +353,37 @@ export default function PlanItemCard({
           {(filming || kind === 'yours') && item.media && (
             <a className="plan-cta plan-cta-quiet" href={item.media.download}>Save video</a>
           )}
+        </div>
+
+        {/* Is this a good reference for her? Not "will you film it" — that is
+            the Yes/No below. Her thumbs steer which reels she is sent next. */}
+        <div className="plan-rate" role="group" aria-label={`Is ${cardId} a good reference for you?`}>
+          <span className="plan-rate-q">Good reference for you?</span>
+          <button
+            type="button"
+            className="plan-thumb"
+            data-way="up"
+            aria-pressed={rating === 1}
+            aria-label="Yes — send me more like this"
+            onClick={() => void rate(1)}
+          >
+            <span aria-hidden="true">👍</span>
+          </button>
+          <button
+            type="button"
+            className="plan-thumb"
+            data-way="down"
+            aria-pressed={rating === -1}
+            aria-label="No — send me fewer like this"
+            onClick={() => void rate(-1)}
+          >
+            <span aria-hidden="true">👎</span>
+          </button>
+          <span className="plan-rate-said" role="status">
+            {rateFailed
+              ? 'That did not save — tap it again.'
+              : rating === 1 ? 'Got it — more like this.' : rating === -1 ? 'Got it — fewer like this.' : ''}
+          </span>
         </div>
       </Step>
 
@@ -602,19 +635,6 @@ export default function PlanItemCard({
           </span>
           {unread > 0 && <span className="plan-ask-badge">{unread}</span>}
         </button>
-
-        {/* She liked this idea and wants others like it (Susanna asked for more
-            "Slavic girl" videos through the question box, 2026-09-27). */}
-        <button
-          type="button"
-          className="plan-more"
-          aria-pressed={more}
-          disabled={more || moreState === 'sending'}
-          onClick={() => void askForMore()}
-        >
-          {more ? 'Asked for more like this ✓' : moreState === 'sending' ? 'Sending…' : 'More like this'}
-        </button>
-        {moreState === 'failed' && <p className="plan-saystate" data-tone="bad">That did not send — tap it again.</p>}
 
         {openThread && (
           <div className="plan-thread">

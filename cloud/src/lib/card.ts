@@ -122,16 +122,22 @@ export function copyRuleFor(bucket: Bucket | null, axis: string | null): CopyRul
   }
 }
 
-/** The Viral Reels Blueprint's per-reel checklist, worded for her to run
- *  before she posts rather than for us to audit after. */
-export const REEL_CHECKLIST = [
-  'Does the first second stop the scroll on its own?',
-  'Is every second earning its place — nothing slow in the middle?',
-  'Is there a reward at the end for watching all of it?',
-  'Is the lighting good and the background interesting — not a white wall?',
-  'Does the outfit fit well and look intentional?',
-  'Will someone actually type a comment, not just scroll past?',
-  'Would you send it to a friend?',
+/**
+ * What makes a video look good enough to perform, checked before she presses
+ * record (Geno, 2026-09-27). Replaced the Viral Reels Blueprint's post-filming
+ * questions ("Would you send it to a friend?"), which arrived after the only
+ * moment they could change anything. Eight, picked from sixteen: the rest
+ * either happen on their own or are already in the card's directions.
+ */
+export const FILM_CHECKLIST = [
+  'Wipe the lens — one pass with your shirt.',
+  'Phone steady: on a tripod or propped up, not in your hand.',
+  'Face the light — a window or ring light in front of you, never behind.',
+  'Eyes in the top third of the screen, and keep your face and any text away from the bottom and the right edge (Instagram covers them).',
+  'A tidy background with some depth — step away from the wall.',
+  'Nothing personal in the frame: mail, addresses, a mirror showing the room.',
+  'Know your first line or first move before you press record.',
+  'Film it 2–3 times so you can pick the best one.',
 ] as const
 
 /**

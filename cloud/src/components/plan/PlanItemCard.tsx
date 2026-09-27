@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
-import { KIND_TEXT, REPURPOSE_READY, cardKind, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
+import { KIND_TEXT, REPURPOSE_READY, cardKind, FILM_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
 import { buildScaffold } from '@/lib/script'
 import { DAYS } from '@/lib/schedule'
 
@@ -387,6 +387,24 @@ export default function PlanItemCard({
         </div>
       </Step>
 
+      {/* No filming steps on these, so the editing note stands on its own. */}
+      {!filming && item.editing_notes && (
+        <p className="plan-editing">
+          <span className="plan-label">Editing</span>
+          {item.editing_notes}
+        </p>
+      )}
+
+      {/* Checked before she presses record, not after she has posted — the
+          only moment any of it can still change the video. */}
+      {filming && (
+        <Step no={++step} title="Before you film">
+          <ul className="plan-film-check">
+            {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+          </ul>
+        </Step>
+      )}
+
       {filming && (
         <Step no={++step} title="Film it">
           {/* What she keeps exactly and what she changes. */}
@@ -414,6 +432,13 @@ export default function PlanItemCard({
                 </dl>
               )}
             </div>
+          )}
+
+          {item.editing_notes && (
+            <p className="plan-editing">
+              <span className="plan-label">Editing</span>
+              {item.editing_notes}
+            </p>
           )}
         </Step>
       )}
@@ -488,20 +513,6 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      <Step no={++step} title="Before you post">
-        {item.editing_notes && (
-          <p className="plan-editing">
-            <span className="plan-label">Editing</span>
-            {item.editing_notes}
-          </p>
-        )}
-        <details className="plan-checklist">
-          <summary>Quick check</summary>
-          <ul>
-            {REEL_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
-          </ul>
-        </details>
-      </Step>
 
       {/* The DM version, written only when Geno asks — he sends the portal
           link, not a message per video (2026-09-25). Console only. */}

@@ -28,8 +28,11 @@ called from `planItemsFor`):
   captions (brisortizig, maslovalexey80, …), couple words/#couples, 3+ voices.
   **Magnus's week went 23 → 9** (the same couple batch; he answered none) —
   flip his toggle if he films with a partner. Susanna's `couples` persona removed.
-- **Card = steps**: Watch it · Film it · What to say · What to write · Before
-  you post. New-idea wording: copy the idea, people/reactions never have to match (V-30).
+- **Card = steps**: Watch it · Before you film · Film it · What to say · What
+  to write. "Before you film" is Geno's 8-point `FILM_CHECKLIST` in `card.ts`
+  (lens, steady, light in front, framing clear of Instagram's buttons,
+  background, nothing personal, first line ready, 2–3 takes); the old
+  post-filming "Quick check" is gone. New-idea wording: copy the idea, people/reactions never have to match (V-30).
 - **👍/👎 "Good reference for you?"** under every video (Geno, replaces the
   first "More like this" button): `POST /api/plan/<token>/rate`
   `{item_id, rating: 1|-1|0}` → `plan_items.rating` / `rated_at`. Not posted to

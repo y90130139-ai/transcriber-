@@ -2099,3 +2099,17 @@
   .plan-thumb { transition: none; }
   .plan-thumb:active { transform: none; }
 }
+
+/* Before you film: always open, a short ruled list — eight things read in
+   ten seconds, so no fold to tap through. */
+.plan-film-check {
+  margin: 0;
+  padding: 0 0 0 var(--sc-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+}
+.plan-film-check li::marker { color: var(--sc-ember); }

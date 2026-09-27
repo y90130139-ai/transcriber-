@@ -35,8 +35,8 @@ export function nextStep(trend: Direction | null, reelsPerWeek: number, weeklyTa
   }
   if (trend === 'up') return "You're growing — keep posting like this and repeat what worked in your top reels."
   if (trend === 'flat') return reelsPerWeek < aim
-    ? `Steady — to push it up, post more: ${aim}+ reels this week.`
-    : 'Steady — try one new hook this week to get things moving.'
+    ? `To push it up, post more: ${aim}+ reels this week.`
+    : 'Try one new hook this week to get things moving.'
   return 'Keep posting — your trend shows once there are a few more reels to read.'
 }
 

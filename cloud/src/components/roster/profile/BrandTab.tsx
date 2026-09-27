@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Insights } from '@/lib/insights'
 import type { Niche } from '@/lib/niches'
+import CreatorFace, { type Face } from '../../dashboard/CreatorFace'
+
+type Faces = { handles: Record<string, Face>; formats: Record<string, { thumb: string; author: string | null }> }
 
 type Payload = Insights & {
   accepted: { verticals: { format: string; name: string; tier: string | null }[] | null; similar_creators: string[] | null; wont_do: string[] | null } | null
@@ -22,21 +25,19 @@ const BAND: Record<Niche['band'], string> = {
   few: 'few winners in what we watch',
 }
 
-function NicheRow({ niche }: { niche: Niche }) {
+function NicheRow({ niche, faces }: { niche: Niche; faces: Faces | null }) {
   return (
-    <li>
-      <b>{niche.label}</b> — {niche.winning} creator{niche.winning === 1 ? '' : 's'} winning of{' '}
-      {niche.watched} watched · {BAND[niche.band]}
+    <li className="niche-row">
+      <div className="niche-row-head">
+        <b>{niche.label}</b>
+        <span className="hint">{niche.winning} of {niche.watched} creators winning · {BAND[niche.band]}</span>
+      </div>
       {niche.top.length > 0 && (
-        <span className="hint">
-          {' '}· {niche.top.map((c, i) => (
-            <span key={c.handle}>
-              {i > 0 && ', '}
-              <a href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noreferrer">@{c.handle}</a>{' '}
-              {c.multiple}×
-            </span>
+        <div className="face-row">
+          {niche.top.map((c) => (
+            <CreatorFace key={c.handle} handle={c.handle} face={faces?.handles[c.handle.toLowerCase()]} line={`${c.multiple}× their usual`} />
           ))}
-        </span>
+        </div>
       )}
     </li>
   )
@@ -54,6 +55,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
   const [data, setData] = useState<Payload | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [faces, setFaces] = useState<Faces | null>(null)
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/models/${modelId}/insights`)
@@ -62,6 +64,18 @@ export default function BrandTab({ modelId }: { modelId: string }) {
   }, [modelId])
 
   useEffect(() => { void load() }, [load])
+
+  // Pictures for every creator and vertical named, fetched once the brand is in.
+  useEffect(() => {
+    if (!data) return
+    const handles = [
+      ...data.similar.map((c) => c.handle),
+      ...[...data.niches.hers, ...data.niches.strongest].flatMap((n) => n.top.map((c) => c.handle)),
+    ]
+    const formats = data.verticals.map((v) => v.format)
+    fetch(`/api/creators/faces?handles=${encodeURIComponent(handles.join(','))}&formats=${encodeURIComponent(formats.join(','))}`)
+      .then((r) => (r.ok ? r.json() : null)).then((body) => body && setFaces(body)).catch(() => null)
+  }, [data])
 
   async function accept(action: string, body: Record<string, unknown>) {
     setBusy(action)
@@ -107,17 +121,24 @@ export default function BrandTab({ modelId }: { modelId: string }) {
               </button>
             )}
         </div>
-        <ol className="brand-list">
-          {data.verticals.map((vertical) => (
-            <li key={vertical.format}>
-              <b>{vertical.tier ?? '·'}</b> {vertical.name}
-              <span className="hint">
-                {vertical.source === 'starter'
-                  ? ' — starter vertical, no winners of theirs in it yet'
-                  : ` — ${vertical.posts} of their graded reels, best ${vertical.best_multiple}×`}
-              </span>
-            </li>
-          ))}
+        <ol className="vertical-cards">
+          {data.verticals.map((vertical) => {
+            const example = faces?.formats[vertical.format]
+            return (
+              <li key={vertical.format} className="vertical-card">
+                <span className="vertical-pic" aria-hidden>
+                  {example ? <img src={example.thumb} alt="" loading="lazy" /> : null}
+                  <b className="vertical-tier">{vertical.tier ?? '·'}</b>
+                </span>
+                <b>{vertical.name}</b>
+                <small>
+                  {vertical.source === 'starter'
+                    ? 'Starter — no winners of theirs yet'
+                    : `${vertical.posts} of their reels · best ${vertical.best_multiple}×`}
+                </small>
+              </li>
+            )
+          })}
         </ol>
         <span className="hint">Matching them on {BASIS[data.matching.basis]}.</span>
       </section>
@@ -128,7 +149,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
         </div>
         {data.niches.hers.length > 0 ? (
           <ol className="brand-list">
-            {data.niches.hers.map((niche) => <NicheRow key={niche.topic} niche={niche} />)}
+            {data.niches.hers.map((niche) => <NicheRow key={niche.topic} niche={niche} faces={faces} />)}
           </ol>
         ) : (
           <span className="hint">No niche read off their reels yet — they are relatable or untagged.</span>
@@ -137,7 +158,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
           <>
             <span className="hint">{data.niches.hers.length > 0 ? 'Strongest other niches' : 'Strongest niches'} in what we watch:</span>
             <ol className="brand-list">
-              {data.niches.strongest.map((niche) => <NicheRow key={niche.topic} niche={niche} />)}
+              {data.niches.strongest.map((niche) => <NicheRow key={niche.topic} niche={niche} faces={faces} />)}
             </ol>
           </>
         )}
@@ -164,19 +185,17 @@ export default function BrandTab({ modelId }: { modelId: string }) {
         {data.similar.length === 0 ? (
           <span className="hint">Nobody on the watchlist shares enough of their formats yet.</span>
         ) : (
-          <ol className="brand-list">
+          <div className="face-row face-row-large">
             {data.similar.map((creator) => (
-              <li key={creator.handle}>
-                <a href={`https://www.instagram.com/${creator.handle}/`} target="_blank" rel="noreferrer">
-                  @{creator.handle}
-                </a>
-                <span className="hint">
-                  {' '}— shares {[...creator.shared_persona, ...creator.shared_formats].join(', ')} ·{' '}
-                  {creator.winners} winners in the library
-                </span>
-              </li>
+              <CreatorFace
+                key={creator.handle}
+                size="large"
+                handle={creator.handle}
+                face={faces?.handles[creator.handle.toLowerCase()]}
+                line={`${creator.winners} winners · shares ${[...creator.shared_persona, ...creator.shared_formats].slice(0, 3).join(', ')}`}
+              />
             ))}
-          </ol>
+          </div>
         )}
       </section>
 

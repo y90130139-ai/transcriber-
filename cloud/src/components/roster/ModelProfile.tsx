@@ -6,8 +6,7 @@ import type { IntakePick } from './IntakeDrop'
 import AccessTab, { type Override } from './profile/AccessTab'
 import ProfileFigures from './profile/ProfileFigures'
 import BrandTab from './profile/BrandTab'
-import ReviewTab from './profile/ReviewTab'
-import EditorTab from './profile/EditorTab'
+import ReelsTab from './profile/ReelsTab'
 import BlueprintTab from './profile/BlueprintTab'
 import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
@@ -22,7 +21,7 @@ import TelegramLink from './profile/TelegramLink'
 import AnalyticsTab from './profile/AnalyticsTab'
 
 export type ProfileTab = Tab
-type Tab = 'analytics' | 'profile' | 'brand' | 'blueprint' | 'review' | 'editor' | 'tags' | 'week' | 'standing' | 'access'
+type Tab = 'analytics' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'standing' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -30,12 +29,12 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
   // Her Instagram numbers: growth, views, the auto tag. lib/performance/.
   { key: 'analytics', label: 'Analytics' },
+  // Review and Editor in one, as videos (2026-09-27: "we don't need so many
+  // tabs"). Tags moved into Profile the same day.
+  { key: 'reels', label: 'Reels' },
   // Worked out from her accounts, never typed — see lib/insights.ts.
   { key: 'brand', label: 'Brand' },
   { key: 'blueprint', label: 'Blueprint' },
-  { key: 'review', label: 'Review' },
-  { key: 'editor', label: 'Editor' },
-  { key: 'tags', label: 'Tags' },
   { key: 'week', label: 'Week' },
   // Heat and priority. Only for a model that exists — a new one has no weeks.
   { key: 'standing', label: 'Heat' },
@@ -323,7 +322,7 @@ export default function ModelProfile({
         />
 
         <nav className="sheet-tabs" aria-label="Profile sections">
-          {TABS.filter((one) => (one.key !== 'standing' && one.key !== 'analytics') || modelId).map((one) => (
+          {TABS.filter((one) => !['standing', 'analytics', 'reels'].includes(one.key) || modelId).map((one) => (
             <button
               key={one.key}
               className="sheet-tab"
@@ -332,7 +331,7 @@ export default function ModelProfile({
               onClick={() => setTab(one.key)}
             >
               {one.label}
-              {one.key === 'tags' && form.persona.length + form.formats.length === 0 && (
+              {one.key === 'profile' && form.persona.length + form.formats.length === 0 && (
                 <em>!</em>
               )}
             </button>
@@ -351,12 +350,16 @@ export default function ModelProfile({
               onRecorded={loadReadings}
             />
           )}
+          {tab === 'profile' && (
+            <section className="profile-tags" aria-label="Tags">
+              <h3 className="profile-tags-head">Tags</h3>
+              <TagsTab form={form} set={set} setForm={setForm} />
+            </section>
+          )}
           {tab === 'analytics' && modelId && <AnalyticsTab modelId={modelId} />}
+          {tab === 'reels' && modelId && <ReelsTab modelId={modelId} name={form.name || model?.name || ''} photo={model?.photo_url ?? null} />}
           {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}
-          {tab === 'review' && modelId && <ReviewTab modelId={modelId} />}
-          {tab === 'editor' && modelId && <EditorTab modelId={modelId} />}
-          {tab === 'tags' && <TagsTab form={form} set={set} setForm={setForm} />}
           {tab === 'week' && (
             <>
               {modelId && <TelegramLink modelId={modelId} initial={model?.telegram_chat_id ?? null} />}

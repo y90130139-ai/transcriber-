@@ -7,9 +7,9 @@ import BarChart from '../../dashboard/BarChart'
 import LineChart from '../../dashboard/LineChart'
 import PeriodSwitch, { type Period } from '../../dashboard/PeriodSwitch'
 import TopReels from '../../dashboard/TopReels'
+import { useRepurpose } from './useRepurpose'
 import { TagChip, TrendBadge } from '../../dashboard/TrendBadge'
 import { ago, compact, percent, shortDay, signed } from '../../dashboard/format'
-import { formatDate } from '@/lib/dates'
 
 type Account = { handle: string; followers: number | null; followers_gain: number | null; reels_period: number; views_period: number; tracked: boolean }
 type Data = Board & { model: ModelPerf; accounts: Account[] }
@@ -41,19 +41,7 @@ export default function AnalyticsTab({ modelId }: { modelId: string }) {
     else setError('The tag did not save.')
   }
 
-  /** Onto their week as a Repurpose card, and the file down for the batcher. */
-  async function repurpose(reel: { post_id: string }): Promise<string> {
-    const response = await fetch(`/api/models/${modelId}/repurpose`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: reel.post_id }),
-    }).catch(() => null)
-    const body = await response?.json().catch(() => ({})) ?? {}
-    if (!response?.ok) return body.error ?? 'That did not go through.'
-    if (body.download) window.open(body.download, '_blank', 'noopener')
-    const week = formatDate(body.week_of)
-    const where = body.added ? `On the week of ${week} — needs repurposing.` : `Already on the week of ${week}.`
-    return body.download ? `${where} Download opened for the batcher.` : `${where} ${body.note ?? ''}`.trim()
-  }
+  const repurpose = useRepurpose(modelId)
 
   if (error) return <p className="dash-error" role="alert">{error}</p>
   if (!data) return <p className="dash-empty" aria-busy="true">Reading their accounts…</p>

@@ -575,3 +575,64 @@
 .sheet-avatar-wrap { position: relative; width: fit-content; }
 .sheet-avatar-wrap .trendchip[data-variant='photo'] { top: 4px; left: auto; right: -6px; }
 .sheet-flags [data-tone='priority'] { color: var(--sc-ink-900); border-color: var(--sc-ink-900); font-weight: 700; }
+
+/* ==========================================================================
+   Pictures over paragraphs (2026-09-27): the Reels tab (Review + Editor as
+   video carousels), Tags inside Profile, faces on Brand.
+   ========================================================================== */
+.reels-tab { display: grid; gap: var(--sc-space-6); }
+.reels-week { display: flex; align-items: center; justify-content: space-between; gap: var(--sc-space-3); }
+.reels-week b { color: var(--sc-ink-900); font-family: var(--sc-font-display); letter-spacing: var(--sc-track-tight); }
+.reels-summary { margin: 0; color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.reels-summary b { color: var(--sc-positive); }
+.reels-row { display: grid; gap: var(--sc-space-3); padding-top: var(--sc-space-3); border-top: 3px solid var(--sc-ink-150); }
+.reels-row[data-tone='win'] { border-top-color: var(--sc-positive); }
+.reels-row[data-tone='good'] { border-top-color: color-mix(in srgb, var(--sc-positive) 50%, var(--sc-ink-150)); }
+.reels-row[data-tone='low'] { border-top-color: var(--sc-critical); }
+.reels-row[data-tone='edit'] { border-top-color: var(--sc-ember); }
+.reels-row header { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sc-space-1) var(--sc-space-3); }
+.reels-row h3 { margin: 0; font-family: var(--sc-font-display); font-size: var(--sc-text-lg); color: var(--sc-ink-900); letter-spacing: var(--sc-track-tight); }
+.reels-row h3 span { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); margin-left: var(--sc-space-1); }
+.reels-row header p { margin: 0; flex: 1; color: var(--sc-ink-300); font-size: var(--sc-text-sm); }
+.reels-actions { display: grid; gap: var(--sc-space-1); }
+.reels-actions a.dash-reel-action { display: block; text-align: center; text-decoration: none; }
+.reels-stage { display: flex; align-items: center; gap: var(--sc-space-2); font-size: var(--sc-text-sm); color: var(--sc-ink-300); }
+.reels-more { border-top: var(--sc-rule-hair); padding-top: var(--sc-space-3); }
+.reels-more summary { cursor: pointer; font-weight: 600; color: var(--sc-ink-700); }
+.reels-more > .chip { margin: var(--sc-space-2) 0; }
+.dash-reel-actions { display: grid; gap: var(--sc-space-1); }
+
+/* The grade on the cover — word always, colour as a second cue. */
+.dash-reel-grade { position: absolute; z-index: 1; left: var(--sc-space-2); bottom: var(--sc-space-2); padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; background: rgba(10,10,10,.7); pointer-events: none; }
+.dash-reel-grade[data-tone='win'] { background: var(--sc-positive); }
+.dash-reel-grade[data-tone='good'] { background: color-mix(in srgb, var(--sc-positive) 70%, #000); }
+.dash-reel-grade[data-tone='low'], .dash-reel-grade[data-tone='flop'] { background: var(--sc-critical); }
+.dash-reel-grade[data-tone='edit'] { background: var(--sc-ember); }
+
+/* Tags, now inside Profile. */
+.profile-tags { margin-top: var(--sc-space-8); padding-top: var(--sc-space-5); border-top: var(--sc-rule-hair); }
+.profile-tags-head { margin: 0 0 var(--sc-space-4); font-family: var(--sc-font-display); font-size: var(--sc-text-lg); color: var(--sc-ink-900); }
+
+/* A creator with a face. */
+.face { display: inline-flex; align-items: center; gap: var(--sc-space-2); padding: 4px 12px 4px 4px; border-radius: 999px; border: var(--sc-rule-hair); background: var(--sc-bone-light); color: inherit; text-decoration: none; min-width: 0; max-width: 100%; transition: border-color var(--sc-dur-fast) var(--sc-ease); }
+.face:hover { border-color: var(--sc-ember); }
+.face-pic { flex: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--sc-ember-tint); color: var(--sc-ember-deep); font-size: 0.7rem; font-weight: 700; }
+.face-pic img { width: 100%; height: 100%; object-fit: cover; }
+.face-text { display: grid; min-width: 0; line-height: 1.2; }
+.face-text b { font-size: var(--sc-text-sm); color: var(--sc-ink-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face-text small { font-size: var(--sc-text-xs); color: var(--sc-ink-300); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face[data-size='large'] { border-radius: 14px; padding: 8px 14px 8px 8px; }
+.face[data-size='large'] .face-pic { width: 56px; height: 56px; border-radius: 12px; }
+.face-row { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); margin-top: var(--sc-space-2); }
+.face-row-large { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.niche-row { list-style: none; padding: var(--sc-space-3) 0; border-bottom: var(--sc-rule-hair); }
+.niche-row-head { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: baseline; }
+
+/* Verticals as picture cards. */
+.vertical-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sc-space-3); }
+.vertical-card { display: grid; gap: 4px; }
+.vertical-card b { color: var(--sc-ink-900); font-size: var(--sc-text-sm); }
+.vertical-card small { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.vertical-pic { position: relative; aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; background: linear-gradient(160deg, var(--sc-ink-700), var(--sc-ink-900)); }
+.vertical-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vertical-tier { position: absolute; top: 6px; left: 6px; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: 50%; background: var(--sc-ember); color: #fff !important; font-size: 0.75rem; }

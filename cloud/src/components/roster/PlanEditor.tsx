@@ -646,6 +646,10 @@ export default function PlanEditor({
                               {/* Her thumbs on the reference — what steers her next picks. */}
                               {item.rating === 1 && <span className="planrow-rate" title="They rated this a good reference">👍</span>}
                               {item.rating === -1 && <span className="planrow-rate" title="They rated this a poor reference">👎</span>}
+                              {/* They already made their own version — refresh that, not this. */}
+                              {item.made_at && (item.made_url
+                                ? <a className="planrow-made" href={item.made_url} target="_blank" rel="noreferrer" title="They made this one already — repurpose their post">Their post ↗</a>
+                                : <span className="planrow-made" title="They made this one already — find their post and repurpose it">Made already</span>)}
                               {item.bucket === 'repurpose' && (
                                 item.repurposed_at
                                   ? <button className="planrow-repurpose" data-done="true" title="Undo — back to needs repurposing"

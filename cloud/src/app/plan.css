@@ -2184,3 +2184,73 @@
   .plan-cantdo-notice { animation: none; }
   .plan-cantdo-back { transition: none; }
 }
+
+/* ------------------------------------------------------------ MADE ALREADY
+   "I've made this one already": a quiet text button under Yes/No, so it does
+   not compete with them; the form opens in place. Done, it becomes a green
+   note that says what happens next. */
+.plan-made { display: flex; flex-direction: column; gap: var(--sc-space-2); margin-top: var(--sc-space-2); }
+.plan-made-hint {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-radius: var(--r-sm);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+}
+.plan-made-open,
+.plan-made-cancel,
+.plan-made-undo {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--sc-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--sc-ink-700);
+  cursor: pointer;
+  font-size: var(--sc-text-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.plan-made-open:hover,
+.plan-made-cancel:hover,
+.plan-made-undo:hover { color: var(--sc-ink-900); }
+.plan-made-form { display: flex; flex-direction: column; gap: var(--sc-space-2); }
+.plan-made-form input {
+  min-height: 44px;
+  padding: 0 var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-paper);
+  color: var(--sc-ink-900);
+  font-size: 16px; /* under 16px iOS zooms the page on focus */
+}
+.plan-made-form input:focus { outline: none; border-color: var(--sc-ember); }
+.plan-made-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-3); }
+.plan-made-send {
+  min-height: 44px;
+  padding: 0 var(--sc-space-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-900);
+  color: var(--sc-paper);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+.plan-made-send:disabled { opacity: 0.6; cursor: default; }
+.plan-made-open:focus-visible,
+.plan-made-cancel:focus-visible,
+.plan-made-undo:focus-visible,
+.plan-made-send:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+.plan-made[data-done='true'] {
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-radius: var(--r-sm);
+  border-left: 4px solid var(--sc-positive);
+  background: color-mix(in srgb, var(--sc-positive) 10%, transparent);
+}
+.plan-made[data-done='true'] p { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
+.plan-made-link { font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
+.plan-made-error { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }

@@ -122,6 +122,13 @@ export type PlanItem = {
   /** Her thumbs: is this a good reference for her? 1 up, -1 down, null not
    *  answered. Read by `suggestionsFor` to steer what she is sent next. */
   rating: 1 | -1 | null
+  /** She said she has made this one already — it is now a Repurpose card. */
+  made_at: string | null
+  /** Her post of it, when she pasted the link. */
+  made_url: string | null
+  /** The day she posted a reel with the same (non-original) sound as this
+   *  reference, on any of her accounts — a sign she may have made it before. */
+  sound_used_on: string | null
 }
 
 /** One caption from the engine: which formula, the line, and the comment it
@@ -222,7 +229,21 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
-            i.brief_short, i.caption_options, i.job_id, i.rating,
+            i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url,
+            -- Her own accounts only: the plan's model, and nobody else's posts.
+            (select to_char(cp.posted_at, 'YYYY-MM-DD')
+               from transcriber.sightings sg
+               join transcriber.creator_posts cp on lower(cp.audio_title) = lower(sg.audio_title)
+               join transcriber.plans hp on hp.id = i.plan_id
+               join transcriber.models hm on hm.id = hp.model_id
+              where sg.job_id = i.job_id and sg.audio_title is not null
+                and not coalesce(sg.original_audio, false)
+                and lower(cp.handle) in (
+                  select lower(hm.handle)
+                  union all
+                  select lower(x->>'handle') from jsonb_array_elements(coalesce(hm.socials, '[]'::jsonb)) x
+                   where x->>'platform' = 'instagram')
+              order by cp.posted_at desc limit 1) as sound_used_on,
             t.on_screen_captions, t.author, t.caption as raw_caption, t.speaker_count,
             (select g.tag from transcriber.tags g
               where g.job_id = i.job_id and g.axis = 'topic' limit 1) as topic,
@@ -300,6 +321,9 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
       : null,
     mine: false,
     rating: row.rating === 1 || row.rating === -1 ? row.rating : null,
+    made_at: row.made_at ? String(row.made_at) : null,
+    made_url: (row.made_url as string | null) ?? null,
+    sound_used_on: (row.sound_used_on as string | null) ?? null,
   }))
 
   // Her week, tidied for reading: junk screen text off the hook, captions on

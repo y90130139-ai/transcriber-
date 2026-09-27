@@ -1023,6 +1023,15 @@ const statements = [
      add column if not exists rating smallint check (rating in (-1, 1))`,
   `alter table transcriber.plan_items
      add column if not exists rated_at timestamptz`,
+  // "I've made this one already" (2026-09-27): she has posted her own version
+  // of this reference, so the card becomes a Repurpose job for the team. The
+  // bucket it had is kept so she can take it back; the link is her post.
+  `alter table transcriber.plan_items
+     add column if not exists made_at timestamptz`,
+  `alter table transcriber.plan_items
+     add column if not exists made_url text`,
+  `alter table transcriber.plan_items
+     add column if not exists made_from_bucket text`,
 ]
 
 for (const statement of statements) {

@@ -122,6 +122,10 @@ export type PlanItemRow = {
   repurposed_at?: string | null
   /** Her thumbs on the reference: 1 up, -1 down, null not answered. */
   rating?: number | null
+  /** They said they had made this one already — now a Repurpose card. */
+  made_at?: string | null
+  /** Their post of it, if they pasted the link. */
+  made_url?: string | null
   id: string
   job_id: string
   position: number

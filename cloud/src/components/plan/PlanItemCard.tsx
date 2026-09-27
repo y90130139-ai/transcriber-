@@ -7,6 +7,7 @@ import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
 import { KIND_TEXT, REPURPOSE_READY, cardKind, FILM_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
 import { buildScaffold } from '@/lib/script'
 import { DAYS } from '@/lib/schedule'
+import MadeAlready from './MadeAlready'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -82,6 +83,8 @@ export default function PlanItemCard({
   /** Her thumbs on this reference, and whether the last tap failed to save. */
   const [rating, setRating] = useState<1 | -1 | null>(item.rating)
   const [rateFailed, setRateFailed] = useState(false)
+  /** She has made her own version already — the card is a Repurpose job now. */
+  const [made, setMade] = useState(Boolean(item.made_at))
   /** The DM, once written — on the card already, or written on request. */
   const [dm, setDm] = useState<string | null>(item.brief_short)
   const [dmState, setDmState] = useState<'idle' | 'writing' | 'copied'>('idle')
@@ -268,7 +271,10 @@ export default function PlanItemCard({
   const rule = copyRuleFor(item.bucket, item.axis)
   // The job, in one word, before anything else on the card. A repurpose is
   // posted as it is, so none of the filming directions apply to it.
-  const kind = cardKind(item.bucket, item.source_post, item.mine)
+  // "I've made this one already" turns a new idea into a Repurpose card on the
+  // spot; taking it back returns it to a plain card.
+  const bucket = made ? 'repurpose' : item.made_at ? null : item.bucket
+  const kind = cardKind(bucket, item.source_post, item.mine)
   // A repurpose is posted as it is, and one of her own reels is hers to
   // repost or not — neither gets filming directions.
   const filming = kind !== 'repurpose' && kind !== 'yours'
@@ -560,6 +566,21 @@ export default function PlanItemCard({
           Can&rsquo;t do this
         </button>
       </div>
+
+      {/* Only on someone else's reel: her own reels and repurpose cards are
+          hers already. Also on a card she marked, so she can take it back. */}
+      {((kind === 'new' && verdict !== 'declined') || made) && (
+        <MadeAlready
+          token={token}
+          item={item}
+          made={made}
+          preview={preview}
+          onChange={(next) => {
+            setMade(next)
+            if (next) setVerdict('accepted')
+          }}
+        />
+      )}
 
       {verdict === 'declined' && (
         <div className="plan-why">

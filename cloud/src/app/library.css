@@ -1634,3 +1634,4 @@ textarea.field { resize: vertical; }
 .planrow-repurpose[data-done='true'] { border-color: var(--sc-positive); color: var(--sc-positive); }
 .planrow-repurpose:hover { background: var(--sc-ember-tint); }
 .planrow-rate { font-size: 0.9rem; margin-right: 0.25rem; }
+.planrow-made { font-size: 0.72rem; color: var(--sc-positive); margin-right: 0.35rem; }

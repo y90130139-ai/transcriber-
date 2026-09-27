@@ -47,6 +47,18 @@ called from `planItemsFor`):
   again" / "may come back", **Add back to plan** (verdict → open, clears the
   `declines` row). A 6-second "V-12 moved · Undo" notice covers accidental
   taps. Declined couple reels now show there instead of vanishing.
+- **"I've made this one already"** (`components/plan/MadeAlready.tsx`, `POST
+  /api/plan/<token>/made {item_id, made, url?}`) on every new-idea card: the
+  card becomes **Repurpose** (`bucket='repurpose'`, old bucket kept in
+  `made_from_bucket`, `made_at`, optional `made_url` = her post, Instagram/TikTok
+  only), counts as a yes, and posts "I've made this one already — can you
+  repurpose it? My post: …" on the thread → bot relays to MARKETING + OPS.
+  Undo until `repurposed_at`. Console rows show "Their post ↗" / "Made already"
+  beside the existing Repurposed ✓ tick. **Hint**: if her own post (any
+  account) used the same non-original sound as the reference, the card says
+  "You used this sound on <date>. Made this one already?" (`sound_used_on` in
+  `planItemsFor`). Sound data is thin — 17 of her 282 posts, 32 of 67 cards —
+  so the button, not detection, is the main path.
 - **"How your plan works" removed** from every page (the card steps replace it).
 - Tests: `node --import ./cloud/test/ts-resolve.mjs --test cloud/test/week-shape.test.ts`
   (same resolver file as the OnlyFans branch, identical content).

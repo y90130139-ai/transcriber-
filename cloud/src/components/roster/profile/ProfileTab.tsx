@@ -8,6 +8,7 @@ import SocialEditor from './SocialEditor'
 import TopPosts from './TopPosts'
 import type { ProfileForm, SetField } from './form'
 import type { Reading } from './reach'
+import SoloToggle from './SoloToggle'
 
 const IG_CHOICES = [
   ['unknown', 'Not checked'],
@@ -131,6 +132,8 @@ export default function ProfileTab({
             : 'Used by the caption and DM writer, and nowhere else.'}
         </span>
       </div>
+
+      {modelId && <SoloToggle modelId={modelId} />}
 
       {/* Only a professional (Business or Creator) account can ever authorise
           Insights, which is where views, saves and watch time come from. Asked

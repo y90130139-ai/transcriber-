@@ -1012,6 +1012,15 @@ const statements = [
      created_at timestamptz not null default now()
    )`,
   `create index if not exists of_events_subject_idx on transcriber.of_events (subject, day)`,
+  // Films alone (2026-09-27, Susanna, the third time of asking): reels that
+  // need someone else on camera are not added to her week and are folded off
+  // her page. On for everyone; turned off per model in the console.
+  `alter table transcriber.models
+     add column if not exists solo boolean not null default true`,
+  // She tapped "More like this" on a card. Relayed to her group like a
+  // question; kept so the console can see what she wants more of.
+  `alter table transcriber.plan_items
+     add column if not exists more_at timestamptz`,
 ]
 
 for (const statement of statements) {

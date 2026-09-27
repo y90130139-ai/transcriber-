@@ -1923,3 +1923,154 @@
 .plan .plan-verdict .plan-no[aria-pressed='true'] { background: var(--sc-critical); color: #fff; }
 .plan .plan-verdict button[aria-pressed='true']::before { content: '✓ '; }
 .plan .plan-verdict:has([aria-pressed='true']) button[aria-pressed='false'] { opacity: 0.4; }
+
+/* ------------------------------------------------------------ CARD STEPS
+   The card as numbered steps — watch it, film it, what to say, what to write,
+   before you post (Susanna, 2026-09-27: "what to do, what to say, what to
+   write", like the OF scripts). A hairline and a numbered head per step, not a
+   box per step: the card stays one card. */
+.plan-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  padding-top: var(--sc-space-4);
+  margin-top: var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+  min-width: 0;
+}
+.plan-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1.15;
+  color: var(--sc-ink-900);
+}
+.plan-step-num {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #FFFFFF;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.plan-step .plan-rule { margin: 0; }
+.plan-step .plan-links { margin: 0; }
+
+/* What to write: every option is its own row with its own Copy, because
+   picking one and pasting it is the whole job of this step. */
+.plan-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+.plan-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-1) var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  min-width: 0;
+}
+.plan-option p {
+  margin: 0;
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.plan-option-note { grid-column: 1 / -1; font-size: var(--sc-text-xs); }
+.plan-option .plan-copy { min-width: 72px; min-height: 44px; }
+.plan-copy:focus-visible,
+.plan-more:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+
+/* More like this: same size as Ask, quieter until it has been said. */
+.plan-more {
+  width: 100%;
+  min-height: 48px;
+  margin-top: var(--sc-space-2);
+  padding: 0 var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-align: left;
+  text-transform: uppercase;
+  transition: background var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-more:hover:not(:disabled) { border-color: var(--sc-ember); }
+.plan-more[aria-pressed='true'] {
+  border-color: var(--sc-ember);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ember-deep);
+  cursor: default;
+}
+
+/* ------------------------------------------------------------ YOUR OWN VIDEOS
+   Her own reels, after the week's ideas and folded — there if she wants to
+   post one again, never mistaken for this week's list. */
+.plan-yours {
+  margin-top: var(--sc-space-8);
+  padding-top: var(--sc-space-5);
+  border-top: 2px solid var(--sc-ink-900);
+}
+.plan-yours-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-2);
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+.plan-yours-count {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.plan-yours-note { margin: 0 0 var(--sc-space-3); color: var(--sc-ink-700); line-height: var(--sc-leading-body); }
+.plan-yours-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.plan-yours-fold > summary::-webkit-details-marker { display: none; }
+.plan-yours-fold > summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-yours-fold[open] > summary::after { content: '–'; }
+.plan-yours-fold[open] > summary { margin-bottom: var(--sc-space-4); }
+
+.plan .plan-kind[data-kind='yours'] { border-left-color: var(--sc-ink-500); background: var(--sc-bone-light); }
+.plan .plan-kind[data-kind='yours'] b { color: var(--sc-ink-900); }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-more { transition: none; }
+}

@@ -14,6 +14,7 @@ import { isDateString, mondayOf } from './dates'
 import { readSocials, type Social } from './socials'
 import { isValidTag, labelOf } from './taxonomy'
 import { isKnownPlace } from './timezones'
+import { jobsNeedingOthers } from './solo'
 
 /** Long enough that guessing is not a strategy, short enough to paste. */
 const TOKEN_LENGTH = 32
@@ -454,8 +455,14 @@ export async function appendItems(
   )
   const declined = new Set(refused.map((row) => String(row.job_id)))
 
+  // She films alone: a reel that needs someone else on camera never goes on
+  // her week, however it is added (Susanna, the third time of asking,
+  // 2026-09-27). `models.solo` is on unless someone turned it off for her.
+  const [who] = await sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId])
+  const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(jobIds)
+
   for (const [index, jobId] of jobIds.entries()) {
-    if (declined.has(jobId)) continue
+    if (declined.has(jobId) || needsOthers.has(jobId)) continue
     const extras = extrasFor?.(jobId, index) ?? {}
     // A reskin or an iteration points at HER reel, so the brief must stop
     // coaching her to fix its opening. `source_post` is what says whose it is.

@@ -111,10 +111,14 @@ export function copyRuleFor(bucket: Bucket | null, axis: string | null): CopyRul
         + 'something out of your life, in your words. Everything else about it stays.',
     }
   }
+  // "There never will be same person or same reaction" (Susanna, V-30, a
+  // reel built on a stranger's reaction). The idea is what she copies; the
+  // people and what they do will be different, and that is fine.
   return {
     label: 'A new idea',
-    keep: 'The structure: how it opens, the pacing, where the turn lands.',
-    change: 'The outfit, the background, the angle and the words — make it yours.',
+    keep: 'The idea: how it opens, the pacing, where the turn lands.',
+    change: 'Everything else — outfit, place, angle, words. If other people or their reactions are in it, '
+      + 'yours will be different people and different reactions. It never has to match.',
   }
 }
 
@@ -170,19 +174,24 @@ export const CAROUSEL_PLAN = {
  *   recreate   her own video, filmed again (Recreate, or the planner's reskins
  *              and iterations of her winners)
  *   new        someone else's reel for her to make her own version of
+ *   yours      one of her own reels added as a plain card — shown in its own
+ *              section at the end of her week, not as an assignment
+ *              (2026-09-27: 22 of Susanna's 50 cards were her own videos)
  */
-export type CardKind = 'new' | 'recreate' | 'repurpose'
+export type CardKind = 'new' | 'recreate' | 'repurpose' | 'yours'
 
-export function cardKind(bucket: Bucket | null, sourcePost: string | null): CardKind {
+export function cardKind(bucket: Bucket | null, sourcePost: string | null, mine = false): CardKind {
   if (bucket === 'repurpose') return 'repurpose'
+  if (mine && !bucket) return 'yours'
   if (sourcePost || bucket === 'reskin' || bucket === 'iteration') return 'recreate'
   return 'new'
 }
 
 export const KIND_TEXT: Record<CardKind, { label: string; line: string }> = {
-  new: { label: 'New video', line: 'Watch it, then film your own version.' },
+  new: { label: 'New video', line: 'Watch it, then film your own version. Copy the idea — your version never has to match.' },
   recreate: { label: 'Recreate', line: 'This is your video. It did well — film it again.' },
   repurpose: { label: 'Repurpose', line: 'This is your video. No filming — we refresh it and send it to you in your group chat to post again.' },
+  yours: { label: 'Your video', line: 'One of yours that did well. Post it again or film a fresh take — only if you want to.' },
 }
 
 /** A Repurpose card once the refreshed file has gone back to her. */

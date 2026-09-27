@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
@@ -73,6 +73,11 @@ export default function PlanItemCard({
   const [openThread, setOpenThread] = useState(item.unread > 0)
   const [unread, setUnread] = useState(item.unread)
   const [copied, setCopied] = useState(false)
+  /** Which caption option was just copied, so only its button says so. */
+  const [copiedOption, setCopiedOption] = useState<number | null>(null)
+  /** She asked for more like this one. */
+  const [more, setMore] = useState(Boolean(item.more_at))
+  const [moreState, setMoreState] = useState<'idle' | 'sending' | 'failed'>('idle')
   /** The DM, once written — on the card already, or written on request. */
   const [dm, setDm] = useState<string | null>(item.brief_short)
   const [dmState, setDmState] = useState<'idle' | 'writing' | 'copied'>('idle')
@@ -107,6 +112,30 @@ export default function PlanItemCard({
     await navigator.clipboard?.writeText(item.caption).catch(() => null)
     setCopied(true)
     setTimeout(() => setCopied(false), COPIED_RESET_MS)
+  }
+
+  /** One button per caption option: pick one, tap, paste it under the video. */
+  async function copyOption(index: number, text: string) {
+    await navigator.clipboard?.writeText(text).catch(() => null)
+    setCopiedOption(index)
+    setTimeout(() => setCopiedOption((current) => (current === index ? null : current)), COPIED_RESET_MS)
+  }
+
+  /** "More like this" — she liked the idea and wants others like it. Goes to
+   *  her group chat like a question, so it is seen the same day. Once only. */
+  async function askForMore() {
+    if (more || moreState === 'sending') return
+    if (preview) { setMore(true); return }
+    setMoreState('sending')
+    const response = await fetch(`/api/plan/${token}/more`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: item.id }),
+    }).catch(() => null)
+    if (response?.ok) {
+      setMore(true)
+      setMoreState('idle')
+    } else setMoreState('failed')
   }
 
   async function toggleFilmed() {
@@ -226,8 +255,10 @@ export default function PlanItemCard({
   const rule = copyRuleFor(item.bucket, item.axis)
   // The job, in one word, before anything else on the card. A repurpose is
   // posted as it is, so none of the filming directions apply to it.
-  const kind = cardKind(item.bucket, item.source_post)
-  const filming = kind !== 'repurpose'
+  const kind = cardKind(item.bucket, item.source_post, item.mine)
+  // A repurpose is posted as it is, and one of her own reels is hers to
+  // repost or not — neither gets filming directions.
+  const filming = kind !== 'repurpose' && kind !== 'yours'
   const expression = expressionFor(item.formats)
   const scaffold = buildScaffold({
     hooks: item.hooks,
@@ -247,6 +278,9 @@ export default function PlanItemCard({
     : item.transcript
       ? <p>{item.transcript}</p>
       : <p className="plan-quiet">No words in this one.</p>
+
+  const captions = item.caption_options ?? []
+  let step = 0
 
   return (
     /* `data-reveal` is rendered EMPTY on purpose. `useReveal` looks for the
@@ -289,144 +323,155 @@ export default function PlanItemCard({
           when the sweep has nothing true to say. */}
       {item.headline && <p className="plan-why">{item.headline}</p>}
 
-      {item.media ? (
-        <video
-          className="plan-player"
-          controls
-          playsInline
-          preload="metadata"
-          src={item.media.video}
-        />
-      ) : (
-        <p className="plan-nofile">
-          The video is not ready on this device yet — open it in Instagram below.
-        </p>
-      )}
-
-      {/* Two buttons, not a button and a sentence. The long explainer that used
-          to sit here read as instructions rather than as something to tap; how
-          the sound works is already beat four of "How your plan works". */}
-      <div className="plan-links">
-        {item.webpage_url && (
-          <a className={filming ? 'plan-cta' : 'plan-cta plan-cta-quiet'} href={item.webpage_url} target="_blank" rel="noreferrer">
-            Open in Instagram
-          </a>
+      {/* The card as steps, in the order she works through it (Susanna,
+          2026-09-27: "what to do, what to say, what to write", like the OF
+          scripts). Numbered by what is actually on this card. */}
+      <Step no={++step} title="Watch it">
+        {item.media ? (
+          <video
+            className="plan-player"
+            controls
+            playsInline
+            preload="metadata"
+            src={item.media.video}
+          />
+        ) : (
+          <p className="plan-nofile">
+            The video is not ready on this device yet — open it in Instagram below.
+          </p>
         )}
-        {filming && item.media && (
-          <a className="plan-cta plan-cta-quiet" href={item.media.download}>Save video</a>
-        )}
-      </div>
 
-      {filming && (<>
-      {/* Step 7's missing half: what she keeps exactly and what she changes.
-          The manual is explicit that sending only a caption loses the thing
-          that made the reel work. */}
-      <div className="plan-rule">
-        <span className="plan-label">{rule.label}</span>
-        <dl className="plan-spec">
-          <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
-          <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
-          <div className="plan-spec-row"><dt>Your face</dt><dd>{expression}</dd></div>
-        </dl>
-      </div>
-
-      {(item.notes || spec.length > 0) && (
-        <div className="plan-direction">
-          <span className="plan-label">Direction</span>
-          {/* The prose. On anything written before phase 3 this is the whole
-              brief, which is why it is never dropped when the grid is there. */}
-          {item.notes && <p className="plan-notes">{item.notes}</p>}
-
-          {spec.length > 0 && (
-            <dl className="plan-spec">
-              {spec.map(([key, label]) => (
-                <div key={key} className="plan-spec-row">
-                  <dt>{label}</dt>
-                  <dd>{item[key]}</dd>
-                </div>
-              ))}
-            </dl>
+        {/* Two buttons, not a button and a sentence. */}
+        <div className="plan-links">
+          {item.webpage_url && (
+            <a className={filming ? 'plan-cta' : 'plan-cta plan-cta-quiet'} href={item.webpage_url} target="_blank" rel="noreferrer">
+              Open in Instagram
+            </a>
+          )}
+          {(filming || kind === 'yours') && item.media && (
+            <a className="plan-cta plan-cta-quiet" href={item.media.download}>Save video</a>
           )}
         </div>
-      )}
+      </Step>
 
-      {/* The opening line of the reference, quoted. It is the one part of the
-          brief she has to write her own version of, so it gets its own box. */}
-      {item.hook && (
-        <div className="plan-hook">
-          <span className="plan-label">Hook</span>
-          <p>&ldquo;{item.hook}&rdquo;</p>
-          <span className="plan-hook-note">Write your own version of that line.</span>
-        </div>
-      )}
-
-      {/* The beat-by-beat skeleton of the reference. Built for the console and
-          never shown to her until now, though it is the richest guidance we
-          generate. The reference's words are shown as reference, never as her
-          lines. */}
-      {scaffold && scaffold.beats.length > 1 && (
-        <details className="plan-scaffold">
-          <summary>How it is built, beat by beat</summary>
-          <p className="plan-quiet">{scaffold.mechanism}</p>
-          <ol>
-            {scaffold.beats.map((beat, index) => (
-              <li key={index}>
-                <b>{beat.at !== null ? `${Math.round(beat.at)}s` : `Beat ${index + 1}`}</b>{' '}
-                {beat.instruction}
-                <span className="plan-quiet"> They put: &ldquo;{beat.reference}&rdquo;</span>
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-      </>)}
-
-      {item.editing_notes && (
-        <p className="plan-editing">
-          <span className="plan-label">Editing</span>
-          {item.editing_notes}
-        </p>
-      )}
-
-      {/* Drafted, not decided. Nothing used to write what she actually posts
-          under the video, so this was hers to invent every single time. */}
-      {item.caption && (
-        <div className="plan-caption">
-          <div className="plan-caption-top">
-            <span className="plan-label">Caption</span>
-            <button type="button" className="plan-copy" onClick={copyCaption}>
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+      {filming && (
+        <Step no={++step} title="Film it">
+          {/* What she keeps exactly and what she changes. */}
+          <div className="plan-rule">
+            <span className="plan-label">{rule.label}</span>
+            <dl className="plan-spec">
+              <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
+              <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
+              <div className="plan-spec-row"><dt>Your face</dt><dd>{expression}</dd></div>
+            </dl>
           </div>
-          <p>{item.caption}</p>
-        </div>
+
+          {(item.notes || spec.length > 0) && (
+            <div className="plan-direction">
+              <span className="plan-label">Direction</span>
+              {item.notes && <p className="plan-notes">{item.notes}</p>}
+              {spec.length > 0 && (
+                <dl className="plan-spec">
+                  {spec.map(([key, label]) => (
+                    <div key={key} className="plan-spec-row">
+                      <dt>{label}</dt>
+                      <dd>{item[key]}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+          )}
+        </Step>
       )}
 
-      {/* Real captions from the library, adapted to her. Each one names the
-          comment it is built to provoke — the manual's test for whether a
-          caption is doing anything at all. */}
-      {item.caption_options && item.caption_options.length > 0 && (
-        <details className="plan-captions" open>
-          <summary>Caption options</summary>
-          <ul>
-            {item.caption_options.map((option, index) => (
-              <li key={index}>
+      {filming && (
+        <Step no={++step} title="What to say">
+          {/* The reference's opening, only when it can be read — the screen
+              reader's misreads ("Bal al") are filtered out on load. */}
+          {item.hook ? (
+            <div className="plan-hook">
+              <span className="plan-label">It opens with</span>
+              <p>&ldquo;{item.hook}&rdquo;</p>
+              <span className="plan-hook-note">Say or show your own version of that line.</span>
+            </div>
+          ) : (
+            <p className="plan-quiet">No opening line to copy — open on the idea straight away.</p>
+          )}
+
+          {scaffold && scaffold.beats.length > 1 && (
+            <details className="plan-scaffold">
+              <summary>How it is built, beat by beat</summary>
+              <p className="plan-quiet">{scaffold.mechanism}</p>
+              <ol>
+                {scaffold.beats.map((beat, index) => (
+                  <li key={index}>
+                    <b>{beat.at !== null ? `${Math.round(beat.at)}s` : `Beat ${index + 1}`}</b>{' '}
+                    {beat.instruction}
+                    <span className="plan-quiet"> They put: &ldquo;{beat.reference}&rdquo;</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+
+          <details className="plan-transcript">
+            <summary>What they say, word for word</summary>
+            <div>{words}</div>
+          </details>
+        </Step>
+      )}
+
+      {(captions.length > 0 || item.caption) && (
+        <Step no={++step} title="What to write">
+          <p className="plan-quiet">Pick one, tap Copy, and paste it under your video on Instagram.</p>
+          <ul className="plan-options">
+            {item.caption && (
+              <li className="plan-option">
+                <p>{item.caption}</p>
+                <button type="button" className="plan-copy" onClick={copyCaption}>
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </li>
+            )}
+            {captions.map((option, index) => (
+              <li key={index} className="plan-option">
                 <p>{option.caption}</p>
-                <span className="plan-quiet">Gets people commenting: &ldquo;{option.baits}&rdquo;</span>
-                {/* Console only: the real library caption this was adapted
-                    from, so Geno can see it was borrowed, not invented. */}
-                {preview && option.from && (
-                  <span className="plan-quiet">Real caption ({option.formula}): &ldquo;{option.from}&rdquo;</span>
+                <button type="button" className="plan-copy" onClick={() => void copyOption(index, option.caption)}>
+                  {copiedOption === index ? 'Copied' : 'Copy'}
+                </button>
+                {option.baits && (
+                  <span className="plan-quiet plan-option-note">Gets comments like: &ldquo;{option.baits}&rdquo;</span>
+                )}
+                {/* Console only: where the caption came from. */}
+                {preview && (
+                  <span className="plan-quiet plan-option-note">
+                    {option.from ? `Adapted from (${option.formula}): “${option.from}”` : `Real caption — ${option.formula}`}
+                  </span>
                 )}
               </li>
             ))}
           </ul>
-        </details>
+        </Step>
       )}
 
+      <Step no={++step} title="Before you post">
+        {item.editing_notes && (
+          <p className="plan-editing">
+            <span className="plan-label">Editing</span>
+            {item.editing_notes}
+          </p>
+        )}
+        <details className="plan-checklist">
+          <summary>Quick check</summary>
+          <ul>
+            {REEL_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+          </ul>
+        </details>
+      </Step>
+
       {/* The DM version, written only when Geno asks — he sends the portal
-          link, not a message per video (2026-09-25). Console only: on her own
-          page the card already says all of it. */}
+          link, not a message per video (2026-09-25). Console only. */}
       {preview && (
         <div className="plan-caption">
           <div className="plan-caption-top">
@@ -439,18 +484,6 @@ export default function PlanItemCard({
           {dmError && <p className="plan-quiet">{dmError}</p>}
         </div>
       )}
-
-      <details className="plan-checklist">
-        <summary>Before you post it</summary>
-        <ul>
-          {REEL_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
-        </ul>
-      </details>
-
-      <details className="plan-transcript">
-        <summary>What they say, word for word</summary>
-        <div>{words}</div>
-      </details>
 
       {/* Hers to answer. A card nobody has answered is a card nobody has
           decided about, which is different from one she has turned down. */}
@@ -570,6 +603,19 @@ export default function PlanItemCard({
           {unread > 0 && <span className="plan-ask-badge">{unread}</span>}
         </button>
 
+        {/* She liked this idea and wants others like it (Susanna asked for more
+            "Slavic girl" videos through the question box, 2026-09-27). */}
+        <button
+          type="button"
+          className="plan-more"
+          aria-pressed={more}
+          disabled={more || moreState === 'sending'}
+          onClick={() => void askForMore()}
+        >
+          {more ? 'Asked for more like this ✓' : moreState === 'sending' ? 'Sending…' : 'More like this'}
+        </button>
+        {moreState === 'failed' && <p className="plan-saystate" data-tone="bad">That did not send — tap it again.</p>}
+
         {openThread && (
           <div className="plan-thread">
             {messages.map((message) => (
@@ -608,5 +654,18 @@ export default function PlanItemCard({
         )}
       </div>
     </li>
+  )
+}
+
+/** One numbered step of the card. */
+function Step({ no, title, children }: { no: number; title: string; children: ReactNode }) {
+  return (
+    <section className="plan-step" aria-label={`Step ${no}: ${title}`}>
+      <h3 className="plan-step-head">
+        <span className="plan-step-num" aria-hidden="true">{no}</span>
+        {title}
+      </h3>
+      {children}
+    </section>
   )
 }

@@ -3,6 +3,7 @@ import { sql } from './db'
 import { currentWeekOf } from './dates'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
 import { spoken } from './sql'
+import { shapeRows } from './week-load'
 
 /**
  * ISOLATION BOUNDARY.
@@ -112,8 +113,14 @@ export type PlanItem = {
   on_screen_captions: { t?: number | null; text?: string | null }[] | null
   /** T6: the DM-ready version of this card, when one has been written. */
   brief_short: string | null
-  /** The caption engine's options, when written. */
+  /** The caption engine's options when written; otherwise real captions
+   *  picked for this card when the page loads (`week-shape.ts`). */
   caption_options: CaptionOption[] | null
+  /** One of her own reels added as a plain card — shown in its own section,
+   *  not as an assignment (`week-shape.ts`). */
+  mine: boolean
+  /** When she asked for more like this one. */
+  more_at: string | null
 }
 
 /** One caption from the engine: which formula, the line, and the comment it
@@ -214,8 +221,10 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
-            i.brief_short, i.caption_options,
-            t.on_screen_captions,
+            i.brief_short, i.caption_options, i.job_id, i.more_at,
+            t.on_screen_captions, t.author, t.caption as raw_caption, t.speaker_count,
+            (select g.tag from transcriber.tags g
+              where g.job_id = i.job_id and g.axis = 'topic' limit 1) as topic,
             coalesce((select array_agg(g.tag) from transcriber.tags g
                        where g.job_id = i.job_id and g.axis = 'format'), '{}') as formats,
             coalesce((select array_agg(g.tag) from transcriber.tags g
@@ -288,9 +297,34 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     caption_options: Array.isArray(row.caption_options)
       ? (row.caption_options as CaptionOption[])
       : null,
+    mine: false,
+    more_at: row.more_at ? String(row.more_at) : null,
   }))
 
-  return items
+  // Her week, tidied for reading: junk screen text off the hook, captions on
+  // every card, her own reels marked, repeats and couple reels folded away.
+  const shaped = await shapeRows(planId, items.map((item, index) => ({
+    id: item.id,
+    job_id: rows[index].job_id ? String(rows[index].job_id) : null,
+    bucket: item.bucket,
+    hook: item.hook,
+    on_screen_captions: item.on_screen_captions,
+    caption_options: item.caption_options,
+    author: rows[index].author ? String(rows[index].author) : null,
+    raw_caption: rows[index].raw_caption ? String(rows[index].raw_caption) : null,
+    speaker_count: rows[index].speaker_count === null ? null : Number(rows[index].speaker_count),
+    duration_sec: item.duration_sec,
+    formats: item.formats,
+    topic: rows[index].topic ? String(rows[index].topic) : null,
+    verdict: item.verdict,
+    filmed: item.filmed,
+    messages: item.messages,
+  })))
+
+  return items.flatMap((item, index) => {
+    const { drop, ...tidy } = shaped[index]
+    return drop ? [] : [{ ...item, ...tidy }]
+  })
 }
 
 function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'repurpose' {

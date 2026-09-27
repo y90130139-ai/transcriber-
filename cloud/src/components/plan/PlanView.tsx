@@ -124,12 +124,17 @@ export default function PlanView({
   const steps = hasDelivery ? [...STEPS, deliveryStep(Boolean(folder))] : STEPS
 
   const overdue = useMemo(() => isOverdue(plan.due_date, model.timezone), [plan.due_date, model.timezone])
-  const done = filmed.size
-  const total = items.length
+  // Her own reels are not this week's ideas (Susanna, 2026-09-27: "they look
+  // like assignments"). They sit in their own section at the end and are not
+  // counted in what is left to film.
+  const ideas = useMemo(() => items.filter((item) => !item.mine), [items])
+  const yours = useMemo(() => items.filter((item) => item.mine), [items])
+  const done = ideas.filter((item) => filmed.has(item.id)).length
+  const total = ideas.length
 
   // Grouping only turns on once somewhere has actually been named. A week with
   // no locations set renders exactly the flat list it always has.
-  const groups = useMemo(() => groupByLocation(items), [items])
+  const groups = useMemo(() => groupByLocation(ideas), [ideas])
   const grouped = groups.some((group) => group.location)
 
   // Cards arrive as she scrolls to them. The ref goes on the body rather than
@@ -215,7 +220,7 @@ export default function PlanView({
           aria-valuemax={total}
           aria-label="Videos filmed"
         >
-          {items.map((item, index) => (
+          {ideas.map((item, index) => (
             <i key={item.id} data-on={index < done || undefined} />
           ))}
         </div>
@@ -304,7 +309,7 @@ export default function PlanView({
           </ol>
         </details>
 
-        {items.length === 0 ? (
+        {ideas.length === 0 ? (
           <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>
         ) : grouped ? (
           /* Grouped by where it gets filmed, so everything shot in the car is
@@ -332,7 +337,7 @@ export default function PlanView({
                     key={item.id}
                     token={token}
                     item={item}
-                    number={items.indexOf(item) + 1}
+                    number={ideas.indexOf(item) + 1}
                     filmed={filmed.has(item.id)}
                     folder={folder}
                     preview={preview}
@@ -345,7 +350,7 @@ export default function PlanView({
           ))
         ) : (
           <ol className="plan-items">
-            {items.map((item, index) => (
+            {ideas.map((item, index) => (
               <PlanItemCard
                 key={item.id}
                 token={token}
@@ -359,6 +364,36 @@ export default function PlanView({
               />
             ))}
           </ol>
+        )}
+
+        {yours.length > 0 && (
+          <section className="plan-yours" aria-labelledby="plan-yours-head">
+            <h2 className="plan-yours-head" id="plan-yours-head">
+              Your own videos <span className="plan-yours-count">{yours.length}</span>
+            </h2>
+            <p className="plan-yours-note">
+              Reels of yours that already did well. Post one again or film a fresh take if you
+              want to — they are not part of this week&rsquo;s list.
+            </p>
+            <details className="plan-yours-fold">
+              <summary>Show them</summary>
+              <ol className="plan-items">
+                {yours.map((item, index) => (
+                  <PlanItemCard
+                    key={item.id}
+                    token={token}
+                    item={item}
+                    number={ideas.length + index + 1}
+                    filmed={filmed.has(item.id)}
+                    folder={folder}
+                    preview={preview}
+                    inGroup={Boolean(model.in_group)}
+                    onFilmed={(next) => mark(item.id, next)}
+                  />
+                ))}
+              </ol>
+            </details>
+          </section>
         )}
 
         {/* Where the week ends up. Last on the page on purpose — it is the

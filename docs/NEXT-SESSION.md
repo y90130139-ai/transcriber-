@@ -1,5 +1,42 @@
 # Handoff — 2026-09-27 (on top of 26th and 25th: captions from the library, Geno's account out of the machine)
 
+## 2026-09-27, Susanna's feedback — plan content fixed for every model
+
+Susanna (Marketing channel) after reviewing all 50 cards: captions make no
+sense, write them for her, stop sending couple videos (3rd time), her own
+reels fill the plan and repeat, V-30 can't be copied, no way to ask for more,
+wants the OF-scripts step layout. All fixed at **load time for every model and
+every week** (`lib/week-shape.ts` pure + tested, `lib/week-load.ts` DB side,
+called from `planItemsFor`):
+- **"Captions" she questioned were screen-text misreads** shown as the hook
+  ("Bal al", "and ORA", a shop's phone number). `readableLine` drops them and
+  strips sign text off real lines. Stored hooks are untouched.
+- **2–4 captions on every card, each with its own Copy.** Engine captions win;
+  cards with fewer than 2 are topped up with the reel's own caption first, then
+  library captions that pass `universal` (short question/prompt, no names, no
+  he/she, no object — "Mine's Swampy Sewer" can't reach her). Other roster
+  models' own captions are excluded. Checked: 0 of every current week's cards
+  under 2.
+- **Her own reels** (any account in `socials` — Susanna's are on
+  @susannadiazxo) added as plain cards go in a folded **Your own videos**
+  section, not counted in "filmed"; repeats of one clip (same length ±0.05s,
+  same caption) fold to one. Susanna: 50 → 26 shown, 12 own.
+- **Solo**: `models.solo` (default **true**, toggle "Who is on camera" in
+  Profile, own route `/api/models/<id>/solo`). Couple reels are never added
+  (`appendItems`) and are hidden unless she took them on. Detection
+  (`lib/solo.ts`): accounts declined as needs-another-person or with 2+ couple
+  captions (brisortizig, maslovalexey80, …), couple words/#couples, 3+ voices.
+  **Magnus's week went 23 → 9** (the same couple batch; he answered none) —
+  flip his toggle if he films with a partner. Susanna's `couples` persona removed.
+- **Card = steps**: Watch it · Film it · What to say · What to write · Before
+  you post. New-idea wording: copy the idea, people/reactions never have to match (V-30).
+- **More like this** button (`/api/plan/<token>/more`): sets
+  `plan_items.more_at`, posts "More like this one, please." on the thread →
+  bot relays to MARKETING + OPS. V-25 pre-marked (she asked by message).
+- Tests: `node --import ./cloud/test/ts-resolve.mjs --test cloud/test/week-shape.test.ts`
+  (same resolver file as the OnlyFans branch, identical content).
+- Not done: More-like-this does not yet steer the next week's picks automatically.
+
 ## 2026-09-27, late — read this first
 
 **Where the code is.** GitHub `main` = production (last: scorecard wording fix

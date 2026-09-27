@@ -47,7 +47,7 @@ export const DEFAULT_CAPTION_MODEL: CaptionModel = 'strong'
 
 /** Words that give away the wrong person. The prompt says who the creator is;
  *  this is what enforces it, because the prompt is advice. */
-const WRONG_WORDS: Record<string, RegExp> = {
+export const WRONG_WORDS: Record<string, RegExp> = {
   woman: /\b(he|him|his|guy|guys|dude|man|men|boyfriend material)\b/i,
   man: /\b(she|her|hers|girl|girls|woman|women|ladies|queen)\b/i,
   'trans-woman': /\b(he|him|his|guy|dude|man|men)\b/i,

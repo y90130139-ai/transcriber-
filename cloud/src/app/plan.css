@@ -2254,3 +2254,64 @@
 .plan-made[data-done='true'] p { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
 .plan-made-link { font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
 .plan-made-error { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }
+
+/* ------------------------------------------------------------ SHOT LIST
+   "Film it" written from what the reference shows (2026-09-27): the setup as
+   chips, then one short block per shot. A clip she is not in is set apart
+   with a dashed edge so it reads as "not you" before a word is read. */
+.plan-shots { display: flex; flex-direction: column; gap: var(--sc-space-3); }
+.plan-shot-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sc-space-2); }
+.plan-shot-chips li {
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--r-pill);
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 500;
+}
+.plan-shot-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sc-space-2); }
+.plan-shot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-left: 4px solid var(--sc-ember);
+  border-radius: var(--r-sm);
+  background: var(--sc-ember-tint);
+}
+.plan-shot:not([data-you]) {
+  border-left: 4px dashed var(--sc-ink-500);
+  background: transparent;
+  outline: var(--sc-rule-hair);
+}
+.plan-shot-head { display: flex; align-items: baseline; gap: var(--sc-space-2); margin: 0; }
+.plan-shot-head b { font-family: var(--sc-font-display); font-size: var(--sc-text-base); color: var(--sc-ink-900); }
+.plan-shot-head span {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-500);
+}
+.plan-shot-who { margin-left: auto; text-transform: uppercase; }
+.plan-shot-camera { margin: 0; font-size: var(--sc-text-base); font-weight: 500; color: var(--sc-ink-900); }
+.plan-shot-what { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-700); }
+.plan-shot-line {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--sc-space-2);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.plan-shot-line > span {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+  padding-top: 0.2rem;
+}
+.plan-shot-line em { color: var(--sc-ink-500); font-style: normal; }
+.plan-shot-sound { padding: 0 var(--sc-space-1); }

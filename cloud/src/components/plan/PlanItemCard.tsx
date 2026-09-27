@@ -8,6 +8,8 @@ import { KIND_TEXT, REPURPOSE_READY, cardKind, FILM_CHECKLIST, copyRuleFor, expr
 import { buildScaffold } from '@/lib/script'
 import { DAYS } from '@/lib/schedule'
 import MadeAlready from './MadeAlready'
+import ShotListView from './ShotListView'
+import { buildShotList } from '@/lib/shotlist'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -279,6 +281,16 @@ export default function PlanItemCard({
   // repost or not — neither gets filming directions.
   const filming = kind !== 'repurpose' && kind !== 'yours'
   const expression = expressionFor(item.formats)
+  // Written from the reference's measured picture when the Mac has looked;
+  // until then the card keeps its old directions.
+  const shotList = filming
+    ? buildShotList({
+        measured: item.shots,
+        screen: item.on_screen_captions,
+        speech: item.blocks.map((block) => ({ start: block.start, text: block.text })),
+        sound: { title: item.sound_title, original: item.original_audio },
+      })
+    : null
   const scaffold = buildScaffold({
     hooks: item.hooks,
     formats: item.formats,
@@ -422,7 +434,40 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {filming && (
+      {filming && shotList && (
+        <Step no={++step} title="Film it">
+          {/* A planner card on her own winner still says what must not
+              change — that is the whole test. A new idea says it once, at
+              the top of the page. */}
+          {item.bucket && (
+            <div className="plan-rule">
+              <span className="plan-label">{rule.label}</span>
+              <dl className="plan-spec">
+                <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
+                <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
+              </dl>
+            </div>
+          )}
+          <ShotListView list={shotList} face={expression} />
+          {item.bucket && item.wardrobe && (
+            <p className="plan-shot-line"><span>Wardrobe</span>{item.wardrobe}</p>
+          )}
+          {item.editing_notes && (
+            <p className="plan-editing">
+              <span className="plan-label">Editing</span>
+              {item.editing_notes}
+            </p>
+          )}
+          {item.blocks.length > 0 && (
+            <details className="plan-transcript">
+              <summary>What they say, word for word</summary>
+              <div>{words}</div>
+            </details>
+          )}
+        </Step>
+      )}
+
+      {filming && !shotList && (
         <Step no={++step} title="Film it">
           {/* What she keeps exactly and what she changes. */}
           <div className="plan-rule">
@@ -460,7 +505,7 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {filming && (
+      {filming && !shotList && (
         <Step no={++step} title="What to say">
           {/* The reference's opening, only when it can be read — the screen
               reader's misreads ("Bal al") are filtered out on load. */}

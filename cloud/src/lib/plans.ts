@@ -4,6 +4,7 @@ import { currentWeekOf } from './dates'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
 import { spoken } from './sql'
 import { shapeRows } from './week-load'
+import type { Measured } from './shotlist'
 
 /**
  * ISOLATION BOUNDARY.
@@ -129,6 +130,13 @@ export type PlanItem = {
   /** The day she posted a reel with the same (non-original) sound as this
    *  reference, on any of her accounts — a sign she may have made it before. */
   sound_used_on: string | null
+  /** The reference's picture, shot by shot (`src/shots.py`), or null until the
+   *  Mac has measured it. "Film it" is written from this when present. */
+  shots: Measured | null
+  /** The reference's sound: its title, and whether it is the creator's own
+   *  audio (true) or a named track anyone can use (false). */
+  sound_title: string | null
+  original_audio: boolean | null
 }
 
 /** One caption from the engine: which formula, the line, and the comment it
@@ -229,7 +237,8 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
-            i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url,
+            i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url, t.shots,
+            snd.audio_title as sound_title, snd.original_audio,
             -- Her own accounts only: the plan's model, and nobody else's posts.
             (select to_char(cp.posted_at, 'YYYY-MM-DD')
                from transcriber.sightings sg
@@ -259,6 +268,11 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
        from transcriber.plan_items i
        left join transcriber.transcripts t on t.job_id = i.job_id
        ${SIGNALS_JOIN}
+       left join lateral (
+         select sg.audio_title, sg.original_audio from transcriber.sightings sg
+          where sg.job_id = i.job_id and sg.audio_title is not null
+          order by sg.seen_at desc limit 1
+       ) snd on true
        left join lateral (
          select json_agg(json_build_object(
                   'id',     n.id,
@@ -324,6 +338,9 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     made_at: row.made_at ? String(row.made_at) : null,
     made_url: (row.made_url as string | null) ?? null,
     sound_used_on: (row.sound_used_on as string | null) ?? null,
+    shots: row.shots && Array.isArray((row.shots as Measured).shots) ? (row.shots as Measured) : null,
+    sound_title: (row.sound_title as string | null) ?? null,
+    original_audio: typeof row.original_audio === 'boolean' ? row.original_audio : null,
   }))
 
   // Her week, tidied for reading: junk screen text off the hook, captions on

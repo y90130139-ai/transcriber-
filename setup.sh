@@ -71,6 +71,16 @@ if [ ! -x vendor/bin/ocr-text ] || [ src/ocr/ocr.swift -nt vendor/bin/ocr-text ]
     echo "  swiftc not found — skipping (run: xcode-select --install)"
   fi
 fi
+# Same for the picture reader: faces, bodies and scene labels per frame
+# (src/shots.py). Also Apple Vision, also on-device.
+if [ ! -x vendor/bin/look-frame ] || [ src/look/look.swift -nt vendor/bin/look-frame ]; then
+  if command -v swiftc >/dev/null 2>&1; then
+    mkdir -p vendor/bin
+    swiftc -O src/look/look.swift -o vendor/bin/look-frame
+  else
+    echo "  swiftc not found — skipping (run: xcode-select --install)"
+  fi
+fi
 
 echo "==> python env"
 [ -d .venv ] || python3 -m venv .venv

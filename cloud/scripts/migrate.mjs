@@ -1032,6 +1032,11 @@ const statements = [
      add column if not exists made_url text`,
   `alter table transcriber.plan_items
      add column if not exists made_from_bucket text`,
+  // The picture, shot by shot, measured on the Mac (src/shots.py): cuts, who
+  // is in each shot and how close, whether the phone moves, scene labels, and
+  // later a one-line description. The card's "Film it" is written from this.
+  `alter table transcriber.transcripts add column if not exists shots jsonb`,
+  `alter table transcriber.transcripts add column if not exists shots_at timestamptz`,
 ]
 
 for (const statement of statements) {

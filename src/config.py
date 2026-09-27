@@ -18,6 +18,7 @@ CLOUDFLARED = BIN_DIR / "cloudflared"
 FFMPEG = BIN_DIR / "ffmpeg"
 FFPROBE = BIN_DIR / "ffprobe"
 OCR_TEXT = BIN_DIR / "ocr-text"
+LOOK_FRAME = BIN_DIR / "look-frame"
 WHISPER_CLI = VENDOR / "whisper.cpp" / "build" / "bin" / "whisper-cli"
 
 ASR_MODELS = {

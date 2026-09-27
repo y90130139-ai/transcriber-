@@ -347,6 +347,10 @@ export default function PlanView({
           <p className="plan-quick-note">
             You film and edit these yourself. Want us to edit one? Tap &ldquo;Ask about this one&rdquo; on that card and say so.
           </p>
+          {/* Said once here instead of as Keep / Change on every card. */}
+          <p className="plan-quick-note">
+            Copy the idea, not the video — your outfit, place and people can all be different.
+          </p>
         </section>
 
         {ideas.length === 0 ? (

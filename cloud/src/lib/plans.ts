@@ -99,6 +99,8 @@ export type PlanItem = {
   bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
   /** Her own reel's shortcode when the card is one of her videos. */
   source_post: string | null
+  /** Repurpose cards: when the refreshed file went back to her. */
+  repurposed_at: string | null
   axis: string | null
   hold: string | null
   slot_day: number | null
@@ -211,7 +213,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             (i.filmed_at is not null) as filmed, i.model_note,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
-            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post,
+            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
             i.brief_short, i.caption_options,
             t.on_screen_captions,
             coalesce((select array_agg(g.tag) from transcriber.tags g
@@ -272,6 +274,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     media: mediaFor(row),
     bucket: isBucket(row.bucket) ? row.bucket : null,
     source_post: (row.source_post as string | null) ?? null,
+    repurposed_at: row.repurposed_at ? String(row.repurposed_at) : null,
     axis: (row.axis as string | null) ?? null,
     hold: (row.hold as string | null) ?? null,
     slot_day: row.slot_day === null || row.slot_day === undefined ? null : Number(row.slot_day),

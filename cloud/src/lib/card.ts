@@ -182,8 +182,11 @@ export function cardKind(bucket: Bucket | null, sourcePost: string | null): Card
 export const KIND_TEXT: Record<CardKind, { label: string; line: string }> = {
   new: { label: 'New video', line: 'Watch it, then film your own version.' },
   recreate: { label: 'Recreate', line: 'This is your video. It did well — film it again.' },
-  repurpose: { label: 'Repurpose', line: 'This is your video. No filming — save it and post it again this week.' },
+  repurpose: { label: 'Repurpose', line: 'This is your video. No filming — we refresh it and send it to you in your group chat to post again.' },
 }
+
+/** A Repurpose card once the refreshed file has gone back to her. */
+export const REPURPOSE_READY = 'Your refreshed video is in your group chat. Post it again this week.'
 
 /** Her words for a bucket, for the small label on the card. */
 export const BUCKET_LABEL: Record<Bucket, string> = {

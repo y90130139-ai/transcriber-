@@ -643,6 +643,13 @@ export default function PlanEditor({
                               <span className="planrow-kind" data-kind={cardKind(item.bucket ?? null, item.source_post ?? null)}>
                                 {KIND_TEXT[cardKind(item.bucket ?? null, item.source_post ?? null)].label}
                               </span>{' '}
+                              {item.bucket === 'repurpose' && (
+                                item.repurposed_at
+                                  ? <button className="planrow-repurpose" data-done="true" title="Undo — back to needs repurposing"
+                                      onClick={() => void patchItem(item.id, { repurposed: false })}>Repurposed ✓</button>
+                                  : <button className="planrow-repurpose" title="Tick once the refreshed file has gone back to them"
+                                      onClick={() => void patchItem(item.id, { repurposed: true })}>Needs repurposing · mark done</button>
+                              )}{' '}
                               {item.item_title && <b className="planrow-title">{item.item_title} · </b>}
                               {item.author ?? item.title ?? item.job_id}
                             </p>

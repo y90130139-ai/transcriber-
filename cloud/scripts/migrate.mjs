@@ -905,6 +905,11 @@ const statements = [
      created_at timestamptz not null default now()
    )`,
 
+  // Repurpose cards (2026-09-27): null = "needs repurposing" — we still have
+  // to run it through the batcher and send it back; set when that is done.
+  `alter table transcriber.plan_items
+     add column if not exists repurposed_at timestamptz`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

@@ -72,6 +72,19 @@ export async function PUT(request: Request, { params }: Params) {
   // was nowhere for a reply to go — the note box was one-way, and the console
   // could only mark it read. Posting a reply also marks her messages on that
   // item read, because answering something is reading it.
+  // A Repurpose card's one switch: the refreshed file has gone back to her.
+  if (typeof body.repurposed === 'boolean') {
+    const [row] = await sql.query(
+      `update transcriber.plan_items
+          set repurposed_at = case when $3 then coalesce(repurposed_at, now()) end
+        where id = $1 and plan_id = $2 and bucket = 'repurpose'
+        returning id, repurposed_at`,
+      [itemId, id, body.repurposed],
+    )
+    if (!row) return notFound()
+    return NextResponse.json({ item: row })
+  }
+
   if (typeof body.reply === 'string' && body.reply.trim()) {
     const [owned] = await sql.query(
       `select id from transcriber.plan_items where id = $1 and plan_id = $2`,

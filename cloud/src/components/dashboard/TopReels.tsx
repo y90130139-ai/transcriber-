@@ -10,7 +10,17 @@ import { ago, compact } from './format'
  * A reel whose video link is still live plays right here; the rest open on
  * Instagram — Instagram's links expire within a day of Scout seeing them.
  */
-export default function TopReels({ reels, title = 'Top reels', note }: { reels: Reel[]; title?: string; note?: string }) {
+/** A reel at this many times her usual views is flagged for repurposing. */
+const REPURPOSE_AT = 2
+
+export default function TopReels({ reels, title = 'Top reels', note, onRepurpose }: {
+  reels: Reel[]
+  title?: string
+  note?: string
+  /** On a model's Analytics tab: put the reel on her week as a Repurpose card.
+   *  Resolves to what to tell the operator. */
+  onRepurpose?: (reel: Reel) => Promise<string>
+}) {
   return (
     <section className="dash-panel dash-reels" aria-labelledby="dash-reels-h">
       <header className="dash-panel-head">
@@ -19,15 +29,17 @@ export default function TopReels({ reels, title = 'Top reels', note }: { reels: 
       </header>
       {reels.length === 0 ? <p className="dash-empty">No reels in this period yet.</p> : (
         <ol className="dash-reel-strip">
-          {reels.map((reel) => <li key={reel.post_id}><ReelCard reel={reel} /></li>)}
+          {reels.map((reel) => <li key={reel.post_id}><ReelCard reel={reel} onRepurpose={onRepurpose} /></li>)}
         </ol>
       )}
     </section>
   )
 }
 
-function ReelCard({ reel }: { reel: Reel }) {
+function ReelCard({ reel, onRepurpose }: { reel: Reel; onRepurpose?: (reel: Reel) => Promise<string> }) {
   const [playing, setPlaying] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const flagged = Boolean(onRepurpose && reel.multiple !== null && reel.multiple >= REPURPOSE_AT)
   const [posterBroken, setPosterBroken] = useState(false)
   const open = () => {
     if (reel.video_url) setPlaying(true)
@@ -47,6 +59,11 @@ function ReelCard({ reel }: { reel: Reel }) {
             <span className="dash-reel-play" aria-hidden>{reel.video_url ? '▶' : '↗'}</span>
           </button>
         )}
+        {flagged && (
+          <span className="dash-reel-flag" title={`${reel.multiple}× their usual views — worth repurposing`}>
+            ♻ Repurpose · {reel.multiple}×
+          </span>
+        )}
         <header className="dash-reel-who">
           <Avatar name={reel.model_name} src={reel.photo_url} size={28} />
           <span><b>@{reel.handle}</b><small>{ago(reel.posted_at)}</small></span>
@@ -58,6 +75,15 @@ function ReelCard({ reel }: { reel: Reel }) {
         <span title="Comments"><b aria-hidden>💬</b> {compact(reel.comments)}</span>
         <a href={reel.permalink} target="_blank" rel="noreferrer" aria-label="Open on Instagram">↗</a>
       </footer>
+      {onRepurpose && (
+        <>
+          <button type="button" className="dash-reel-action" data-flagged={flagged} disabled={status === 'Adding…'}
+            onClick={async () => { setStatus('Adding…'); setStatus(await onRepurpose(reel)) }}>
+            ♻ Repurpose
+          </button>
+          {status && status !== 'Adding…' && <p className="dash-reel-status" role="status">{status}</p>}
+        </>
+      )}
     </article>
   )
 }

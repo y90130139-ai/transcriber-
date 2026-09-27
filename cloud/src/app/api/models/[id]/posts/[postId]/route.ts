@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
-import { workingWeek, type WeekRef } from '@/lib/carry'
-import { addDays, currentWeekOf } from '@/lib/dates'
 import { sql } from '@/lib/db'
 import { linksFor, mediaBase } from '@/lib/media'
-import { appendItems, newId } from '@/lib/models'
+import { appendItems } from '@/lib/models'
+import { recreateTarget } from '@/lib/week-target'
+import { REPURPOSE_HOLD } from '@/lib/repurpose'
 
 /**
  * The two things a winner of hers can become.
@@ -26,8 +26,6 @@ type Params = { params: Promise<{ id: string; postId: string }> }
 
 const DESTINATIONS = new Set(['trial', 'main', 'both'])
 
-/** The last day of the week the plan belongs to. Same as creating one. */
-const DUE_OFFSET_DAYS = 6
 
 export async function POST(request: Request, { params }: Params) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -86,43 +84,6 @@ async function recreate(modelId: string, post: Record<string, unknown>, askedPla
   return NextResponse.json({ added, plan_id: planId, week_of: weekOf })
 }
 
-type Target = { planId: string; weekOf: string } | { error: string; status: number }
-
-async function recreateTarget(modelId: string, askedPlan: unknown): Promise<Target> {
-  if (typeof askedPlan === 'string' && askedPlan) {
-    const [plan] = await sql.query(
-      `select id, status, to_char(week_of, 'YYYY-MM-DD') as week_of
-         from transcriber.plans where id = $1 and model_id = $2`,
-      [askedPlan, modelId],
-    )
-    if (!plan) return { error: 'That week is gone. Reopen the plan and try again.', status: 404 }
-    if (String(plan.status) !== 'draft') {
-      return { error: 'That week is already sent. Open a draft week and add it there.', status: 409 }
-    }
-    return { planId: String(plan.id), weekOf: String(plan.week_of) }
-  }
-
-  const [model] = await sql.query(`select timezone from transcriber.models where id = $1`, [modelId])
-  const weeks = (await sql.query(
-    `select id, to_char(week_of, 'YYYY-MM-DD') as week_of, status
-       from transcriber.plans where model_id = $1`,
-    [modelId],
-  )) as WeekRef[]
-  const pick = workingWeek(weeks, currentWeekOf(String(model?.timezone ?? 'America/New_York')))
-  if (pick.kind === 'existing') return { planId: pick.id, weekOf: pick.week_of }
-
-  const [made] = await sql.query(
-    `insert into transcriber.plans (id, model_id, week_of, due_date)
-     values ($3, $1, $2::date, $4::date)
-     on conflict (model_id, week_of) do update set updated_at = now()
-     returning id, status`,
-    [modelId, pick.week_of, newId(), addDays(pick.week_of, DUE_OFFSET_DAYS)],
-  )
-  if (String(made.status) !== 'draft') {
-    return { error: 'Their next week is already sent. Open a draft week and add it there.', status: 409 }
-  }
-  return { planId: String(made.id), weekOf: pick.week_of }
-}
 
 /**
  * Mark it ours to repost, and hand back the file.
@@ -166,7 +127,7 @@ async function repurpose(modelId: string, post: Record<string, unknown>, body: R
           axis: null,
           source_post: shortcodeOf(post.webpage_url as string | null),
           source_url: (post.webpage_url as string | null) ?? null,
-          hold: 'Nothing to film. Save it and post it again this week.',
+          hold: REPURPOSE_HOLD,
         })),
         week_of: target.weekOf,
         week_note: null,

@@ -5,7 +5,7 @@
  */
 import { sql } from '../db'
 import {
-  TAG_LABEL, attentionReasons, autoTag, daysBetween, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
+  TAG_LABEL, attentionReasons, autoTag, daysBetween, median, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
   type Direction, type Post, type Snapshot, type TagKey,
 } from './math'
 
@@ -61,6 +61,8 @@ export type Reel = {
   video_url: string | null
   poster_url: string | null
   permalink: string
+  /** Times her usual views (median of her settled reels); null when unknown. */
+  multiple: number | null
 }
 
 export type Board = {
@@ -231,7 +233,7 @@ function perfFor(model: ModelRow, rows: Awaited<ReturnType<typeof loadRows>>, da
   }
 }
 
-async function topReels(models: ModelRow[], fromIso: string, onlyHandles?: string[]): Promise<Reel[]> {
+async function topReels(models: ModelRow[], fromIso: string, onlyHandles?: string[], usual: number | null = null): Promise<Reel[]> {
   const owner = new Map<string, ModelRow>()
   for (const m of models) for (const h of m.handles) owner.set(h, m)
   const handles = onlyHandles ?? [...owner.keys()]
@@ -260,8 +262,19 @@ async function topReels(models: ModelRow[], fromIso: string, onlyHandles?: strin
       video_url: row.video_url ? String(row.video_url) : null,
       poster_url: row.poster_url ? String(row.poster_url) : null,
       permalink: `https://www.instagram.com/reel/${String(row.post_id)}/`,
+      multiple: usual && num(row.plays) !== null ? Math.round(((num(row.plays) as number) / usual) * 10) / 10 : null,
     }
   })
+}
+
+/** Her usual views: the median of her reels 8–60 days old, five or more —
+ *  the same measure the shout-outs use (lib/performance/shoutouts.ts). */
+function usualOf(posts: Post[], now: number): number | null {
+  const settled = posts
+    .filter((p) => p.kind === 'reel' && p.plays !== null && p.posted_at)
+    .filter((p) => { const age = now - Date.parse(p.posted_at as string); return age >= 8 * DAY && age <= 60 * DAY })
+    .map((p) => p.plays as number)
+  return settled.length >= 5 ? median(settled) : null
 }
 
 /** The whole roster, or one model when `modelId` is given. */
@@ -294,7 +307,7 @@ export async function loadBoard(days: WindowDays, modelId?: string, now = Date.n
     followers_prev: followersPrev,
     views_series: viewsByDay(inPeriod, period),
     views_prev: viewsByDay(inPrev, prevPeriod),
-    top_reels: await topReels(models, new Date(now - days * DAY).toISOString(), modelId ? handles : undefined),
+    top_reels: await topReels(models, new Date(now - days * DAY).toISOString(), modelId ? handles : undefined, modelId ? usualOf(rows.posts, now) : null),
   }
 }
 

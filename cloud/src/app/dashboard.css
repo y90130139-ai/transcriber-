@@ -201,3 +201,11 @@
   .dash-att-why { grid-column: 1 / -1; }
   .dash-att-go { display: none; }
 }
+
+/* ------------------------------------------------ repurpose on a reel */
+.dash-reel-flag { position: absolute; z-index: 1; left: var(--sc-space-2); bottom: var(--sc-space-2); padding: 2px 8px; border-radius: 999px; background: var(--sc-positive); color: #fff; font-size: 0.6875rem; font-weight: 700; pointer-events: none; }
+.dash-reel-action { width: 100%; padding: var(--sc-space-2); border-radius: var(--r-sm, 8px); border: var(--sc-rule-hair); background: none; color: var(--sc-ink-700); font: inherit; font-size: var(--sc-text-sm); font-weight: 600; cursor: pointer; transition: background var(--sc-dur-fast) var(--sc-ease); }
+.dash-reel-action[data-flagged='true'] { background: var(--sc-positive); border-color: var(--sc-positive); color: #fff; }
+.dash-reel-action:hover:not(:disabled) { filter: brightness(1.08); }
+.dash-reel-action:disabled { opacity: 0.6; cursor: wait; }
+.dash-reel-status { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }

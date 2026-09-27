@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
-import { KIND_TEXT, cardKind, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
+import { KIND_TEXT, REPURPOSE_READY, cardKind, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
 import { buildScaffold } from '@/lib/script'
 import { DAYS } from '@/lib/schedule'
 
@@ -275,7 +275,7 @@ export default function PlanItemCard({
           always did. */}
       <div className="plan-kind" data-kind={kind}>
         <b>{KIND_TEXT[kind].label}</b>
-        <span>{KIND_TEXT[kind].line}</span>
+        <span>{kind === 'repurpose' && item.repurposed_at ? REPURPOSE_READY : KIND_TEXT[kind].line}</span>
       </div>
 
       {item.slot_time && item.slot_day !== null && (
@@ -307,9 +307,6 @@ export default function PlanItemCard({
           to sit here read as instructions rather than as something to tap; how
           the sound works is already beat four of "How your plan works". */}
       <div className="plan-links">
-        {!filming && item.media && (
-          <a className="plan-cta" href={item.media.download}>Save video</a>
-        )}
         {item.webpage_url && (
           <a className={filming ? 'plan-cta' : 'plan-cta plan-cta-quiet'} href={item.webpage_url} target="_blank" rel="noreferrer">
             Open in Instagram

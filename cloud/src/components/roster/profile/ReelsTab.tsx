@@ -8,6 +8,7 @@ import type { QualityCheck } from '@/lib/quality'
 import type { Grade, Review, ReviewedPost } from '@/lib/review'
 import VideoStrip, { useReelMedia, type StripItem } from '../../dashboard/VideoStrip'
 import { useRepurpose } from './useRepurpose'
+import { SentWeeks } from './StandingTab'
 
 type Payload = Review & { attribution: Attribution }
 
@@ -105,6 +106,8 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
         <b>{formatDate(week)} – {formatDate(addDays(week, 6))}</b>
         <button className="pill" disabled={week >= thisWeek} onClick={() => setWeek(addDays(week, 7))}>Later →</button>
       </div>
+
+      <SentWeeks modelId={modelId} />
 
       {!review ? <p className="hint">Loading their reels…</p> : reels.length === 0 ? (
         <p className="hint">Nothing of theirs was swept for this week. Try an earlier one.</p>

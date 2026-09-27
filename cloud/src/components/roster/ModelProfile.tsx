@@ -10,7 +10,6 @@ import ReelsTab from './profile/ReelsTab'
 import BlueprintTab from './profile/BlueprintTab'
 import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
-import StandingTab from './profile/StandingTab'
 import TagsTab from './profile/TagsTab'
 import WeekTab from './profile/WeekTab'
 import { BLANK, fromModel, type ProfileForm } from './profile/form'
@@ -21,7 +20,7 @@ import TelegramLink from './profile/TelegramLink'
 import AnalyticsTab from './profile/AnalyticsTab'
 
 export type ProfileTab = Tab
-type Tab = 'analytics' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'standing' | 'access'
+type Tab = 'analytics' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -36,8 +35,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'brand', label: 'Brand' },
   { key: 'blueprint', label: 'Blueprint' },
   { key: 'week', label: 'Week' },
-  // Heat and priority. Only for a model that exists — a new one has no weeks.
-  { key: 'standing', label: 'Heat' },
+  // Heat is gone as a tab (2026-09-27): priority and revenue sit in the
+  // header, the score on Analytics, the sent weeks on Reels.
   { key: 'access', label: 'Link' },
 ]
 
@@ -312,6 +311,8 @@ export default function ModelProfile({
           onPhoto={(file) => void takePhoto(file)}
           onClose={close}
           onAddLinks={() => setTab('profile')}
+          modelId={modelId}
+          onStanding={onStanding}
         />
 
         <ProfileFigures
@@ -322,7 +323,7 @@ export default function ModelProfile({
         />
 
         <nav className="sheet-tabs" aria-label="Profile sections">
-          {TABS.filter((one) => !['standing', 'analytics', 'reels'].includes(one.key) || modelId).map((one) => (
+          {TABS.filter((one) => !['analytics', 'reels'].includes(one.key) || modelId).map((one) => (
             <button
               key={one.key}
               className="sheet-tab"
@@ -366,7 +367,6 @@ export default function ModelProfile({
               <WeekTab form={form} set={set} setForm={setForm} />
             </>
           )}
-          {tab === 'standing' && modelId && <StandingTab modelId={modelId} onChanged={onStanding} />}
           {tab === 'access' && (
             <AccessTab
               form={form}

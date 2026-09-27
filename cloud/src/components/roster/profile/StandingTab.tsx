@@ -1,14 +1,25 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { formatDate } from '@/lib/dates'
+import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import {
-  FIRE_AT, COLD_BELOW, HEAT_MARK, SITUATION_LABEL, isCleared,
+  FIRE_AT, COLD_BELOW, HEAT_MARK, isCleared,
   type Priority, type RevenueBand,
 } from '@/lib/engagement'
 import type { Standing } from '@/lib/standing'
 import TrendChip from '../TrendChip'
 import TrendLine from '../TrendLine'
+
+/**
+ * What the Heat tab held, split three ways (Geno, 2026-09-27: "combine these,
+ * don't take up so much space"):
+ *
+ *   StandingControls  priority and revenue as chips in her profile header
+ *   StandingCard      the engagement score, in plain words, on Analytics
+ *   SentWeeks         her sent weeks and when the next is due, on Reels
+ *
+ * All three read and write `/api/models/<id>/standing` through `useStanding`.
+ */
 
 const PRIORITIES: Priority[] = ['S', 'A', 'B', 'C']
 const BANDS: { key: RevenueBand; label: string }[] = [
@@ -16,36 +27,24 @@ const BANDS: { key: RevenueBand; label: string }[] = [
   { key: 'mid', label: 'Mid' },
   { key: 'low', label: 'Low' },
 ]
-const HEAT_LABEL = { fire: 'On fire', cold: 'Cold', steady: 'Steady', new: 'Too early to read' }
+const HEAT_LABEL = { fire: 'On fire', cold: 'Going cold', steady: 'Steady', new: 'Too early to tell' }
 const PARTS: { key: 'filmed' | 'answered' | 'posted' | 'opened' | 'talked'; label: string }[] = [
-  { key: 'filmed', label: 'Filmed what they took on' },
+  { key: 'filmed', label: 'Filmed what they said yes to' },
   { key: 'answered', label: 'Answered every card' },
-  { key: 'posted', label: 'Posted (bound by you)' },
-  { key: 'opened', label: 'Opened, and how fast' },
-  { key: 'talked', label: 'Talked to you' },
+  { key: 'posted', label: 'Posted the videos' },
+  { key: 'opened', label: 'Opened the plan quickly' },
+  { key: 'talked', label: 'Talked to us' },
 ]
 
-/** Days since an instant, as words. */
 function ago(iso: string | null): string {
   if (!iso) return 'never'
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
-  if (days <= 0) return 'in the last 24 hours'
-  if (days === 1) return '1 day ago'
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
   return `${days} days ago`
 }
 
-/**
- * Her standing: how she is responding to plans, and where she sits in the
- * order of who gets attention. Saves as it is tapped — a priority is a
- * decision, not a field waiting for the profile's Save.
- */
-export default function StandingTab({
-  modelId,
-  onChanged,
-}: {
-  modelId: string
-  onChanged?: () => void
-}) {
+export function useStanding(modelId: string, onChanged?: () => void) {
   const [standing, setStanding] = useState<Standing | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,144 +67,125 @@ export default function StandingTab({
     })
     const body = await response.json().catch(() => ({}))
     setBusy(false)
-    if (!response.ok) {
-      setError(body.error ?? 'That did not save.')
-      return
-    }
+    if (!response.ok) return setError(body.error ?? 'That did not save.')
     setStanding(body.standing ?? null)
     onChanged?.()
   }
 
-  if (!standing) return <p className="hint">{error ?? 'Reading their weeks…'}</p>
+  return { standing, busy, error, save }
+}
 
-  const { engagement, suggestion } = standing
-  const mark = HEAT_MARK[engagement.heat]
-
+/** Priority and revenue, tappable, in the header beside her name. */
+export function StandingControls({ modelId, onChanged }: { modelId: string; onChanged?: () => void }) {
+  const { standing, busy, error, save } = useStanding(modelId, onChanged)
+  if (!standing) return null
+  const suggested = standing.suggestion.priority
   return (
-    <div className="standingtab">
-      <section className="standing-heat" data-heat={engagement.heat}>
-        <p className="standing-heat-head">
-          {mark && <span aria-hidden="true">{mark} </span>}
-          {HEAT_LABEL[engagement.heat]}
-          {engagement.score !== null && <b> · {engagement.score}</b>}
-        </p>
-        <p className="hint">{engagement.why}. Last active {ago(standing.last_active)}.</p>
-        {standing.trend ? (
-          <>
-            <p className="standing-trend">
-              <TrendChip trend={standing.trend} variant="inline" />
-              <span>
-                {standing.trend.previous} → {standing.trend.previous + standing.trend.delta} since their previous sent week
-              </span>
-            </p>
-            <TrendLine trend={standing.trend} />
-          </>
-        ) : (
-          <p className="hint">A trend appears once they have two sent weeks.</p>
-        )}
-        {standing.backlog > 0 && (
-          <p className="hint">
-            {standing.backlog} card{standing.backlog === 1 ? '' : 's'} carried from an earlier
-            week and still not filmed.
-          </p>
-        )}
-      </section>
-
-      <div className="form-row">
-        <span className="axis-name">Revenue — a band, never a figure</span>
-        <div className="daypicker" role="group" aria-label="Revenue band">
-          {BANDS.map((band) => (
-            <button
-              key={band.key}
-              className="chip"
-              disabled={busy}
-              data-on={standing.revenue_band === band.key}
-              aria-pressed={standing.revenue_band === band.key}
-              onClick={() => save({ revenue_band: standing.revenue_band === band.key ? null : band.key })}
-            >
-              {band.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="form-row">
-        <span className="axis-name">Priority — who gets attention first</span>
-        <div className="daypicker" role="group" aria-label="Priority">
-          {PRIORITIES.map((letter) => (
-            <button
-              key={letter}
-              className="chip"
-              disabled={busy}
-              data-on={standing.priority === letter}
-              data-suggested={suggestion.priority === letter && standing.priority !== letter ? 'true' : undefined}
-              aria-pressed={standing.priority === letter}
-              onClick={() => save({ priority: standing.priority === letter ? null : letter })}
-            >
-              {letter}
-            </button>
-          ))}
-        </div>
-        <p className="hint">
-          {suggestion.priority
-            ? <>
-                Suggested <b>{suggestion.priority}</b>
-                {standing.previous_suggestion && standing.previous_suggestion !== suggestion.priority && (
-                  <> (was {standing.previous_suggestion} a week ago)</>
-                )}
-                {' '}· {SITUATION_LABEL[suggestion.situation]} — {suggestion.why}.
-              </>
-            : suggestion.why + '.'}
-          {standing.priority && standing.priority_set_at && ` Set ${ago(standing.priority_set_at)}.`}
-        </p>
-        {suggestion.priority && suggestion.priority !== standing.priority && (
-          <button className="btn btn-small" disabled={busy} onClick={() => save({ priority: suggestion.priority })}>
-            Use {suggestion.priority}
+    <div className="head-controls">
+      <span className="head-control" role="group" aria-label="Priority">
+        <small>Priority</small>
+        {PRIORITIES.map((letter) => (
+          <button key={letter} type="button" className="head-chip" disabled={busy}
+            data-on={standing.priority === letter}
+            data-suggested={suggested === letter && standing.priority !== letter ? 'true' : undefined}
+            title={suggested === letter && standing.priority !== letter ? `Suggested: ${letter}` : undefined}
+            onClick={() => void save({ priority: standing.priority === letter ? null : letter })}>
+            {letter}
           </button>
-        )}
-      </div>
-
-      {engagement.parts && (
-        <div className="form-row">
-          <span className="axis-name">What the score is made of · last {engagement.weeks} sent week{engagement.weeks === 1 ? '' : 's'}</span>
-          <ul className="standing-parts">
-            {PARTS.map((part) => {
-              const value = Math.round((engagement.parts?.[part.key] ?? 0) * 100)
-              return (
-                <li key={part.key}>
-                  <span>{part.label}</span>
-                  <span className="standing-bar" aria-hidden="true"><i style={{ width: `${value}%` }} /></span>
-                  <b>{value}%</b>
-                </li>
-              )
-            })}
-          </ul>
-          <p className="hint">
-            🔥 at {FIRE_AT} or a cleared week · 🧊 under {COLD_BELOW}, or a sent week unopened for 3 days.
-            Drafts never count, and a turned-down card is an answer, not a miss.
-          </p>
-        </div>
-      )}
-
-      {standing.weeks.length > 0 && (
-        <div className="form-row">
-          <span className="axis-name">Their sent weeks</span>
-          <ul className="standing-weeks">
-            {standing.weeks.map((week) => (
-              <li key={week.week_of} data-cleared={isCleared(week) || undefined}>
-                <b>{formatDate(week.week_of)}</b>
-                <span>{week.opened_at ? 'opened' : 'not opened'}</span>
-                <span>{week.accepted + week.declined}/{week.items} answered</span>
-                <span>{week.filmed}/{Math.max(0, week.items - week.declined)} filmed{isCleared(week) ? ' 🔥' : ''}</span>
-                {week.posted > 0 && <span>{week.posted} posted</span>}
-                {week.messages > 0 && <span>{week.messages} message{week.messages === 1 ? '' : 's'}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {error && <p className="hint" role="alert">{error}</p>}
+        ))}
+      </span>
+      <span className="head-control" role="group" aria-label="Revenue">
+        <small>Revenue</small>
+        {BANDS.map((band) => (
+          <button key={band.key} type="button" className="head-chip" disabled={busy}
+            data-on={standing.revenue_band === band.key}
+            onClick={() => void save({ revenue_band: standing.revenue_band === band.key ? null : band.key })}>
+            {band.label}
+          </button>
+        ))}
+      </span>
+      {error && <small role="alert">{error}</small>}
     </div>
+  )
+}
+
+/** How they are doing with their plans — the old Heat tab's scorecard. */
+export function StandingCard({ modelId }: { modelId: string }) {
+  const { standing } = useStanding(modelId)
+  if (!standing) return <section className="dash-panel standing-card"><p className="hint">Reading their weeks…</p></section>
+  const { engagement } = standing
+  const mark = HEAT_MARK[engagement.heat]
+  return (
+    <section className="dash-panel standing-card" data-heat={engagement.heat} aria-labelledby="standing-h">
+      <header className="dash-panel-head">
+        <h2 id="standing-h">
+          {mark && <span aria-hidden>{mark} </span>}{HEAT_LABEL[engagement.heat]}
+          {engagement.score !== null && <span className="standing-score">{engagement.score}<small>/100</small></span>}
+        </h2>
+        <p>How they&rsquo;re doing with their plans · active {ago(standing.last_active)}</p>
+      </header>
+      {engagement.parts ? (
+        <ul className="standing-parts">
+          {PARTS.map((part) => {
+            const value = Math.round((engagement.parts?.[part.key] ?? 0) * 100)
+            return (
+              <li key={part.key}>
+                <span>{part.label}</span>
+                <span className="standing-bar" aria-hidden="true"><i style={{ width: `${value}%` }} /></span>
+                <b>{value}%</b>
+              </li>
+            )
+          })}
+        </ul>
+      ) : <p className="hint">Nothing to score until they have a sent week.</p>}
+      {standing.trend ? (
+        <div className="standing-trend">
+          <TrendChip trend={standing.trend} variant="inline" />
+          <span>{standing.trend.previous} → {standing.trend.previous + standing.trend.delta} since last week</span>
+          <TrendLine trend={standing.trend} />
+        </div>
+      ) : (
+        <p className="hint">
+          {engagement.weeks <= 1 ? 'Only one sent week so far — the trend shows after their second.' : ''}
+        </p>
+      )}
+      {standing.backlog > 0 && (
+        <p className="hint">{standing.backlog} card{standing.backlog === 1 ? '' : 's'} from earlier weeks still not filmed.</p>
+      )}
+      <p className="hint">🔥 {FIRE_AT}+ or a fully filmed week · 🧊 under {COLD_BELOW}, or a plan left unopened 3 days.</p>
+    </section>
+  )
+}
+
+/** Their sent weeks, newest first, and when the next one is due. */
+export function SentWeeks({ modelId }: { modelId: string }) {
+  const { standing } = useStanding(modelId)
+  if (!standing || standing.weeks.length === 0) return null
+  const latest = standing.weeks[0]
+  const next = addDays(latest.week_of, 7)
+  const overdue = next < currentWeekOf()
+  return (
+    <section className="sent-weeks" aria-labelledby="sent-weeks-h">
+      <header>
+        <h3 id="sent-weeks-h">Plans sent</h3>
+        <p>
+          Last: week of <b>{formatDate(latest.week_of)}</b> ·{' '}
+          {overdue
+            ? <b className="sent-overdue">next is overdue — send this week&rsquo;s</b>
+            : <>next due: week of <b>{formatDate(next)}</b></>}
+        </p>
+      </header>
+      <ul className="standing-weeks">
+        {standing.weeks.map((week) => (
+          <li key={week.week_of} data-cleared={isCleared(week) || undefined}>
+            <b>{formatDate(week.week_of)}</b>
+            <span>{week.opened_at ? 'opened' : 'not opened'}</span>
+            <span>{week.accepted + week.declined}/{week.items} answered</span>
+            <span>{week.filmed}/{Math.max(0, week.items - week.declined)} filmed{isCleared(week) ? ' 🔥' : ''}</span>
+            {week.posted > 0 && <span>{week.posted} posted</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

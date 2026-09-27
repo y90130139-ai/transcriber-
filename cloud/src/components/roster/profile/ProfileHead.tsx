@@ -5,6 +5,7 @@ import type { Social } from '@/lib/socials'
 import type { ProfileForm } from './form'
 import { HEAT_MARK } from '@/lib/engagement'
 import type { Standing } from '@/lib/standing'
+import { StandingControls } from './StandingTab'
 import TrendChip from '../TrendChip'
 
 /** Opening more than this at once is how a browser decides you are a popup ad,
@@ -27,6 +28,8 @@ export default function ProfileHead({
   onPhoto,
   onClose,
   onAddLinks,
+  modelId = null,
+  onStanding,
 }: {
   standing?: Standing
   form: ProfileForm
@@ -37,6 +40,9 @@ export default function ProfileHead({
   /** Takes you to the tab where accounts are added — the empty state has to
    *  lead somewhere, or it is just a sentence saying no. */
   onAddLinks: () => void
+  /** Set for a saved model: priority and revenue become editable here. */
+  modelId?: string | null
+  onStanding?: () => void
 }) {
   // The handle every model already has is rendered as an Instagram button
   // whether or not anyone has filled in the accounts list. Merged for display
@@ -91,7 +97,6 @@ export default function ProfileHead({
         <div className="sheet-names">
           <span>{form.handle ? `@${form.handle}` : 'No handle yet'}</span>
           <span className="sheet-flags">
-            {standing?.priority && <span data-tone="priority">Priority {standing.priority}</span>}
             {standing && HEAT_MARK[standing.engagement.heat] && (
               <span title={standing.engagement.why}>
                 {HEAT_MARK[standing.engagement.heat]} {standing.engagement.heat === 'fire' ? 'On fire' : 'Cold'}
@@ -104,6 +109,7 @@ export default function ProfileHead({
             {form.ig_account_type === 'unknown' && <span data-tone="quiet">IG not checked</span>}
             {form.photo_url === null && <span data-tone="quiet">No photo</span>}
           </span>
+          {modelId && <StandingControls modelId={modelId} onChanged={onStanding} />}
         </div>
       </div>
 

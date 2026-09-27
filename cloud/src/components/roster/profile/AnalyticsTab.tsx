@@ -8,6 +8,7 @@ import LineChart from '../../dashboard/LineChart'
 import PeriodSwitch, { type Period } from '../../dashboard/PeriodSwitch'
 import TopReels from '../../dashboard/TopReels'
 import { useRepurpose } from './useRepurpose'
+import { StandingCard } from './StandingTab'
 import { TagChip, TrendBadge } from '../../dashboard/TrendBadge'
 import { ago, compact, percent, shortDay, signed } from '../../dashboard/format'
 
@@ -68,11 +69,14 @@ export default function AnalyticsTab({ modelId }: { modelId: string }) {
       </section>
 
       <div className="dash-grid-main">
+        <div className="dash-stack">
         <section className="dash-panel" aria-labelledby="one-growth-h">
           <header className="dash-panel-head"><h2 id="one-growth-h">Audience growth</h2><p>Followers across their accounts</p></header>
           <LineChart series={data.followers_series} previous={data.followers_prev} label="Their followers by day"
             emptyNote="Not enough readings yet — Scout reads their accounts once a day." />
         </section>
+        <StandingCard modelId={modelId} />
+        </div>
         <section className="dash-panel dash-details" aria-labelledby="one-details-h">
           <header className="dash-panel-head"><h2 id="one-details-h">Account details</h2></header>
           <label className="axis-name" htmlFor="one-tag">Tag</label>

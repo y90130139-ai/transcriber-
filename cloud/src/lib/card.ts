@@ -21,13 +21,13 @@
 const EXPRESSION: [string, string][] = [
   ['car-confession', 'Relaxed and a little sheepish, like you are admitting it to a friend. Glance away, then back to the lens on the point.'],
   ['confession', 'Soft and a little embarrassed on the admission, then own it. The honesty is the hook.'],
-  ['reveal', 'Neutral or unimpressed before the cut, then the look changes completely after it. The contrast is the payoff.'],
+  ['reveal', 'Blank or unimpressed before the cut, then a completely different look after it. That change is the point.'],
   ['mirror', 'Confident, looking at the phone in the mirror rather than at yourself. A small smile, never a posed grin.'],
   ['rage-bait', 'Dead serious. You believe every word, and you are slightly annoyed anyone would disagree.'],
   ['rant', 'Fed up but in control. Eye contact, no smiling until the very end, if at all.'],
   ['pov-skit', 'In character from the first frame. React to the viewer as if they really are the person in the caption.'],
   ['comedy', 'Deadpan. Let the line be funny; your face should not be in on the joke.'],
-  ['skit', 'Commit to the character. Big where the script is big, still where it is still.'],
+  ['skit', 'Play the character all the way. Go big on the big lines, stay still on the quiet ones.'],
   ['reaction', 'Your face is the content — let it change. Hold the reaction a beat longer than feels natural.'],
   ['storytime', 'Like you are telling one friend something you should not. Lean in on the good part.'],
   ['q-and-a', 'Relaxed and a little amused by the question. Answer like it is obvious.'],
@@ -56,7 +56,7 @@ export function expressionFor(formats: string[]): string {
   return hit ? hit[1] : EXPRESSION_DEFAULT
 }
 
-export type Bucket = 'reskin' | 'iteration' | 'test'
+export type Bucket = 'reskin' | 'iteration' | 'test' | 'repurpose'
 
 /** What she keeps and what she changes — the manual's copy-exactly-vs-change
  *  decision, which the card never stated. */
@@ -80,24 +80,24 @@ const AXIS_WORD: Record<string, string> = {
 export function copyRuleFor(bucket: Bucket | null, axis: string | null): CopyRule {
   if (bucket === 'reskin' && !axis) {
     return {
-      label: 'Your winner again — exactly as it was',
-      keep: 'Everything: outfit, place, words, delivery, length.',
-      change: 'Nothing. This one is the measuring stick the others are compared to.',
+      label: 'Your video again — the same way',
+      keep: 'Everything: the outfit, the place, the words, the length.',
+      change: 'Nothing. Film it just like last time.',
     }
   }
   if (bucket === 'reskin' && axis) {
     const what = AXIS_WORD[axis] ?? axis
     return {
       label: `Your winner again — change ${what}`,
-      keep: 'The concept, the words, the delivery, the timing.',
-      change: `Only ${what}. One change is the whole point — two changes and we cannot tell which one worked.`,
+      keep: 'The idea, the words, the timing.',
+      change: `Only ${what}. Keep everything else the same.`,
     }
   }
   if (bucket === 'iteration') {
     return {
       label: 'One more go',
-      keep: 'The concept and the structure.',
-      change: 'Nothing on purpose. It did well without taking off — this tells us whether it was the idea or the day.',
+      keep: 'The idea and how it plays out.',
+      change: 'Nothing on purpose. It did well — we want to see if it does it again.',
     }
   }
   if (axis === 'twist') {
@@ -162,9 +162,33 @@ export const CAROUSEL_PLAN = {
     'Use the photos from between your outfit changes on shoot day — a mirror selfie, a normal selfie and a tripod shot of each outfit. Three to six slides, best one first.',
 } as const
 
+/**
+ * What kind of job a card is, in one word, shown big at the top of her card
+ * (Geno, 2026-09-27). Worked out from where the card came from:
+ *
+ *   repurpose  her own video, going out again — she saves it and posts it
+ *   recreate   her own video, filmed again (Recreate, or the planner's reskins
+ *              and iterations of her winners)
+ *   new        someone else's reel for her to make her own version of
+ */
+export type CardKind = 'new' | 'recreate' | 'repurpose'
+
+export function cardKind(bucket: Bucket | null, sourcePost: string | null): CardKind {
+  if (bucket === 'repurpose') return 'repurpose'
+  if (sourcePost || bucket === 'reskin' || bucket === 'iteration') return 'recreate'
+  return 'new'
+}
+
+export const KIND_TEXT: Record<CardKind, { label: string; line: string }> = {
+  new: { label: 'New video', line: 'Watch it, then film your own version.' },
+  recreate: { label: 'Recreate', line: 'This is your video. It did well — film it again.' },
+  repurpose: { label: 'Repurpose', line: 'This is your video. No filming — save it and post it again this week.' },
+}
+
 /** Her words for a bucket, for the small label on the card. */
 export const BUCKET_LABEL: Record<Bucket, string> = {
   reskin: 'Your winner',
   iteration: 'One more go',
   test: 'New idea',
+  repurpose: 'Repurpose',
 }

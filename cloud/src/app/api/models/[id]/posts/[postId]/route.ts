@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: Params) {
   if (!post) return NextResponse.json({ error: 'not found' }, { status: 404 })
 
   if (action === 'recreate') return recreate(id, post, body.plan_id)
-  if (action === 'repurpose') return repurpose(id, post, body)
+  if (action === 'repurpose') return repurpose(id, post, body, body.plan_id)
   if (action === 'unrepurpose') {
     await sql.query(`delete from transcriber.repurposes where post_id = $1`, [String(post.id)])
     return NextResponse.json({ repurposed: false })
@@ -131,7 +131,7 @@ async function recreateTarget(modelId: string, askedPlan: unknown): Promise<Targ
  * repurpose that cannot produce one says so rather than recording an intention
  * nobody can act on. The Mac holds the files, so this needs the Mac awake.
  */
-async function repurpose(modelId: string, post: Record<string, unknown>, body: Record<string, unknown>) {
+async function repurpose(modelId: string, post: Record<string, unknown>, body: Record<string, unknown>, askedPlan: unknown) {
   const destination = typeof body.destination === 'string' && DESTINATIONS.has(body.destination)
     ? body.destination
     : 'trial'
@@ -154,8 +154,27 @@ async function repurpose(modelId: string, post: Record<string, unknown>, body: R
     ],
   )
 
+  // On her week too, labelled Repurpose (2026-09-27): she saves it and posts
+  // it again, no filming. Same week rule as Recreate. A week that cannot take
+  // it (already sent) still leaves the repost marked and the file downloading.
+  const target = await recreateTarget(modelId, askedPlan)
+  const onWeek = 'error' in target
+    ? { added: 0, week_of: null, week_note: target.error }
+    : {
+        added: await appendItems(target.planId, modelId, [String(post.id)], () => ({
+          bucket: 'repurpose',
+          axis: null,
+          source_post: shortcodeOf(post.webpage_url as string | null),
+          source_url: (post.webpage_url as string | null) ?? null,
+          hold: 'Nothing to film. Save it and post it again this week.',
+        })),
+        week_of: target.weekOf,
+        week_note: null,
+      }
+
   return NextResponse.json({
     repurposed: true,
+    ...onWeek,
     destination,
     download,
     // Said plainly rather than returning a dead link: the video lives on the

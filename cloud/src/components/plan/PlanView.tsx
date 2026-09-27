@@ -40,6 +40,15 @@ const STEPS = [
   'Tick it off as filmed. If something will not work, say so in the box.',
 ]
 
+/** The three things she does, pinned open at the top (2026-09-27): three
+ *  creators needed the flow explained in chat because the full list above sat
+ *  folded away. She edits her own videos; that is said once, here. */
+const QUICK_STEPS = [
+  { title: 'Watch', text: 'Watch each video on your plan.' },
+  { title: 'Yes or no', text: 'Tap “I’ll do this” or “Can’t do this” on every card.' },
+  { title: 'Film', text: 'Film and edit your yeses — easiest first. Name each file by its number (V-1, V-2…).' },
+]
+
 /** The sixth beat, and only when there is somewhere to name. A model with no
  *  folder and no note gets the five she has always had rather than an
  *  instruction pointing at nothing. */
@@ -267,6 +276,21 @@ export default function PlanView({
             ))}
           </dl>
         </details>
+
+        <section className="plan-quick" aria-label="What to do">
+          <ol>
+            {QUICK_STEPS.map((step, index) => (
+              <li key={step.title}>
+                <span className="plan-quick-no" aria-hidden>{index + 1}</span>
+                <b>{step.title}</b>
+                <span>{step.text}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="plan-quick-note">
+            You film and edit these yourself. Want us to edit one? Tap &ldquo;Ask about this one&rdquo; on that card and say so.
+          </p>
+        </section>
 
         <details className="plan-how">
           <summary>How your plan works</summary>

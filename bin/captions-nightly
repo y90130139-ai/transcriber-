@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Write captions for every draft week that still has cards without them, one
-# week at a time, stopping at the first sign the free Workers AI allowance is
-# used up (it resets 00:00 UTC; launchd runs this at 20:10 local, just after).
-# Only cards with no captions are written, so a stopped night resumes the next.
+# Write captions for weeks that still have cards without them, one week at a
+# time, a few weeks a night, stopping at the first sign the free Workers AI
+# allowance is used up. Only cards with no captions are written, so a stopped
+# night resumes the next.
+#
+# Spread out on purpose (Geno, 2026-09-27 — stay on the free plan): the
+# allowance behaved like a rolling 24 hours, and a heavy night blocked the
+# next. So launchd runs this at 03:30 local and it writes at most
+# MAX_WEEKS weeks (~2.5k neurons each, under the 10k a day).
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -14,13 +19,17 @@ BASE=$(python3 -c "import json;print(json.load(open('config.json'))['cloud_url']
 NODE="$(command -v node || true)"
 [ -z "$NODE" ] && for c in /opt/homebrew/bin/node /usr/local/bin/node "$HOME"/.nvm/versions/node/*/bin/node "$HOME"/.local/bin/node; do [ -x "$c" ] && NODE="$c"; done
 [ -z "$NODE" ] && { echo "[$(stamp)] node not found"; exit 1; }
-DUE=$(cd cloud && "$NODE" scripts/captions-due.mjs) || { echo "[$(stamp)] could not list weeks"; exit 1; }
+MAX_WEEKS=${MAX_WEEKS:-3}
+DUE=$(cd cloud && "$NODE" scripts/captions-due.mjs | head -n "$MAX_WEEKS") || { echo "[$(stamp)] could not list weeks"; exit 1; }
 [ -z "$DUE" ] && { echo "[$(stamp)] every draft week has captions"; exit 0; }
 while read -r id name; do
   out=$(curl -s --max-time 320 -X POST -H "Authorization: Bearer $SECRET" \
         -H 'Content-Type: application/json' -d '{}' "$BASE/api/plans/$id/write")
   # Stop the whole night at the first sign the allowance is gone.
-  case "$out" in *'Workers AI 429'*|*'daily free'*) echo "[$(stamp)] ${name//_/ }: allowance used up — the rest tomorrow"; exit 0;; esac
+  case "$out" in *'Workers AI 429'*|*'daily free'*)
+    # Cloudflare's own words, so a changed limit is readable in the log.
+    why=$(printf '%s' "$out" | grep -o 'Workers AI 429[^"]*' | head -1 | cut -c1-200)
+    echo "[$(stamp)] ${name//_/ }: allowance used up — the rest tomorrow (${why:-no detail})"; exit 0;; esac
   line=$(printf '%s' "$out" | python3 -c "import json,sys
 try:
     b=json.load(sys.stdin); c=b.get('captions') or {}

@@ -115,6 +115,9 @@ export type PlanMessageRow = {
 }
 
 export type PlanItemRow = {
+  /** What kind of job it is on her card — see cardKind in lib/card.ts. */
+  bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
+  source_post?: string | null
   id: string
   job_id: string
   position: number

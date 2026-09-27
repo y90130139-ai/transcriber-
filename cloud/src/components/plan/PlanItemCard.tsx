@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
-import { BUCKET_LABEL, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
+import { KIND_TEXT, cardKind, REEL_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
 import { buildScaffold } from '@/lib/script'
 import { DAYS } from '@/lib/schedule'
 
@@ -221,6 +221,10 @@ export default function PlanItemCard({
   const cardId = item.card_no ? `V-${item.card_no}` : `Video ${number}`
 
   const rule = copyRuleFor(item.bucket, item.axis)
+  // The job, in one word, before anything else on the card. A repurpose is
+  // posted as it is, so none of the filming directions apply to it.
+  const kind = cardKind(item.bucket, item.source_post)
+  const filming = kind !== 'repurpose'
   const expression = expressionFor(item.formats)
   const scaffold = buildScaffold({
     hooks: item.hooks,
@@ -266,12 +270,14 @@ export default function PlanItemCard({
       {/* When it goes out, and what kind of card it is — in her words. Only on
           cards the 70/20/10 planner drafted; everything older renders as it
           always did. */}
-      {(item.bucket || item.slot_time) && (
+      <div className="plan-kind" data-kind={kind}>
+        <b>{KIND_TEXT[kind].label}</b>
+        <span>{KIND_TEXT[kind].line}</span>
+      </div>
+
+      {item.slot_time && item.slot_day !== null && (
         <p className="plan-when">
-          {item.bucket && <span className="plan-bucket" data-bucket={item.bucket}>{BUCKET_LABEL[item.bucket]}</span>}
-          {item.slot_time && item.slot_day !== null && (
-            <span>Post {DAYS[item.slot_day % DAYS.length]} at {item.slot_time}</span>
-          )}
+          <span>Post {DAYS[item.slot_day % DAYS.length]} at {item.slot_time}</span>
         </p>
       )}
 
@@ -298,16 +304,20 @@ export default function PlanItemCard({
           to sit here read as instructions rather than as something to tap; how
           the sound works is already beat four of "How your plan works". */}
       <div className="plan-links">
+        {!filming && item.media && (
+          <a className="plan-cta" href={item.media.download}>Save video</a>
+        )}
         {item.webpage_url && (
-          <a className="plan-cta" href={item.webpage_url} target="_blank" rel="noreferrer">
+          <a className={filming ? 'plan-cta' : 'plan-cta plan-cta-quiet'} href={item.webpage_url} target="_blank" rel="noreferrer">
             Open in Instagram
           </a>
         )}
-        {item.media && (
+        {filming && item.media && (
           <a className="plan-cta plan-cta-quiet" href={item.media.download}>Save video</a>
         )}
       </div>
 
+      {filming && (<>
       {/* Step 7's missing half: what she keeps exactly and what she changes.
           The manual is explicit that sending only a caption loses the thing
           that made the reel work. */}
@@ -369,6 +379,7 @@ export default function PlanItemCard({
           </ol>
         </details>
       )}
+      </>)}
 
       {item.editing_notes && (
         <p className="plan-editing">

@@ -94,7 +94,9 @@ export type PlanItem = {
   /** The 70/20/10 card: which bucket, the one variable under test, what must
    *  not move, and when it goes out. All null on cards drafted before the split
    *  existed, which render exactly as they always did. */
-  bucket: 'reskin' | 'iteration' | 'test' | null
+  bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
+  /** Her own reel's shortcode when the card is one of her videos. */
+  source_post: string | null
   axis: string | null
   hold: string | null
   slot_day: number | null
@@ -207,7 +209,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             (i.filmed_at is not null) as filmed, i.model_note,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
-            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time,
+            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post,
             i.brief_short, i.caption_options,
             t.on_screen_captions,
             coalesce((select array_agg(g.tag) from transcriber.tags g
@@ -267,6 +269,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     transcript: String(row.transcript ?? '').trim(),
     media: mediaFor(row),
     bucket: isBucket(row.bucket) ? row.bucket : null,
+    source_post: (row.source_post as string | null) ?? null,
     axis: (row.axis as string | null) ?? null,
     hold: (row.hold as string | null) ?? null,
     slot_day: row.slot_day === null || row.slot_day === undefined ? null : Number(row.slot_day),
@@ -285,8 +288,8 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   return items
 }
 
-function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' {
-  return value === 'reskin' || value === 'iteration' || value === 'test'
+function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'repurpose' {
+  return value === 'reskin' || value === 'iteration' || value === 'test' || value === 'repurpose'
 }
 
 /** Everything her page renders, for one token. */

@@ -5,6 +5,7 @@ import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
 import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
+import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
 import {
@@ -254,7 +255,7 @@ export default function PlanEditor({
     }
     if (action === 'recreate') {
       const week = formatDate(body.week_of)
-      setPostNote(body.added ? `Added to the week of ${week} as a reskin — shoot it again as it was.`
+      setPostNote(body.added ? `Added to the week of ${week} as a Recreate card — film it again.`
                              : `Already on the week of ${week}.`)
       await loadPlan()
       void loadWeeks()
@@ -264,7 +265,13 @@ export default function PlanEditor({
       // Straight to the file: the batcher is the next step and it needs the
       // video, so the tap that marks it is the tap that downloads it.
       if (body.download) window.location.href = body.download
-      setPostNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')
+      const week = body.week_of ? formatDate(body.week_of) : null
+      setPostNote([
+        body.note ?? 'Marked to repost. Downloading the file for the batcher.',
+        week ? (body.added ? `On the week of ${week} as a Repurpose card.` : `Already on the week of ${week}.`) : body.week_note,
+      ].filter(Boolean).join(' '))
+      await loadPlan()
+      void loadWeeks()
     } else {
       setPostNote('No longer marked to repost.')
     }
@@ -387,6 +394,16 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  // The same caption under several cards is what made three creators ask
+  // whether the plan was broken (2026-09-27). Warned before sending.
+  const repeated = (() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      const caption = (item.caption ?? '').trim().toLowerCase()
+      if (caption) counts.set(caption, (counts.get(caption) ?? 0) + 1)
+    }
+    return [...counts].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1])
+  })()
   const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
   const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
   const filmed = items.filter((item) => item.filmed_at).length
@@ -527,6 +544,15 @@ export default function PlanEditor({
                 )}
               </div>
 
+              {repeated.length > 0 && (
+                <div className="planstate planstate-short">
+                  <span>
+                    {repeated.map(([caption, n]) => `“${caption}” is on ${n} cards`).join(' · ')}
+                    {' — '}each card should have its own caption before this goes out.
+                  </span>
+                </div>
+              )}
+
               {/* `weekly_target` was stored on the model, editable in her sheet,
                   and read by nothing — not the editor, not the sweep, not the
                   scoreboard. Warned, never blocked: sending a short week on
@@ -614,6 +640,9 @@ export default function PlanEditor({
                           )}
                           <div className="planrow-id">
                             <p className="planrow-who">
+                              <span className="planrow-kind" data-kind={cardKind(item.bucket ?? null, item.source_post ?? null)}>
+                                {KIND_TEXT[cardKind(item.bucket ?? null, item.source_post ?? null)].label}
+                              </span>{' '}
                               {item.item_title && <b className="planrow-title">{item.item_title} · </b>}
                               {item.author ?? item.title ?? item.job_id}
                             </p>

@@ -1859,3 +1859,67 @@
 @media (prefers-reduced-motion: reduce) {
   .plan-head { transition: none; }
 }
+
+/* ------------------------------------------------------------ CARD KIND
+   The job, big, at the top of every card (2026-09-27): a new video to make,
+   one of hers to film again, or one of hers to post as it is. Colour tells
+   them apart at a glance; the word always says it too. */
+.plan .plan-kind {
+  display: grid;
+  gap: 0.15rem;
+  margin: var(--sc-space-3) 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-radius: 10px;
+  border-left: 6px solid var(--sc-ember);
+  background: var(--sc-ember-tint);
+}
+.plan .plan-kind b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.plan .plan-kind span { font-size: var(--sc-text-base); color: var(--sc-ink-700); }
+.plan .plan-kind[data-kind='recreate'] { border-left-color: var(--sc-ink-900); background: var(--sc-bone-light); }
+.plan .plan-kind[data-kind='recreate'] b { color: var(--sc-ink-900); }
+.plan .plan-kind[data-kind='repurpose'] { border-left-color: var(--sc-positive); background: color-mix(in srgb, var(--sc-positive) 12%, transparent); }
+.plan .plan-kind[data-kind='repurpose'] b { color: var(--sc-positive); }
+/* The maison green is too dark to read on the night ground; lift it there. */
+:root[data-theme='dark'] .plan .plan-kind[data-kind='repurpose'] b { color: #6FCF97; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .plan .plan-kind[data-kind='repurpose'] b { color: #6FCF97; }
+}
+
+/* ------------------------------------------------------------ QUICK STEPS
+   The flow, open at the top of every plan (2026-09-27). */
+.plan .plan-quick { margin: var(--sc-space-4) 0; padding: var(--sc-space-4); border-radius: 12px; background: var(--sc-bone-light); border: var(--sc-rule-hair); }
+.plan .plan-quick ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-3); }
+.plan .plan-quick li { display: grid; grid-template-columns: 2rem 1fr; column-gap: var(--sc-space-3); align-items: start; }
+.plan .plan-quick-no { grid-row: span 2; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--sc-ember); color: #fff; font-weight: 700; }
+.plan .plan-quick li b { color: var(--sc-ink-900); font-size: var(--sc-text-base); }
+.plan .plan-quick li span:last-child { color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.plan .plan-quick-note { margin: var(--sc-space-4) 0 0; padding-top: var(--sc-space-3); border-top: var(--sc-rule-hair); font-size: var(--sc-text-sm); color: var(--sc-ink-700); }
+
+/* ------------------------------------------------------------ YES / NO
+   Big and filled (2026-09-27): the outlined pair was easy to miss, and a
+   card nobody answers is the whole drop-off. Green and red, and the words
+   always say which. The chosen one gets a tick; the other steps back. */
+.plan .plan-verdict button {
+  min-height: 56px;
+  border: 0;
+  color: #fff;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 700;
+}
+.plan .plan-verdict .plan-yes { background: var(--sc-positive); }
+.plan .plan-verdict .plan-no { background: var(--sc-critical); }
+.plan .plan-verdict button[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--sc-bone), 0 0 0 5px currentColor; color: #fff; }
+.plan .plan-verdict .plan-yes[aria-pressed='true'] { background: var(--sc-positive); color: #fff; }
+.plan .plan-verdict .plan-no[aria-pressed='true'] { background: var(--sc-critical); color: #fff; }
+.plan .plan-verdict button[aria-pressed='true']::before { content: '✓ '; }
+.plan .plan-verdict:has([aria-pressed='true']) button[aria-pressed='false'] { opacity: 0.4; }

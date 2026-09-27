@@ -43,8 +43,8 @@ const SHAPE: [string, string][] = [
   ['promo', 'One clear ask, at the end. Everything before it earns the ask.'],
   ['collab', 'Two people on camera together.'],
   ['snap-banner', 'Snapchat banner across the middle, the video running under it.'],
-  ['text-overlay', 'The on-screen text is the payload. Audio is secondary.'],
-  ['thirst-trap', 'Body-forward, no dialogue. The framing does the work.'],
+  ['text-overlay', 'The words on screen are what people watch it for. The sound matters less.'],
+  ['thirst-trap', 'No talking. How you frame the shot does the work.'],
   ['talking-head', 'Straight to camera. What you say carries it.'],
 ]
 
@@ -55,9 +55,9 @@ const OPENING: Record<string, string> = {
   'text-claim': 'Put the claim on screen inside the first second.',
   'pov-relatable': 'Name the situation on screen in the first second — POV, or "me when...". Then just be in it.',
   transition: 'Open on the before, cut hard to the after.',
-  contrast: 'Open on something that does not fit. The mismatch is the hook.',
+  contrast: 'Open on something that does not fit — that is what makes people stop.',
   'trending-audio': 'The audio is the hook — take it from the original post.',
-  'in-media-res': 'Start mid-scene. No hello, no setup.',
+  'in-media-res': 'Start in the middle of the moment. No hello, no setup.',
   none: 'Their opening is slow. Give yours a real first line.',
 }
 
@@ -364,38 +364,6 @@ const SOUND_DEFAULT = 'Open the original in Instagram and take the audio from th
 const SOUND_TRENDING = 'The audio is the hook. Take it off the original post — do not re-record it.'
 const SOUND_SILENT = 'Nobody speaks in the original. Take its audio from Instagram and let it carry.'
 
-/** What she posts under it. Only where something honest can be said — a wrong
- *  caption she has to delete every week is worse than an empty field. */
-const CAPTION: Record<string, string> = {
-  grwm: 'get ready with me',
-  'try-on': 'which one',
-  'fit-check': "today's fit",
-  gym: "today's session",
-  storytime: 'so this happened',
-  'q-and-a': 'you asked',
-  advice: 'save this one',
-  rant: 'saying what everyone is already thinking',
-  'rage-bait': 'go on then, tell me I am wrong',
-  'day-in-life': 'a day with me',
-  bts: 'how it actually gets made',
-  teaser: 'there is more',
-  promo: 'link in bio',
-  reaction: 'I had to say something',
-  'street-interview': 'I asked, they answered',
-  comedy: 'no notes',
-  skit: 'we all know one',
-  'pov-skit': 'we all know one',
-  'talking-head': 'had to say it',
-  'thirst-trap': 'posting this and logging off',
-  'lip-sync': 'this sound has me',
-  dance: 'had to learn this one',
-  'text-overlay': 'read it twice',
-  'snap-banner': 'it is on the banner',
-  // `collab` is deliberately absent. Every honest caption for one names the
-  // other person, and the library does not know who they are — the field
-  // returning null and not rendering is the correct answer, not a licence to
-  // write something she has to delete every time.
-}
 
 
 /** The brief as fields rather than as a paragraph. `direction` is what is left
@@ -410,17 +378,6 @@ export type BriefFields = {
   caption: string | null
 }
 
-/**
- * What she posts under it, or nothing.
- *
- * Nothing, deliberately, where the format says nothing: the obvious fallback
- * is the reference's own opening line, and handing her their words as her
- * caption is both a duplicate of the hook two blocks above it and exactly the
- * kind of confidently wrong draft these rules exist to avoid.
- */
-function captionFor(format: string | null): string | null {
-  return (format && CAPTION[format]) || null
-}
 
 /**
  * Draft one item's brief as discrete fields.
@@ -504,7 +461,10 @@ export function draftFields(input: BriefInput): BriefFields {
     sound: hers('sound') ?? sound,
     hook: opening?.quote ?? null,
     // Still null where neither she nor the table has anything honest to say.
-    caption: hers('caption') ?? captionFor(format),
+    // No stock caption by format any more (2026-09-27): one line per format
+    // meant "read it twice" under 33 of 50 cards. The caption engine
+    // (lib/captions.ts) writes real, adapted options instead.
+    caption: hers('caption'),
   }
 }
 

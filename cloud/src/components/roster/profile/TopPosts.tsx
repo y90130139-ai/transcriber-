@@ -51,10 +51,14 @@ export default function TopPosts(
     if (action === 'recreate') {
       // Named, because from here there is no week open to see it land on.
       const week = formatDate(body.week_of)
-      setNote(body.added ? `On the week of ${week} as a reskin — shoot it again as it was.` : `Already on the week of ${week}.`)
+      setNote(body.added ? `On the week of ${week} as a Recreate card — film it again.` : `Already on the week of ${week}.`)
     } else if (action === 'repurpose') {
       if (body.download) window.location.href = body.download
-      setNote(body.note ?? 'Marked to repost. Downloading the file for the batcher.')
+      const week = body.week_of ? formatDate(body.week_of) : null
+      setNote([
+        body.note ?? 'Marked to repost. Downloading the file for the batcher.',
+        week ? (body.added ? `On the week of ${week} as a Repurpose card.` : `Already on the week of ${week}.`) : body.week_note,
+      ].filter(Boolean).join(' '))
     } else {
       setNote('No longer marked to repost.')
     }

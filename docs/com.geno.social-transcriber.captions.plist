@@ -21,9 +21,9 @@
 	<key>StartCalendarInterval</key>
 	<dict>
 		<key>Hour</key>
-		<integer>20</integer>
+		<integer>3</integer>
 		<key>Minute</key>
-		<integer>10</integer>
+		<integer>30</integer>
 	</dict>
 	<key>WorkingDirectory</key>
 	<string>/Users/geno/projects/social-transcriber</string>

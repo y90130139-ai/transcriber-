@@ -16,6 +16,7 @@
  * console counts it on the server.
  */
 export const DECLINE_CODES = [
+  'needs-another-person',
   'nowhere-to-film',
   'wrong-outfit',
   'not-comfortable',
@@ -28,6 +29,7 @@ export type DeclineCode = (typeof DECLINE_CODES)[number]
 /** In her words, not ours — this is a button on her phone, not a database
  *  value she should ever have to recognise. */
 export const DECLINE_LABEL: Record<DeclineCode, string> = {
+  'needs-another-person': 'Needs another person',
   'nowhere-to-film': 'Nowhere to film it',
   'wrong-outfit': 'Not the right outfit',
   'not-comfortable': 'Not comfortable with it',
@@ -47,13 +49,15 @@ export const isDeclineCode = (value: unknown): value is DeclineCode =>
  *                     sending it back later is how a model stops reading her
  *                     plan at all
  *   wrong outfit      permanent — what she owns and will wear is not a mood
+ *   needs another     permanent (2026-09-27) — she films solo; a couple or
+ *   person            group reel will not become filmable next month
  *   something else    permanent — she had to write what it was, so it is a
  *                     reason somebody can read rather than a shrug
  *   nowhere to film   21 days — her place may change, but not by much and
  *                     not quickly
  *   no time           21 days — a bad week is not a bad idea
  */
-export const PERMANENT_DECLINES: readonly DeclineCode[] = ['not-comfortable', 'wrong-outfit', 'other']
+export const PERMANENT_DECLINES: readonly DeclineCode[] = ['needs-another-person', 'not-comfortable', 'wrong-outfit', 'other']
 
 export function isPermanentDecline(code: unknown): boolean {
   return isDeclineCode(code) && PERMANENT_DECLINES.includes(code)

@@ -1625,3 +1625,8 @@ textarea.field { resize: vertical; }
 /* A field that sits in a row of buttons (the wording picker beside Send) —
    sized to its words, not the full width a form field takes. */
 .field.field-inline { width: auto; flex: 0 0 auto; }
+
+/* The card's job, as the model will see it (lib/card.ts cardKind). */
+.planrow-kind { font-family: var(--sc-font-mono); font-size: 0.65rem; letter-spacing: var(--sc-track-label); text-transform: uppercase; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; color: var(--sc-ember-deep); }
+.planrow-kind[data-kind='recreate'] { color: var(--sc-ink-700); }
+.planrow-kind[data-kind='repurpose'] { color: var(--sc-positive); }

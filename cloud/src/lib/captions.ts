@@ -340,8 +340,10 @@ export type WeekCaptionOptions = { rewrite?: boolean; model?: CaptionModel; dry?
  * Write captions for a whole week from the library's real captions.
  *
  * `rewrite` replaces every card's captions; otherwise only cards with none are
- * written. A week that has been sent is never touched — she already has those
- * words. `dry` reports and stores nothing, for comparing runs.
+ * written. On a week that has been sent, only the empty cards are filled —
+ * captions she already has are never rewritten under her (2026-09-27: the
+ * sent weeks carried stock placeholders, which were cleared so real ones
+ * could land). `dry` reports and stores nothing, for comparing runs.
  */
 export async function writeWeekCaptions(planId: string, options: WeekCaptionOptions = {}): Promise<WeekCaptionResult> {
   const rewrite = options.rewrite === true
@@ -349,7 +351,7 @@ export async function writeWeekCaptions(planId: string, options: WeekCaptionOpti
   const empty = { cards: 0, captions: 0, short: 0 }
   const week = await load(planId)
   if (!week) return { ok: false, reason: 'no such week', ...empty }
-  if (week.status !== 'draft') return { ok: false, reason: 'this week has been sent; its captions stay as they got them', ...empty }
+  if (week.status !== 'draft' && rewrite) return { ok: false, reason: 'this week has been sent; its captions stay as they got them', ...empty }
 
   const todo = week.cards.filter((c) => rewrite || !c.hasCaptions)
   if (!todo.length) return { ok: true, ...empty }

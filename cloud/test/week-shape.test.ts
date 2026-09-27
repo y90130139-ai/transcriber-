@@ -184,6 +184,6 @@ test('a repeated clip she turned down is the copy kept, never an unanswered twin
   assert.deepEqual(shapeWeek(items, ['susannadiazxo'], true).map((s) => s.duplicate), [true, false])
 })
 
-test('a couple reel she declined stays off her page', () => {
-  assert.deepEqual(shapeWeek([card({ needs_others: true, verdict: 'declined' })], [], true).map((s) => s.hidden), [true])
+test('a couple reel she declined is not hidden — it goes to her can\'t-do list', () => {
+  assert.deepEqual(shapeWeek([card({ needs_others: true, verdict: 'declined' })], [], true).map((s) => s.hidden), [false])
 })

@@ -2070,3 +2070,117 @@
   color: var(--sc-ink-900);
 }
 .plan-film-check li::marker { color: var(--sc-ember); }
+
+/* ------------------------------------------------------------ CAN'T DO
+   Cards she turned down, out of her feed (2026-09-27). Folded at the foot of
+   the page, one compact row each — number, what it was, why, and a way back. */
+.plan-cantdo { margin-top: var(--sc-space-6); }
+.plan-cantdo-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  padding: 0 var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-700);
+}
+.plan-cantdo-fold > summary::-webkit-details-marker { display: none; }
+.plan-cantdo-fold > summary::after { content: '+'; margin-left: auto; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-cantdo-fold[open] > summary::after { content: '–'; }
+.plan-cantdo-count {
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.plan-cantdo-note { margin: var(--sc-space-3) 0; font-size: var(--sc-text-sm); color: var(--sc-ink-700); }
+.plan-cantdo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sc-space-2); }
+.plan-cantdo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+}
+.plan-cantdo-what { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.plan-cantdo-what b { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-900); }
+.plan-cantdo-what > span { font-size: var(--sc-text-sm); overflow-wrap: anywhere; }
+.plan-cantdo-what .plan-quiet { font-size: var(--sc-text-xs); }
+.plan-cantdo-failed { font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }
+.plan-cantdo-back {
+  min-height: 44px;
+  padding: 0 var(--sc-space-3);
+  border: 1px solid var(--sc-positive);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.plan-cantdo-back:hover:not(:disabled) { background: color-mix(in srgb, var(--sc-positive) 12%, transparent); }
+.plan-cantdo-back:focus-visible,
+.plan-cantdo-notice button:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+.plan-cantdo-back:disabled { opacity: 0.6; cursor: default; }
+
+/* "V-12 moved — Undo": pinned above the bottom edge for a few seconds, for the
+   tap she did not mean. */
+.plan-cantdo-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sc-space-4) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(calc(100% - 32px), 420px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-3) var(--sc-space-4);
+  border-radius: var(--r-sm);
+  background: var(--sc-ink-900);
+  color: var(--sc-paper);
+  font-size: var(--sc-text-sm);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  animation: plan-notice-in var(--sc-dur) var(--sc-ease);
+}
+.plan-cantdo-notice button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 var(--sc-space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+@keyframes plan-notice-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-cantdo-notice { animation: none; }
+  .plan-cantdo-back { transition: none; }
+}

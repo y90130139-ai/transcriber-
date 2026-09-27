@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { DECLINE_CODES, DECLINE_LABEL, isPermanentDecline, needsReason, type DeclineCode } from '@/lib/decline'
+import { DECLINE_CODES, DECLINE_LABEL, needsReason, type DeclineCode } from '@/lib/decline'
 import { clock } from '@/lib/format'
 import type { PlanItem, PlanMessage, Verdict } from '@/lib/plans'
 import { KIND_TEXT, REPURPOSE_READY, cardKind, FILM_CHECKLIST, copyRuleFor, expressionFor } from '@/lib/card'
@@ -34,6 +34,7 @@ export default function PlanItemCard({
   onFilmed,
   preview = false,
   inGroup = false,
+  onDeclined,
 }: {
   token: string
   item: PlanItem
@@ -60,6 +61,9 @@ export default function PlanItemCard({
   preview?: boolean
   /** Her questions are also posted in her Telegram group (the Gosian bot). */
   inGroup?: boolean
+  /** The decline is complete — a reason picked, and the words when "Something
+   *  else" needs them. The page moves the card to "Videos you can't do". */
+  onDeclined?: (code: DeclineCode, reason: string) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -175,7 +179,13 @@ export default function PlanItemCard({
   async function save(chosen: Verdict, withCode: DeclineCode | null, why: string) {
     const previous = verdict
     setVerdict(chosen) // optimistic; a decline has to feel instant
-    if (preview) return
+    // Out of her feed only once the "no" is whole: tapping "Can't do this"
+    // opens the reasons, and the card must stay put while she picks one.
+    const complete = chosen === 'declined' && withCode !== null && (!needsReason(withCode) || Boolean(why.trim()))
+    if (preview) {
+      if (complete) onDeclined?.(withCode!, why.trim())
+      return
+    }
     const response = await fetch(`/api/plan/${token}/verdict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,6 +199,7 @@ export default function PlanItemCard({
       }),
     }).catch(() => null)
     if (!response?.ok) setVerdict(previous)
+    else if (complete) onDeclined?.(withCode!, why.trim())
   }
 
   /** Taking a card on, or turning it down. Tapping the same answer twice puts
@@ -599,11 +610,9 @@ export default function PlanItemCard({
           <span className="plan-why-said">
             {needsReason(code) && !reason.trim()
               ? 'Tell me what it was and this saves.'
-              : isPermanentDecline(code)
-                ? 'Got it — you will not be sent this one again.'
-                : code
-                  ? 'Fine. It goes away for now and may come back another week.'
-                  : ''}
+              : code
+                ? ''
+                : 'Pick what got in the way — then it moves to “Videos you can’t do” at the bottom.'}
           </span>
         </div>
       )}

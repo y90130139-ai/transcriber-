@@ -166,7 +166,9 @@ export function shapeWeek(items: ShapeInput[], ownHandles: string[], solo: boole
     // A planner card on her own reel (reskin, iteration, repurpose) is an
     // assignment on purpose. Only the ones added as plain library cards move.
     const mine = !item.bucket && Boolean(item.author && own.has(item.author.toLowerCase()))
-    return { mine, duplicate: false, hidden: solo && item.needs_others && !touched(item) }
+    // Only unanswered ones fold away. One she turned down stays hers to see,
+    // in "Videos you can't do", where she can add it back.
+    return { mine, duplicate: false, hidden: solo && item.needs_others && !answered(item) }
   })
   // Repeats of her own clips: keep the copy she has done something with, else
   // the first. Anything she has touched is never folded away.

@@ -41,6 +41,13 @@ called from `planItemsFor`):
   account, capped ±3 (one format match) — `suggestionsFor` returns it as
   `taste`. Console plan rows show 👍/👎. V-25 carried over as 👍.
   `suggestionsFor` also drops couple reels for solo models (fetches 2× first).
+- **"Videos you can't do"** (`components/plan/CantDo.tsx`): once she picks a
+  decline reason the card leaves her feed (and the filmed count) for a folded
+  section at the foot of the page — compact rows, her reason, "won't be sent
+  again" / "may come back", **Add back to plan** (verdict → open, clears the
+  `declines` row). A 6-second "V-12 moved · Undo" notice covers accidental
+  taps. Declined couple reels now show there instead of vanishing.
+- **"How your plan works" removed** from every page (the card steps replace it).
 - Tests: `node --import ./cloud/test/ts-resolve.mjs --test cloud/test/week-shape.test.ts`
   (same resolver file as the OnlyFans branch, identical content).
 

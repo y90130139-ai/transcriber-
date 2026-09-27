@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PlanItemCard from './PlanItemCard'
+import { CantDoNotice, CantDoSection, cardIdOf, type CantDoReason } from './CantDo'
 import RunSheet from './RunSheet'
 import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
@@ -9,6 +10,10 @@ import { BACKGROUND_RULE } from '@/lib/brief'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
+import type { DeclineCode } from '@/lib/decline'
+
+/** How long "moved — Undo" stays up after a card leaves her feed. */
+const NOTICE_MS = 6000
 
 /** One run of consecutive cards filmed in the same place. Runs, not buckets:
  *  the order on the plan is Geno's, and re-sorting it to collapse two visits to
@@ -68,6 +73,22 @@ export default function PlanView({
    *  preview: it reads live figures for a real model and there is nothing to
    *  check by opening it from Geno's screen. */
   const [runOpen, setRunOpen] = useState(false)
+  /** Cards she turned down, out of her feed and in "Videos you can't do",
+   *  with the reason as the page last knew it. */
+  const [cantDo, setCantDo] = useState<Map<string, CantDoReason>>(() => new Map(
+    items.filter((item) => item.verdict === 'declined')
+      .map((item) => [item.id, { code: item.decline_code, reason: item.decline_reason }]),
+  ))
+  /** Added back this visit. Their cards render as unanswered, and remount so
+   *  the card's own verdict state starts from that. */
+  const [reopened, setReopened] = useState<Set<string>>(() => new Set())
+  const [notice, setNotice] = useState<{ id: string; label: string } | null>(null)
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
   /** Her week's header rides along as she scrolls, condensed once it has left
    *  its own space, and tucked away entirely if she wants the screen back. */
   const [stuck, setStuck] = useState(false)
@@ -104,8 +125,14 @@ export default function PlanView({
   // Her own reels are not this week's ideas (Susanna, 2026-09-27: "they look
   // like assignments"). They sit in their own section at the end and are not
   // counted in what is left to film.
-  const ideas = useMemo(() => items.filter((item) => !item.mine), [items])
-  const yours = useMemo(() => items.filter((item) => item.mine), [items])
+  // A card she said no to leaves both lists for "Videos you can't do" — the
+  // feed is what she still has to film (Geno, 2026-09-27).
+  const shown = useMemo(() => items.filter((item) => !cantDo.has(item.id)).map((item) => reopened.has(item.id)
+    ? { ...item, verdict: 'open' as const, decline_code: null, decline_reason: null }
+    : item), [items, cantDo, reopened])
+  const ideas = useMemo(() => shown.filter((item) => !item.mine), [shown])
+  const yours = useMemo(() => shown.filter((item) => item.mine), [shown])
+  const turnedDown = useMemo(() => items.filter((item) => cantDo.has(item.id)), [items, cantDo])
   const done = ideas.filter((item) => filmed.has(item.id)).length
   const total = ideas.length
 
@@ -118,6 +145,54 @@ export default function PlanView({
   // on each list, so a grouped week staggers across its groups in reading
   // order instead of restarting the count at every location bar.
   const body = useReveal<HTMLDivElement>([items.length, grouped])
+
+  function moveToCantDo(item: PlanItem, code: DeclineCode, reason: string) {
+    setCantDo((current) => new Map(current).set(item.id, { code, reason: reason || null }))
+    setReopened((current) => {
+      const copy = new Set(current)
+      copy.delete(item.id)
+      return copy
+    })
+    setNotice({ id: item.id, label: cardIdOf(item, items.indexOf(item) + 1) })
+  }
+
+  /** Back into her feed, unanswered. The decline is cleared on the server too,
+   *  so the reel can be sent to her again. */
+  async function addBack(id: string): Promise<boolean> {
+    if (!preview) {
+      const response = await fetch(`/api/plan/${token}/verdict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: id, verdict: 'open', reason: null, code: null }),
+      }).catch(() => null)
+      if (!response?.ok) return false
+    }
+    setCantDo((current) => {
+      const copy = new Map(current)
+      copy.delete(id)
+      return copy
+    })
+    setReopened((current) => new Set(current).add(id))
+    setNotice((current) => (current?.id === id ? null : current))
+    return true
+  }
+
+  function card(item: PlanItem, number: number) {
+    return (
+      <PlanItemCard
+        key={reopened.has(item.id) ? `${item.id}:back` : item.id}
+        token={token}
+        item={item}
+        number={number}
+        filmed={filmed.has(item.id)}
+        folder={folder}
+        preview={preview}
+        inGroup={Boolean(model.in_group)}
+        onFilmed={(next) => mark(item.id, next)}
+        onDeclined={(code, reason) => moveToCantDo(item, code, reason)}
+      />
+    )
+  }
 
   function mark(id: string, next: boolean) {
     setFilmed((current) => {
@@ -297,37 +372,13 @@ export default function PlanView({
                 </h2>
               )}
               <ol className="plan-items">
-                {group.items.map((item) => (
-                  <PlanItemCard
-                    key={item.id}
-                    token={token}
-                    item={item}
-                    number={ideas.indexOf(item) + 1}
-                    filmed={filmed.has(item.id)}
-                    folder={folder}
-                    preview={preview}
-                inGroup={Boolean(model.in_group)}
-                    onFilmed={(next) => mark(item.id, next)}
-                  />
-                ))}
+                {group.items.map((item) => card(item, ideas.indexOf(item) + 1))}
               </ol>
             </section>
           ))
         ) : (
           <ol className="plan-items">
-            {ideas.map((item, index) => (
-              <PlanItemCard
-                key={item.id}
-                token={token}
-                item={item}
-                number={index + 1}
-                filmed={filmed.has(item.id)}
-                folder={folder}
-                preview={preview}
-                inGroup={Boolean(model.in_group)}
-                onFilmed={(next) => mark(item.id, next)}
-              />
-            ))}
+            {ideas.map((item, index) => card(item, index + 1))}
           </ol>
         )}
 
@@ -343,23 +394,13 @@ export default function PlanView({
             <details className="plan-yours-fold">
               <summary>Show them</summary>
               <ol className="plan-items">
-                {yours.map((item, index) => (
-                  <PlanItemCard
-                    key={item.id}
-                    token={token}
-                    item={item}
-                    number={ideas.length + index + 1}
-                    filmed={filmed.has(item.id)}
-                    folder={folder}
-                    preview={preview}
-                    inGroup={Boolean(model.in_group)}
-                    onFilmed={(next) => mark(item.id, next)}
-                  />
-                ))}
+                {yours.map((item, index) => card(item, ideas.length + index + 1))}
               </ol>
             </details>
           </section>
         )}
+
+        <CantDoSection items={turnedDown} reasons={cantDo} onAddBack={addBack} />
 
         {/* Where the week ends up. Last on the page on purpose — it is the
             last thing she does, and it is the one instruction that was
@@ -376,6 +417,8 @@ export default function PlanView({
           </section>
         )}
       </div>
+
+      {notice && <CantDoNotice label={notice.label} onUndo={() => void addBack(notice.id)} />}
     </main>
   )
 }

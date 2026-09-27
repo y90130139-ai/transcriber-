@@ -850,6 +850,26 @@ const statements = [
      last_error   text
    )`,
 
+  // Telegram, through the Gosian bot (2026-09-26). The bot shares its creator
+  // groups here; each model is linked to one by hand in her Week tab. Sending a
+  // week either queues it for the bot to post in her MARKETING topic, or
+  // records that Geno sent it himself — the bot polls for both and reports back.
+  `create table if not exists transcriber.telegram_groups (
+     chat_id         text primary key,
+     title           text not null,
+     creator_name    text,
+     skip_campaigns  boolean not null default false,
+     synced_at       timestamptz not null default now()
+   )`,
+  `alter table transcriber.models
+     add column if not exists telegram_chat_id text`,
+  `alter table transcriber.plans
+     add column if not exists telegram_state      text,
+     add column if not exists telegram_variant    text,
+     add column if not exists telegram_queued_at  timestamptz,
+     add column if not exists telegram_done_at    timestamptz,
+     add column if not exists telegram_error      text`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

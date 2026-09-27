@@ -13,6 +13,7 @@ import {
 } from './types'
 
 const COPY_RESET_MS = 1600
+const BOT_CHECK_MS = 15_000
 
 /** Phase 3. The brief as discrete fields, in the order her card renders them.
  *  `notes` stays the prose direction above these and is not in this list. */
@@ -80,6 +81,8 @@ export default function PlanEditor({
   const [revision, setRevision] = useState(0)
   /** Tied to the week it is about, so it does not follow you to another one. */
   const [carryNote, setCarryNote] = useState<{ planId: string; text: string } | null>(null)
+  /** Which of the bot's three wordings goes out with "Send on Telegram". */
+  const [variant, setVariant] = useState<'weekly' | 'weekend' | 'short'>('weekly')
 
   const thisWeek = currentWeekOf()
 
@@ -117,6 +120,15 @@ export default function PlanEditor({
   useEffect(() => { void loadSuggested() }, [loadSuggested])
   useEffect(() => { setRevision((n) => n + 1) }, [plan, items])
 
+  // While the bot has the week, look again every so often: it polls once a
+  // minute, and "waiting for the bot" should turn into posted without a reload.
+  const waitingOnBot = plan?.telegram_state === 'queued' || plan?.telegram_state === 'manual'
+  useEffect(() => {
+    if (!waitingOnBot) return
+    const timer = setInterval(() => { void loadPlan() }, BOT_CHECK_MS)
+    return () => clearInterval(timer)
+  }, [waitingOnBot, loadPlan])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -149,8 +161,17 @@ export default function PlanEditor({
     if (response.ok) {
       const body = await response.json()
       setPlan((current) => (current ? { ...current, ...body.plan } : current))
+      // Sent, but the bot was not asked (no group linked, marketing off).
+      if (body.warning) setCarryNote({ planId, text: body.warning })
       void loadWeeks()
     }
+  }
+
+  /** Send the week. `post`: the Gosian bot posts it in their MARKETING topic.
+   *  `manual`: Geno sent it himself; the bot only records it. */
+  async function send(telegram: 'post' | 'manual') {
+    setCarryNote(null)
+    await patchPlan({ status: 'sent', telegram, variant })
   }
 
   async function patchItem(id: string, patch: Record<string, unknown>) {
@@ -522,12 +543,33 @@ export default function PlanEditor({
               )}
 
               <div className="copybar" style={{ position: 'static' }}>
-                <button
-                  className="btn"
-                  onClick={() => patchPlan({ status: plan.status === 'sent' ? 'draft' : 'sent' })}
-                >
-                  {plan.status === 'sent' ? 'Unsend' : 'Mark sent'}
-                </button>
+                {plan.status === 'sent' ? (
+                  <button className="btn" onClick={() => patchPlan({ status: 'draft' })}>Unsend</button>
+                ) : (
+                  <>
+                    <select
+                      className="field field-inline"
+                      value={variant}
+                      aria-label="Telegram wording"
+                      onChange={(event) => setVariant(event.target.value as typeof variant)}
+                    >
+                      <option value="weekly">Weekly wording</option>
+                      <option value="weekend">Weekend wording</option>
+                      <option value="short">Short wording</option>
+                    </select>
+                    <button
+                      className="btn"
+                      disabled={!plan.telegram_title || Boolean(plan.telegram_skips)}
+                      title={!plan.telegram_title ? 'Link their Telegram group in the Week tab first' : undefined}
+                      onClick={() => void send('post')}
+                    >
+                      Send on Telegram
+                    </button>
+                    <button className="btn btn-quiet" onClick={() => void send('manual')}>
+                      Mark sent — I sent it myself
+                    </button>
+                  </>
+                )}
                 <button
                   className="btn btn-quiet"
                   disabled={!shareUrl}
@@ -542,9 +584,13 @@ export default function PlanEditor({
                 </button>
                 <button className="btn btn-quiet" onClick={deletePlan}>Delete week</button>
                 {plan.status !== 'sent' && (
-                  <span className="hint">A draft is invisible to them until it is marked sent.</span>
+                  <span className="hint">
+                    A draft is invisible to them until it is sent.
+                    {!plan.telegram_title && ' No Telegram group linked — link one in their Week tab to send it there.'}
+                  </span>
                 )}
               </div>
+              <TelegramStatus plan={plan} onRetry={() => void send('post')} />
 
               {items.length === 0 ? (
                 <div className="empty">
@@ -978,5 +1024,29 @@ export default function PlanEditor({
         </div>
       </aside>
     </>
+  )
+}
+
+/** What the bot did with this week, in one line. */
+function TelegramStatus({ plan, onRetry }: { plan: PlanHead; onRetry: () => void }) {
+  if (plan.status !== 'sent' || !plan.telegram_state) return null
+  const where = plan.telegram_title ?? 'their group'
+  const when = plan.telegram_done_at
+    ? new Date(plan.telegram_done_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+    : ''
+  const line = {
+    queued: `Waiting for the Gosian bot to post it in ${where} — it checks every minute.`,
+    manual: 'Waiting for the Gosian bot to note it as sent by you.',
+    posted: `Posted on Telegram in ${where} · ${when}.`,
+    recorded: `Recorded on the bot as sent by you · ${when}.`,
+    failed: `The bot could not post it: ${plan.telegram_error ?? 'no reason given'}`,
+  }[plan.telegram_state]
+  return (
+    <p className="hint" role="status" data-telegram={plan.telegram_state}>
+      {line}
+      {plan.telegram_state === 'failed' && plan.telegram_title && (
+        <> <button className="chip" onClick={onRetry}>Try again</button></>
+      )}
+    </p>
   )
 }

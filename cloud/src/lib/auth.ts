@@ -69,3 +69,13 @@ export function isWorker(request: Request): boolean {
   const presented = header.replace(/^Bearer\s+/i, '')
   return presented.length > 0 && matches(presented, expected)
 }
+
+/** The Gosian Telegram bot: its own bearer secret, so revoking one side never
+ *  locks out the other. Unset means the bot routes answer to no one. */
+export function isBot(request: Request): boolean {
+  const expected = process.env.GOSIAN_BOT_SECRET
+  if (!expected) return false
+  const header = request.headers.get('authorization') ?? ''
+  const presented = header.replace(/^Bearer\s+/i, '')
+  return presented.length > 0 && matches(presented, expected)
+}

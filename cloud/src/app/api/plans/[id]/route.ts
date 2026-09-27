@@ -23,9 +23,12 @@ export async function GET(_request: Request, { params }: Params) {
             to_char(p.due_date, 'YYYY-MM-DD') as due_date,
             p.title, p.intro, p.status, p.sent_at,
             m.name as model_name, m.access_token, m.token_revoked_at,
-            m.weekly_target, m.timezone, m.filming_days, m.standing_rules
+            m.weekly_target, m.timezone, m.filming_days, m.standing_rules,
+            p.telegram_state, p.telegram_variant, p.telegram_done_at, p.telegram_error,
+            m.telegram_chat_id, g.title as telegram_title, g.skip_campaigns as telegram_skips
        from transcriber.plans p
        join transcriber.models m on m.id = p.model_id
+       left join transcriber.telegram_groups g on g.chat_id = m.telegram_chat_id
       where p.id = $1`,
     [id],
   )
@@ -110,7 +113,71 @@ export async function PUT(request: Request, { params }: Params) {
     ],
   )
   if (!plan) return notFound()
-  return NextResponse.json({ plan })
+
+  const telegram = await telegramFor(id, status, body)
+  if ('error' in telegram) {
+    // The week is sent either way — the link works — but the bot was not
+    // asked. Said, so Geno can link her group or send it himself.
+    return NextResponse.json({ plan: { ...plan, ...telegram.state }, warning: telegram.error })
+  }
+  return NextResponse.json({ plan: { ...plan, ...telegram.state } })
+}
+
+const VARIANTS = new Set(['weekly', 'weekend', 'short'])
+type TelegramState = Record<string, unknown>
+
+/**
+ * What sending means on Telegram (2026-09-26, Geno's call):
+ *   telegram: 'post'    queue it — the Gosian bot posts it in her MARKETING topic
+ *   telegram: 'manual'  he sent it himself — the bot only records it as sent
+ * Unsending cancels anything the bot has not done yet; a post already made
+ * stays on the record, because it is still in her group.
+ */
+async function telegramFor(
+  planId: string,
+  status: string | null,
+  body: Record<string, unknown>,
+): Promise<{ state: TelegramState } | { state: TelegramState; error: string }> {
+  if (status === 'draft') {
+    const [row] = await sql.query(
+      `update transcriber.plans
+          set telegram_state = case when telegram_state in ('queued', 'manual', 'failed')
+                                    then null else telegram_state end
+        where id = $1
+        returning telegram_state, telegram_variant, telegram_done_at, telegram_error`,
+      [planId],
+    )
+    return { state: row ?? {} }
+  }
+  if (status !== 'sent' || (body.telegram !== 'post' && body.telegram !== 'manual')) return { state: {} }
+
+  const variant = typeof body.variant === 'string' && VARIANTS.has(body.variant) ? body.variant : 'weekly'
+  const [linked] = await sql.query(
+    `select m.telegram_chat_id, g.chat_id as group_id, g.skip_campaigns
+       from transcriber.plans p
+       join transcriber.models m on m.id = p.model_id
+       left join transcriber.telegram_groups g on g.chat_id = m.telegram_chat_id
+      where p.id = $1`,
+    [planId],
+  )
+  const why = !linked?.telegram_chat_id
+    ? body.telegram === 'post'
+      ? 'Sent, but they have no Telegram group linked — link one in their Week tab, or send it yourself.'
+      : 'Marked sent. They have no Telegram group linked, so the bot\'s daily report will not count it.'
+    : !linked.group_id
+      ? 'Sent, but their Telegram group is no longer on the bot. Link another, or send it yourself.'
+      : body.telegram === 'post' && linked.skip_campaigns
+        ? 'Sent, but their group is switched off for marketing on the bot, so nothing was posted.'
+        : null
+  const [row] = await sql.query(
+    `update transcriber.plans
+        set telegram_state = $2, telegram_variant = $3, telegram_queued_at = now(),
+            telegram_done_at = null, telegram_error = null
+      where id = $1 and $4
+      returning telegram_state, telegram_variant, telegram_done_at, telegram_error`,
+    [planId, body.telegram === 'post' ? 'queued' : 'manual', variant, why === null],
+  )
+  return why ? { state: {}, error: why } : { state: row ?? {} }
 }
 
 /** Drop a whole week. Its R2 objects go on the Mac's deletion list first. */

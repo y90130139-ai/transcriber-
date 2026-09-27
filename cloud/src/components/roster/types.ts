@@ -24,6 +24,8 @@ export type Model = {
    *  alternative. Null on any row saved before delivery existed. */
   drive_url: string | null
   delivery_note: string | null
+  /** The Gosian bot group her plans are posted in. Linked in the Week tab. */
+  telegram_chat_id?: string | null
   /** Whether Instagram will ever hand us her numbers: only a professional
    *  (Business or Creator) account can authorise Insights. `unknown` on every
    *  row saved before intake asked the question. */
@@ -83,6 +85,15 @@ export type PlanHead = {
   timezone: string
   filming_days: number[]
   standing_rules: string | null
+  /** Telegram, through the Gosian bot. `queued`/`manual` wait for the bot;
+   *  `posted`/`recorded`/`failed` are its answer. */
+  telegram_state: 'queued' | 'manual' | 'posted' | 'recorded' | 'failed' | null
+  telegram_variant: string | null
+  telegram_done_at: string | null
+  telegram_error: string | null
+  telegram_chat_id: string | null
+  telegram_title: string | null
+  telegram_skips: boolean | null
 }
 
 /** Another model already carrying the same reel. A warning, never a block —

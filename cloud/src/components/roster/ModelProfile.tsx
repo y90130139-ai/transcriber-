@@ -18,6 +18,7 @@ import { BLANK, fromModel, type ProfileForm } from './profile/form'
 import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
+import TelegramLink from './profile/TelegramLink'
 
 type Tab = 'profile' | 'brand' | 'blueprint' | 'review' | 'editor' | 'tags' | 'week' | 'standing' | 'access'
 
@@ -348,7 +349,12 @@ export default function ModelProfile({
           {tab === 'review' && modelId && <ReviewTab modelId={modelId} />}
           {tab === 'editor' && modelId && <EditorTab modelId={modelId} />}
           {tab === 'tags' && <TagsTab form={form} set={set} setForm={setForm} />}
-          {tab === 'week' && <WeekTab form={form} set={set} setForm={setForm} />}
+          {tab === 'week' && (
+            <>
+              {modelId && <TelegramLink modelId={modelId} initial={model?.telegram_chat_id ?? null} />}
+              <WeekTab form={form} set={set} setForm={setForm} />
+            </>
+          )}
           {tab === 'standing' && modelId && <StandingTab modelId={modelId} onChanged={onStanding} />}
           {tab === 'access' && (
             <AccessTab

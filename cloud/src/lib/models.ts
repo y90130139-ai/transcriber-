@@ -32,7 +32,7 @@ export { CREATOR_TYPES, isCreatorType, type CreatorType } from './creator-type'
 export const MODEL_COLUMNS = `
   id, name, handle, photo_url, persona, formats, hooks, wont_do,
   status, tier, filming_days, weekly_target, timezone, place, standing_rules, notes,
-  drive_url, delivery_note, ig_account_type, creator_type, socials,
+  drive_url, delivery_note, ig_account_type, creator_type, socials, telegram_chat_id,
   access_token, token_revoked_at, created_at
 `
 

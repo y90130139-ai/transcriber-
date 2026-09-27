@@ -1619,3 +1619,7 @@ textarea.field { resize: vertical; }
 .brand-list b { color: var(--sc-ember-deep); font-family: var(--sc-font-mono); margin-right: var(--sc-space-2); }
 .brand-list .axis-confirm { margin-left: var(--sc-space-2); }
 .blueprint-pillar { margin-bottom: var(--sc-space-3); }
+
+/* A field that sits in a row of buttons (the wording picker beside Send) —
+   sized to its words, not the full width a form field takes. */
+.field.field-inline { width: auto; flex: 0 0 auto; }

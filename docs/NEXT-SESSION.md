@@ -1,5 +1,43 @@
 # Handoff — 2026-09-27 (on top of 26th and 25th: captions from the library, Geno's account out of the machine)
 
+## 2026-09-27, late — read this first
+
+**Where the code is.** GitHub `main` = production (last: scorecard wording fix
+after `ffbbfae`). Built in a clean worktree, `~/projects/st-ui` (branch
+`ui-simplify`, pushed as main), because **another session's "OnlyFans numbers"
+feature** (`2370ae3`, needs `ANTHROPIC_API_KEY`, sends data to a model — Geno has
+not approved it) sits **unpushed** on local `main` in `~/projects/social-transcriber`.
+That checkout is behind GitHub: run `git pull --rebase` there first. Never ship the
+numbers feature without Geno's say-so; deploy from a clean worktree while it is
+in the tree. Bot (`~/gosian-bot`) is at `508a92f`, 457 tests.
+
+Shipped late on the 27th (all live):
+- **"N need attention" is clickable** on the dashboard → panel of who and why
+  (`attentionReasons` in `lib/performance/math.ts`); tap opens their Analytics.
+- **Repurpose from Analytics**: top reels at 2×+ her usual get a green
+  ♻ Repurpose tag/button → card on her week (`bucket='repurpose'`,
+  `plan_items.repurposed_at` null = "Needs repurposing"), file opens for the
+  batcher. Editor ticks "Repurposed ✓"; her card then says it's in her group
+  chat to post. `lib/repurpose.ts`, week rule shared in `lib/week-target.ts`.
+- **Profile is videos, not text**: tabs now Profile · Analytics · Reels · Brand ·
+  Blueprint · Week · Link. **Reels** = old Review + Editor as swipeable video
+  carousels by grade (Winners get ♻ Repurpose), editor queue as video cards,
+  Sunday call / quality / ladders folded away, **Plans sent + next due** on top.
+  Tags live in Profile. Brand shows verticals as picture cards and creators as
+  face badges (cover of their best library reel — no profile photos stored).
+  `lib/reel-media.ts`, `/api/reels/media`, `/api/creators/faces`, `VideoStrip`.
+- **Heat tab gone**: priority S/A/B/C + revenue High/Mid/Low are chips in the
+  profile header; engagement score card on Analytics; sent weeks on Reels
+  (`StandingTab.tsx` exports `StandingControls`, `StandingCard`, `SentWeeks`).
+- **Weekly scorecard picture** to each model, **Monday 11:00 ET** (through Tue):
+  `/api/plan/<token>/scorecard` draws a 1080×1350 PNG (next/og); bot sends it as
+  a photo by URL. Honest trend + one next step (`nextStep` in
+  `lib/performance/scorecard.ts`). Skips accounts under 50 followers (Ivy 0,
+  Chelsea 5, Ria 23 — handles likely wrong). 19 due on 2026-09-28.
+- **First live runs to watch Monday 2026-09-28**: 03:30 captions (3 weeks),
+  10:00 daily archive (first ~75 reels), 11:00 scorecards (19), 12:00 shout-out
+  roundups (9). Check OPS and `~/Library/Logs/social-transcriber-captions.log`.
+
 ## 2026-09-27, in short
 
 Everything below is committed, deployed and pushed — transcriber `main` through

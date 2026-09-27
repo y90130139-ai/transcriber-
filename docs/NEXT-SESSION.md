@@ -1,4 +1,64 @@
-# Handoff — 2026-09-26 (on top of 2026-09-25: captions from the library, and Geno's account out of the machine)
+# Handoff — 2026-09-27 (on top of 26th and 25th: captions from the library, Geno's account out of the machine)
+
+## 2026-09-27, in short
+
+Everything below is committed, deployed and pushed — transcriber `main` through
+`a177e32`, bot (`~/gosian-bot`) through `603291b`.
+
+**Telegram, both directions, through the Gosian bot** (the bot polls; it has no
+web server). Bot routes use their own bearer secret: Vercel `GOSIAN_BOT_SECRET`
+= Railway `TRANSCRIBER_BOT_SECRET`, plus Railway `TRANSCRIBER_URL`.
+- *Send on Telegram* (`67f6679` / bot `e72e790`). Each model is linked to one of
+  the bot's groups in her **Week tab** (bot `PUT /api/bot/groups` hourly; 26 of 27
+  linked, not Jordan Jay). Plan editor Send = wording (weekly/weekend/short) +
+  **Send on Telegram** (queued; bot posts like `/plan`) or **Mark sent — I sent it
+  myself** (bot only records it for its day report). `plans.telegram_*` columns;
+  `GET/POST /api/bot/outbox`. Never posts a week twice (`last_plan_id`).
+- *Questions* (`411ba2b` / bot `ec21b92`). "Ask about this one" → her MARKETING
+  topic **and** OPS (Geno: both), within a minute. `plan_messages.relayed_at /
+  relay_error`; `GET/POST /api/bot/questions`; only the last 72 h, so linking later
+  never floods. Before this **no model had ever used the box** — all DMs.
+  Replies typed in Telegram do not come back onto the card.
+- *Shout-outs* (`a177e32` / bot `c603520`), **automatic** (Geno's call).
+  `lib/performance/shoutouts.ts`: her usual = median plays of her reels 8–60 days
+  old (5+). Weekly roundup Mon 12:00 ET → Tue, last week's reels at ≥2× (best 3);
+  instant note for a reel ≤72 h old at ≥5×, 10:00–20:00 ET, once per reel, one a
+  day. Linked models only; nothing when nothing beat her usual; `shoutouts` table
+  records each (failures too) so nothing repeats. First run: Kaytie + Mona instant
+  on the 27th, 9 roundups Mon the 28th. Copy in the bot calendar `shoutouts`.
+- **Orange hearts 🧡, never yellow 💛** in any bot copy (Geno).
+
+**Dashboard** (`2e07c63`): the console's first and default tab; Queue moved last.
+Totals, audience growth, leading accounts, Movement (up / steady / down), top
+reels (plays inline while Instagram's link lives), views by day posted, sortable
+accounts table. Each model's profile has an **Analytics** tab. Auto tag Top
+performer / Average / Needs attention (`lib/performance/math.ts` `RULES`, pin
+override `models.performance_tag`). Trends compare *settled* reels (7+ days) —
+never calendar months. Follower history only from 2026-09-20. Story *views*
+unavailable (only story days).
+
+**90-day library** (`f4fc6ab`, `lib/expiry.ts`): age from the Instagram post
+date (added date if unknown). Last 5 days tagged **⏳ Expiring · Nd**; at 90 the
+daily cron (10:00 ET) **archives** (`jobs.archived_at`, never deletes).
+Exempt: models' own reels, and anything on an open card (not filmed, not
+declined, week not over). Library has **Expiring** and **Archived** shelves;
+**Restore** in the item view. Archiving does **not** free the Mac's disk.
+
+**Creator feedback fixes** (`d0eed5e`, from Scarlett / Madylina / Susanna):
+- Every card opens with a big label: **New video / Recreate / Repurpose**
+  (`cardKind` in `lib/card.ts`). Repurpose (console button) now also puts the
+  card on her week (`bucket = 'repurpose'`): no filming directions, Save video first.
+- Stock per-format captions removed ("read it twice" was on 33 of 50 of
+  Susanna's cards); 696 cleared from 44 weeks. The caption engine may now **fill
+  empty** captions on sent weeks (never rewrite); nightly run moved to **03:30**,
+  **3 weeks a night** (`MAX_WEEKS`), logs Cloudflare's own error. 14 weeks queued.
+- 3-step strip pinned on every plan; says **she films and edits herself** (Geno:
+  we do not say we edit, not yet). Big filled green/red Yes/No. New decline
+  reason **Needs another person** (permanent). Editor warns on repeated captions.
+- Worst jargon lines reworded — only for *new* cards; stored directions keep old text.
+
+**Tabs and filters wrap** instead of running off-screen (`add48e3`).
+
 
 ## 2026-09-26, in short
 
@@ -143,7 +203,9 @@ live in `lib/creator-type.ts` with no imports.
 
 ## Next, in order
 
-0. **Workers AI allowance — investigated 2026-09-26, ON HOLD (Geno).** Nothing
+0. **Workers AI allowance — decided 2026-09-27: stay free, spread out** (done:
+   03:30, 3 weeks a night, real error logged). Watch the first nights' log.
+   Earlier findings, for the record — **investigated 2026-09-26.** Nothing
    else spends it. Cloudflare's GraphQL (`aiInferenceAdaptiveGroups`, by
    `modelId` and hour) shows only this project's caption runs: 09-23 17,731
    neurons, 09-24 none, 09-25 13,498 (all 04:00–07:00 UTC), 09-26 **zero** — yet
@@ -180,6 +242,20 @@ live in `lib/creator-type.ts` with no imports.
 7. **Console theme**: in Playwright the console rendered dark with
    `color_scheme='light'`. Unconfirmed whether that is by design.
 8. Walk 2–3 models' weeks with Geno before anything is sent.
+
+## Open after 2026-09-27
+
+- **Susanna's won't-do is empty** — she films solo or with her husband. Asked
+  Geno whether to add couple/group formats; no answer yet. The app cannot tell
+  people-on-camera (only voices); a people tag needs AI tagging.
+- **Plain-language rewrite (spec item A)**: What to do / You'll need / Time, the
+  rest behind "More details"; rewrite stored directions too.
+- **Effort badge + easiest-first sort** (spec F), **upload in the app** (G, deferred).
+- **Archive frees no disk** — the Mac's files stay; separate work if wanted.
+- Restored library items re-archive at the next daily pass unless put on a week
+  (offered Geno a "stay restored" option; no answer).
+- Nobody has sent a real question or received a real Telegram plan yet — watch
+  the first ones.
 
 ## Ideas parked (not scheduled — ask Geno before building)
 
@@ -245,6 +321,14 @@ live in `lib/creator-type.ts` with no imports.
 - **The database schema is `transcriber`** (`transcriber.models`,
   `transcriber.plans`, …). `scripts/_q.mjs "select … from models"` fails with
   "relation does not exist".
+- **Bot integration is poll-only.** Each bot tick reads `/api/bot/outbox`,
+  `/api/bot/questions`, `/api/bot/shoutouts` and answers each item; every answer
+  is recorded so nothing repeats. Never run the bot locally (`npm start` double-
+  sends). Bot copy lives in its calendar, not code; orange hearts only.
+- **Card kind is derived, not stored**: `cardKind(bucket, source_post)` — her own
+  reel = Recreate unless `bucket = 'repurpose'`; everything else = New video.
+- **Shout-out / ET day boundaries** use real New York midnight (`easternMidnight`),
+  not a fixed UTC offset.
 - **Moving cards:** one card → `items/move`; a whole past week → `carry`. Both
   re-point `plan_items` rows; never copy. Only `carry` and a move off a *sent*
   week set `carried_from` (it feeds standing's backlog).

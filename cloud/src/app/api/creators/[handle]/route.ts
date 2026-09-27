@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: Params) {
        from transcriber.transcripts t
        join transcriber.jobs j on j.id = t.job_id
        ${SCORING_JOIN}
-      where t.author = $1
+      where t.author = $1 and j.archived_at is null
       order by outperformance desc nulls last, t.upload_date desc`,
     [who],
   )

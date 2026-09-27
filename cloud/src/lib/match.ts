@@ -247,7 +247,7 @@ export async function suggestionsFor(
               ${why} as matched,
               ${alsoOn('j.id', 'm.id')} as also_on
          from transcriber.models m
-         join transcriber.jobs j on j.status = 'done'
+         join transcriber.jobs j on j.status = 'done' and j.archived_at is null
          join item_tags g on g.job_id = j.id
          join transcriber.transcripts t on t.job_id = j.id
          left join scored   s on s.job_id = t.job_id

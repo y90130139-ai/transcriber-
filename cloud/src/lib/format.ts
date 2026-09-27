@@ -4,6 +4,12 @@ export type TagRow = { axis: Axis; tag: string; origin: 'auto' | 'human'; score:
 
 export type LibraryItem = {
   id: string
+  /** Set once it left the library at 90 days (lib/expiry.ts). */
+  archived_at?: string | null
+  /** Days before it leaves; null for a model's own reel, which never does. */
+  expires_in?: number | null
+  /** Kept past 90 days because a card that uses it is still open. */
+  on_open_card?: boolean
   kind: 'link' | 'file'
   source: string
   label: string

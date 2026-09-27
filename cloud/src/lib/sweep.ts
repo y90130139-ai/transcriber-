@@ -296,13 +296,13 @@ export async function loadSweep(): Promise<Sweep> {
 
   const [health] = await sql.query(
     `select
-       (select count(*) from transcriber.jobs where status = 'done')::int as held,
+       (select count(*) from transcriber.jobs where status = 'done' and archived_at is null)::int as held,
        (select count(*) from transcriber.jobs j
-         where j.status = 'done'
+         where j.status = 'done' and j.archived_at is null
            and not exists (select 1 from transcriber.plan_items i where i.job_id = j.id)
        )::int as unused,
        (select count(*) from transcriber.jobs j
-         where j.status = 'done'
+         where j.status = 'done' and j.archived_at is null
            and not exists (select 1 from transcriber.tags t
                             where t.job_id = j.id and t.axis = 'format')
        )::int as untagged,

@@ -3,6 +3,7 @@ import { draftRoster } from '@/lib/draft'
 import { isScheduler, PLANNING_TZ, weekdayIn } from '@/lib/cron'
 import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
+import { archiveExpired } from '@/lib/expiry'
 
 export const maxDuration = 60
 
@@ -14,6 +15,7 @@ export const maxDuration = 60
  *
  *   Saturday → start the watchlist sweep (open accounts, via Apify)
  *   Sunday   → draft every active model's week
+ *   Every day → archive library reels past 90 days (lib/expiry.ts)
  *
  * Both were launchd jobs on the Mac. They are the parts that must not miss a
  * week if the Mac is asleep or gone, and neither needs anything local: the
@@ -35,6 +37,14 @@ export async function GET(request: Request) {
 
   if (force === 'autodraft' || (!force && day === 0)) {
     did.autodraft = await draftNextWeek()
+  }
+
+  // Every day: reels past 90 days leave the library, unless a model's own or
+  // on a card still open. A failure here must not cost the fallback check.
+  try {
+    did.expired = await archiveExpired()
+  } catch (error) {
+    did.expired = { error: error instanceof Error ? error.message : String(error) }
   }
 
   // Every day, not just the scheduled ones: this is the check that notices the

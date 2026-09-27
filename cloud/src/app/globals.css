@@ -377,6 +377,9 @@ body {
 .card-tag[data-tone='hot'] { background: var(--sc-ember); }
 .card-tag[data-tone='warm'] { background: var(--sc-ink-900); }
 .card-tag[data-tone='cool'] { background: var(--sc-ink-900); opacity: 0.72; }
+/* The 90-day clock (lib/expiry.ts). Caution, not ember: ember means hot. */
+.card-tag[data-tone='expiring'] { background: var(--sc-caution); color: #fff; }
+.card-tag[data-tone='expired'] { background: var(--sc-ink-300); color: var(--sc-bone); }
 
 .card-handle {
   font-family: var(--sc-font-display);

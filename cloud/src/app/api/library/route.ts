@@ -6,6 +6,7 @@ import { IN_HOT_WINDOW, IN_MONTH, IN_WEEK, IS_HOT, SCORING_COLUMNS, SCORING_CTE,
 import { badgesFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from '@/lib/appeal'
 import { tagsForMany } from '@/lib/tagging'
 import { AXES } from '@/lib/taxonomy'
+import { WARN_DAYS, daysLeft, isHers, onOpenCard } from '@/lib/expiry'
 
 /** One page. Deliberately still 90 — the fix for the ceiling is paging, not a
  *  bigger number, because a bigger number puts the same wall further out. */
@@ -26,7 +27,11 @@ const COLUMNS = `
   t.upload_date, t.transcribed_at, t.folder, t.like_count, t.comment_count,
   t.confirmed_at, (t.thumbnail is not null) as has_thumb,
   t.has_speech, t.speech_ratio, t.speech_override,
-  ${preview('t.plain', 220, 't.on_screen_text')} as preview
+  ${preview('t.plain', 220, 't.on_screen_text')} as preview,
+  j.archived_at,
+  -- Days before it leaves the library (lib/expiry.ts); null for a model's own.
+  case when ${isHers('j', 't')} then null else ${daysLeft('j', 't')} end as expires_in,
+  ${onOpenCard('j')} as on_open_card
 `
 
 const ORDERS: Record<string, string> = {
@@ -57,7 +62,14 @@ export async function GET(request: Request) {
   const limit = whole(url.searchParams.get('limit'), PAGE_SIZE, 1, MAX_LIMIT)
 
   const params: unknown[] = []
+  // Which shelf: the live library, the ones about to leave, or the archive.
+  const shelf = url.searchParams.get('shelf')
   const where: string[] = [`j.status = 'done'`]
+  if (shelf === 'archived') where.push('j.archived_at is not null')
+  else where.push('j.archived_at is null')
+  if (shelf === 'expiring') {
+    where.push(`not ${isHers('j', 't')} and ${daysLeft('j', 't')} <= ${WARN_DAYS}`)
+  }
 
   if (query) {
     params.push(`%${query}%`)
@@ -131,7 +143,8 @@ export async function GET(request: Request) {
     // back as strings, so the nav badge was doing "2" + "0" and rendering 20.
     `select count(*) filter (where status = 'queued')::int  as queued,
             count(*) filter (where status = 'running')::int as running,
-            count(*) filter (where status = 'done')::int    as done,
+            count(*) filter (where status = 'done' and archived_at is null)::int as done,
+            count(*) filter (where archived_at is not null)::int as archived,
             count(*) filter (where status = 'failed')::int  as failed
        from transcriber.jobs`,
   )

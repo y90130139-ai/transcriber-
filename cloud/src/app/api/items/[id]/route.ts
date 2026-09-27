@@ -67,6 +67,15 @@ export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params
 
   const body = await request.json().catch(() => ({}))
+  // Back from the archive (lib/expiry.ts). A reel still past 90 days goes
+  // again at the next daily pass unless it is put on someone's week first.
+  if (body.archived === false) {
+    await sql.query(
+      `update transcriber.jobs set archived_at = null, archived_reason = null where id = $1`,
+      [id],
+    )
+    return NextResponse.json({ ok: true })
+  }
   if (typeof body.speech !== 'boolean') {
     return NextResponse.json({ error: 'speech must be a boolean' }, { status: 400 })
   }

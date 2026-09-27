@@ -12,10 +12,12 @@ export type Filters = {
   window: '' | 'week' | '30' | '90'
   hot: boolean
   sort: 'recent' | 'hot' | 'likes' | 'added'
+  /** The live library, what is about to leave it, or what already has. */
+  shelf: '' | 'expiring' | 'archived'
 }
 
 export const EMPTY_FILTERS: Filters = {
-  persona: [], format: [], hook: [], topic: [], creator: '', window: '', hot: false, sort: 'recent',
+  persona: [], format: [], hook: [], topic: [], creator: '', window: '', hot: false, sort: 'recent', shelf: '',
 }
 
 export function toQuery(filters: Filters, query: string): string {
@@ -26,6 +28,7 @@ export function toQuery(filters: Filters, query: string): string {
   if (filters.window) params.set('window', filters.window)
   if (filters.hot) params.set('hot', '1')
   if (filters.sort !== 'recent') params.set('sort', filters.sort)
+  if (filters.shelf) params.set('shelf', filters.shelf)
   return params.toString()
 }
 
@@ -55,7 +58,7 @@ export default function FilterBar({
   const [openAxis, setOpenAxis] = useState<string | null>(null)
   const active =
     filters.persona.length + filters.format.length + filters.hook.length +
-    (filters.creator ? 1 : 0) + (filters.window ? 1 : 0) + (filters.hot ? 1 : 0)
+    (filters.creator ? 1 : 0) + (filters.window ? 1 : 0) + (filters.hot ? 1 : 0) + (filters.shelf ? 1 : 0)
 
   const toggleTag = (axis: (typeof AXES)[number], id: string) => {
     const current = filters[axis]
@@ -74,6 +77,22 @@ export default function FilterBar({
           onClick={() => onChange({ ...filters, hot: !filters.hot })}
         >
           🔥 Hot
+        </button>
+        <button
+          className="pill"
+          data-on={filters.shelf === 'expiring'}
+          title="Reels within 5 days of 90 days old — get them onto someone's week"
+          onClick={() => onChange({ ...filters, shelf: filters.shelf === 'expiring' ? '' : 'expiring' })}
+        >
+          ⏳ Expiring
+        </button>
+        <button
+          className="pill"
+          data-on={filters.shelf === 'archived'}
+          title="Reels past 90 days that left the library. Restorable."
+          onClick={() => onChange({ ...filters, shelf: filters.shelf === 'archived' ? '' : 'archived' })}
+        >
+          Archived
         </button>
 
         {AXES.map((axis) => (

@@ -876,6 +876,13 @@ const statements = [
      add column if not exists performance_tag text
        check (performance_tag in ('top', 'average', 'attention'))`,
 
+  // The 90-day library (2026-09-27, lib/expiry.ts). Archived, never deleted:
+  // hidden everywhere the library is offered, restorable from its shelf.
+  `alter table transcriber.jobs
+     add column if not exists archived_at     timestamptz,
+     add column if not exists archived_reason text`,
+  `create index if not exists jobs_live_idx on transcriber.jobs (status) where archived_at is null`,
+
   `drop index if exists transcriber.plan_items_unique_idx`,
   `create unique index if not exists plan_items_unique_idx
      on transcriber.plan_items (plan_id, job_id) where source_post is null`,

@@ -79,7 +79,7 @@ export async function blueprintFor(modelId: string): Promise<Blueprint | null> {
               left(coalesce(nullif(t.on_screen_text, ''), t.plain, ''), 120) as preview
          from transcriber.tags g
          join transcriber.transcripts t on t.job_id = g.job_id
-         join transcriber.jobs j on j.id = t.job_id and j.status = 'done'
+         join transcriber.jobs j on j.id = t.job_id and j.status = 'done' and j.archived_at is null
         where g.axis = 'format' and g.tag = $1
           and not (coalesce($3::text[], '{}') && array[g.tag])
           and not exists (

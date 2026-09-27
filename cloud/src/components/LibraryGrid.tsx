@@ -57,6 +57,7 @@ export default function LibraryGrid({
                   absolutely-positioned tags, so they can never land on top of
                   each other however long the label runs. */}
               <span className="card-stats">
+                <ExpiryTag item={item} />
                 {item.sig_plays !== null && item.sig_plays !== undefined && (
                   <span className="card-tag" title={`${Number(item.sig_plays).toLocaleString()} views`}>
                     <svg className="card-eye" viewBox="0 0 24 16" aria-hidden="true">
@@ -111,5 +112,23 @@ export default function LibraryGrid({
         </article>
       ))}
     </div>
+  )
+}
+
+/** The 90-day clock on a card (lib/expiry.ts): Expiring in its last five
+ *  days, kept past it only while a plan card still uses it. */
+function ExpiryTag({ item }: { item: LibraryItem }) {
+  if (item.archived_at) return <span className="card-tag" data-tone="expired">Archived</span>
+  const left = item.expires_in
+  if (left === null || left === undefined || left > 5) return null
+  if (left <= 0) {
+    return item.on_open_card
+      ? <span className="card-tag" data-tone="expired" title="Past 90 days — kept while it is on an open plan card">On a plan · past 90d</span>
+      : <span className="card-tag" data-tone="expiring" title="Past 90 days — leaves the library at the next daily pass (10am ET)">Leaving today</span>
+  }
+  return (
+    <span className="card-tag" data-tone="expiring" title={`Leaves the library in ${left} day${left === 1 ? '' : 's'} — put it on someone's week`}>
+      ⏳ Expiring · {left}d
+    </span>
   )
 }

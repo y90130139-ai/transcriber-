@@ -226,6 +226,23 @@ export default function ItemView({
                 Retry
               </button>
             )}
+            {item.archived_at && (
+              <button
+                className="btn"
+                title="Back into the library. Past 90 days, it leaves again at the next daily pass unless it goes on someone's week."
+                onClick={async () => {
+                  await fetch(`/api/items/${item.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ archived: false }),
+                  })
+                  onChanged()
+                  onClose()
+                }}
+              >
+                Restore
+              </button>
+            )}
             <button
               className="btn btn-quiet"
               onClick={async () => {

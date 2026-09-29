@@ -9,7 +9,8 @@ import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
 import { formatDate } from '@/lib/dates'
-import { displayHandle, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import PlatformIcon, { hasPlatformIcon } from './PlatformIcon'
 import { labelOf } from '@/lib/taxonomy'
 import type { RosterModel } from './types'
 import type { Sweep, SweepRow } from '@/lib/sweep'
@@ -32,10 +33,14 @@ function CardLinks({ model }: { model: RosterModel }) {
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          title={displayHandle(link)}
+          title={`${labelOfPlatform(link.platform)} · ${displayHandle(link)}`}
+          aria-label={`${labelOfPlatform(link.platform)}: ${displayHandle(link)}`}
+          data-icon={hasPlatformIcon(link.platform) || undefined}
           onClick={(event) => event.stopPropagation()}
         >
-          {shortOfPlatform(link.platform)}
+          {hasPlatformIcon(link.platform)
+            ? <PlatformIcon platform={link.platform} />
+            : shortOfPlatform(link.platform)}
         </a>
       ))}
       {links.length > CARD_LINKS && (

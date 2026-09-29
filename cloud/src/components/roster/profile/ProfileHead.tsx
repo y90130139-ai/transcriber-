@@ -1,6 +1,7 @@
 'use client'
 
-import { displayHandle, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import PlatformIcon, { hasPlatformIcon } from '../PlatformIcon'
 import type { Social } from '@/lib/socials'
 import type { ProfileForm } from './form'
 import { HEAT_MARK } from '@/lib/engagement'
@@ -164,7 +165,11 @@ function LinkButton({ link }: { link: Social }) {
       target="_blank"
       rel="noopener noreferrer"
     >
-      <b>{shortOfPlatform(link.platform)}</b>
+      <b title={labelOfPlatform(link.platform)} data-icon={hasPlatformIcon(link.platform) || undefined}>
+        {hasPlatformIcon(link.platform)
+          ? <PlatformIcon platform={link.platform} size={16} />
+          : shortOfPlatform(link.platform)}
+      </b>
       <span>{displayHandle(link)}</span>
     </a>
   )

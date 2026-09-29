@@ -662,3 +662,35 @@
 .head-chip { font-family: var(--sc-font-text); }
 .standing-card .standing-score { font-family: var(--sc-font-display); letter-spacing: 0; }
 .sent-overdue { color: var(--sc-critical) !important; }
+
+/* ------------------------------------------------ PLATFORM MARKS (2026-09-29)
+
+   Geno asked for the real logos, in the house orange. The mark is ember at
+   rest and bone on an ember fill when pressed toward — never the brand's own
+   colour, so Facebook and Telegram do not bring blue back. Fansly and plain
+   links have no mark and keep the mono label. */
+.platform-icon { display: block; flex: none; }
+
+.card-link[data-icon] {
+  color: var(--sc-ember);
+  border-color: color-mix(in oklab, var(--sc-ember) 35%, transparent);
+  background: var(--sc-ember-tint);
+  justify-content: center;
+  min-width: 28px;
+  padding: 0.2rem;
+}
+.card-link[data-icon]:hover,
+.card-link[data-icon]:focus-visible {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: var(--sc-bone);
+}
+
+.sheet-link b[data-icon] {
+  color: var(--sc-ember);
+  opacity: 1;
+  display: inline-flex;
+  align-items: center;
+}
+.sheet-link:hover b[data-icon],
+.sheet-link:focus-visible b[data-icon] { color: var(--sc-ember-light); }

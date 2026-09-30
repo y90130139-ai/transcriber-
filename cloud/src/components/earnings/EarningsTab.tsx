@@ -5,6 +5,8 @@ import type { EarningsWindow } from '@/lib/earnings/board'
 import type { WeeklyNumbers } from '@/lib/earnings/report'
 import { money, niceDay } from '@/lib/earnings/report'
 import BarChart from '../dashboard/BarChart'
+import ReelMoney from './ReelMoney'
+import type { ReelDay, ReelSummary } from '@/lib/earnings/reels'
 import PeriodSwitch from '../dashboard/PeriodSwitch'
 import { shortDay } from '../dashboard/format'
 
@@ -12,6 +14,8 @@ type ModelEarnings = {
   accounts: { infloww_id: string; name: string; username: string; missing_since: string | null }[]
   daily: { day: string; net: number; gross: number; subs: number; renewals: number }[]
   week: WeeklyNumbers | null
+  reels: ReelDay[]
+  reelSummary: ReelSummary
   window: { from: string; to: string; days: number }
 }
 
@@ -83,6 +87,14 @@ export default function EarningsTab({ modelId }: { modelId: string }) {
         </header>
         <BarChart series={data.daily.map((d) => ({ day: d.day, value: Math.round(d.net / 100) }))}
           label="Her net earnings by day, in dollars" emptyNote="No sales in this period." />
+      </section>
+
+      <section className="dash-panel" aria-labelledby="earn-tab-reels">
+        <header className="dash-panel-head">
+          <h2 id="earn-tab-reels">Reels and money</h2>
+          <p>Each day she posted, and what she made that day and the next. Internal only.</p>
+        </header>
+        <ReelMoney days={data.reels} summary={data.reelSummary} />
       </section>
 
       {w && (

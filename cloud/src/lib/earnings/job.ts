@@ -16,11 +16,13 @@
  * EARNINGS_AUTOSEND=1.
  */
 import { addDays, dayOf, foldDays, startOfDay } from './days'
+import { foldFans, pickQuiet, winbackText } from './winback'
+import { firstOfMonth, lastOfMonth, milestoneText, milestonesFor, recapFor, recapText } from './monthly'
 import { BACKFILL_DAYS, isCurrent, nextWindow, windowEnd } from './window'
 import { listCreators, OutOfTime, transactions } from './infloww'
 import { RULES, dayDrop, money, weeklyNumbers, weeklyText, winFor, winText } from './report'
 import {
-  alert, combinedDays, draftMessage, loadAccounts, notePullError, reportables, saveDays, syncAccounts, winsInWeek,
+  alert, combinedDays, draftMessage, loadAccounts, milestoneCodes, quietFans, notePullError, reportables, saveDays, syncAccounts, winsInWeek,
   type Account,
 } from './store'
 
@@ -54,7 +56,7 @@ export async function runEarnings({ deadline, now = Date.now(), draft = true }: 
       for (let w = nextWindow(account, today); w; w = nextWindow(account, today)) {
         try {
           const txns = await transactions(a.infloww_id, startOfDay(w.from), windowEnd(w.to, Date.now()), deadline)
-          await saveDays(a.infloww_id, w.from, w.to, foldDays(txns), w.to, w.from)
+          await saveDays(a.infloww_id, w.from, w.to, foldDays(txns), w.to, w.from, foldFans(txns))
           account = { pulled_through: w.to, pulled_at: new Date().toISOString() }
         } catch (error) {
           if (error instanceof OutOfTime) throw error
@@ -90,6 +92,16 @@ async function draftAll(today: string, result: RunResult) {
     result.alerts++
   }
 
+  // Monday (or Tue/Wed if Monday's run did not finish): big spenders gone
+  // quiet, one OPS-only post per week. Never to a creator.
+  if (weekday >= 1 && weekday <= 3) {
+    const text = winbackText(pickQuiet(await quietFans(today)), thisMonday)
+    if (text) {
+      await alert(`winback:${thisMonday}`, text)
+      result.alerts++
+    }
+  }
+
   for (const r of await reportables()) {
     // Every account behind her must be connected and freshly, cleanly pulled,
     // or her numbers are partial — and partial numbers are never sent.
@@ -106,7 +118,9 @@ async function draftAll(today: string, result: RunResult) {
       continue
     }
     const historyStart = r.accounts.map((a) => a.first_day ?? today).sort().at(-1)!
-    const history = await combinedDays(r.accounts.map((a) => a.infloww_id), addDays(today, -BACKFILL_DAYS))
+    // Everything we hold, not a rolling window: "best month on record" must
+    // compare against whole months, and old day rows are never deleted.
+    const history = await combinedDays(r.accounts.map((a) => a.infloww_id), historyStart)
     const floor = Math.max(...r.accounts.map((a) => a.win_floor_cents ?? RULES.winFloorCents))
 
     if (!r.chat_id) {
@@ -131,6 +145,31 @@ async function draftAll(today: string, result: RunResult) {
         period: yesterday, body: winText(win, `${r.model_id}${yesterday}`), numbers: win, approved: autosend(),
       })
       if (made) result.drafted.push(`win ${r.model_name}`)
+    }
+
+    // Milestones crossed yesterday, one message however many.
+    if (r.chat_id) {
+      const month = firstOfMonth(yesterday)
+      const ms = milestonesFor(history, yesterday, historyStart, await milestoneCodes(r.model_id, month, lastOfMonth(month)))
+      if (ms.length) {
+        const made = await draftMessage({
+          key: `milestone:${r.model_id}:${yesterday}`, kind: 'milestone', model_id: r.model_id, chat_id: r.chat_id,
+          period: yesterday, body: milestoneText(ms), numbers: { codes: ms.map((m) => m.code) }, approved: autosend(),
+        })
+        if (made) result.drafted.push(`milestone ${r.model_name}`)
+      }
+    }
+
+    // The 1st: the month just ended, if we hold all of it.
+    // The 1st, or the 2nd/3rd if the 1st's pull failed; the key keeps it once.
+    const recapMonth = firstOfMonth(addDays(firstOfMonth(today), -1))
+    if (Number(today.slice(8)) <= 3 && r.chat_id && historyStart <= recapMonth) {
+      const recap = recapFor(history, recapMonth, historyStart)
+      const made = await draftMessage({
+        key: `monthly:${r.model_id}:${recapMonth}`, kind: 'monthly', model_id: r.model_id, chat_id: r.chat_id,
+        period: recapMonth, body: recapText(recap), numbers: recap, approved: autosend(),
+      })
+      if (made) result.drafted.push(`monthly ${r.model_name}`)
     }
 
     // Monday: the week just ended.

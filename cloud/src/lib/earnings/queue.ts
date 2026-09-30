@@ -17,7 +17,7 @@ import { sql } from '../db'
 
 const RETRY_AFTER_MIN = 5
 
-export type BotItem = { id: string; kind: 'weekly' | 'win'; model_id: string; model_name: string; chat_id: string; period: string; body: string }
+export type BotItem = { id: string; kind: 'weekly' | 'win' | 'monthly' | 'milestone'; model_id: string; model_name: string; chat_id: string; period: string; body: string }
 
 const item = (r: Record<string, unknown>): BotItem => ({
   id: String(r.id), kind: r.kind as BotItem['kind'], model_id: String(r.model_id), model_name: String(r.model_name),

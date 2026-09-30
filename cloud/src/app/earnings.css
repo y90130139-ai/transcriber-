@@ -73,3 +73,27 @@
   .earn-stats .dash-stat-lead { grid-column: 1 / -1; }
   .earn-week div { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* Reels and money (2026-09-30) */
+.reel-verdict { margin: 0 0 var(--sc-space-3); font-size: var(--sc-text-sm); }
+.reel-days { list-style: none; margin: 0; padding: 0; }
+.reel-day {
+  display: grid;
+  grid-template-columns: 12ch minmax(0, 1fr) 16ch;
+  gap: var(--sc-space-3);
+  align-items: start;
+  padding: var(--sc-space-2) 0;
+  border-bottom: var(--sc-rule-hair);
+  font-size: var(--sc-text-sm);
+}
+.reel-day small { display: block; color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.reel-day-when b { display: block; }
+.reel-day-when span { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.reel-day-reel a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reel-day-money { text-align: right; }
+.reel-day[data-moved='true'] .reel-day-money b { color: var(--sc-ember-deep); }
+.reel-day[data-hit='true'] .reel-day-reel small { color: var(--sc-ember-deep); }
+@media (max-width: 720px) {
+  .reel-day { grid-template-columns: 1fr; gap: var(--sc-space-1); }
+  .reel-day-money { text-align: left; }
+}

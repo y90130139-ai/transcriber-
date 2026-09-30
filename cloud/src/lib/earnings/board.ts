@@ -6,6 +6,40 @@ import { sql } from '../db'
 import { addDays, dayOf } from './days'
 import { dense, change, weeklyNumbers } from './report'
 import { combinedDays, loadAccounts, type Account } from './store'
+import { loadModels } from '../performance/load'
+import { usualPlays } from '../performance/shoutouts'
+import { reelDays, summarize, type ReelDay, type ReelPost } from './reels'
+
+/** Her reels from `from` on, plus the 60 days before that her usual views are
+ *  measured on. */
+async function reelsFor(handles: string[], from: string): Promise<ReelPost[]> {
+  if (!handles.length) return []
+  const rows = await sql.query(
+    `select handle, post_id, posted_at, plays, left(caption, 80) caption
+       from transcriber.creator_posts
+      where handle = any($1::text[]) and kind = 'reel' and plays is not null
+        and posted_at >= $2::date - 60`,
+    [handles, from],
+  )
+  return rows.map((r) => ({
+    handle: String(r.handle), post_id: String(r.post_id), posted_at: Date.parse(String(r.posted_at)),
+    plays: Number(r.plays), caption: r.caption ? String(r.caption) : null,
+  }))
+}
+
+/** Reel days for one model over [from, today). Internal only. `handles` and
+ *  `posts` may be shared across a roster load so nothing is fetched twice. */
+async function modelReelDays(
+  modelId: string, accountIds: string[], from: string, today: string,
+  preload?: { handles: string[]; posts: ReelPost[] },
+): Promise<ReelDay[]> {
+  const handles = preload?.handles ?? (await loadModels(modelId))[0]?.handles ?? []
+  if (!handles.length || !accountIds.length) return []
+  const posts = preload ? preload.posts.filter((p) => handles.includes(p.handle)) : await reelsFor(handles, from)
+  const history = await combinedDays(accountIds, addDays(from, -30))
+  const usual = usualPlays(posts.map((p) => ({ ...p, likes: null, comments: null })), Date.now())
+  return reelDays(posts.filter((p) => dayOf(p.posted_at) >= from), history, usual, today)
+}
 
 export const EARNINGS_WINDOWS = [7, 30, 90] as const
 export type EarningsWindow = (typeof EARNINGS_WINDOWS)[number]
@@ -81,6 +115,7 @@ export async function loadEarningsBoard(days: EarningsWindow) {
       error: m.error ? String(m.error) : null,
     })),
     pulledAt: accounts.map((a) => a.pulled_at).filter(Boolean).sort().at(-1) ?? null,
+    reelHits: await rosterReelHits(accounts, from, today),
   }
 }
 
@@ -90,15 +125,19 @@ export async function loadModelEarnings(modelId: string, days: EarningsWindow) {
   const today = dayOf(Date.now())
   const to = addDays(today, -1)
   const from = addDays(to, -(days - 1))
-  if (accounts.length === 0) return { accounts: [], daily: [], week: null, window: { from, to, days } }
+  if (accounts.length === 0) return { accounts: [], daily: [], week: null, reels: [], reelSummary: summarize([]), window: { from, to, days } }
 
-  const history = await combinedDays(accounts.map((a) => a.infloww_id), addDays(today, -120))
+  const [history, reels] = await Promise.all([
+    combinedDays(accounts.map((a) => a.infloww_id), addDays(today, -120)),
+    modelReelDays(modelId, accounts.map((a) => a.infloww_id), from, today),
+  ])
   const historyStart = accounts.map((a) => a.first_day ?? today).sort().at(-1)!
   const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
   const lastMonday = addDays(today, -((weekday + 6) % 7) - 7)
   return {
     accounts: accounts.map((a) => ({ infloww_id: a.infloww_id, name: a.name, username: a.username, missing_since: a.missing_since })),
     daily: dense(history, from, to).map((d) => ({ day: d.day, net: d.net, gross: d.gross, by_type: d.by_type, subs: d.subs, renewals: d.renewals })),
+    reels, reelSummary: summarize(reels),
     week: historyStart <= lastMonday ? weeklyNumbers(history, lastMonday, historyStart) : null,
     window: { from, to, days },
   }
@@ -120,4 +159,26 @@ export async function matchAccount(id: string, modelId: string | null, floorCent
     ),
   ])
   return true
+}
+
+/** Across the roster: reel days that were hits and were followed by money,
+ *  best first. Internal only, and secondary: a failure here shows an empty
+ *  panel rather than taking the whole earnings board down. */
+async function rosterReelHits(accounts: Account[], from: string, today: string) {
+  try {
+    const byModel = new Map<string, string[]>()
+    for (const a of accounts) if (a.model_id && !a.missing_since) byModel.set(a.model_id, [...(byModel.get(a.model_id) ?? []), a.infloww_id])
+    const models = (await loadModels()).filter((m) => byModel.has(m.id) && m.handles.length)
+    const posts = await reelsFor(models.flatMap((m) => m.handles), from)
+    const all = await Promise.all(models.map(async (m) =>
+      (await modelReelDays(m.id, byModel.get(m.id)!, from, today, { handles: m.handles, posts }))
+        .map((d) => ({ ...d, model_id: m.id, model_name: m.name }))))
+    return all.flat()
+      .filter((d) => d.complete && d.hit && d.moved)
+      .sort((a, b) => (b.moneyMultiple ?? 0) - (a.moneyMultiple ?? 0))
+      .slice(0, 8)
+  } catch (error) {
+    console.error('[earnings] reel hits failed', error)
+    return []
+  }
 }

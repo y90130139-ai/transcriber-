@@ -6,6 +6,7 @@ import { customAlphabet } from 'nanoid'
 import { sql } from '../db'
 import { emptyDay, type Day } from './days'
 import type { InflowwCreator } from './infloww'
+import { WINBACK, type FanDay, type QuietFan } from './winback'
 
 export const newId = customAlphabet('23456789abcdefghjkmnpqrstuvwxyz', 12)
 
@@ -71,7 +72,7 @@ export async function syncAccounts(live: InflowwCreator[]) {
 
 /** Replace the day rows for [from, to] in one go. Days with no sales are
  *  stored as zero so a re-pull that finds a refund can bring a day down. */
-export async function saveDays(id: string, from: string, to: string, days: Day[], through: string, firstDay: string) {
+export async function saveDays(id: string, from: string, to: string, days: Day[], through: string, firstDay: string, fans: FanDay[] = []) {
   // Only the window's own days: a sale stamped exactly on the next midnight
   // must not collide with a row this delete did not clear.
   const payload = JSON.stringify(days.filter((d) => d.day >= from && d.day <= to))
@@ -82,6 +83,13 @@ export async function saveDays(id: string, from: string, to: string, days: Day[]
        select $1, r.day, r.gross, r.net, r.txns, r.by_type, r.subs, r.renewals, r.loading_net
          from jsonb_to_recordset($2::jsonb) as r(day date, gross bigint, net bigint, txns int, by_type jsonb, subs int, renewals int, loading_net bigint)`,
       [id, payload],
+    ),
+    sql.query(`delete from transcriber.earnings_fan_days where infloww_id = $1 and day between $2 and $3`, [id, from, to]),
+    sql.query(
+      `insert into transcriber.earnings_fan_days (infloww_id, fan_id, day, net, txns)
+       select $1, r.fan_id, r.day, r.net, r.txns
+         from jsonb_to_recordset($2::jsonb) as r(fan_id text, day date, net bigint, txns int)`,
+      [id, JSON.stringify(fans.filter((f) => f.day >= from && f.day <= to))],
     ),
     sql.query(
       `update transcriber.earnings_accounts
@@ -150,7 +158,7 @@ export async function reportables(): Promise<Reportable[]> {
 
 /** Once-only by `key`. Returns true when this call created it. */
 export async function draftMessage(m: {
-  key: string; kind: 'weekly' | 'win'; model_id: string; chat_id: string; period: string; body: string; numbers: unknown; approved: boolean
+  key: string; kind: 'weekly' | 'win' | 'monthly' | 'milestone'; model_id: string; chat_id: string; period: string; body: string; numbers: unknown; approved: boolean
 }): Promise<boolean> {
   const rows = await sql.query(
     `insert into transcriber.earnings_messages (id, key, kind, model_id, chat_id, period, body, numbers, status, decided_at)
@@ -175,4 +183,40 @@ export async function alert(key: string, body: string) {
     `insert into transcriber.earnings_alerts (id, key, body) values ($1, $2, $3) on conflict (key) do nothing`,
     [newId(), key, body],
   )
+}
+
+/** Fans of matched, connected accounts who spent big in the lookback and
+ *  have bought nothing for `quietDays`. Fan id and money only. */
+export async function quietFans(today: string): Promise<QuietFan[]> {
+  const rows = await sql.query(
+    `select m.name model_name, f.fan_id, sum(f.net)::bigint spent, max(f.day) last_day,
+            ($1::date - max(f.day))::int quiet_days
+       from transcriber.earnings_fan_days f
+       join transcriber.earnings_accounts a on a.infloww_id = f.infloww_id
+       join transcriber.models m on m.id = a.model_id
+      where a.missing_since is null and m.status = 'active'
+        -- Only accounts pulled cleanly today through yesterday: a fan who
+        -- bought during days a failed pull missed must not look quiet.
+        and a.pull_error is null and a.pulled_through >= $1::date - 1
+        and (a.pulled_at at time zone 'America/New_York')::date = $1::date
+        and f.day >= $1::date - $2::int
+      group by m.name, f.infloww_id, f.fan_id
+     having sum(f.net) >= $3 and max(f.day) <= $1::date - $4::int`,
+    [today, WINBACK.lookbackDays, WINBACK.minCents, WINBACK.quietDays],
+  )
+  return rows.map((r) => ({
+    model_name: String(r.model_name), fan_id: String(r.fan_id), spent: Number(r.spent),
+    last_day: iso(r.last_day)!, quiet_days: Number(r.quiet_days),
+  }))
+}
+
+/** Milestone codes already drafted for her this month (skipped ones count:
+ *  Geno said no to that moment, not to a later repeat of it). */
+export async function milestoneCodes(modelId: string, month: string, monthEnd: string): Promise<Set<string>> {
+  const rows = await sql.query(
+    `select numbers from transcriber.earnings_messages
+      where model_id = $1 and kind = 'milestone' and period between $2 and $3`,
+    [modelId, month, monthEnd],
+  )
+  return new Set(rows.flatMap((r) => ((r.numbers as { codes?: string[] })?.codes ?? [])))
 }

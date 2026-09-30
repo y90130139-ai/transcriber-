@@ -19,8 +19,11 @@ export type TxnType = (typeof TYPES)[number]
 
 const DROPPED = new Set(['undo', 'pending_return'])
 
-/** What arrives from `/v1/transactions`. Only these fields are read. */
+/** What arrives from `/v1/transactions`. Only these fields are read.
+ *  `fanId` is kept for the OPS-only win-back list (winback.ts) and is never
+ *  read by the day fold; fan names and chatter notes are dropped at the door. */
 export type RawTxn = {
+  fanId?: string
   createdTime: string | number
   type: string
   status: string

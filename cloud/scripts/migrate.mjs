@@ -1038,6 +1038,13 @@ const statements = [
   `alter table transcriber.transcripts add column if not exists shots jsonb`,
   `alter table transcriber.transcripts add column if not exists shots_at timestamptz`,
 
+  // Inactive models (2026-09-30): why she stopped working with us, and when.
+  // `status = 'paused'` is still the switch everything downstream reads;
+  // these only say why, so a reactivation is one click with nothing lost.
+  `alter table transcriber.models add column if not exists inactive_reason text`,
+  `alter table transcriber.models add column if not exists inactive_note text`,
+  `alter table transcriber.models add column if not exists inactive_since timestamptz`,
+
   // Earnings from Infloww (2026-09-30). Creator-level only, by design: no
   // table here has a fan column, so fan data cannot be stored by accident.
   // One row per OnlyFans account Infloww manages. `model_id` is Geno's own
@@ -1093,6 +1100,22 @@ const statements = [
   `create index if not exists earnings_messages_status on transcriber.earnings_messages (status, created_at)`,
   // Lines for OPS only: drops over 25%, an account gone from Infloww, one
   // with nowhere to send. Never shown to a creator.
+  // Spend per fan per day, by fan id only — no name, no notes. Exists for one
+  // thing: the Monday win-back list in OPS (big spenders gone quiet). Never
+  // read by anything a creator sees. (Geno, 2026-09-30: IDs only.)
+  `create table if not exists transcriber.earnings_fan_days (
+     infloww_id  text not null references transcriber.earnings_accounts(infloww_id) on delete cascade,
+     fan_id      text not null,
+     day         date not null,
+     net         bigint not null,
+     txns        integer not null,
+     primary key (infloww_id, fan_id, day)
+   )`,
+  `create index if not exists earnings_fan_days_day on transcriber.earnings_fan_days (infloww_id, day)`,
+  // Monthly recaps and milestones join weekly reports and win notes.
+  `alter table transcriber.earnings_messages drop constraint if exists earnings_messages_kind_check`,
+  `alter table transcriber.earnings_messages add constraint earnings_messages_kind_check
+     check (kind in ('weekly', 'win', 'monthly', 'milestone'))`,
   `create table if not exists transcriber.earnings_alerts (
      id          text primary key,
      key         text not null unique,

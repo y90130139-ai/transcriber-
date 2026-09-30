@@ -74,7 +74,8 @@ export async function listCreators(deadline = Date.now() + 60_000): Promise<Infl
 }
 
 /** Every transaction for one account in [startMs, endMs). Only the fields
- *  the day fold reads are kept; fan fields are dropped here, at the door. */
+ *  the folds read are kept: the fan's id (for the OPS-only win-back list),
+ *  never the fan's name, which is where chatters write their notes. */
 export async function transactions(creatorId: string, startMs: number, endMs: number, deadline: number): Promise<RawTxn[]> {
   const out: RawTxn[] = []
   let cursor: string | null = null
@@ -85,7 +86,7 @@ export async function transactions(creatorId: string, startMs: number, endMs: nu
       deadline,
     )
     for (const t of d?.data?.list ?? []) {
-      out.push({ createdTime: t.createdTime, type: t.type, status: t.status, amount: t.amount, net: t.net })
+      out.push({ fanId: t.fanId ? String(t.fanId) : undefined, createdTime: t.createdTime, type: t.type, status: t.status, amount: t.amount, net: t.net })
     }
     cursor = d?.hasMore ? d.cursor : null
   } while (cursor)

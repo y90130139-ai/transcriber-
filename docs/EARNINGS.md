@@ -56,3 +56,28 @@ draft was made voids that draft.
 
 `earnings_accounts`, `earnings_days`, `earnings_messages`, `earnings_alerts` —
 see the end of `cloud/scripts/migrate.mjs`.
+
+## Added 2026-09-30 (second round)
+
+- **Monthly recap** (#6) on the 1st (retried the 2nd/3rd) and **milestones** (#5)
+  the morning after: beat her best month, a round figure no earlier month
+  reached, a new-subs count none did. "On record" = whole months we hold, never
+  fewer than two. `lib/earnings/monthly.ts`. OPS-approved like the rest.
+- **Reels and money** (#1), internal only: each posting day's best reel vs her
+  usual views, against her net that day and the next vs her usual two days.
+  Model → Earnings tab, and "Reels that moved money" on Dashboard → Earnings.
+  Timing, not proof. `lib/earnings/reels.ts`.
+- **Win-back list** (#11): Monday (retried Tue/Wed) OPS-only post of fans who
+  spent $500+ in 90 days and went quiet 14+ days, 5 per creator, 30 total.
+  **Fan IDs only** — `earnings_fan_days` has no name column; names (where chatters
+  write notes) are dropped in `infloww.ts`. Only accounts pulled cleanly that day
+  are listed. `lib/earnings/winback.ts`.
+
+## Inactive models
+
+Profile header → **Deactivate** (Unresponsive / Left / Other + note) or
+**Reactivate**. Sets `models.status = 'paused'` plus `inactive_reason`,
+`inactive_note`, `inactive_since`; the roster greys her out in an Inactive group.
+Everything portal-side already skips paused models, and the Gosian bot reads
+`/api/bot/inactive` to stop its marketing messages (invoices and birthdays
+continue). `lib/inactive.ts`, `api/models/[id]/active`.

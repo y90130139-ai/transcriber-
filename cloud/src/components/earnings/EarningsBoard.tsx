@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AccountRow, EarningsWindow } from '@/lib/earnings/board'
 import { money } from '@/lib/earnings/report'
 import BarChart from '../dashboard/BarChart'
+import { ReelDayRow } from './ReelMoney'
+import type { ReelDay } from '@/lib/earnings/reels'
 import PeriodSwitch from '../dashboard/PeriodSwitch'
 import { ago, shortDay } from '../dashboard/format'
 
@@ -15,7 +17,11 @@ type Board = {
   models: { id: string; name: string }[]
   messages: { id: string; kind: string; status: string; model_name: string; period: string; error: string | null }[]
   pulledAt: string | null
+  reelHits: (ReelDay & { model_id: string; model_name: string })[]
 }
+
+const KIND_WORD: Record<string, string> = { weekly: 'Week of', win: 'Win', milestone: 'Milestone', monthly: 'Recap' }
+const monthOf = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
 
 /** A single account over this share of agency net is structural risk. */
 const CONCENTRATION = 30
@@ -122,6 +128,16 @@ export default function EarningsBoard({ onOpenModel }: { onOpenModel: (id: strin
               label="Net earnings by day, in dollars" emptyNote="No sales in this period." />
           </section>
 
+          <section className="dash-panel" aria-labelledby="earn-reels-h">
+            <header className="dash-panel-head">
+              <h2 id="earn-reels-h">Reels that moved money</h2>
+              <p>Hit reels (2×+ her usual views) followed by 1.5×+ her usual two days. Internal only: timing, not proof.</p>
+            </header>
+            {board.reelHits.length === 0
+              ? <p className="dash-empty">None in this period yet.</p>
+              : <ul className="reel-days">{board.reelHits.map((d) => <ReelDayRow key={`${d.model_id}${d.day}`} d={d} name />)}</ul>}
+          </section>
+
           <section className="dash-panel" aria-labelledby="earn-acc-h">
             <header className="dash-panel-head">
               <h2 id="earn-acc-h">Accounts</h2>
@@ -187,7 +203,7 @@ export default function EarningsBoard({ onOpenModel }: { onOpenModel: (id: strin
                 {board.messages.map((m) => (
                   <li key={m.id} data-status={m.status}>
                     <b>{m.model_name}</b>
-                    <span>{m.kind === 'weekly' ? `Week of ${shortDay(m.period)}` : `Win · ${shortDay(m.period)}`}</span>
+                    <span>{KIND_WORD[m.kind] ?? m.kind} · {m.kind === 'monthly' ? monthOf(m.period) : shortDay(m.period)}</span>
                     <span className="earn-status" title={m.error ?? undefined}>{STATUS_WORD[m.status] ?? m.status}</span>
                   </li>
                 ))}

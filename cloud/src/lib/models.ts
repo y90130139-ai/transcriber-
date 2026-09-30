@@ -37,6 +37,15 @@ export const MODEL_COLUMNS = `
   access_token, token_revoked_at, created_at
 `
 
+/** Her OnlyFans usernames from the Infloww accounts matched to her, for the
+ *  link buttons (`withLinkedOnlyfans`). Derived on every read, never stored,
+ *  so a re-match or a renamed page is right on the next load. `alias` is how
+ *  the query names `transcriber.models`. */
+export const linkedOnlyfans = (alias: string) => `(
+  select coalesce(jsonb_agg(a.username order by a.name), '[]'::jsonb)
+    from transcriber.earnings_accounts a where a.model_id = ${alias}.id
+) as onlyfans_accounts`
+
 /** The same list qualified to a `transcriber.models m` alias. */
 export const MODEL_COLUMNS_ALIASED = MODEL_COLUMNS.replace(/(\w+)/g, 'm.$1')
 

@@ -309,6 +309,7 @@ export default function ModelProfile({
         <ProfileHead
           standing={standing}
           form={form}
+          linkedOnlyfans={model?.onlyfans_accounts}
           isNew={!model}
           busy={busy}
           onPhoto={(file) => void takePhoto(file)}

@@ -3,7 +3,7 @@ import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { currentWeekOf } from '@/lib/dates'
 import { modelsForJob } from '@/lib/match'
-import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, newId, newToken, readModelInput } from '@/lib/models'
+import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, linkedOnlyfans, newId, newToken, readModelInput } from '@/lib/models'
 
 const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   if (job) return NextResponse.json({ models: await modelsForJob(job) })
 
   const models = await sql.query(
-    `select ${MODEL_COLUMNS_ALIASED},
+    `select ${MODEL_COLUMNS_ALIASED}, ${linkedOnlyfans('m')},
             coalesce(w.items, 0)::int   as week_items,
             coalesce(w.filmed, 0)::int  as week_filmed,
             coalesce(w.waiting, 0)::int as week_waiting,

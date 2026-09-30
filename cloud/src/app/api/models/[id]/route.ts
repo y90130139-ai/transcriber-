@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
-import { MODEL_COLUMNS, keysForModel, newToken, readModelInput, trashKeys } from '@/lib/models'
+import { MODEL_COLUMNS, linkedOnlyfans, keysForModel, newToken, readModelInput, trashKeys } from '@/lib/models'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: Params) {
   const { id } = await params
 
   const [model] = await sql.query(
-    `select ${MODEL_COLUMNS} from transcriber.models where id = $1`,
+    `select ${MODEL_COLUMNS}, ${linkedOnlyfans('models')} from transcriber.models where id = $1`,
     [id],
   )
   if (!model) return notFound()

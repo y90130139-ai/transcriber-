@@ -356,3 +356,25 @@ export function showCount(value: number): string {
 
 const trim = (value: number) =>
   (Math.round(value * 10) / 10).toString()
+
+/**
+ * Her OnlyFans pages, from the Infloww accounts matched to her (2026-09-30).
+ *
+ * Merged for display only, like `withImpliedInstagram`: never written to
+ * `socials`, so re-matching an account, a new page, or a username Infloww
+ * reports as changed shows up on the next load with nothing to clean up. A
+ * page she already has saved by hand is not repeated.
+ */
+export function withLinkedOnlyfans(socials: Social[], usernames: readonly string[] | null | undefined): Social[] {
+  const have = new Set(
+    socials.filter((s) => s.platform === 'onlyfans').map((s) => s.handle.toLowerCase()),
+  )
+  const added: Social[] = []
+  for (const raw of usernames ?? []) {
+    const handle = raw.trim()
+    if (!handle || have.has(handle.toLowerCase())) continue
+    have.add(handle.toLowerCase())
+    added.push({ platform: 'onlyfans', handle, url: SPEC.onlyfans.profile!(handle) })
+  }
+  return added.length ? [...socials, ...added] : socials
+}

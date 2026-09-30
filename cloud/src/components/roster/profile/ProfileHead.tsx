@@ -1,6 +1,6 @@
 'use client'
 
-import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram, withLinkedOnlyfans } from '@/lib/socials'
 import PlatformIcon, { hasPlatformIcon } from '../PlatformIcon'
 import type { Social } from '@/lib/socials'
 import type { ProfileForm } from './form'
@@ -31,6 +31,7 @@ export default function ProfileHead({
   onAddLinks,
   modelId = null,
   onStanding,
+  linkedOnlyfans,
 }: {
   standing?: Standing
   form: ProfileForm
@@ -44,11 +45,15 @@ export default function ProfileHead({
   /** Set for a saved model: priority and revenue become editable here. */
   modelId?: string | null
   onStanding?: () => void
+  /** Her OnlyFans usernames from matched Infloww accounts, shown as buttons. */
+  linkedOnlyfans?: string[]
 }) {
   // The handle every model already has is rendered as an Instagram button
   // whether or not anyone has filled in the accounts list. Merged for display
   // only; nothing is written to the column. See `withImpliedInstagram`.
-  const links = withImpliedInstagram(form.socials, form.handle || null)
+  // Her OnlyFans pages come from the Infloww accounts matched to her, also
+  // display-only (`withLinkedOnlyfans`), so they follow a re-match by themselves.
+  const links = withLinkedOnlyfans(withImpliedInstagram(form.socials, form.handle || null), linkedOnlyfans)
 
   function openAll() {
     for (const link of links.slice(0, OPEN_ALL_CAP)) {

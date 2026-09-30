@@ -9,7 +9,7 @@ import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
 import { formatDate } from '@/lib/dates'
-import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram } from '@/lib/socials'
+import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram, withLinkedOnlyfans } from '@/lib/socials'
 import PlatformIcon, { hasPlatformIcon } from './PlatformIcon'
 import { labelOf } from '@/lib/taxonomy'
 import type { RosterModel } from './types'
@@ -22,7 +22,7 @@ import type { Sweep, SweepRow } from '@/lib/sweep'
  *  Capped: a card is a card, and a model on nine platforms would push her
  *  figures off the bottom of it. The rest are one tap away in the sheet. */
 function CardLinks({ model }: { model: RosterModel }) {
-  const links = withImpliedInstagram(model.socials ?? [], model.handle)
+  const links = withLinkedOnlyfans(withImpliedInstagram(model.socials ?? [], model.handle), model.onlyfans_accounts)
   if (links.length === 0) return null
   return (
     <span className="card-links">

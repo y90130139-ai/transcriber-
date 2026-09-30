@@ -35,6 +35,9 @@ export type Model = {
    *  Empty on any row saved before the column existed — her `handle` still
    *  renders an Instagram button, see `withImpliedInstagram`. */
   socials: Social[]
+  /** Her OnlyFans usernames from matched Infloww accounts. Derived by the
+   *  API on read, never saved — see `withLinkedOnlyfans`. */
+  onlyfans_accounts?: string[]
   access_token: string
   token_revoked_at: string | null
   created_at: string

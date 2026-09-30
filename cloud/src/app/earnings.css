@@ -1,0 +1,75 @@
+/* ---------------------------------------------- EARNINGS (2026-09-30)
+
+   OnlyFans money from Infloww, internal. Leans on the dashboard's panels,
+   stats and table; only what is new lives here. */
+
+.dash-views {
+  display: inline-flex;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-1);
+  margin-bottom: var(--sc-space-4);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+}
+
+.earn-stats { grid-template-columns: 1.4fr repeat(4, 1fr); }
+.earn-tab .earn-stats { grid-template-columns: 1.4fr repeat(2, 1fr); }
+.dash-stat[data-warn='true'] { border-color: var(--sc-ember); }
+.dash-stat[data-warn='true'] .dash-stat-note { color: var(--sc-ember-deep); }
+
+.earn-table .num { text-align: right; }
+.earn-table tbody tr { cursor: default; }
+.earn-table tr[data-missing='true'] { opacity: 0.55; }
+.earn-table td[data-warn='true'] { color: var(--sc-ember-deep); font-weight: 700; }
+.earn-name { display: block; }
+.earn-user { display: block; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.earn-match select {
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 6px);
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+  max-width: 16ch;
+}
+.earn-open {
+  margin-left: var(--sc-space-1);
+  border: 0;
+  background: none;
+  color: var(--sc-ember-deep);
+  cursor: pointer;
+  font: inherit;
+}
+.earn-pull { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.earn-bad { color: var(--sc-critical); }
+
+.earn-msgs { list-style: none; margin: 0; padding: 0; }
+.earn-msgs li {
+  display: grid;
+  grid-template-columns: minmax(8ch, 1fr) 1fr auto;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) 0;
+  border-bottom: var(--sc-rule-hair);
+  font-size: var(--sc-text-sm);
+}
+.earn-status { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-300); }
+.earn-msgs li[data-status='sent'] .earn-status { color: var(--sc-positive); }
+.earn-msgs li[data-status='draft'] .earn-status { color: var(--sc-ember-deep); }
+.earn-msgs li[data-status='failed'] .earn-status { color: var(--sc-critical); }
+
+.earn-tab { display: grid; gap: var(--sc-space-4); }
+.earn-tab-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sc-space-3); }
+.earn-accounts { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); margin: 0; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.earn-accounts [data-missing='true'] { text-decoration: line-through; }
+.earn-week { display: grid; gap: var(--sc-space-2); margin: 0; }
+.earn-week div { display: grid; grid-template-columns: 14ch 1fr; gap: var(--sc-space-3); }
+.earn-week dt { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-300); }
+.earn-week dd { margin: 0; }
+
+@media (max-width: 720px) {
+  .earn-stats, .earn-tab .earn-stats { grid-template-columns: 1fr 1fr; }
+  .earn-stats .dash-stat-lead { grid-column: 1 / -1; }
+  .earn-week div { grid-template-columns: 1fr; gap: 0; }
+}

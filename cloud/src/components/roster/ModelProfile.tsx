@@ -18,9 +18,10 @@ import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
 import TelegramLink from './profile/TelegramLink'
 import AnalyticsTab from './profile/AnalyticsTab'
+import EarningsTab from '../earnings/EarningsTab'
 
 export type ProfileTab = Tab
-type Tab = 'analytics' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'access'
+type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -28,6 +29,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profile' },
   // Her Instagram numbers: growth, views, the auto tag. lib/performance/.
   { key: 'analytics', label: 'Analytics' },
+  // Her OnlyFans money from Infloww, every account of hers together (2026-09-30).
+  { key: 'earnings', label: 'Earnings' },
   // Review and Editor in one, as videos (2026-09-27: "we don't need so many
   // tabs"). Tags moved into Profile the same day.
   { key: 'reels', label: 'Reels' },
@@ -358,6 +361,7 @@ export default function ModelProfile({
             </section>
           )}
           {tab === 'analytics' && modelId && <AnalyticsTab modelId={modelId} />}
+          {tab === 'earnings' && modelId && <EarningsTab modelId={modelId} />}
           {tab === 'reels' && modelId && <ReelsTab modelId={modelId} name={form.name || model?.name || ''} photo={model?.photo_url ?? null} />}
           {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}

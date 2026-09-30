@@ -10,7 +10,7 @@ import RosterTab from './roster/RosterTab'
 import SweepTab from './roster/SweepTab'
 import { EMPTY_FILTERS, toQuery, type Filters } from './FilterBar'
 import type { LibraryItem } from '@/lib/format'
-import Dashboard from './dashboard/Dashboard'
+import DashboardHome from './dashboard/DashboardHome'
 
 type Counts = { queued: number; running: number; done: number; failed: number }
 type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
@@ -154,7 +154,7 @@ export default function Workbench() {
 
       <main className="page">
         {tab === 'dashboard' && (
-          <Dashboard onOpenModel={(id) => { setOpenProfile(id); setTab('models') }} />
+          <DashboardHome onOpenModel={(id) => { setOpenProfile(id); setTab('models') }} />
         )}
 
         {tab === 'queue' && (

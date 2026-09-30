@@ -5,7 +5,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "test": "node --import ./test/ts-resolve.mjs --test test/*.test.ts",
+    "earnings": "node --import ./test/ts-resolve.mjs scripts/earnings-pull.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

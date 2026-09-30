@@ -1037,6 +1037,69 @@ const statements = [
   // later a one-line description. The card's "Film it" is written from this.
   `alter table transcriber.transcripts add column if not exists shots jsonb`,
   `alter table transcriber.transcripts add column if not exists shots_at timestamptz`,
+
+  // Earnings from Infloww (2026-09-30). Creator-level only, by design: no
+  // table here has a fan column, so fan data cannot be stored by accident.
+  // One row per OnlyFans account Infloww manages. `model_id` is Geno's own
+  // match to a roster model; nothing is ever sent for an unmatched account.
+  `create table if not exists transcriber.earnings_accounts (
+     infloww_id      text primary key,
+     name            text not null,
+     username        text not null,
+     model_id        text references transcriber.models(id) on delete set null,
+     win_floor_cents integer,
+     first_day       date,
+     pulled_through  date,
+     pulled_at       timestamptz,
+     pull_error      text,
+     missing_since   timestamptz,
+     first_seen_at   timestamptz not null default now(),
+     last_seen_at    timestamptz not null default now()
+   )`,
+  // Her money per New York day. Re-pulled for the last few days every run,
+  // because OnlyFans settles (and reverses) up to ~3 days late.
+  `create table if not exists transcriber.earnings_days (
+     infloww_id   text not null references transcriber.earnings_accounts(infloww_id) on delete cascade,
+     day          date not null,
+     gross        bigint not null,
+     net          bigint not null,
+     txns         integer not null,
+     by_type      jsonb not null,
+     subs         integer not null,
+     renewals     integer not null,
+     loading_net  bigint not null,
+     pulled_at    timestamptz not null default now(),
+     primary key (infloww_id, day)
+   )`,
+  // Weekly reports and win notes for a creator. Drafted, shown to OPS with
+  // Approve / Skip, and only then sent. `key` makes each one once-only.
+  `create table if not exists transcriber.earnings_messages (
+     id              text primary key,
+     key             text not null unique,
+     kind            text not null check (kind in ('weekly', 'win')),
+     model_id        text not null references transcriber.models(id) on delete cascade,
+     chat_id         text not null,
+     period          date not null,
+     body            text not null,
+     numbers         jsonb not null,
+     status          text not null default 'draft'
+                       check (status in ('draft', 'approved', 'sent', 'skipped', 'failed')),
+     ops_message_id  text,
+     error           text,
+     created_at      timestamptz not null default now(),
+     decided_at      timestamptz,
+     sent_at         timestamptz
+   )`,
+  `create index if not exists earnings_messages_status on transcriber.earnings_messages (status, created_at)`,
+  // Lines for OPS only: drops over 25%, an account gone from Infloww, one
+  // with nowhere to send. Never shown to a creator.
+  `create table if not exists transcriber.earnings_alerts (
+     id          text primary key,
+     key         text not null unique,
+     body        text not null,
+     created_at  timestamptz not null default now(),
+     posted_at   timestamptz
+   )`,
 ]
 
 for (const statement of statements) {

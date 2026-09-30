@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/daily",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/earnings/pull",
+      "schedule": "0 13 * * *"
     }
   ]
 }

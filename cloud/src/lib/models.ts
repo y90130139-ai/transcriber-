@@ -34,7 +34,7 @@ export const MODEL_COLUMNS = `
   id, name, handle, photo_url, persona, formats, hooks, wont_do,
   status, tier, filming_days, weekly_target, timezone, place, standing_rules, notes,
   drive_url, delivery_note, ig_account_type, creator_type, socials, telegram_chat_id,
-  access_token, token_revoked_at, created_at
+  access_token, token_revoked_at, created_at, inactive_reason, inactive_note, inactive_since
 `
 
 /** Her OnlyFans usernames from the Infloww accounts matched to her, for the

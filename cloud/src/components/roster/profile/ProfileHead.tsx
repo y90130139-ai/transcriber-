@@ -8,6 +8,7 @@ import { HEAT_MARK } from '@/lib/engagement'
 import type { Standing } from '@/lib/standing'
 import { StandingControls } from './StandingTab'
 import TrendChip from '../TrendChip'
+import ActiveControl, { type ActiveState } from './ActiveControl'
 
 /** Opening more than this at once is how a browser decides you are a popup ad,
  *  and how an operator decides they have lost their tabs. */
@@ -32,6 +33,8 @@ export default function ProfileHead({
   modelId = null,
   onStanding,
   linkedOnlyfans,
+  active,
+  onActive,
 }: {
   standing?: Standing
   form: ProfileForm
@@ -47,6 +50,9 @@ export default function ProfileHead({
   onStanding?: () => void
   /** Her OnlyFans usernames from matched Infloww accounts, shown as buttons. */
   linkedOnlyfans?: string[]
+  /** Her active state, for Deactivate / Reactivate. Absent for a new model. */
+  active?: ActiveState
+  onActive?: (next: ActiveState) => void
 }) {
   // The handle every model already has is rendered as an Instagram button
   // whether or not anyone has filled in the accounts list. Merged for display
@@ -109,13 +115,16 @@ export default function ProfileHead({
               </span>
             )}
             <span>{form.tier} · {TIER_WORD[form.tier]}</span>
-            {form.status === 'paused' && <span data-tone="paused">Paused</span>}
+            {form.status === 'paused' && <span data-tone="paused">Inactive</span>}
             {form.ig_account_type === 'professional' && <span>Professional</span>}
             {form.ig_account_type === 'personal' && <span data-tone="paused">Personal IG</span>}
             {form.ig_account_type === 'unknown' && <span data-tone="quiet">IG not checked</span>}
             {form.photo_url === null && <span data-tone="quiet">No photo</span>}
           </span>
           {modelId && <StandingControls modelId={modelId} onChanged={onStanding} />}
+          {modelId && active && onActive && (
+            <ActiveControl modelId={modelId} name={form.name || 'she'} state={active} onChange={onActive} />
+          )}
         </div>
       </div>
 

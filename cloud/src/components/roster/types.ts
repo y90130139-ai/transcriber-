@@ -38,6 +38,10 @@ export type Model = {
   /** Her OnlyFans usernames from matched Infloww accounts. Derived by the
    *  API on read, never saved — see `withLinkedOnlyfans`. */
   onlyfans_accounts?: string[]
+  /** Why she is inactive (lib/inactive.ts), set only while status is paused. */
+  inactive_reason?: string | null
+  inactive_note?: string | null
+  inactive_since?: string | null
   access_token: string
   token_revoked_at: string | null
   created_at: string

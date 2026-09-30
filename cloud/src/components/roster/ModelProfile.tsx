@@ -67,6 +67,7 @@ export default function ModelProfile({
   onClose,
   onSaved,
   onStanding,
+  onActive,
   standing,
   initialTab = 'profile',
 }: {
@@ -76,6 +77,8 @@ export default function ModelProfile({
   /** Her priority or revenue band changed. Saved on the spot, so the roster
    *  behind the sheet can regroup without waiting for Save. */
   onStanding?: () => void
+  /** Deactivated or reactivated: saved on the tap, so the roster regroups now. */
+  onActive?: () => void
   /** Her heat, priority and trend, for the corner of her photo. */
   standing?: Standing
   /** Opened from the dashboard, it lands on Analytics. */
@@ -83,6 +86,9 @@ export default function ModelProfile({
 }) {
   const [form, setForm] = useState<ProfileForm>(() => (model ? fromModel(model) : BLANK))
   const [tab, setTab] = useState<Tab>(initialTab)
+  const [inactive, setInactive] = useState({
+    reason: model?.inactive_reason ?? null, note: model?.inactive_note ?? null, since: model?.inactive_since ?? null,
+  })
   const [token, setToken] = useState(model?.access_token ?? null)
   const [revoked, setRevoked] = useState(Boolean(model?.token_revoked_at))
   const [busy, setBusy] = useState(false)
@@ -310,6 +316,13 @@ export default function ModelProfile({
           standing={standing}
           form={form}
           linkedOnlyfans={model?.onlyfans_accounts}
+          active={{ status: form.status, inactive_reason: inactive.reason, inactive_note: inactive.note, inactive_since: inactive.since }}
+          onActive={(next) => {
+            // The form's copy too, or a later Save would switch her back.
+            set('status', next.status)
+            setInactive({ reason: next.inactive_reason, note: next.inactive_note, since: next.inactive_since })
+            onActive?.()
+          }}
           isNew={!model}
           busy={busy}
           onPhoto={(file) => void takePhoto(file)}

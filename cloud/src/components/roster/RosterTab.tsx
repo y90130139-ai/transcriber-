@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/dates'
 import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram, withLinkedOnlyfans } from '@/lib/socials'
 import PlatformIcon, { hasPlatformIcon } from './PlatformIcon'
 import { labelOf } from '@/lib/taxonomy'
+import { reasonLabel } from '@/lib/inactive'
 import type { RosterModel } from './types'
 import type { Sweep, SweepRow } from '@/lib/sweep'
 
@@ -56,13 +57,15 @@ const CARD_LINKS = 5
  *  and that is who gets attention first. Plan type (bespoke / mixed / library)
  *  used to be the heading and is now a word on the card — it says what her
  *  plan is made of, not where she ranks. */
-type Group = 'S' | 'A' | 'B' | 'C' | 'none'
+type Group = 'S' | 'A' | 'B' | 'C' | 'none' | 'inactive'
 const GROUPS: { key: Group; label: string }[] = [
   { key: 'S', label: 'S · priority' },
   { key: 'A', label: 'A · priority' },
   { key: 'B', label: 'B · priority' },
   { key: 'C', label: 'C · priority' },
   { key: 'none', label: 'Not ranked yet' },
+  // Last, greyed out, one tap from coming back (2026-09-30).
+  { key: 'inactive', label: 'Inactive' },
 ]
 const PLAN_TYPE = { A: 'bespoke', B: 'mixed', C: 'library only' } as const
 
@@ -86,7 +89,8 @@ export default function RosterTab({
   const [editingTab, setEditingTab] = useState<ProfileTab>('profile')
   const [planning, setPlanning] = useState<RosterModel | null>(null)
   const { standing, reload: loadStanding } = useStanding()
-  const groupOf = (model: RosterModel): Group => standing[model.id]?.priority ?? 'none'
+  const groupOf = (model: RosterModel): Group =>
+    model.status === 'paused' ? 'inactive' : standing[model.id]?.priority ?? 'none'
   /** Name order, or most active first: score, then the size of the move up. */
   const [activeFirst, setActiveFirst] = useState(false)
   const inGroup = (key: Group) => {
@@ -210,6 +214,11 @@ export default function RosterTab({
               </button>
 
               <span className="model-handle">{model.name}</span>
+              {model.status === 'paused' && (
+                <span className="roster-inactive">
+                  Inactive · {reasonLabel(model.inactive_reason)}{model.inactive_note ? ` — ${model.inactive_note}` : ''}
+                </span>
+              )}
               {model.handle && <span className="model-name">@{model.handle}</span>}
 
               <StandingBadge standing={standing[model.id]} />
@@ -238,7 +247,6 @@ export default function RosterTab({
                     : <> · <b className="roster-declined">not opened</b></>
                 )}
                 {' · '}{PLAN_TYPE[model.tier ?? 'B']}
-                {model.status === 'paused' && ' · paused'}
               </span>
 
               {/* Her accounts, on the grid. The common case — open her
@@ -272,6 +280,7 @@ export default function RosterTab({
           onClose={() => { setEditing(null); setEditingTab('profile') }}
           onSaved={() => { setEditing(null); setEditingTab('profile'); void load(); void loadStanding() }}
           onStanding={() => void loadStanding()}
+          onActive={() => void load()}
           standing={editing === 'new' ? undefined : standing[editing.id]}
         />
       )}

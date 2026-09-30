@@ -694,3 +694,45 @@
 }
 .sheet-link:hover b[data-icon],
 .sheet-link:focus-visible b[data-icon] { color: var(--sc-ember-light); }
+
+/* ------------------------------------------------ INACTIVE (2026-09-30)
+
+   Deactivated with a reason, greyed out, one tap from coming back. The card
+   still opens, because Reactivate lives in her profile header. */
+.roster-card[data-paused='true'] { opacity: 0.55; transition: opacity var(--sc-dur-fast) var(--sc-ease); }
+.roster-card[data-paused='true']:hover,
+.roster-card[data-paused='true']:focus-within { opacity: 0.9; }
+.roster-inactive {
+  display: block;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.active-ctl { display: grid; gap: var(--sc-space-2); margin-top: var(--sc-space-3); justify-items: start; }
+.active-ctl[data-asking='true'] {
+  padding: var(--sc-space-3);
+  border: 1px dashed var(--sc-ember);
+  border-radius: var(--r-sm, 6px);
+  max-width: 44ch;
+}
+.active-q, .active-why { margin: 0; font-size: var(--sc-text-sm); }
+.active-why b { color: var(--sc-ember-deep); }
+.active-note input {
+  width: 100%;
+  min-width: 28ch;
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-2);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 6px);
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+}
+.active-actions { display: flex; gap: var(--sc-space-2); }
+.chip.active-off { color: var(--sc-ink-300); }
+.chip.active-confirm:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
+.chip.active-back { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
+.active-error { margin: 0; color: var(--sc-critical); font-size: var(--sc-text-sm); }

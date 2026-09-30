@@ -170,21 +170,6 @@ export default function WeekTab({
           </div>
         </div>
 
-        <div className="form-row">
-          <span className="axis-name">Status</span>
-          <div className="chips">
-            {(['active', 'paused'] as const).map((status) => (
-              <button
-                key={status}
-                className="chip"
-                data-on={form.status === status}
-                onClick={() => set('status', status)}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </>
   )

@@ -89,8 +89,7 @@ export default function Survey({ token, name, photo, last }: { token: string; na
 
       {at === -1 && (
         <section className="sv-card">
-          <p className="sv-lede">{UI.intro[lang]}</p>
-          <Truths lang={lang} />
+          <h2 className="sv-q">{UI.intro[lang]}</h2>
           <button type="button" className="plan-cta" onClick={() => go(0)}>{UI.start[lang]}</button>
         </section>
       )}
@@ -134,14 +133,5 @@ export default function Survey({ token, name, photo, last }: { token: string; na
         </section>
       )}
     </main>
-  )
-}
-
-function Truths({ lang }: { lang: Lang }) {
-  return (
-    <section className="sv-truths" aria-label={UI.truthsTitle[lang]}>
-      <h2 className="sv-group-title">{UI.truthsTitle[lang]}</h2>
-      <ul>{UI.truths[lang].map((line) => <li key={line}>{line}</li>)}</ul>
-    </section>
   )
 }

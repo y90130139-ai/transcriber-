@@ -736,3 +736,9 @@
 .chip.active-confirm:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
 .chip.active-back { background: var(--sc-ember); border-color: var(--sc-ember); color: var(--sc-bone); }
 .active-error { margin: 0; color: var(--sc-critical); font-size: var(--sc-text-sm); }
+
+/* Creator questionnaire panel (SurveyPanel.tsx) — her answers, read-only. */
+.survey-panel { padding-bottom: var(--sc-space-4); border-bottom: var(--sc-rule-hair); }
+.survey-answers { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sc-space-1) var(--sc-space-4); margin: var(--sc-space-2) 0 0; font-size: var(--sc-text-sm); }
+.survey-answers dt { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-500); }
+.survey-answers dd { margin: 0; color: var(--sc-ink-900); }

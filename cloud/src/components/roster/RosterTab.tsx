@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import SendSurveys from './SendSurveys'
 import ModelProfile, { type ProfileTab } from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
@@ -175,6 +176,7 @@ export default function RosterTab({
           >
             {activeFirst ? 'Most active first' : 'A–Z'}
           </button>
+          <SendSurveys />
           <button className="btn" onClick={() => setEditing('new')}>Add a model</button>
         </div>
       </div>

@@ -1123,6 +1123,29 @@ const statements = [
      created_at  timestamptz not null default now(),
      posted_at   timestamptz
    )`,
+  // The creator questionnaire (lib/survey/, Geno 2026-10-02). Her answers
+  // write straight to her profile; best_times and daily_capacity are new
+  // there. One row per send — the bot posts it, reminds once after 3 days —
+  // and her answers plus exactly what they changed are kept on the row.
+  `alter table transcriber.models add column if not exists best_times text[] not null default '{}'`,
+  `alter table transcriber.models add column if not exists daily_capacity smallint`,
+  `create table if not exists transcriber.surveys (
+     id            text primary key,
+     model_id      text not null references transcriber.models(id) on delete cascade,
+     created_at    timestamptz not null default now(),
+     sent_at       timestamptz,
+     send_error    text,
+     reminded_at   timestamptz,
+     remind_error  text,
+     opened_at     timestamptz,
+     submitted_at  timestamptz,
+     lang          text check (lang in ('en', 'es')),
+     answers       jsonb,
+     changes       jsonb,
+     priority      text check (priority in ('S', 'A', 'B', 'C'))
+   )`,
+  `create unique index if not exists surveys_one_open on transcriber.surveys (model_id) where submitted_at is null`,
+  `create index if not exists surveys_model on transcriber.surveys (model_id, created_at desc)`,
 ]
 
 for (const statement of statements) {

@@ -12,6 +12,7 @@ import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
 import TagsTab from './profile/TagsTab'
 import WeekTab from './profile/WeekTab'
+import SurveyPanel from './profile/SurveyPanel'
 import { BLANK, fromModel, type ProfileForm } from './profile/form'
 import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
@@ -382,6 +383,7 @@ export default function ModelProfile({
           {tab === 'week' && (
             <>
               {modelId && <TelegramLink modelId={modelId} initial={model?.telegram_chat_id ?? null} />}
+              {modelId && <SurveyPanel modelId={modelId} />}
               <WeekTab form={form} set={set} setForm={setForm} />
             </>
           )}

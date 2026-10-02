@@ -4,6 +4,11 @@ import { registerHooks } from 'node:module'
 
 registerHooks({
   resolve(specifier, context, next) {
+    // The bundler imports JSON bare (lib/taxonomy.ts); Node wants the attribute.
+    if (specifier.endsWith('.json')) {
+      const resolved = next(specifier, context)
+      return { ...resolved, importAttributes: { type: 'json' } }
+    }
     try {
       return next(specifier, context)
     } catch (error) {

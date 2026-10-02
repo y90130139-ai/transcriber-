@@ -197,3 +197,11 @@
   .sv-progress span, .sv-choice { transition: none; }
 }
 .sv-result .sv-nav { grid-template-columns: 1fr 1fr; }
+
+/* Under the thank-you: why and when to book a marketing call. The ink panel
+   makes it read as the next thing to do, not more of the form. */
+.sv-calls { background: #141210; border-color: #2C2926; }
+.sv-calls .sv-q, .sv-calls .sv-group-title { color: var(--plan-on-ink); }
+.sv-calls .sv-lede, .sv-calls .sv-truths li { color: #C9C3BA; }
+.sv-calls .sv-why { background: #1F1D1B; color: var(--plan-on-ink); border-left-color: var(--sc-ember); }
+.sv-calls-how { margin: 0; padding-top: var(--sc-space-3); border-top: 1px solid #3A3733; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ember-light); line-height: 1.6; }

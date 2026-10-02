@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { BusyWeek, Days, Formats, PerDay, Personas, Times, Weekly, Wont, stepReady, type Draft } from './Steps'
 import type { Answers, Lang } from '@/lib/survey/core'
-import { RESULT, UI, fill } from '@/lib/survey/copy'
+import { CALLS, RESULT, UI, fill } from '@/lib/survey/copy'
 
 const STEPS = ['perDay', 'days', 'times', 'weekly', 'formats', 'wont', 'personas', 'busy'] as const
 const VIEWS = { perDay: PerDay, days: Days, times: Times, weekly: Weekly, formats: Formats, wont: Wont, personas: Personas, busy: BusyWeek }
@@ -119,6 +119,18 @@ export default function Survey({ token, name, photo, last }: { token: string; na
         <section className="sv-card sv-done" role="status">
           <h2 className="sv-q">{fill(RESULT.done[lang], { name: name.split(' ')[0] })}</h2>
           <p className="sv-lede">{RESULT.doneBody[lang]}</p>
+        </section>
+      )}
+      {at === STEPS.length && result && (
+        <section className="sv-card sv-calls" aria-labelledby="sv-calls-title">
+          <h2 className="sv-q" id="sv-calls-title">{CALLS.title[lang]}</h2>
+          <p className="sv-lede">{CALLS.lede[lang]}</p>
+          <div className="sv-truths">
+            <h3 className="sv-group-title">{CALLS.whenTitle[lang]}</h3>
+            <ul>{CALLS.when[lang].map((line) => <li key={line}>{line}</li>)}</ul>
+          </div>
+          <p className="sv-why" data-tone="warn">{CALLS.why[lang]}</p>
+          <p className="sv-calls-how">{CALLS.how[lang]}</p>
         </section>
       )}
     </main>

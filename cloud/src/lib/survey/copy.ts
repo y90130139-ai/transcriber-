@@ -271,6 +271,26 @@ export const RESULT = {
   atTop: { en: 'You’re at top-creator pace. Keep it steady — consistency is what compounds.', es: 'Estás al ritmo de las creadoras top. Mantenlo constante: la constancia es lo que se acumula.' },
 }
 
+/** Under the thank-you: marketing calls (Geno, 2026-10-02) — direction, not
+ *  guessing. Booked by messaging her MARKETING topic; no new plumbing. */
+export const CALLS = {
+  title: { en: 'Book your marketing calls', es: 'Agenda tus llamadas de marketing' },
+  lede: {
+    en: 'Top creators book a marketing call every week. It’s where we go over what’s working, what isn’t, and what to film next.',
+    es: 'Las creadoras top agendan una llamada de marketing cada semana. Ahí vemos qué funciona, qué no, y qué grabar después.',
+  },
+  whenTitle: { en: 'Book one any time', es: 'Agenda una cuando' },
+  when: {
+    en: ['You’re not sure what to film, or why', 'Your traffic or new subscribers feel low', 'Your videos aren’t performing like they used to'],
+    es: ['No sabes qué grabar, o por qué', 'Sientes que tu tráfico o tus suscriptores nuevos están bajos', 'Tus videos no están funcionando como antes'],
+  },
+  why: {
+    en: 'Going on “I think this is working” or doing whatever you feel like is how creators stall. Direction is how they grow: your numbers tell us what to do next, and the call is where we show you.',
+    es: 'Guiarte por “creo que esto funciona” o hacer lo que se te ocurra es como las creadoras se estancan. La dirección es lo que las hace crecer: tus números nos dicen qué hacer, y en la llamada te lo mostramos.',
+  },
+  how: { en: 'To book, message us in your MARKETING chat on Telegram.', es: 'Para agendar, escríbenos en tu chat de MARKETING en Telegram.' },
+}
+
 /** Spanish names for the taxonomy (English comes from taxonomy.json). */
 export const ES_LABELS: Record<string, string> = {
   // formats

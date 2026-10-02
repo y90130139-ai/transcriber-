@@ -49,10 +49,13 @@ STATE = config.ROOT / "secrets" / "viewer-state.json"
 BUDGET = config.ROOT / "secrets" / "viewer-budget.json"
 LOCK = config.ROOT / "secrets" / ".instagram-browser.lock"
 
-PER_RUN = 5
-PER_HOUR = 15
-PER_DAY = 60
-GAP_SEC = (60.0, 180.0)          # between two reels
+# Doubled 2026-10-01 at Geno's call to clear the 118-reel backlog faster
+# (was 5 / 15 / 60, gap 60-180 s). Ten reels a run at the shorter gap still
+# end inside the 20-minute launchd interval.
+PER_RUN = 10
+PER_HOUR = 30
+PER_DAY = 120
+GAP_SEC = (40.0, 100.0)          # between two reels
 WATCH_SEC = (6.0, 14.0)          # time on a reel's page, as if watching it
 FEED_SEC = (4.0, 9.0)            # the home feed first, like opening the app
 AWAKE = range(9, 23)             # local hours it may run: 09:00-22:59

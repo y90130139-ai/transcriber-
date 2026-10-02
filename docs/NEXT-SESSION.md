@@ -1,3 +1,31 @@
+# Handoff — 2026-10-01: the viewer runs on Scout's burner (Geno's call)
+
+- **122 failed downloads.** 118 are "could not download" (Instagram's empty
+  media response to a logged-out yt-dlp); a 3-job requeue test failed the same
+  way. The viewer burner was never created, so on Geno's say-so ("do it right
+  away") the viewer now uses **Scout's account**:
+  `secrets/viewer-cookies.txt -> scout-cookies.txt`,
+  `secrets/viewer-state.json -> scout-state.json` (symlinks, no code change).
+  Same pacing (5/run, 15/h, 60/day, 09-23, clear of Scout's passes), so the
+  118 take about two days. Risk accepted: if Instagram flags it, Scout's
+  weekly intake goes with it.
+- **Trap:** `./bin/scout-login --viewer` now writes *through* the links into
+  Scout's files. To move to a real viewer burner later: `rm` both links first,
+  then `./bin/scout-login --viewer`.
+- The other 4 never will download: 2 profile links, 1 photo post, 1 gave up
+  after 3 interrupted attempts.
+- OnlyFans numbers: Geno confirmed shipped. Meta app: dropped, do not raise.
+- **Weekly reels pass moved: Saturday 10:00 → Friday, chained after the 19:00
+  daily pass** in `bin/scout-daily` (under `caffeinate -i`; ends ~03:00 Sat).
+  The `scout` launchd agent is booted out and its plist retired
+  (`docs/…scout.plist.retired-2026-10-01`). Why: the Sat 10:00 pass ran 5 h and
+  writes `scout_runs` only at the end, so the cloud cron's Sat 10:30
+  `startSweep` saw no sweep in 3 days and paid Apify $9.85 for the same
+  accounts on 2026-09-26. **Apify is at $21.98 of its $19 Starter cap until the
+  cycle resets 2026-10-19** — the cloud fallback cannot run before then unless
+  Geno raises the limit. First Friday chain: 2026-10-02; check
+  `~/Library/Logs/social-transcriber-daily.log` and that Sat's cron skipped Apify.
+
 # Handoff — 2026-09-27 (on top of 26th and 25th: captions from the library, Geno's account out of the machine)
 
 ## 2026-09-27, Susanna's feedback — plan content fixed for every model

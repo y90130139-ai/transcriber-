@@ -5,6 +5,17 @@
 #
 # It runs daily rather than weekly for one reason: a story is gone in 24 hours,
 # so a weekly reading can never show one posted midweek.
+#
+# On Fridays the weekly reels pass (`scout --only burner`) follows straight
+# on. It used to have its own Saturday 10:00 launchd slot. Two reasons it moved
+# (2026-10-01): the Mac sleeps in the mornings, and that pass took five hours
+# and only records itself in scout_runs when it finishes, so the cloud cron's
+# Saturday 10:30 check saw no recent sweep and paid Apify for the same accounts
+# ($9.85 on 2026-09-26, over the plan cap). Daily (~3 h) plus reels (~5 h)
+# ends around 03:00 Saturday, in scout_runs well before that check; the Mac is
+# reliably on at 19:00, and `caffeinate -i` keeps it from idling to sleep
+# mid-pass overnight. Chained here, the two never overlap and the viewer, which will not
+# start while any Scout process runs, has no gap to slip into.
 set -euo pipefail
 SOURCE="${BASH_SOURCE[0]}"
 while [ -L "$SOURCE" ]; do
@@ -14,4 +25,10 @@ while [ -L "$SOURCE" ]; do
 done
 ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 cd "$ROOT"
-exec "$ROOT/.venv/bin/python" -m src.scout --daily "$@"
+status=0
+"$ROOT/.venv/bin/python" -m src.scout --daily "$@" || status=$?
+if [ "$(date +%u)" = 5 ]; then
+  echo "[$(date '+%F %T')] Friday: weekly reels pass follows the daily pass"
+  caffeinate -i "$ROOT/.venv/bin/python" -m src.scout --only burner || status=$?
+fi
+exit "$status"

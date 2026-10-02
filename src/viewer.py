@@ -58,8 +58,10 @@ FEED_SEC = (4.0, 9.0)            # the home feed first, like opening the app
 AWAKE = range(9, 23)             # local hours it may run: 09:00-22:59
 # Scout's own passes, local time: (weekday or None for daily, hour, minute).
 # The viewer keeps 45 minutes clear before each, so two browsers never share
-# this connection at once. 5 = Saturday (Python's Monday=0).
-SCOUT_PASSES = [(None, 19, 0), (5, 10, 0), (5, 16, 0)]
+# this connection at once. 5 = Saturday (Python's Monday=0). The weekly
+# reels pass now follows Friday's 19:00 daily pass in bin/scout-daily
+# (2026-10-01), so it needs no slot of its own; `_scout_running` covers its whole length.
+SCOUT_PASSES = [(None, 19, 0), (5, 16, 0)]
 CLEAR_BEFORE_MIN = 45
 CLEAR_AFTER_MIN = 60
 

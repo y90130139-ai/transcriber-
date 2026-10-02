@@ -272,7 +272,7 @@ export const RESULT = {
 }
 
 /** Under the thank-you: marketing calls (Geno, 2026-10-02) — direction, not
- *  guessing. Booked by messaging her MARKETING topic; no new plumbing. */
+ *  guessing. Booked through BOOKING_URL, also pinned in her MARKETING topic. */
 export const CALLS = {
   title: { en: 'Book your marketing calls', es: 'Agenda tus llamadas de marketing' },
   lede: {
@@ -288,8 +288,12 @@ export const CALLS = {
     en: 'Going on “I think this is working” or doing whatever you feel like is how creators stall. Direction is how they grow: your numbers tell us what to do next, and the call is where we show you.',
     es: 'Guiarte por “creo que esto funciona” o hacer lo que se te ocurra es como las creadoras se estancan. La dirección es lo que las hace crecer: tus números nos dicen qué hacer, y en la llamada te lo mostramos.',
   },
-  how: { en: 'To book, message us in your MARKETING chat on Telegram.', es: 'Para agendar, escríbenos en tu chat de MARKETING en Telegram.' },
+  book: { en: 'Book a marketing call', es: 'Agendar una llamada de marketing' },
+  how: { en: 'Or message us in your MARKETING chat on Telegram and we’ll set a time.', es: 'O escríbenos en tu chat de MARKETING en Telegram y agendamos.' },
 }
+
+/** Geno's marketing-call booking page (Google Calendar), 2026-10-02. */
+export const BOOKING_URL = 'https://calendar.app.google/dciVLZ1DPUbFiKRbA'
 
 /** Spanish names for the taxonomy (English comes from taxonomy.json). */
 export const ES_LABELS: Record<string, string> = {

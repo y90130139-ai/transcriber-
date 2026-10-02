@@ -205,3 +205,11 @@
 .sv-calls .sv-lede, .sv-calls .sv-truths li { color: #C9C3BA; }
 .sv-calls .sv-why { background: #1F1D1B; color: var(--plan-on-ink); border-left-color: var(--sc-ember); }
 .sv-calls-how { margin: 0; padding-top: var(--sc-space-3); border-top: 1px solid #3A3733; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ember-light); line-height: 1.6; }
+
+.sv-book {
+  display: flex; align-items: center; justify-content: center; min-height: 52px;
+  border-radius: var(--r-sm); background: var(--sc-ember); color: #FFF8F2; text-decoration: none;
+  font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase;
+}
+.sv-book:active { transform: scale(0.98); }
+.sv-book:focus-visible { outline: 2px solid var(--plan-on-ink); outline-offset: 3px; }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { BusyWeek, Days, Formats, PerDay, Personas, Times, Weekly, Wont, stepReady, type Draft } from './Steps'
 import type { Answers, Lang } from '@/lib/survey/core'
-import { CALLS, RESULT, UI, fill } from '@/lib/survey/copy'
+import { BOOKING_URL, CALLS, RESULT, UI, fill } from '@/lib/survey/copy'
 
 const STEPS = ['perDay', 'days', 'times', 'weekly', 'formats', 'wont', 'personas', 'busy'] as const
 const VIEWS = { perDay: PerDay, days: Days, times: Times, weekly: Weekly, formats: Formats, wont: Wont, personas: Personas, busy: BusyWeek }
@@ -129,6 +129,7 @@ export default function Survey({ token, name, photo, last }: { token: string; na
             <ul>{CALLS.when[lang].map((line) => <li key={line}>{line}</li>)}</ul>
           </div>
           <p className="sv-why" data-tone="warn">{CALLS.why[lang]}</p>
+          <a className="sv-book" href={BOOKING_URL} target="_blank" rel="noopener noreferrer">{CALLS.book[lang]}</a>
           <p className="sv-calls-how">{CALLS.how[lang]}</p>
         </section>
       )}

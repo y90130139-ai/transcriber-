@@ -208,3 +208,22 @@ export async function latestFor(modelId: string) {
   )
   return row ?? null
 }
+
+/**
+ * A new model's questionnaire goes out by itself the first time her Telegram
+ * group is linked (Geno, 2026-10-02: "yes automatically"). Only an active
+ * model who has never had one — relinking, or linking someone who already
+ * answered, sends nothing.
+ */
+export async function autoSurveyOnLink(modelId: string) {
+  const rows = await sql.query(
+    `insert into transcriber.surveys (id, model_id)
+     select $1, m.id from transcriber.models m
+      where m.id = $2 and m.status = 'active' and m.telegram_chat_id is not null
+        and not exists (select 1 from transcriber.surveys s where s.model_id = m.id)
+     on conflict do nothing
+     returning id`,
+    [newId(), modelId],
+  )
+  return { queued: rows.length > 0 }
+}

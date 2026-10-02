@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
+import { autoSurveyOnLink } from '@/lib/survey/store'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -25,5 +26,15 @@ export async function PUT(request: Request, { params }: Params) {
     [id, chatId],
   )
   if (!model) return NextResponse.json({ error: 'not found' }, { status: 404 })
-  return NextResponse.json({ telegram_chat_id: model.telegram_chat_id })
+  // First link of a new model: her questionnaire goes out with it (lib/survey).
+  // A failure here must not undo the link, which already saved.
+  let questionnaire = false
+  if (chatId) {
+    try {
+      questionnaire = (await autoSurveyOnLink(id)).queued
+    } catch (error) {
+      console.error('auto questionnaire on link failed', error)
+    }
+  }
+  return NextResponse.json({ telegram_chat_id: model.telegram_chat_id, questionnaire_queued: questionnaire })
 }

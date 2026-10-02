@@ -41,7 +41,9 @@ export default function TelegramLink({ modelId, initial }: { modelId: string; in
     const body = await response.json().catch(() => ({}))
     if (!response.ok) { setNote(body.error ?? 'That did not save.'); return }
     setChatId(body.telegram_chat_id ?? null)
-    setNote(value ? 'Linked. "Send on Telegram" now posts their plan there.' : 'Unlinked.')
+    setNote(value
+      ? `Linked. "Send on Telegram" now posts their plan there.${body.questionnaire_queued ? ' Her creator questionnaire is on its way too.' : ''}`
+      : 'Unlinked.')
   }
 
   const current = groups?.find((group) => group.chat_id === chatId) ?? null

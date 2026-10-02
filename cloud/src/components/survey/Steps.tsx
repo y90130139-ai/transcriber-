@@ -1,10 +1,10 @@
 'use client'
 
 import Choice, { Why } from './Choice'
-import { BATCH, BUSY, MAX_PERSONAS, ON_CAMERA, TIMES, priorityFor, nextStep, type Busy, type Lang, type TimeSlot } from '@/lib/survey/core'
+import { BATCH, BUSY, MAX_PERSONAS, ON_CAMERA, TIMES, TOP_CREATOR_WEEKLY, paceBand, splitFor, type Busy, type Lang, type TimeSlot } from '@/lib/survey/core'
 import {
-  BUSY_OPTIONS, DAY_LABELS, DAY_ORDER, ES_LABELS, GROUPS, Q, RESULT, TIME_LABELS,
-  daysWhy, fill, formatsVerdict, nextStepText, perDayWhy, PRIORITY_COPY,
+  BUSY_OPTIONS, DAY_LABELS, DAY_ORDER, ES_LABELS, GROUPS, IG_LINE, PACE, Q, RESULT, SPLIT, TIME_LABELS, TOP_LINE,
+  daysWhy, fill, formatsVerdict, perDayWhy,
 } from '@/lib/survey/copy'
 import { taxonomy } from '@/lib/taxonomy'
 
@@ -83,8 +83,7 @@ export function Times({ lang, draft, set }: StepProps) {
 
 export function Weekly({ lang, draft, set }: StepProps) {
   const weekly = draft.weekly ?? 1
-  const tier = priorityFor(weekly, draft.formats.length ? draft.formats : ['talking-head']).priority
-  const step = nextStep(weekly, ['talking-head'])
+  const pace = PACE[paceBand(weekly)]
   return (
     <>
       <Head title={Q.weekly.title[lang]} hint={Q.weekly.hint[lang]} />
@@ -93,11 +92,45 @@ export function Weekly({ lang, draft, set }: StepProps) {
         <output className="sv-step-value" aria-live="polite">{weekly}</output>
         <button type="button" className="sv-step-btn" aria-label="+1" onClick={() => set({ weekly: Math.min(100, weekly + 1) })}>+</button>
       </div>
-      <Why text={`${fill(RESULT.liveTier[lang], { n: weekly, p: tier })} ${PRIORITY_COPY[tier][lang]}`} tone={tier === 'S' || tier === 'A' ? 'good' : 'note'} />
-      {step.kind === 'volume' && <Why text={nextStepText(step)[lang]} />}
+      <Why text={pace.text[lang]} tone={pace.tone} />
+      <Why text={TOP_LINE[lang]} />
+      <SplitView lang={lang} weekly={weekly} />
     </>
   )
 }
+
+/** Her week under the 70/20/10 rule, with her own numbers, so she can see
+ *  that at low volume there is no room left to test anything new. */
+export function SplitView({ lang, weekly }: { lang: Lang; weekly: number }) {
+  const split = splitFor(weekly)
+  const rows = [
+    { n: split.winners, label: SPLIT.winners[lang], share: 70 },
+    { n: split.takes, label: SPLIT.takes[lang], share: 20 },
+    { n: split.tests, label: SPLIT.tests[lang], share: 10 },
+  ]
+  return (
+    <section className="sv-split" aria-label={SPLIT.title[lang]}>
+      <h3 className="sv-group-title">{SPLIT.title[lang]}</h3>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.share} data-empty={r.n === 0}>
+            <span className="sv-split-n">{r.n}</span>
+            <span className="sv-split-label">{r.label}</span>
+            <span className="sv-split-share">{r.share}%</span>
+          </li>
+        ))}
+      </ul>
+      <p className="sv-group-why">{SPLIT.why[lang]}</p>
+    </section>
+  )
+}
+
+/** The benchmark line on the result screen: how far from top-creator pace. */
+export function toTopLine(weekly: number, lang: Lang): string {
+  return weekly >= TOP_CREATOR_WEEKLY ? RESULT.atTop[lang] : fill(RESULT.toTop[lang], { n: TOP_CREATOR_WEEKLY - weekly })
+}
+
+export { IG_LINE }
 
 function FormatGroup({ ids, title, why, lang, picked, onTap }: { ids: string[]; title: string; why?: string; lang: Lang; picked: string[]; onTap: (id: string) => void }) {
   return (

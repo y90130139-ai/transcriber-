@@ -1,15 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BusyWeek, Days, Formats, PerDay, Personas, Times, Weekly, Wont, stepReady, type Draft } from './Steps'
-import { nextStep, type Answers, type Lang, type Priority } from '@/lib/survey/core'
-import { PRIORITY_COPY, RESULT, UI, fill, nextStepText } from '@/lib/survey/copy'
+import { BusyWeek, Days, Formats, IG_LINE, PerDay, Personas, SplitView, Times, Weekly, Wont, stepReady, toTopLine, type Draft } from './Steps'
+import { paceBand, type Answers, type Lang } from '@/lib/survey/core'
+import { PACE, RESULT, TOP_LINE, UI, fill } from '@/lib/survey/copy'
 
 const STEPS = ['perDay', 'days', 'times', 'weekly', 'formats', 'wont', 'personas', 'busy'] as const
 const VIEWS = { perDay: PerDay, days: Days, times: Times, weekly: Weekly, formats: Formats, wont: Wont, personas: Personas, busy: BusyWeek }
 
-type Last = { answers: Answers; priority: Priority; submitted_at: string } | null
-type Result = { priority: Priority; weekly: number; formats: string[] }
+type Last = { answers: Answers; submitted_at: string } | null
+type Result = { weekly: number }
 
 const EMPTY: Draft = { per_day: null, days: [], times: [], weekly: null, formats: [], wont: [], personas: [], busy: null }
 const fromAnswers = (a: Answers): Draft => ({ ...a })
@@ -26,7 +26,7 @@ export default function Survey({ token, name, photo, last }: { token: string; na
   const [at, setAt] = useState(last ? STEPS.length : -1)
   const [draft, setDraft] = useState<Draft>(last ? fromAnswers(last.answers) : EMPTY)
   const [weeklyTouched, setWeeklyTouched] = useState(Boolean(last))
-  const [result, setResult] = useState<Result | null>(last ? { priority: last.priority, weekly: last.answers.weekly, formats: last.answers.formats } : null)
+  const [result, setResult] = useState<Result | null>(last ? { weekly: last.answers.weekly } : null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,7 +56,7 @@ export default function Survey({ token, name, photo, last }: { token: string; na
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || UI.sendFailed[lang])
-      setResult({ priority: body.priority, weekly: body.weekly, formats: draft.formats })
+      setResult({ weekly: body.weekly })
       go(STEPS.length)
     } catch (e) {
       setError(e instanceof Error ? e.message : UI.sendFailed[lang])
@@ -120,10 +120,12 @@ export default function Survey({ token, name, photo, last }: { token: string; na
       {at === STEPS.length && result && (
         <section className="sv-card sv-result">
           <p className="sv-count">{RESULT.title[lang]}</p>
-          <p className="sv-tier" data-tier={result.priority}>{result.priority}</p>
-          <p className="sv-lede">{PRIORITY_COPY[result.priority][lang]}</p>
-          <p className="sv-weekly">{fill(RESULT.weekly[lang], { n: result.weekly })}</p>
-          <p className="sv-why" data-tone="good">{nextStepText(nextStep(result.weekly, result.formats))[lang]}</p>
+          <p className="sv-tier">{result.weekly}<span>{RESULT.weekly[lang]}</span></p>
+          <p className="sv-hint">{TOP_LINE[lang]}</p>
+          <p className="sv-why" data-tone="good">{toTopLine(result.weekly, lang)}</p>
+          <p className="sv-why" data-tone={PACE[paceBand(result.weekly)].tone}>{PACE[paceBand(result.weekly)].text[lang]}</p>
+          <SplitView lang={lang} weekly={result.weekly} />
+          <p className="sv-lede">{IG_LINE[lang]}</p>
           <Truths lang={lang} />
           <p className="sv-hint">{RESULT.saved[lang]}</p>
           <nav className="sv-nav">

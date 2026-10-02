@@ -153,3 +153,25 @@ export function mergeProfile(current: CurrentProfile, a: Answers) {
     .map(([field, to]) => ({ field, from: before[field], to }))
   return { profile, changes }
 }
+
+/** Top creators post at least this many a week — the one benchmark she is
+ *  shown. Her own priority never is (Geno, 2026-10-02). */
+export const TOP_CREATOR_WEEKLY = 21
+
+export type PaceBand = 'under7' | '7to13' | '14to20' | '21plus'
+
+/** Geno's four steps: how fast we can learn what works for her. */
+export function paceBand(weekly: number): PaceBand {
+  if (weekly >= 21) return '21plus'
+  if (weekly >= 14) return '14to20'
+  if (weekly >= 7) return '7to13'
+  return 'under7'
+}
+
+/** Her week under the 70/20/10 rule: remakes of proven winners, new takes on
+ *  what did okay, brand-new tests (see the sinaura 70/20/10 note). */
+export function splitFor(weekly: number) {
+  const tests = Math.round(weekly * 0.1)
+  const takes = Math.round(weekly * 0.2)
+  return { winners: weekly - takes - tests, takes, tests }
+}

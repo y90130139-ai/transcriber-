@@ -12,7 +12,8 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const result = await submitSurvey(token, read.answers)
     if (!result) return NextResponse.json({ error: 'not found' }, { status: 404 })
-    return NextResponse.json({ ok: true, ...result })
+    // Her priority is set but never sent back — she is not told it.
+    return NextResponse.json({ ok: true, weekly: result.weekly })
   } catch (error) {
     console.error('survey submit failed', error)
     return NextResponse.json({ error: 'Could not save your answers. Try again in a moment.' }, { status: 500 })

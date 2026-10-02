@@ -106,3 +106,23 @@ test('every format in a group is a real tag', async () => {
   const { isValidTag } = await import('../src/lib/taxonomy')
   assert.deepEqual([...ON_CAMERA, ...BATCH].filter((id) => !isValidTag('format', id)), [])
 })
+
+test('pace bands follow Geno’s four steps: under 7, 7-13, 14-20, 21+', async () => {
+  const { paceBand } = await import('../src/lib/survey/core')
+  assert.equal(paceBand(6), 'under7')
+  assert.equal(paceBand(7), '7to13')
+  assert.equal(paceBand(13), '7to13')
+  assert.equal(paceBand(14), '14to20')
+  assert.equal(paceBand(20), '14to20')
+  assert.equal(paceBand(21), '21plus')
+})
+
+test('her 70/20/10 split always adds up to her weekly number', async () => {
+  const { splitFor } = await import('../src/lib/survey/core')
+  assert.deepEqual(splitFor(21), { winners: 15, takes: 4, tests: 2 })
+  assert.deepEqual(splitFor(3), { winners: 2, takes: 1, tests: 0 })
+  for (const n of [1, 5, 9, 12, 14, 30]) {
+    const s = splitFor(n)
+    assert.equal(s.winners + s.takes + s.tests, n)
+  }
+})

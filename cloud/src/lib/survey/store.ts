@@ -134,13 +134,14 @@ export async function surveyPage(token: string) {
     [model.id],
   )
   const [last] = await sql.query(
-    `select answers, priority, submitted_at from transcriber.surveys
+    `select answers, submitted_at from transcriber.surveys
       where model_id = $1 and submitted_at is not null order by submitted_at desc limit 1`,
     [model.id],
   )
   return {
     model: { id: model.id, name: model.name, photo_url: model.photo_url ?? null },
-    last: last ? { answers: last.answers as Answers, priority: last.priority as Priority, submitted_at: String(last.submitted_at) } : null,
+    // Never her priority: she is not told it (Geno, 2026-10-02).
+    last: last ? { answers: last.answers as Answers, submitted_at: String(last.submitted_at) } : null,
   }
 }
 

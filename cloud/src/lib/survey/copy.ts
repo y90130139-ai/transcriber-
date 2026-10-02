@@ -6,15 +6,15 @@
  * personality converts better than text on a screen. Kept honest and kind —
  * she should finish knowing exactly what moves her up, not feeling judged.
  */
-import type { Busy, Lang, NextStep, Priority, TimeSlot } from './core'
+import type { Busy, Lang, PaceBand, TimeSlot } from './core'
 
 type T = Record<Lang, string>
 
 export const UI = {
   title: { en: 'Your creator profile', es: 'Tu perfil de creadora' },
   intro: {
-    en: 'Two minutes, mostly taps. Your answers set up your plan and your priority — who gets first pick of the best new videos each week.',
-    es: 'Dos minutos, casi todo con toques. Tus respuestas arman tu plan y tu prioridad: quién elige primero los mejores videos nuevos cada semana.',
+    en: 'Two minutes, mostly taps. Your answers set up your plan and tell us how fast we can find the videos that work for you.',
+    es: 'Dos minutos, casi todo con toques. Tus respuestas arman tu plan y nos dicen qué tan rápido podemos encontrar los videos que te funcionan.',
   },
   truthsTitle: { en: 'How this works', es: 'Cómo funciona' },
   truths: {
@@ -205,33 +205,67 @@ export const BUSY_OPTIONS: Record<Busy, { label: T; why: T; tone: 'good' | 'warn
   },
 }
 
-export const PRIORITY_COPY: Record<Priority, T> = {
-  S: { en: 'First pick of the best new videos, every week.', es: 'Primera en elegir los mejores videos nuevos, cada semana.' },
-  A: { en: 'Early pick of the best new videos.', es: 'Eliges temprano entre los mejores videos nuevos.' },
-  B: { en: 'You pick after the top creators.', es: 'Eliges después de las creadoras top.' },
-  C: { en: 'You pick from what’s left after everyone else.', es: 'Eliges de lo que queda después de las demás.' },
+/** The one benchmark she sees. Never her own priority (Geno, 2026-10-02). */
+export const TOP_LINE: T = {
+  en: 'Top creators post at least 21 reels a week on average — and they’re the ones earning the most.',
+  es: 'Las creadoras top publican en promedio al menos 21 reels por semana, y son las que más ganan.',
+}
+
+/** Why volume matters, by Geno's four steps: how fast we find her winners. */
+export const PACE: Record<PaceBand, { text: T; tone: 'good' | 'note' | 'warn' }> = {
+  under7: {
+    tone: 'warn',
+    text: {
+      en: 'Under 7 a week, it takes months to learn which of your videos work. Every week we’re still guessing is a week you’re not earning what you could.',
+      es: 'Con menos de 7 por semana, toma meses saber cuáles de tus videos funcionan. Cada semana que seguimos adivinando es una semana sin ganar lo que podrías.',
+    },
+  },
+  '7to13': {
+    tone: 'note',
+    text: {
+      en: 'At 7 to 13 a week we’ll start to see patterns, but slowly. It takes a while to spot a video worth doubling down on.',
+      es: 'Con 7 a 13 por semana empezamos a ver patrones, pero lento. Toma tiempo encontrar un video que valga la pena repetir.',
+    },
+  },
+  '14to20': {
+    tone: 'good',
+    text: {
+      en: 'At 14 to 20 a week we can spot what’s working within a few weeks and double down on it.',
+      es: 'Con 14 a 20 por semana podemos ver qué funciona en pocas semanas y apostar más fuerte por eso.',
+    },
+  },
+  '21plus': {
+    tone: 'good',
+    text: {
+      en: 'That’s the pace top creators keep. We can test, find your winners fast and double down — the quickest way to start earning.',
+      es: 'Ese es el ritmo de las creadoras top. Podemos probar, encontrar tus videos ganadores rápido y repetirlos: la forma más rápida de empezar a ganar.',
+    },
+  },
+}
+
+export const SPLIT = {
+  title: { en: 'How we use your videos: 70 / 20 / 10', es: 'Cómo usamos tus videos: 70 / 20 / 10' },
+  winners: { en: 'remakes of your proven winners', es: 'nuevas versiones de tus videos ganadores' },
+  takes: { en: 'new takes on what did okay', es: 'nuevos ángulos de lo que funcionó más o menos' },
+  tests: { en: 'brand-new ideas to test', es: 'ideas totalmente nuevas para probar' },
+  why: {
+    en: 'When a video keeps performing, we make more like it. We can only find those videos when there’s enough volume to learn from — the longer it takes to find them, the longer it takes to make money.',
+    es: 'Cuando un video sigue funcionando, hacemos más como ese. Solo podemos encontrarlos si hay suficiente volumen para aprender; mientras más tardemos en encontrarlos, más tardas en ganar dinero.',
+  },
+}
+
+export const IG_LINE: T = {
+  en: 'Instagram is one of the best places to bring in quality subscribers. The faster we find what works for you there, the faster you earn.',
+  es: 'Instagram es uno de los mejores lugares para atraer suscriptores de calidad. Mientras más rápido encontremos lo que te funciona ahí, más rápido ganas.',
 }
 
 export const RESULT = {
-  title: { en: 'You start at priority', es: 'Empiezas en prioridad' },
-  weekly: { en: '{n} reels a week', es: '{n} reels por semana' },
+  title: { en: 'Your plan', es: 'Tu plan' },
+  weekly: { en: 'reels a week', es: 'reels por semana' },
+  weekSplit: { en: 'Your week, split 70 / 20 / 10', es: 'Tu semana, en 70 / 20 / 10' },
   saved: { en: 'Saved to your profile. Your next plans follow these answers.', es: 'Guardado en tu perfil. Tus próximos planes siguen estas respuestas.' },
-  liveTier: { en: 'At {n} a week you start at {p}.', es: 'Con {n} por semana empiezas en {p}.' },
-}
-
-export function nextStepText(step: NextStep): T {
-  if (step.kind === 'top') return {
-    en: 'You’re at the top. Stay consistent to keep it — priority follows what you actually post.',
-    es: 'Estás en lo más alto. Mantén la constancia para quedarte ahí: la prioridad sigue lo que publicas de verdad.',
-  }
-  if (step.kind === 'on-camera') return {
-    en: `Add one on-camera format — talking, a storytime, a skit — and you move up to ${step.to}.`,
-    es: `Agrega un formato a cámara (hablar, una historia, un sketch) y subes a ${step.to}.`,
-  }
-  return {
-    en: `${step.more} more reel${step.more === 1 ? '' : 's'} a week moves you up to ${step.to}.`,
-    es: `${step.more} reel${step.more === 1 ? '' : 's'} más por semana te sube a ${step.to}.`,
-  }
+  toTop: { en: '{n} more a week puts you at top-creator pace.', es: '{n} más por semana te pone al ritmo de las creadoras top.' },
+  atTop: { en: 'You’re at top-creator pace. Keep it steady — consistency is what compounds.', es: 'Estás al ritmo de las creadoras top. Mantenlo constante: la constancia es lo que se acumula.' },
 }
 
 /** Spanish names for the taxonomy (English comes from taxonomy.json). */

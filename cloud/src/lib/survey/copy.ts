@@ -36,12 +36,10 @@ export const UI = {
   start: { en: 'Start', es: 'Empezar' },
   next: { en: 'Next', es: 'Siguiente' },
   back: { en: 'Back', es: 'Atrás' },
-  submit: { en: 'Send my answers', es: 'Enviar mis respuestas' },
+  submit: { en: 'Done', es: 'Listo' },
   sending: { en: 'Sending…', es: 'Enviando…' },
   step: { en: 'Step {n} of {total}', es: 'Paso {n} de {total}' },
   optional: { en: 'Optional', es: 'Opcional' },
-  retake: { en: 'Change my answers', es: 'Cambiar mis respuestas' },
-  openPlan: { en: 'Open my plan', es: 'Abrir mi plan' },
   sendFailed: { en: 'That did not go through. Check your connection and try again.', es: 'No se envió. Revisa tu conexión e inténtalo otra vez.' },
 }
 
@@ -260,6 +258,11 @@ export const IG_LINE: T = {
 }
 
 export const RESULT = {
+  done: { en: 'All done — thank you, {name}!', es: '¡Listo, gracias {name}!' },
+  doneBody: {
+    en: 'We’ve got your answers and we’re building your plan around them. Nothing else to do here.',
+    es: 'Tenemos tus respuestas y estamos armando tu plan con ellas. No tienes que hacer nada más aquí.',
+  },
   title: { en: 'Your plan', es: 'Tu plan' },
   weekly: { en: 'reels a week', es: 'reels por semana' },
   weekSplit: { en: 'Your week, split 70 / 20 / 10', es: 'Tu semana, en 70 / 20 / 10' },

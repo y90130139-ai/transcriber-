@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { BusyWeek, Days, Formats, IG_LINE, PerDay, Personas, SplitView, Times, Weekly, Wont, stepReady, toTopLine, type Draft } from './Steps'
-import { paceBand, type Answers, type Lang } from '@/lib/survey/core'
-import { PACE, RESULT, TOP_LINE, UI, fill } from '@/lib/survey/copy'
+import { useState } from 'react'
+import { BusyWeek, Days, Formats, PerDay, Personas, Times, Weekly, Wont, stepReady, type Draft } from './Steps'
+import type { Answers, Lang } from '@/lib/survey/core'
+import { RESULT, UI, fill } from '@/lib/survey/copy'
 
 const STEPS = ['perDay', 'days', 'times', 'weekly', 'formats', 'wont', 'personas', 'busy'] as const
 const VIEWS = { perDay: PerDay, days: Days, times: Times, weekly: Weekly, formats: Formats, wont: Wont, personas: Personas, busy: BusyWeek }
@@ -16,12 +16,8 @@ const fromAnswers = (a: Answers): Draft => ({ ...a })
 
 
 export default function Survey({ token, name, photo, last }: { token: string; name: string; photo: string | null; last: Last }) {
+  // English first (Geno: only Sophia reads Spanish); the toggle stays for her.
   const [lang, setLang] = useState<Lang>(last?.answers.lang ?? 'en')
-  // A Spanish phone gets Spanish, decided after hydration so the server's
-  // render and the first client render agree. Her last answers win.
-  useEffect(() => {
-    if (!last && navigator.language?.toLowerCase().startsWith('es')) setLang('es')
-  }, [last])
   // -1 is the intro; STEPS.length is the result.
   const [at, setAt] = useState(last ? STEPS.length : -1)
   const [draft, setDraft] = useState<Draft>(last ? fromAnswers(last.answers) : EMPTY)
@@ -117,21 +113,12 @@ export default function Survey({ token, name, photo, last }: { token: string; na
         </section>
       )}
 
+      {/* The end. Her answers are already on her profile; nothing for her to
+          open or change (Geno: "they hit Done and that's it"). */}
       {at === STEPS.length && result && (
-        <section className="sv-card sv-result">
-          <p className="sv-count">{RESULT.title[lang]}</p>
-          <p className="sv-tier">{result.weekly}<span>{RESULT.weekly[lang]}</span></p>
-          <p className="sv-hint">{TOP_LINE[lang]}</p>
-          <p className="sv-why" data-tone="good">{toTopLine(result.weekly, lang)}</p>
-          <p className="sv-why" data-tone={PACE[paceBand(result.weekly)].tone}>{PACE[paceBand(result.weekly)].text[lang]}</p>
-          <SplitView lang={lang} weekly={result.weekly} />
-          <p className="sv-lede">{IG_LINE[lang]}</p>
-          <Truths lang={lang} />
-          <p className="sv-hint">{RESULT.saved[lang]}</p>
-          <nav className="sv-nav">
-            <button type="button" className="plan-cta plan-cta-quiet" onClick={() => go(0)}>{UI.retake[lang]}</button>
-            <a className="plan-cta" href={`/p/${token}`}>{UI.openPlan[lang]}</a>
-          </nav>
+        <section className="sv-card sv-done" role="status">
+          <h2 className="sv-q">{fill(RESULT.done[lang], { name: name.split(' ')[0] })}</h2>
+          <p className="sv-lede">{RESULT.doneBody[lang]}</p>
         </section>
       )}
     </main>

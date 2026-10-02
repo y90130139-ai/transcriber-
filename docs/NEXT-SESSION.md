@@ -6,8 +6,9 @@
   away") the viewer now uses **Scout's account**:
   `secrets/viewer-cookies.txt -> scout-cookies.txt`,
   `secrets/viewer-state.json -> scout-state.json` (symlinks, no code change).
-  Same pacing (5/run, 15/h, 60/day, 09-23, clear of Scout's passes), so the
-  118 take about two days. Risk accepted: if Instagram flags it, Scout's
+  Pacing **doubled** the same night at Geno's call: 10/run, 30/h, 120/day,
+  gap 40-100 s (09-23, clear of Scout's passes). **Put it back to 5/15/60 and
+  60-180 s once the backlog is clear** — it was only for the backlog. Risk accepted: if Instagram flags it, Scout's
   weekly intake goes with it.
 - **Trap:** `./bin/scout-login --viewer` now writes *through* the links into
   Scout's files. To move to a real viewer burner later: `rm` both links first,

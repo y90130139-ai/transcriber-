@@ -252,6 +252,39 @@ body {
 }
 .queue-row[data-status='failed'] .queue-stage { color: var(--sc-critical); font-style: normal; }
 
+/* Held rows (lib/queue-state.ts): no speech chip, and the reason may wrap —
+   a long one used to run off the right edge. */
+.queue-row-held { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(0, auto); }
+.queue-row-held[data-state='stuck'] { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(0, auto) auto; }
+.queue-row-held .queue-stage { white-space: normal; text-align: right; }
+.queue-row-held[data-state='viewer'] .queue-mark { color: var(--sc-ink-300); }
+.queue-row-held[data-state='stuck'] .queue-mark,
+.queue-row-held[data-state='stuck'] .queue-stage { color: var(--sc-critical); font-style: normal; }
+.queue-retry { align-self: center; font-size: 0.6rem; padding: 0.22rem 0.6rem; }
+
+.queue-fold { margin-top: var(--sc-space-6); border-top: var(--sc-rule-hair); }
+.queue-fold > summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sc-space-2) var(--sc-space-4);
+  padding: var(--sc-space-4) 0;
+}
+.queue-fold > summary::-webkit-details-marker { display: none; }
+.queue-fold-title { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-700); }
+.queue-fold-title::before { content: '▸ '; color: var(--sc-ember); }
+.queue-fold[open] .queue-fold-title::before { content: '▾ '; }
+.queue-fold-count { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.queue-fold-note { grid-column: 1 / -1; font-family: var(--sc-font-counter); font-style: italic; font-size: var(--sc-text-sm); color: var(--sc-ink-300); max-width: 60ch; }
+.queue-fold > summary:hover .queue-fold-title,
+.queue-fold > summary:focus-visible .queue-fold-title { color: var(--sc-ink-900); }
+
+@media (max-width: 640px) {
+  .queue-row-held, .queue-row-held[data-state='stuck'] { grid-template-columns: 1.2rem minmax(0, 1fr) auto; }
+  .queue-row-held .queue-stage { grid-column: 2 / -1; text-align: left; }
+}
+
 /* ============================================================
    LIBRARY — editorial grid. The newest item runs wide.
    ============================================================ */

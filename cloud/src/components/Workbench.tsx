@@ -12,7 +12,7 @@ import { EMPTY_FILTERS, toQuery, type Filters } from './FilterBar'
 import type { LibraryItem } from '@/lib/format'
 import DashboardHome from './dashboard/DashboardHome'
 
-type Counts = { queued: number; running: number; done: number; failed: number }
+type Counts = { queued: number; running: number; done: number; failed: number; waiting?: number }
 type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
 // `creators` is the Instagram accounts we research — the word the database and
 // /api/creators already use. `models` is our own people, who are a different
@@ -143,7 +143,8 @@ export default function Workbench() {
         <div className="masthead-meta">
           <span className="tally">
             <b>{counts.done}</b> held
-            {counts.failed > 0 && <> · <b>{counts.failed}</b> failed</>}
+            {(counts.waiting ?? 0) > 0 && <> · <b>{counts.waiting}</b> waiting</>}
+            {counts.failed - (counts.waiting ?? 0) > 0 && <> · <b>{counts.failed - (counts.waiting ?? 0)}</b> need you</>}
           </span>
           <span className="status" data-online={worker.online}>
             <span className="beacon" aria-hidden />

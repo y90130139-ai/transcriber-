@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { VIEW_TRIES } from '@/lib/queue-state'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
@@ -129,13 +130,18 @@ export async function GET(request: Request) {
 
   // Work in progress is never filtered — the point of the queue is to see
   // everything that has not landed yet.
+  // The viewer's tries ride along so the queue can tell a reel it is still
+  // working on from one it gave up on (lib/queue-state.ts). In flight first,
+  // so a long tail of failures can never push live work past the limit.
   const pending = await sql.query(
-    `select ${COLUMNS}
+    `select ${COLUMNS}, coalesce(m.tries, 0)::int as view_tries
        from transcriber.jobs j
        left join transcriber.transcripts t on t.job_id = j.id
+       left join transcriber.job_media m on m.job_id = j.id
       where j.status in ('queued', 'running', 'failed')
-      order by (j.status = 'running') desc, j.created_at desc
-      limit 60`,
+      order by case j.status when 'running' then 0 when 'queued' then 1 else 2 end,
+               j.created_at desc
+      limit 300`,
   )
 
   const [counts] = await sql.query(
@@ -145,8 +151,14 @@ export async function GET(request: Request) {
             count(*) filter (where status = 'running')::int as running,
             count(*) filter (where status = 'done' and archived_at is null)::int as done,
             count(*) filter (where archived_at is not null)::int as archived,
-            count(*) filter (where status = 'failed')::int  as failed
-       from transcriber.jobs`,
+            count(*) filter (where status = 'failed')::int  as failed,
+            -- Of those, the ones the viewer still has (lib/queue-state.ts).
+            count(*) filter (where status = 'failed'
+                               and error like 'could not download%'
+                               and source ~ '/(reels?|p)/[A-Za-z0-9_-]+'
+                               and coalesce(m.tries, 0) < ${VIEW_TRIES})::int as waiting
+       from transcriber.jobs
+       left join transcriber.job_media m on m.job_id = transcriber.jobs.id`,
   )
 
   const [ping] = await sql.query(

@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 import Queue from './Queue'
+import { StuckList, WaitingList } from './QueueHeld'
+import { queueState } from '@/lib/queue-state'
 import type { LibraryItem } from '@/lib/format'
 
 export default function QueueTab({
@@ -21,6 +23,9 @@ export default function QueueTab({
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const dragDepth = useRef(0)
+  const inFlight = pending.filter((item) => queueState(item) === 'flight')
+  const waiting = pending.filter((item) => queueState(item) === 'viewer')
+  const stuck = pending.filter((item) => queueState(item) === 'stuck')
 
   async function submitLinks() {
     if (!paste.trim()) return
@@ -129,15 +134,18 @@ export default function QueueTab({
       <div className="section-head">
         <h2>In flight</h2>
         <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          {pending.length} item{pending.length === 1 ? '' : 's'}
+          {inFlight.length} item{inFlight.length === 1 ? '' : 's'}
         </span>
       </div>
 
-      {pending.length > 0 ? (
-        <Queue items={pending} onOpen={onOpen} onChanged={onChanged} />
+      {inFlight.length > 0 ? (
+        <Queue items={inFlight} onOpen={onOpen} onChanged={onChanged} />
       ) : (
-        <div className="empty"><p>Nothing waiting. The queue is clear.</p></div>
+        <div className="empty"><p>Nothing downloading right now.</p></div>
       )}
+
+      <WaitingList items={waiting} onOpen={onOpen} />
+      <StuckList items={stuck} onOpen={onOpen} onChanged={onChanged} />
     </div>
   )
 }

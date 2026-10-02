@@ -54,6 +54,8 @@ export type LibraryItem = {
   sig_plays?: number | string | null
   is_hot?: boolean | null
   tags?: TagRow[]
+  /** Queue rows only: how many times the viewer has opened this reel. */
+  view_tries?: number
 }
 
 export type Block = { speaker: string | null; start: number; text: string }

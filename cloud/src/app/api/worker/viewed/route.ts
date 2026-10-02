@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
+import { VIEW_TRIES } from '@/lib/queue-state'
 
 /**
  * The viewer burner's side of the queue (src/viewer.py on the Mac).
@@ -26,7 +27,7 @@ import { sql } from '@/lib/db'
  *  gone just finds no link and rests after MAX_TRIES. */
 const GATED = `error like 'could not download%'`
 /** A reel the viewer could not read gets this many tries, a day apart. */
-const MAX_TRIES = 3
+const MAX_TRIES = VIEW_TRIES
 const LIMIT = 20
 
 export async function GET(request: Request) {

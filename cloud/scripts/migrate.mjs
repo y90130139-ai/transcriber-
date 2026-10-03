@@ -1222,6 +1222,16 @@ const statements = [
      sent_at         timestamptz,
      error           text
    )`,
+
+  // The Gosian bot's own data, shared hourly as the text its commands print
+  // (/today, /open, /next, /event, /birthdays, /stories, /pipeline, Content
+  // Snare), so the /q assistant can answer about it. One row, replaced.
+  `create table if not exists transcriber.bot_snapshot (
+     id            text primary key default 'latest',
+     generated_at  timestamptz not null,
+     topics        jsonb not null,
+     received_at   timestamptz not null default now()
+   )`,
 ]
 
 for (const statement of statements) {

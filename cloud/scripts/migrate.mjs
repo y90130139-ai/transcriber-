@@ -1176,6 +1176,35 @@ const statements = [
      created_at     timestamptz not null default now()
    )`,
   `create index if not exists assistant_log_created on transcriber.assistant_log (created_at desc)`,
+
+  // Alerts set in words (/q phase 2). A watch is proposed by the assistant and
+  // only checked once someone in the chat taps Save; each event is written
+  // once (watch_id + key) and posted by the bot with fixed wording.
+  `create table if not exists transcriber.assistant_watches (
+     id               text primary key,
+     chat_id          text not null,
+     kind             text not null,
+     params           jsonb not null default '{}',
+     label            text not null,
+     status           text not null default 'proposed' check (status in ('proposed','active','cancelled','deleted')),
+     created_by       text,
+     created_at       timestamptz not null default now(),
+     activated_at     timestamptz,
+     last_checked_at  timestamptz,
+     state            jsonb not null default '{}'
+   )`,
+  `create index if not exists assistant_watches_active on transcriber.assistant_watches (status, chat_id)`,
+  `create table if not exists transcriber.assistant_alerts (
+     id          text primary key,
+     watch_id    text not null references transcriber.assistant_watches(id) on delete cascade,
+     key         text not null,
+     text        text not null,
+     created_at  timestamptz not null default now(),
+     sent_at     timestamptz,
+     attempts    int not null default 0,
+     error       text,
+     unique (watch_id, key)
+   )`,
 ]
 
 for (const statement of statements) {

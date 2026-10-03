@@ -7,6 +7,7 @@ import { sql } from '../db'
 import { newId } from '../models'
 import { runLoop, splitForTelegram, costCents, LoopError, NO_USAGE, type MessagesClient, type Turn, type Usage } from './core'
 import { TOOLS } from './tools'
+import { alertTools, type AlertContext } from './alert-tools'
 
 /** A thread this long is closed; the next question starts a fresh one. */
 export const MAX_THREAD_TURNS = 120
@@ -14,7 +15,11 @@ export const MAX_QUESTION = 2000
 
 export type Asked = { question: string; chat_id: string; asker: string | null; thread_id: string | null }
 
-export type Answer = { thread_id: string; parts: string[]; cost_cents: number; fresh: boolean }
+export type Answer = {
+  thread_id: string; parts: string[]; cost_cents: number; fresh: boolean
+  /** Alerts proposed in this answer: the bot puts Save / Cancel under it. */
+  proposals: AlertContext['proposals']
+}
 
 let client: MessagesClient | null = null
 function anthropic(): MessagesClient {
@@ -74,11 +79,12 @@ export async function ask(input: Asked): Promise<Answer> {
   const thread = await loadThread(input.thread_id, input.chat_id)
   const base = { id: newId(), thread_id: thread.id, chat_id: input.chat_id, asker: input.asker, question: input.question }
   try {
-    const result = await runLoop(api, TOOLS, thread.history, input.question.slice(0, MAX_QUESTION))
+    const ctx: AlertContext = { chat_id: input.chat_id, asker: input.asker, proposals: [] }
+    const result = await runLoop(api, [...TOOLS, ...alertTools(ctx)], thread.history, input.question.slice(0, MAX_QUESTION))
     await saveThread(thread, result.messages)
     await log({ ...base, answer: result.text, tools: result.calls, usage: result.usage, ms: Date.now() - started, stop: result.stop })
     const prefix = input.thread_id && thread.fresh ? '(That conversation got long, so this is a fresh one.)\n\n' : ''
-    return { thread_id: thread.id, parts: splitForTelegram(prefix + result.text), cost_cents: costCents(result.usage), fresh: thread.fresh }
+    return { thread_id: thread.id, parts: splitForTelegram(prefix + result.text), cost_cents: costCents(result.usage), fresh: thread.fresh, proposals: ctx.proposals }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const spent = error instanceof LoopError ? error : null

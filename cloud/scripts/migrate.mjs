@@ -1146,6 +1146,36 @@ const statements = [
    )`,
   `create unique index if not exists surveys_one_open on transcriber.surveys (model_id) where submitted_at is null`,
   `create index if not exists surveys_model on transcriber.surveys (model_id, created_at desc)`,
+
+  // The OPS assistant (/q in GOSIAN | OPS, lib/assistant/, 2026-10-03). A
+  // thread is the conversation exactly as the API returned it, appended to and
+  // never edited; the log is one row per question, with what it cost.
+  `create table if not exists transcriber.assistant_threads (
+     id          text primary key,
+     chat_id     text not null,
+     messages    jsonb not null default '[]',
+     created_at  timestamptz not null default now(),
+     updated_at  timestamptz not null default now()
+   )`,
+  `create table if not exists transcriber.assistant_log (
+     id             text primary key,
+     thread_id      text references transcriber.assistant_threads(id) on delete set null,
+     chat_id        text not null,
+     asker          text,
+     question       text not null,
+     answer         text,
+     tools          jsonb not null default '[]',
+     input_tokens   int not null default 0,
+     output_tokens  int not null default 0,
+     cache_read     int not null default 0,
+     cache_write    int not null default 0,
+     cost_cents     numeric(10,2) not null default 0,
+     ms             int,
+     stop           text,
+     error          text,
+     created_at     timestamptz not null default now()
+   )`,
+  `create index if not exists assistant_log_created on transcriber.assistant_log (created_at desc)`,
 ]
 
 for (const statement of statements) {

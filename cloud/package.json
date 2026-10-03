@@ -10,6 +10,7 @@
     "earnings": "node --import ./test/ts-resolve.mjs scripts/earnings-pull.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.8.0",
     "nanoid": "^5.1.16",

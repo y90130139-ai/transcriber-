@@ -19,6 +19,8 @@ export type Answer = {
   thread_id: string; parts: string[]; cost_cents: number; fresh: boolean
   /** Alerts proposed in this answer: the bot puts Save / Cancel under it. */
   proposals: AlertContext['proposals']
+  /** Messages drafted for creators: the bot shows each with Send (Geno) / Cancel. */
+  drafts: AlertContext['drafts']
 }
 
 let client: MessagesClient | null = null
@@ -79,12 +81,12 @@ export async function ask(input: Asked): Promise<Answer> {
   const thread = await loadThread(input.thread_id, input.chat_id)
   const base = { id: newId(), thread_id: thread.id, chat_id: input.chat_id, asker: input.asker, question: input.question }
   try {
-    const ctx: AlertContext = { chat_id: input.chat_id, asker: input.asker, proposals: [] }
+    const ctx: AlertContext = { chat_id: input.chat_id, asker: input.asker, proposals: [], drafts: [] }
     const result = await runLoop(api, [...TOOLS, ...alertTools(ctx)], thread.history, input.question.slice(0, MAX_QUESTION))
     await saveThread(thread, result.messages)
     await log({ ...base, answer: result.text, tools: result.calls, usage: result.usage, ms: Date.now() - started, stop: result.stop })
     const prefix = input.thread_id && thread.fresh ? '(That conversation got long, so this is a fresh one.)\n\n' : ''
-    return { thread_id: thread.id, parts: splitForTelegram(prefix + result.text), cost_cents: costCents(result.usage), fresh: thread.fresh, proposals: ctx.proposals }
+    return { thread_id: thread.id, parts: splitForTelegram(prefix + result.text), cost_cents: costCents(result.usage), fresh: thread.fresh, proposals: ctx.proposals, drafts: ctx.drafts }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const spent = error instanceof LoopError ? error : null

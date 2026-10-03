@@ -1205,6 +1205,23 @@ const statements = [
      error       text,
      unique (watch_id, key)
    )`,
+
+  // Messages the assistant drafts for a creator (/q phase 3): shown in OPS,
+  // sent only on Geno's tap, to her MARKETING topic exactly as written.
+  `create table if not exists transcriber.assistant_drafts (
+     id              text primary key,
+     chat_id         text not null,
+     model_id        text not null references transcriber.models(id) on delete cascade,
+     model_name      text not null,
+     target_chat_id  text not null,
+     text            text not null,
+     status          text not null default 'proposed' check (status in ('proposed','approved','sent','failed','cancelled')),
+     created_by      text,
+     created_at      timestamptz not null default now(),
+     decided_at      timestamptz,
+     sent_at         timestamptz,
+     error           text
+   )`,
 ]
 
 for (const statement of statements) {

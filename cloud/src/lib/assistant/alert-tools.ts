@@ -6,8 +6,13 @@
 import type { ToolSpec } from './core'
 import { KIND_NAMES } from './watch-kinds'
 import { propose, listWatches } from './watches'
+import { proposeDraft } from './drafts'
 
-export type AlertContext = { chat_id: string; asker: string | null; proposals: Array<{ id: string; label: string }> }
+export type AlertContext = {
+  chat_id: string; asker: string | null
+  proposals: Array<{ id: string; label: string }>
+  drafts: Array<{ id: string; model: string; text: string }>
+}
 
 export function alertTools(ctx: AlertContext): ToolSpec[] {
   return [
@@ -37,6 +42,24 @@ export function alertTools(ctx: AlertContext): ToolSpec[] {
       run: async (input) => {
         const result = await propose(ctx.chat_id, ctx.asker, input.kind, input)
         if ('proposal_id' in result && result.proposal_id) ctx.proposals.push({ id: result.proposal_id, label: result.label })
+        return result
+      },
+    },
+    {
+      name: 'draft_message',
+      description: [
+        "Draft a message to one model's MARKETING topic when the team asks you to message, remind or nudge her. It is shown in OPS with Send / Cancel and only Geno's tap sends it - say so in one line.",
+        'Write it as the team would: warm, short, first name, plain text, an emoji at most. One model per draft; call again for each model.',
+        'It is refused in code if it says we edit her videos, mentions priority or tier, carries a money figure, compares her with or names another creator, or links anywhere but Instagram, TikTok or her plan page. Earnings figures go out only through the earnings reports.',
+      ].join('\n'),
+      input_schema: {
+        type: 'object',
+        properties: { model: { type: 'string' }, text: { type: 'string', description: 'The exact message she will read.' } },
+        required: ['model', 'text'],
+      },
+      run: async (input) => {
+        const result = await proposeDraft(ctx.chat_id, ctx.asker, input.model, input.text)
+        if ('draft_id' in result && result.draft_id) ctx.drafts.push({ id: result.draft_id, model: result.model, text: String(input.text).trim() })
         return result
       },
     },

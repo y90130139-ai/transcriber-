@@ -28,7 +28,8 @@ test('never mentions priority, tier, money or rankings', () => {
 test('never names another creator, full or first name', () => {
   assert.match(draftProblems('Do the same trend Blair did', 'Snow', others)[0], /Blair/)
   assert.match(draftProblems('Like nina dolci posted', 'Snow', others)[0], /nina dolci/i)
-  assert.deepEqual(draftProblems('Ivy is a lovely word', 'Snow', ['Ivy Fox']), [], 'first names under 4 letters only match in full')
+  assert.match(draftProblems('Ivy did this one', 'Snow', ['Ivy Fox'])[0], /Ivy/, 'three-letter first names count')
+  assert.deepEqual(draftProblems('Jo is fine', 'Snow', ['Jo Smith']), [], 'two-letter first names only match in full')
   assert.deepEqual(draftProblems('Hi Rey Rey!', 'Rey Rey Marie', ['Rey Rey Marie'].filter((n) => n !== 'Rey Rey Marie')), [])
 })
 
@@ -40,4 +41,23 @@ test('links only to Instagram, TikTok or her plan', () => {
 test('empty or too long', () => {
   assert.deepEqual(draftProblems('   ', 'Snow', others), ['it is empty'])
   assert.match(draftProblems('a'.repeat(MAX_DRAFT + 1), 'Snow', others)[0], /characters/)
+})
+
+test('gaps the review found are closed', () => {
+  const one = (t: string, self = 'Snow', o = others, h: string[] = []) => draftProblems(t, self, o, h)
+  assert.match(one('Join t.me/somegroup')[0], /links/, 'bare domains are links too')
+  assert.match(one('see bit.ly/x')[0], /links/)
+  assert.match(one('Copy instagram.com/blairbanks')[0], /links/, 'a profile is not a reel')
+  assert.deepEqual(one('Watch instagram.com/reel/DdxwBuYx-Du/ first'), [])
+  assert.deepEqual(one('https://www.tiktok.com/@snow/video/123 ok'), [])
+  assert.match(one('You made €50')[0], /money/)
+  assert.match(one('Nearly 1.2k this week')[0], /money/)
+  assert.match(one('Your earnings are up')[0], /money/)
+  assert.match(one("we're editing it tonight")[0], /we edit/)
+  assert.match(one('our team edits these')[0], /we edit/)
+  assert.deepEqual(one("Let us know once you've edited it"), [], 'asking them about their own edit is fine')
+  assert.match(one('Your priorities this week')[0], /priority/)
+  assert.match(one('Do what Ria did', 'Snow', ['Ria West'])[0], /Ria/)
+  assert.match(one('copy @juno_mae', 'Snow', [], ['juno_mae'])[0], /juno_mae/)
+  assert.deepEqual(one('Hi Snow! Film today', 'Snow', ['Snow Other']), [], 'a shared first name is hers')
 })

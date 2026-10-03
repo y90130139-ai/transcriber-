@@ -1206,6 +1206,8 @@ const statements = [
      unique (watch_id, key)
    )`,
 
+  `alter table transcriber.assistant_alerts add column if not exists handed_at timestamptz`,
+
   // Messages the assistant drafts for a creator (/q phase 3): shown in OPS,
   // sent only on Geno's tap, to her MARKETING topic exactly as written.
   `create table if not exists transcriber.assistant_drafts (

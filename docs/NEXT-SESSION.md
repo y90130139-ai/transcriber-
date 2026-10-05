@@ -7,8 +7,7 @@
   `secrets/viewer-cookies.txt -> scout-cookies.txt`,
   `secrets/viewer-state.json -> scout-state.json` (symlinks, no code change).
   Pacing **doubled** the same night at Geno's call: 10/run, 30/h, 120/day,
-  gap 40-100 s (09-23, clear of Scout's passes). **Put it back to 5/15/60 and
-  60-180 s once the backlog is clear** — it was only for the backlog. Risk accepted: if Instagram flags it, Scout's
+  gap 40-100 s (09-23, clear of Scout's passes). **Back to 5/15/60, gap 60-180 s on 2026-10-04**: 124 reels recovered, nothing left waiting. Five reels keep returning "no link found" (Dde1o9ozr8z, Ddr8c50RxaN, Ddu0t2bxklh, DdvCGDIpIrA, DdeOKruBz_I), probably deleted. Risk accepted: if Instagram flags it, Scout's
   weekly intake goes with it.
 - **Trap:** `./bin/scout-login --viewer` now writes *through* the links into
   Scout's files. To move to a real viewer burner later: `rm` both links first,

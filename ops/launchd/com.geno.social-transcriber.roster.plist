@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.geno.social-transcriber.roster</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/geno/projects/social-transcriber/bin/scout</string>
+    <string>--roster</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/geno/projects/social-transcriber</string>
+  <!-- Saturday 16:00: after the 10:00 sweep (never two passes on the burner),
+       a day before the Sunday draft, inside the ~21 h the links last. -->
+  <key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+  <key>RunAtLoad</key><false/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>/Users/geno/Library/Logs/social-transcriber-roster.log</string>
+  <key>StandardErrorPath</key><string>/Users/geno/Library/Logs/social-transcriber-roster.log</string>
+</dict>
+</plist>

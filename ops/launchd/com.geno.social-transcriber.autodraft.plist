@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.autodraft</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/autodraft</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+
+	<!-- Sunday evening: the week is built before it starts, so Sunday night is
+	     a review rather than a build. Never RunAtLoad — a reboot must not
+	     redraft, and a missed run is caught by the next wake anyway. -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key>
+		<integer>0</integer>
+		<key>Hour</key>
+		<integer>17</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-autodraft.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-autodraft.log</string>
+</dict>
+</plist>

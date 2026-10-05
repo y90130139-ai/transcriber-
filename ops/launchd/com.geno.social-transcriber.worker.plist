@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.worker</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/worker</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+
+	<key>LowPriorityIO</key>
+	<true/>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/Users/geno/projects/social-transcriber/vendor/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+
+		<!-- Without this the worker's log stays empty until the buffer fills. -->
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-worker.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-worker.err.log</string>
+</dict>
+</plist>

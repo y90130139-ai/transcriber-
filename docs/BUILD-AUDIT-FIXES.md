@@ -87,7 +87,7 @@ cd cloud && npx vercel --prod --yes
 ```
 
 Her plan, for verifying:
-https://transcriber-sinauraco-s-projects.vercel.app/p/_JoyHOHboC5VTaoeMu-ec349323T7XTI
+https://transcriber-sinauraco-s-projects.vercel.app/p/<redacted-portal-token>
 
 Console: https://transcriber-sinauraco-s-projects.vercel.app
 (password in `cloud/.env.local` as `APP_PASSWORD`).

@@ -13,5 +13,12 @@
     "access_key_id": "",
     "secret_access_key": "",
     "bucket": "transcriber-plans"
+  },
+
+  "_scout": "Weekly/daily Instagram intake. burner_cookies is a path to a Netscape cookie file for a throwaway account (secrets/scout-cookies.txt) — never a personal account.",
+  "scout": {
+    "apify_token": "",
+    "burner_cookies": "secrets/scout-cookies.txt",
+    "max_usd_per_run": 4.5
   }
 }

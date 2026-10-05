@@ -76,7 +76,7 @@ cd cloud && npx vercel --prod --yes
 Only one model exists (`Test Dummy`, 4 items, plan sent), so no real creator is
 affected. Her live plan, for verifying:
 
-https://transcriber-sinauraco-s-projects.vercel.app/p/_JoyHOHboC5VTaoeMu-ec349323T7XTI
+https://transcriber-sinauraco-s-projects.vercel.app/p/<redacted-portal-token>
 
 Console: https://transcriber-sinauraco-s-projects.vercel.app (password in
 `cloud/.env.local` as `APP_PASSWORD`).

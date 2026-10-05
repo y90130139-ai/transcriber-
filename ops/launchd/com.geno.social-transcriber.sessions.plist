@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.sessions</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/session-check</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-sessions.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-sessions.log</string>
+	<!-- Both Instagram logins, four times a day; alerts the OPS group on
+	     Telegram when one dies. Kept off 10:00 and 16:00 Saturday and 19:00
+	     daily, when Scout's own passes run: two browsers on one burner at once
+	     is what makes it look automated. The worker also runs the downloader
+	     half the moment a download fails with cookies (src/worker.py). -->
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>30</integer></dict>
+		<dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+</dict>
+</plist>

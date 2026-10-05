@@ -24,30 +24,30 @@ LLM assistant (`/q`) that answers OPS questions from live data.
 Users: Geno and a small OPS team (console, one shared password), the managed
 models (portal links), and the Telegram bot (machine-to-machine).
 
-## 2. What is in this package — and what is not
+## 2. What is in this repository — and what is not
 
-**Included: every tracked file in the repository, as of 2026-10-04**, as a fresh
-git repo with a single baseline commit, so your changes show up as clean diffs.
-Plus:
+You're getting the working repository itself (`sinaura-co/social-transcriber`,
+private), full history included. Please work on a branch and open pull requests
+into `main`. Added for you:
 
 - `cloud/.env.example` — every environment variable the web app reads, names only.
-- `config.example.json` — the Mac side's config shape (now includes the `scout` block).
-- `ops/launchd/*.plist` — the seven scheduled jobs that run on the Mac, copied
-  as-is (they contain paths only, no secrets).
+- `config.example.json` — the Mac side's config shape.
+- `ops/launchd/*.plist` — the seven scheduled jobs that run on the Mac (paths only, no secrets).
 
-**Deliberately left out:**
+**Not in the repo (gitignored, never committed):**
 
-| Left out | Why | How you get it |
+| Missing | Why | How you get it |
 |---|---|---|
 | `cloud/.env.local`, `config.json`, `secrets/` | Live credentials and Instagram session cookies | Not needed for a code review. If you need to run against real services, ask — you'll get a separate, scoped set, not production keys |
-| `docs/rollback/*.json` (9 files) | Database dumps with real creator handles and plan notes. Data, not code | Not needed |
-| `vendor/`, `.venv/`, `cloud/node_modules/` | Downloaded toolchain and models (~GBs) | `./setup.sh` and `cd cloud && npm ci` rebuild them |
+| `vendor/`, `.venv/`, `cloud/node_modules/` | Downloaded toolchain and models (~GBs) | `./setup.sh` and `cd cloud && npm ci` |
 | `out/`, `inbox/` | Downloaded videos and transcripts (~16 GB) | Not needed |
-| Git history | The history holds the same data dumps. A full regex scan of history for keys/tokens/passwords came back clean | Available on request |
 
-One redaction: a model-portal link in `docs/BUILD-AUDIT-FIXES.md` and
-`docs/HANDOFF-PHASES-3-6.md` was replaced with `<redacted-portal-token>`. It
-belonged to a test model; it will be revoked on our side regardless.
+A regex scan of the full history for keys, tokens and passwords came back clean
+(2026-10-04). Two things in the repo are **data, not code**, and should be
+treated as confidential: the JSON dumps in `docs/rollback/` (real creator
+handles and plan notes), and a test model's portal link in older revisions of
+two docs (now redacted; it will be revoked). Whether to purge them from history
+is one of your calls to recommend.
 
 ## 3. Architecture
 
@@ -190,8 +190,7 @@ landing it inside a cleanup commit. Purely mechanical cleanup can go straight in
   `chore:`, `docs:`, `test:`).
 - **Keep the tests green.** Add tests for anything security-relevant you fix.
 - **Don't commit secrets.** If you need credentials, ask.
-- **Return work as a git bundle or zip of this repo,** or as a PR if we give you
-  GitHub access.
+- **Return work as pull requests** into `main`, one branch per theme.
 
 ## 11. What we'd like back
 

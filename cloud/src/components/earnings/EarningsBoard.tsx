@@ -11,7 +11,7 @@ import { ago, shortDay } from '../dashboard/format'
 
 type Board = {
   window: { from: string; to: string; days: number }
-  total: { net: number; gross: number; prevNet: number; change: number | null }
+  total: { net: number; gross: number; prevNet: number; change: number | null; subNet: number; subs: number; renewals: number }
   daily: { day: string; net: number }[]
   accounts: AccountRow[]
   models: { id: string; name: string }[]
@@ -105,6 +105,18 @@ export default function EarningsBoard({ onOpenModel }: { onOpenModel: (id: strin
               <p className="dash-stat-value">{money(Math.round(board.total.net / days))}</p>
               <p className="dash-stat-note">net, average</p>
             </article>
+            {/* Subscription money on its own (Geno, 2026-10-06): new subs +
+                renewals together, and how much of the agency that side is.
+                Free trials never reach the open API — no transaction exists
+                for a $0 join — so what is counted here is paid subs only. */}
+            <article className="dash-stat">
+              <h3>Subscriptions</h3>
+              <p className="dash-stat-value">{money(board.total.subNet)}</p>
+              <p className="dash-stat-note">
+                {board.total.subs} new · {board.total.renewals} renewals
+                {board.total.net > 0 && <> · {Math.round((board.total.subNet / board.total.net) * 100)}% of net</>}
+              </p>
+            </article>
             <article className="dash-stat" data-warn={top && top.share > CONCENTRATION ? 'true' : undefined}>
               <h3>Top account</h3>
               <p className="dash-stat-value">{top ? `${top.share}%` : '–'}</p>
@@ -150,6 +162,7 @@ export default function EarningsBoard({ onOpenModel }: { onOpenModel: (id: strin
                     <th scope="col">Account</th>
                     <th scope="col">Model</th>
                     <th scope="col" className="num">Net</th>
+                    <th scope="col" className="num">Subs</th>
                     <th scope="col" className="num">Change</th>
                     <th scope="col" className="num">Share</th>
                     <th scope="col">Pull</th>
@@ -175,6 +188,10 @@ export default function EarningsBoard({ onOpenModel }: { onOpenModel: (id: strin
                         )}
                       </td>
                       <td className="num">{money(a.net)}</td>
+                      <td className="num earn-subs" title={`${a.subs} new subs · ${a.renewals} renewals`}>
+                        {money(a.subNet)}
+                        <span className="earn-subs-count">{a.subs} + {a.renewals} ren</span>
+                      </td>
                       <td className="num" data-sign={a.change === null ? 0 : Math.sign(a.change)}>
                         {a.change === null ? '–' : `${a.change > 0 ? '+' : ''}${a.change}%`}
                       </td>

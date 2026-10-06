@@ -13,8 +13,11 @@
   border-radius: var(--r, 8px);
 }
 
-.earn-stats { grid-template-columns: 1.4fr repeat(4, 1fr); }
-.earn-tab .earn-stats { grid-template-columns: 1.4fr repeat(2, 1fr); }
+.earn-stats { grid-template-columns: 1.4fr repeat(5, 1fr); }
+.earn-tab .earn-stats { grid-template-columns: 1.4fr repeat(3, 1fr); }
+
+/* The Subs column stacks money over counts, the way Account stacks names. */
+.earn-subs-count { display: block; font-size: var(--sc-text-xs); color: var(--sc-ink-300); white-space: nowrap; }
 .dash-stat[data-warn='true'] { border-color: var(--sc-ember); }
 .dash-stat[data-warn='true'] .dash-stat-note { color: var(--sc-ember-deep); }
 

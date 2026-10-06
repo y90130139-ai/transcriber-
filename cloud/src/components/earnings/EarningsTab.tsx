@@ -12,7 +12,7 @@ import { shortDay } from '../dashboard/format'
 
 type ModelEarnings = {
   accounts: { infloww_id: string; name: string; username: string; missing_since: string | null }[]
-  daily: { day: string; net: number; gross: number; subs: number; renewals: number }[]
+  daily: { day: string; net: number; gross: number; subs: number; renewals: number; by_type: Record<string, number> }[]
   week: WeeklyNumbers | null
   reels: ReelDay[]
   reelSummary: ReelSummary
@@ -48,6 +48,10 @@ export default function EarningsTab({ modelId }: { modelId: string }) {
   const net = data.daily.reduce((n, d) => n + d.net, 0)
   const subs = data.daily.reduce((n, d) => n + d.subs, 0)
   const renewals = data.daily.reduce((n, d) => n + d.renewals, 0)
+  // Her subscription money on its own: new subs + renewals, net. Paid only —
+  // a free-trial join writes no transaction, so it cannot be counted here.
+  const subNet = data.daily.reduce(
+    (n, d) => n + Number(d.by_type?.Subscription ?? 0) + Number(d.by_type?.RecurringSubscription ?? 0), 0)
   const best = data.daily.reduce<ModelEarnings['daily'][number] | null>((b, d) => (d.net > 0 && (!b || d.net > b.net) ? d : b), null)
   const w = data.week
 
@@ -72,6 +76,13 @@ export default function EarningsTab({ modelId }: { modelId: string }) {
           <h3>Best day</h3>
           <p className="dash-stat-value">{best ? money(best.net) : '–'}</p>
           <p className="dash-stat-note">{best ? niceDay(best.day) : 'no sales yet'}</p>
+        </article>
+        <article className="dash-stat">
+          <h3>Sub revenue</h3>
+          <p className="dash-stat-value">{money(subNet)}</p>
+          <p className="dash-stat-note">
+            new + renewals, net{net > 0 && <> · {Math.round((subNet / net) * 100)}% of her net</>}
+          </p>
         </article>
         <article className="dash-stat">
           <h3>New subs</h3>

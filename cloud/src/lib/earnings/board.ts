@@ -51,6 +51,13 @@ export type AccountRow = Account & {
   prevNet: number
   change: number | null
   share: number // of agency net in the window, percent
+  /** Subscription money in the window, net cents: new subs + renewals.
+   *  Geno, 2026-10-06: "how much earnings from the sub side, per model".
+   *  Free-trial signups never appear — Infloww's open API emits no
+   *  transaction for a $0 join (verified over 30 days of the roster). */
+  subNet: number
+  subs: number
+  renewals: number
 }
 
 export async function loadEarningsBoard(days: EarningsWindow) {
@@ -65,7 +72,12 @@ export async function loadEarningsBoard(days: EarningsWindow) {
       `select infloww_id,
               sum(net) filter (where day between $1 and $2) net,
               sum(gross) filter (where day between $1 and $2) gross,
-              sum(net) filter (where day between $3 and $4) prev_net
+              sum(net) filter (where day between $3 and $4) prev_net,
+              sum(coalesce((by_type->>'Subscription')::bigint, 0)
+                + coalesce((by_type->>'RecurringSubscription')::bigint, 0))
+                filter (where day between $1 and $2) sub_net,
+              sum(subs) filter (where day between $1 and $2) subs,
+              sum(renewals) filter (where day between $1 and $2) renewals
          from transcriber.earnings_days where day between $3 and $2 group by infloww_id`,
       [from, to, prevFrom, addDays(from, -1)],
     ),
@@ -98,6 +110,9 @@ export async function loadEarningsBoard(days: EarningsWindow) {
         net, gross: Number(s?.gross ?? 0), prevNet,
         change: change(net, prevNet),
         share: total > 0 ? Math.round((net / total) * 1000) / 10 : 0,
+        subNet: Number(s?.sub_net ?? 0),
+        subs: Number(s?.subs ?? 0),
+        renewals: Number(s?.renewals ?? 0),
       }
     })
     .sort((x, y) => y.net - x.net)
@@ -105,7 +120,12 @@ export async function loadEarningsBoard(days: EarningsWindow) {
   const byDay = new Map(series.map((r) => [String(r.day instanceof Date ? r.day.toISOString() : r.day).slice(0, 10), r]))
   return {
     window: { from, to, days },
-    total: { net: total, gross: rows.reduce((n, r) => n + r.gross, 0), prevNet: totalPrev, change: change(total, totalPrev) },
+    total: {
+      net: total, gross: rows.reduce((n, r) => n + r.gross, 0), prevNet: totalPrev, change: change(total, totalPrev),
+      subNet: rows.reduce((n, r) => n + r.subNet, 0),
+      subs: rows.reduce((n, r) => n + r.subs, 0),
+      renewals: rows.reduce((n, r) => n + r.renewals, 0),
+    },
     daily: dense([], from, to).map((d) => ({ day: d.day, net: Number(byDay.get(d.day)?.net ?? 0) })),
     accounts: rows,
     models: models.map((m) => ({ id: String(m.id), name: String(m.name) })),

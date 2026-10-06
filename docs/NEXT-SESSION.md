@@ -54,9 +54,11 @@ through `c6aca0d` (pushed = deployed on Railway).
   (`docs/…scout.plist.retired-2026-10-01`). Why: the Sat 10:00 pass ran 5 h and
   writes `scout_runs` only at the end, so the cloud cron's Sat 10:30
   `startSweep` saw no sweep in 3 days and paid Apify $9.85 for the same
-  accounts on 2026-09-26. **Apify is at $21.98 of its $19 Starter cap until the
-  cycle resets 2026-10-19** — the cloud fallback cannot run before then unless
-  Geno raises the limit. First Friday chain: 2026-10-02; check
+  accounts on 2026-09-26. ~~Apify over its $19 Starter cap until 2026-10-19~~ —
+  **Geno raised the Apify limit on 2026-10-06**, so the Saturday cloud fallback
+  can run again whenever the Mac misses a sweep (its only guard is the 3-day
+  `scout_runs` staleness check in `cloud/src/app/api/cron/daily/route.ts`).
+  First Friday chain: 2026-10-02; check
   `~/Library/Logs/social-transcriber-daily.log` and that Sat's cron skipped Apify.
 
 # Handoff — 2026-09-27 (on top of 26th and 25th: captions from the library, Geno's account out of the machine)

@@ -393,7 +393,18 @@ live in `lib/creator-type.ts` with no imports.
   people-on-camera (only voices); a people tag needs AI tagging.
 - **Plain-language rewrite (spec item A)**: What to do / You'll need / Time, the
   rest behind "More details"; rewrite stored directions too.
-- **Effort badge + easiest-first sort** (spec F), **upload in the app** (G, deferred).
+- ~~Effort badge + easiest-first sort (spec F)~~ — **built 2026-10-06**
+  (`lib/effort.ts`, pure + tested): every filming card carries a Quick one /
+  Medium / Bigger shoot chip scored off the measured video (cuts, setups,
+  phone handling, people, her own lines — borrowed-sound words don't count —
+  screen text, length; format-tag fallback for unmeasured). The week renders
+  in **filming sittings** — "No talking — text goes on top" / "Talking to the
+  camera" / "Skits & bigger shoots" — quickest sitting first with a "Start
+  here" nudge, easiest card first inside each. Presentation only: positions,
+  card numbers, stored order untouched; a one-sitting week falls back to the
+  old location grouping. Also fixed: light theme painted group bars white but
+  left the name cream (`--sc-bone`) — invisible; dark had its override all
+  along. **Upload in the app** (G) still deferred.
 - **Archive frees no disk** — the Mac's files stay; separate work if wanted.
 - Restored library items re-archive at the next daily pass unless put on a week
   (offered Geno a "stay restored" option; no answer).
@@ -402,6 +413,19 @@ live in `lib/creator-type.ts` with no imports.
 
 ## Ideas parked (not scheduled — ask Geno before building)
 
+- **Trends AI / Discovery tab** (Geno, 2026-10-06). A "Trends AI" search box in
+  a new Discovery tab: ask "what's trending today?" in plain English, answers
+  grounded in real trend data. Data plan agreed in discussion: (1) Google's
+  official BigQuery public Trends dataset — top 25 + rising terms daily, 5 y
+  history; (2) the free Trending Now RSS feed for today's trends; (3) monthly
+  cached interest-over-time curves for our ~15–20 fixed niche topics via the
+  unofficial Explore endpoints (fixed list only, never arbitrary real-time);
+  skip paid SerpAPI unless free path falls short. Nightly ingest →
+  `trends_*` tables in Neon → chat panel cross-references Google's rising
+  terms with the library's own cross-creator breakouts and trending sounds
+  (Scout's stored `audio_id`/`audio_title`). Chat layer wants the Anthropic
+  key (same key decision as the OPS /q deploy). Deliberately parked for
+  higher-priority builds — ask Geno before starting.
 - **Comment trends** (Geno, 2026-09-26). Read the comment sections of the
   library's posts — what viewers write, followers or not; **not** the post's
   own caption, and leave out the account owner's own replies — and surface

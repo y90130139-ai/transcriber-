@@ -6,6 +6,7 @@ import { CantDoNotice, CantDoSection, cardIdOf, type CantDoReason } from './Cant
 import RunSheet from './RunSheet'
 import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
+import { groupBySetup } from '@/lib/effort'
 import { BACKGROUND_RULE } from '@/lib/brief'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
@@ -167,6 +168,14 @@ export default function PlanView({
   const done = ideas.filter((item) => filmed.has(item.id)).length
   const total = ideas.length
 
+  // The week in filming sittings — talking heads in one, propped-phone
+  // visuals in another, skits last — quickest sitting first, quickest card
+  // first inside each (Geno, 2026-10-06: "they could bang out the ones" that
+  // share a setup). This re-orders the page, not the plan: positions, card
+  // numbers and everything stored are untouched. A week whose cards all land
+  // in one sitting returns null and keeps the shape it always had.
+  const setups = useMemo(() => groupBySetup(ideas), [ideas])
+
   // Grouping only turns on once somewhere has actually been named. A week with
   // no locations set renders exactly the flat list it always has.
   const groups = useMemo(() => groupByLocation(ideas), [ideas])
@@ -175,7 +184,7 @@ export default function PlanView({
   // Cards arrive as she scrolls to them. The ref goes on the body rather than
   // on each list, so a grouped week staggers across its groups in reading
   // order instead of restarting the count at every location bar.
-  const body = useReveal<HTMLDivElement>([items.length, grouped])
+  const body = useReveal<HTMLDivElement>([items.length, grouped, setups !== null])
 
   function moveToCantDo(item: PlanItem, code: DeclineCode, reason: string) {
     setCantDo((current) => new Map(current).set(item.id, { code, reason: reason || null }))
@@ -386,6 +395,27 @@ export default function PlanView({
 
         {ideas.length === 0 ? (
           <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>
+        ) : setups ? (
+          /* Batched by how it gets filmed: one phone setup, several videos.
+             The first sitting is the quickest and says so — the fastest way
+             through the week is to knock those out first. */
+          setups.map((section, sectionIndex) => (
+            <section className="plan-group" key={section.key} aria-label={section.label}>
+              <h2 className="plan-group-bar">
+                <span className="plan-group-name">
+                  <span className="plan-group-no">{String(sectionIndex + 1).padStart(2, '0')}</span>
+                  {section.label}
+                </span>
+                <span className="plan-group-count">
+                  {section.items.length} video{section.items.length === 1 ? '' : 's'}
+                </span>
+              </h2>
+              {section.note && <p className="plan-group-note">{section.note}</p>}
+              <ol className="plan-items">
+                {section.items.map((item) => card(item, ideas.indexOf(item) + 1))}
+              </ol>
+            </section>
+          ))
         ) : grouped ? (
           /* Grouped by where it gets filmed, so everything shot in the car is
              shot in one trip to the car. Each group is its own list, which

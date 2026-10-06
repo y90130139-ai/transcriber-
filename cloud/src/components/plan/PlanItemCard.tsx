@@ -10,6 +10,7 @@ import { DAYS } from '@/lib/schedule'
 import MadeAlready from './MadeAlready'
 import ShotListView from './ShotListView'
 import { buildShotList } from '@/lib/shotlist'
+import { effortFor } from '@/lib/effort'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -271,6 +272,10 @@ export default function PlanItemCard({
   const cardId = item.card_no ? `V-${item.card_no}` : `Video ${number}`
 
   const rule = copyRuleFor(item.bucket, item.axis)
+  // How much work it is, read off the measured video (Geno, 2026-10-06:
+  // "let the model know exactly how difficult it is"). Shown only on cards
+  // she actually films — a repurpose or her own reel is posted, not shot.
+  const effort = effortFor(item)
   // The job, in one word, before anything else on the card. A repurpose is
   // posted as it is, so none of the filming directions apply to it.
   // "I've made this one already" turns a new idea into a Repurpose card on the
@@ -337,6 +342,10 @@ export default function PlanItemCard({
             under it and "video 7" meant something else after any edit. */}
         <span className="plan-no">{cardId}</span>
         {item.title && <span className="plan-item-title">{item.title}</span>}
+        {/* The work it asks of her, read off the measured video. `title`
+            carries the why ("2 shots · prop the phone · no lines") where
+            hover exists; the chip alone has to carry phones. */}
+        {filming && <span className="plan-effort" data-tier={effort.tier} title={effort.why || undefined}>{effort.label}</span>}
         {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
       </div>
 

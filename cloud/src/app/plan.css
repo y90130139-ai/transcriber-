@@ -910,6 +910,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The line under a sitting's bar — only the quickest sitting carries one
+   ("Start here — quickest to film"). */
+.plan-group-note {
+  margin: calc(-1 * var(--sc-space-2)) 0 0;
+  padding: 0 var(--sc-space-4);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+
+/* How much work a card is: Quick one / Medium / Bigger shoot. Same quiet
+   mono voice as the duration beside it; only the tier picks the color, and
+   every token exists in both themes. */
+.plan-effort {
+  flex: 0 0 auto;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--sc-ink-500);
+}
+.plan-effort[data-tier='quick'] { color: var(--sc-positive); }
+.plan-effort[data-tier='big'] { color: var(--sc-ember); }
+
 /* Named before it is watched. "Car GRWM" reads as a job; "Video 3" reads as a
    row number, which is what the badge beside it already is. */
 .plan-item-title {
@@ -1103,6 +1130,10 @@
 :root[data-theme='light'] body { background: var(--sc-paper); }
 :root[data-theme='light'] .plan-item,
 :root[data-theme='light'] .plan-group-bar { background: #FFFFFF; }
+/* The bar above went white but the name kept `--sc-bone` — cream on white,
+   near-invisible. Surfaced when the setup sections put a bar on every week
+   (2026-10-06); dark has had its own override all along. */
+:root[data-theme='light'] .plan-group-name { color: var(--sc-ink-900); }
 
 /* Her choice, not her phone's. The palette below was reached through
    `prefers-color-scheme` alone until 2026-09-23, which meant a model whose

@@ -18,6 +18,21 @@ Three asks from Geno, all on `main` through `5bb5971`, tests green (123),
   Pure parser + types in `lib/trends-feed.ts` (import-free, tested);
   queries in `lib/trends.ts`; ingest verified live (10 terms stored).
   BigQuery/interest-curves from the parked plan still need GCP creds — not built.
+  **Round two same day** (`6b485a6`, Geno's asks): window picker
+  (Today/2/3/7 — terms only; **reels panels floor at 7 days** because reels
+  land in `sightings` with Friday's weekly pass, a 48h reel window is empty
+  midweek), direction chips + mini line graphs on terms and sounds (sound
+  axis anchored to `max(posted_at)` coverage so un-swept days don't read as
+  decline — sparks deepen as `trends_terms` accrues days, only 1 day stored
+  so far), breakout **poster cards** from library thumbnails
+  (`thumb_job` via the shortcode regex → `/api/thumb/<job>`; 8–11 of 12
+  have one), sounds get "Use on Instagram" (permanent
+  `instagram.com/reels/audio/<audio_id>/`) and **Save file** only while a
+  stored `audio_url` is unexpired (`media_until > now()` — rare except
+  right after a sweep; streamed by `/api/trends/sound?title=`), and the
+  ask box's **"search the web too" toggle**: real Anthropic
+  `web_search_20250305` (max 3 lookups) once the key is on Vercel; the
+  Workers fallback answers board-only and the UI says so.
 - **Baby pink** palette (`babypink`) in Make-it-yours — 11 presets now.
   Light `#D2648C`, dark `#F49CBC`; pastel carried by the light/tint stops,
   the accent deep enough that white type keeps roughly Sunny's footing.

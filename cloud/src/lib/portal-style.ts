@@ -28,6 +28,7 @@ export const PALETTES = [
   { key: 'ocean', name: 'Ocean', light: '#0E7490', dark: '#2BA3DB' },
   { key: 'teal', name: 'Teal', light: '#0F766E', dark: '#16A394' },
   { key: 'forest', name: 'Forest', light: '#15803D', dark: '#2EB564' },
+  { key: 'sunny', name: 'Sunny', light: '#CA8A04', dark: '#DBA912' },
 ] as const
 
 export type PortalStyle = { pal?: string; mode?: 'light' | 'dark'; done?: boolean }

@@ -2453,6 +2453,7 @@
 :root[data-pal='fuchsia'] { --sc-ember: #A21CAF; --sc-ember-deep: #86198F; --sc-ember-light: #D946EF; --sc-ember-tint: #F7E4FB; }
 :root[data-pal='indigo'] { --sc-ember: #4338CA; --sc-ember-deep: #3730A3; --sc-ember-light: #818CF8; --sc-ember-tint: #E6E8FC; }
 :root[data-pal='teal'] { --sc-ember: #0F766E; --sc-ember-deep: #115E59; --sc-ember-light: #2DD4BF; --sc-ember-tint: #DCF5F2; }
+:root[data-pal='sunny'] { --sc-ember: #CA8A04; --sc-ember-deep: #A16207; --sc-ember-light: #FACC15; --sc-ember-tint: #FBF3D9; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light'])[data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
@@ -2463,6 +2464,7 @@
   :root:not([data-theme='light'])[data-pal='fuchsia'] { --sc-ember: #D946EF; --sc-ember-deep: #E884F5; --sc-ember-tint: #26102B; }
   :root:not([data-theme='light'])[data-pal='indigo'] { --sc-ember: #7584FF; --sc-ember-deep: #98A3FF; --sc-ember-tint: #131636; }
   :root:not([data-theme='light'])[data-pal='teal'] { --sc-ember: #16A394; --sc-ember-deep: #45C2B5; --sc-ember-tint: #0C201D; }
+  :root:not([data-theme='light'])[data-pal='sunny'] { --sc-ember: #DBA912; --sc-ember-deep: #F0C84A; --sc-ember-tint: #241C06; }
 }
 :root[data-theme='dark'][data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
 :root[data-theme='dark'][data-pal='violet'] { --sc-ember: #9A6BFF; --sc-ember-deep: #B597FF; --sc-ember-tint: #1D1430; }
@@ -2472,6 +2474,7 @@
 :root[data-theme='dark'][data-pal='fuchsia'] { --sc-ember: #D946EF; --sc-ember-deep: #E884F5; --sc-ember-tint: #26102B; }
 :root[data-theme='dark'][data-pal='indigo'] { --sc-ember: #7584FF; --sc-ember-deep: #98A3FF; --sc-ember-tint: #131636; }
 :root[data-theme='dark'][data-pal='teal'] { --sc-ember: #16A394; --sc-ember-deep: #45C2B5; --sc-ember-tint: #0C201D; }
+:root[data-theme='dark'][data-pal='sunny'] { --sc-ember: #DBA912; --sc-ember-deep: #F0C84A; --sc-ember-tint: #241C06; }
 
 /* The panel itself. */
 .plan-yours-look {

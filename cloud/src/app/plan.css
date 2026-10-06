@@ -2449,25 +2449,29 @@
 :root[data-pal='violet'] { --sc-ember: #7C3AED; --sc-ember-deep: #6428C4; --sc-ember-light: #A78BFA; --sc-ember-tint: #EFE7FD; }
 :root[data-pal='ocean'] { --sc-ember: #0E7490; --sc-ember-deep: #0A5A70; --sc-ember-light: #38BDF8; --sc-ember-tint: #DFF3F8; }
 :root[data-pal='forest'] { --sc-ember: #15803D; --sc-ember-deep: #0F5E2E; --sc-ember-light: #4ADE80; --sc-ember-tint: #E3F6E9; }
-:root[data-pal='gold'] { --sc-ember: #B45309; --sc-ember-deep: #8F3F07; --sc-ember-light: #E0A32E; --sc-ember-tint: #FBEFD9; }
+:root[data-pal='crimson'] { --sc-ember: #B91C1C; --sc-ember-deep: #991B1B; --sc-ember-light: #EF5350; --sc-ember-tint: #FBE3E3; }
+:root[data-pal='fuchsia'] { --sc-ember: #A21CAF; --sc-ember-deep: #86198F; --sc-ember-light: #D946EF; --sc-ember-tint: #F7E4FB; }
+:root[data-pal='indigo'] { --sc-ember: #4338CA; --sc-ember-deep: #3730A3; --sc-ember-light: #818CF8; --sc-ember-tint: #E6E8FC; }
+:root[data-pal='teal'] { --sc-ember: #0F766E; --sc-ember-deep: #115E59; --sc-ember-light: #2DD4BF; --sc-ember-tint: #DCF5F2; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light'])[data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
   :root:not([data-theme='light'])[data-pal='violet'] { --sc-ember: #9A6BFF; --sc-ember-deep: #B597FF; --sc-ember-tint: #1D1430; }
   :root:not([data-theme='light'])[data-pal='ocean'] { --sc-ember: #2BA3DB; --sc-ember-deep: #5BBBE8; --sc-ember-tint: #0E1E28; }
   :root:not([data-theme='light'])[data-pal='forest'] { --sc-ember: #2EB564; --sc-ember-deep: #5BCB8C; --sc-ember-tint: #0F2217; }
-  :root:not([data-theme='light'])[data-pal='gold'] { --sc-ember: #C98A1E; --sc-ember-deep: #DDA73F; --sc-ember-tint: #271C09; }
+  :root:not([data-theme='light'])[data-pal='crimson'] { --sc-ember: #EF4444; --sc-ember-deep: #F58B8B; --sc-ember-tint: #2A0F0F; }
+  :root:not([data-theme='light'])[data-pal='fuchsia'] { --sc-ember: #D946EF; --sc-ember-deep: #E884F5; --sc-ember-tint: #26102B; }
+  :root:not([data-theme='light'])[data-pal='indigo'] { --sc-ember: #7584FF; --sc-ember-deep: #98A3FF; --sc-ember-tint: #131636; }
+  :root:not([data-theme='light'])[data-pal='teal'] { --sc-ember: #16A394; --sc-ember-deep: #45C2B5; --sc-ember-tint: #0C201D; }
 }
 :root[data-theme='dark'][data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
 :root[data-theme='dark'][data-pal='violet'] { --sc-ember: #9A6BFF; --sc-ember-deep: #B597FF; --sc-ember-tint: #1D1430; }
 :root[data-theme='dark'][data-pal='ocean'] { --sc-ember: #2BA3DB; --sc-ember-deep: #5BBBE8; --sc-ember-tint: #0E1E28; }
 :root[data-theme='dark'][data-pal='forest'] { --sc-ember: #2EB564; --sc-ember-deep: #5BCB8C; --sc-ember-tint: #0F2217; }
-:root[data-theme='dark'][data-pal='gold'] { --sc-ember: #C98A1E; --sc-ember-deep: #DDA73F; --sc-ember-tint: #271C09; }
-
-/* Type voices: the reading text moves, the display voice stays the brand. */
-:root[data-font='rounded'] { --sc-font-text: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, Comfortaa, system-ui, sans-serif; }
-:root[data-font='serif'] { --sc-font-text: ui-serif, Georgia, "Times New Roman", serif; }
-:root[data-font='mono'] { --sc-font-text: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+:root[data-theme='dark'][data-pal='crimson'] { --sc-ember: #EF4444; --sc-ember-deep: #F58B8B; --sc-ember-tint: #2A0F0F; }
+:root[data-theme='dark'][data-pal='fuchsia'] { --sc-ember: #D946EF; --sc-ember-deep: #E884F5; --sc-ember-tint: #26102B; }
+:root[data-theme='dark'][data-pal='indigo'] { --sc-ember: #7584FF; --sc-ember-deep: #98A3FF; --sc-ember-tint: #131636; }
+:root[data-theme='dark'][data-pal='teal'] { --sc-ember: #16A394; --sc-ember-deep: #45C2B5; --sc-ember-tint: #0C201D; }
 
 /* The panel itself. */
 .plan-yours-look {
@@ -2621,3 +2625,90 @@
    to rows between content, not to a button. */
 .plan-film-fold { border-top: none; padding-top: 0; }
 .plan-film-fold .plan-film-check { padding-top: var(--sc-space-3); margin: 0; }
+
+/* ============================================================
+   SET UP YOUR PAGE (2026-10-06) — the first-open sheet: photo,
+   color, background. Shows once; the foot panel remains for
+   changing her mind later.
+   ============================================================ */
+.plan-setup-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--sc-space-4);
+}
+.plan-setup {
+  width: 100%;
+  max-width: 420px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--sc-paper);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  padding: var(--sc-space-5) var(--sc-space-4);
+  box-shadow: var(--sc-lift-3);
+}
+.plan-setup h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  color: var(--sc-ink-900);
+}
+.plan-setup-sub { margin: var(--sc-space-2) 0 var(--sc-space-4); color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.plan-setup-photo {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-4);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--sc-ember);
+  font-weight: 700;
+}
+.plan-setup-photo img,
+.plan-setup-photo span {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  background: var(--sc-bone-light);
+  border: 2px dashed var(--sc-ink-300);
+  font-size: var(--sc-text-xl);
+  color: var(--sc-ink-500);
+}
+.plan-setup-photo img { border-style: solid; border-color: var(--sc-ember); }
+.plan-setup-label {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.plan-setup-actions { display: grid; gap: var(--sc-space-2); margin-top: var(--sc-space-4); }
+.plan-setup-save {
+  min-height: 52px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--sc-ember);
+  color: #FFFFFF;
+  font-size: var(--sc-text-base);
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-setup-skip {
+  min-height: 44px;
+  border: none;
+  background: none;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+}
+.plan-setup-save:disabled, .plan-setup-skip:disabled { opacity: 0.6; }

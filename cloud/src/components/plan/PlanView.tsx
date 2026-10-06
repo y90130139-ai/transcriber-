@@ -8,6 +8,8 @@ import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
 import { groupBySetup } from '@/lib/effort'
 import MakeItYours from './MakeItYours'
+import SetupProfile from './SetupProfile'
+import { cleanStyle } from '@/lib/portal-style'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
@@ -121,6 +123,12 @@ export default function PlanView({
       if (ring) clearTimeout(ring)
     }
   }, [])
+  /** First open: the setup sheet, once, never in the preview (a save there
+   *  would write Geno's taste onto her profile). `done` is stamped by the
+   *  sheet itself whichever button she taps. */
+  const [setupOpen, setSetupOpen] = useState(
+    () => !preview && cleanStyle(model.portal_style).done !== true,
+  )
   /** Her week's header rides along as she scrolls, condensed once it has left
    *  its own space, and tucked away entirely if she wants the screen back. */
   const [stuck, setStuck] = useState(false)
@@ -503,10 +511,19 @@ export default function PlanView({
           )}
         </section>
 
-        {/* Her colors, her type. Not in the preview — a tap there would
-            save Geno's taste onto her pages. */}
+        {/* Her colors, her background. Not in the preview — a tap there
+            would save Geno's taste onto her pages. */}
         {!preview && <MakeItYours token={token} style={model.portal_style} />}
       </div>
+
+      {setupOpen && (
+        <SetupProfile
+          token={token}
+          name={model.name.split(' ')[0]}
+          photo={model.photo_url}
+          onClose={() => setSetupOpen(false)}
+        />
+      )}
 
       {notice && <CantDoNotice label={notice.label} onUndo={() => void addBack(notice.id)} />}
     </main>

@@ -51,9 +51,20 @@
 
 .plan-who {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sc-space-3);
   min-width: 0;
+}
+
+/* Photo with her name under it (Geno, 2026-10-06): beside the buttons the
+   name clamped to "MONA …" the day Discover joined the row. */
+.plan-id {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 6.5rem;
 }
 
 .plan-face {
@@ -66,8 +77,18 @@
   border-radius: var(--r-pill);
 }
 
-/* Her name rides with the eyebrow instead of being the headline. She knows
-   who she is; what she opens this to find out is which week it is. */
+/* The right column: what this page is, then its two controls under it. */
+.plan-topline {
+  margin-left: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sc-space-2);
+}
+
+/* Her name rides small under the photo instead of being the headline. She
+   knows who she is; what she opens this to find out is which week it is. */
 .plan-eyebrow {
   margin: 0;
   min-width: 0;
@@ -77,15 +98,18 @@
   text-transform: uppercase;
   line-height: 1.5;
   color: #7C776F;
+  text-align: right;
 }
 .plan-name {
   display: block;
+  max-width: 100%;
   font-size: 0.72rem;
   font-weight: 500;
   color: var(--sc-bone);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 
 .plan-week {
@@ -1431,12 +1455,17 @@
    height and gap on purpose — they read as a pair — while only one of
    them carries a label, because only one of them is worth discovering. */
 .plan-tools {
+  /* Inside .plan-topline the column already hugs the right edge. A button
+     never breaks mid-word — on a narrow phone the row wraps instead. */
   margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--sc-space-2);
   flex-shrink: 0;
 }
+.plan-tools .plan-run { white-space: nowrap; }
 
 .plan-run,
 .plan-theme {
@@ -1816,6 +1845,7 @@
   box-shadow: var(--sc-lift-2);
 }
 .plan-head[data-stuck] .plan-face { width: 2rem; height: 2rem; }
+.plan-head[data-stuck] .plan-name { display: none; }
 .plan-head[data-stuck] .plan-week { font-size: var(--sc-text-lg); margin: var(--sc-space-2) 0 0; }
 .plan-head[data-stuck] .plan-title,
 .plan-head[data-stuck] .plan-eyebrow { display: none; }

@@ -252,20 +252,25 @@ export default function PlanView({
           what she opens this to find out is which week she is looking at. */}
       <header className="plan-head" data-stuck={stuck || undefined} data-tucked={tucked || undefined}>
         <div className="plan-who">
-          {model.photo_url && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img className="plan-face" src={model.photo_url} alt="" width={104} height={104} />
-          )}
-          <p className="plan-eyebrow">
-            Your content plan
+          {/* Photo with her name under it, not clamped beside it — "MONA …"
+              was ellipsizing against the buttons (Geno, 2026-10-06). The
+              eyebrow moved to its own line above the tools. */}
+          <div className="plan-id">
+            {model.photo_url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img className="plan-face" src={model.photo_url} alt="" width={104} height={104} />
+            )}
             <b className="plan-name">{model.name}</b>
-          </p>
+          </div>
 
-          {/* Two controls, one size, top right: what she is looking at, and
-              how it looks. The run glows because nothing else on this page
-              has ever been worth tapping out of curiosity — it is the only
-              thing here that gives her something back. */}
-          <div className="plan-tools">
+          <div className="plan-topline">
+            <p className="plan-eyebrow">Your content plan</p>
+
+            {/* Two controls, one size, top right: what she is looking at, and
+                how it looks. The run glows because nothing else on this page
+                has ever been worth tapping out of curiosity — it is the only
+                thing here that gives her something back. */}
+            <div className="plan-tools">
             <button
               type="button"
               className="plan-run"
@@ -301,6 +306,7 @@ export default function PlanView({
                 </svg>
               </button>
             )}
+            </div>
           </div>
         </div>
 

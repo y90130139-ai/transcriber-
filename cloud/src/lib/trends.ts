@@ -24,22 +24,30 @@
  * ./trends-feed, which is import-free on purpose.
  */
 import { sql } from './db'
-import { parseTrendsRss, type Breakout, type TrendNews, type TrendsBoard, type TrendSound } from './trends-feed'
+import {
+  directionOf,
+  foldTermDays,
+  parseTrendsRss,
+  windowDays,
+  type Breakout,
+  type TermDayRow,
+  type TrendRange,
+  type TrendsBoard,
+  type TrendSound,
+} from './trends-feed'
 
 const RSS_URL = 'https://trends.google.com/trending/rss'
 /** Google's feed answers plain fetches today; a UA keeps it boring. */
 const RSS_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36'
 const GEO = 'US'
 
-/** Breakouts: the window the digest's own winners rule uses, over the recent
- *  slice where "trending" still means anything. */
-const BREAKOUT_DAYS = 14
+/** Breakouts: the same 2× multiple the 70/20/10 rule is written in; the
+ *  window is the tab's own range picker. */
 const BREAKOUT_MIN_MULTIPLE = 2
 const BREAKOUT_LIMIT = 12
 /** A creator needs this many measured posts before her median means much. */
 const MEDIAN_MIN_POSTS = 5
 
-const SOUND_DAYS = 14
 const SOUND_LIMIT = 12
 /** Instagram labels every creator-made audio this; it is a bucket, not a sound. */
 const NOT_A_SOUND = new Set(['original audio', 'mix'])
@@ -67,53 +75,67 @@ export async function ingestTrends(): Promise<{ stored: number }> {
   return { stored: terms.length }
 }
 
-export async function trendsBoard(): Promise<TrendsBoard> {
-  const [terms, breakouts, sounds] = await Promise.all([latestTerms(), libraryBreakouts(), spreadingSounds()])
+export async function trendsBoard(days: TrendRange = 1): Promise<TrendsBoard> {
+  const [termRows, newest, breakouts, sounds] = await Promise.all([
+    termDays(days),
+    sql.query(`select max(captured_on)::text as day from transcriber.trends_terms where geo = $1`, [GEO]),
+    libraryBreakouts(days),
+    spreadingSounds(days),
+  ])
+  const newestDay = newest[0]?.day ? String(newest[0].day) : null
   return {
-    captured_on: terms[0]?.captured_on ?? null,
-    terms: terms.map((row) => ({
-      term: String(row.term),
-      rank: Number(row.rank ?? 0),
-      traffic: row.traffic ? String(row.traffic) : null,
-      picture: row.picture ? String(row.picture) : null,
-      news: Array.isArray(row.news) ? (row.news as TrendNews[]) : [],
-      rising: Boolean(row.rising),
-    })),
+    captured_on: newestDay,
+    days,
+    // "Today" folds on the newest stored day's own axis, so a board read
+    // before the 10:00 pull still lines its one point up with its data.
+    terms: foldTermDays(termRows, days, days === 1 && newestDay ? new Date(`${newestDay}T12:00:00Z`) : undefined),
     breakouts,
     sounds,
   }
 }
 
-type TermRow = {
-  term: string
-  rank: number | null
-  traffic: string | null
-  picture: string | null
-  news: unknown
-  rising: boolean
-  captured_on: string
-}
-
-async function latestTerms(): Promise<TermRow[]> {
-  // The newest day we hold, whole — not "today", so the board still has
-  // yesterday's answer at 09:00 before the 10:00 pull lands.
-  return (await sql.query(
-    `with latest as (select max(captured_on) as day from transcriber.trends_terms where geo = $1)
-     select t.term, t.rank, t.traffic, t.picture, t.news, t.captured_on::text,
-            not exists (
-              select 1 from transcriber.trends_terms p
-               where p.term = t.term and p.geo = t.geo
-                 and p.captured_on < t.captured_on
-                 and p.captured_on > t.captured_on - 8
-            ) as rising
-       from transcriber.trends_terms t, latest
-      where t.geo = $1 and t.captured_on = latest.day
-      order by t.rank nulls last, t.term`,
+/** Every stored day inside the window, one row per term per day. "Today" is
+ *  special-cased to the newest stored day, so the board is never blank at
+ *  09:00 just because the 10:00 pull has not landed yet. */
+async function termDays(days: TrendRange): Promise<TermDayRow[]> {
+  const rows = await sql.query(
+    days === 1
+      ? `with latest as (select max(captured_on) as day from transcriber.trends_terms where geo = $1)
+         select t.term, t.captured_on::text as day, t.rank, t.traffic, t.picture, t.news,
+                f.first_ever
+           from transcriber.trends_terms t
+           join latest on t.captured_on = latest.day
+           join lateral (
+             select min(captured_on)::text as first_ever
+               from transcriber.trends_terms e where e.term = t.term and e.geo = t.geo
+           ) f on true
+          where t.geo = $1`
+      : `select t.term, t.captured_on::text as day, t.rank, t.traffic, t.picture, t.news,
+                f.first_ever
+           from transcriber.trends_terms t
+           join lateral (
+             select min(captured_on)::text as first_ever
+               from transcriber.trends_terms e where e.term = t.term and e.geo = t.geo
+           ) f on true
+          where t.geo = $1 and t.captured_on > current_date - ${days}`,
     [GEO],
-  )) as TermRow[]
+  )
+  return rows.map((row) => ({
+    term: String(row.term),
+    day: String(row.day),
+    rank: row.rank === null ? null : Number(row.rank),
+    traffic: row.traffic ? String(row.traffic) : null,
+    picture: row.picture ? String(row.picture) : null,
+    news: row.news,
+    first_ever: String(row.first_ever),
+  }))
 }
 
-async function libraryBreakouts(): Promise<Breakout[]> {
+async function libraryBreakouts(days: TrendRange): Promise<Breakout[]> {
+  // Reels land in sightings with Friday's weekly pass, so a 1–3 day window
+  // is empty most of the week. The panel floors at 7 and says so; the short
+  // windows stay meaningful for the Google terms, which really are daily.
+  const window = Math.max(days, 7)
   const rows = await sql.query(
     `with usual as (
        select handle,
@@ -125,10 +147,19 @@ async function libraryBreakouts(): Promise<Breakout[]> {
      )
      select s.post_id, s.handle, s.url, s.caption, s.audio_title, s.plays,
             s.posted_at::text as posted_at,
-            round((s.plays / nullif(u.median, 0))::numeric, 1) as multiple
+            round((s.plays / nullif(u.median, 0))::numeric, 1) as multiple,
+            ( -- The reel's stored thumbnail, when the library picked it up.
+              -- The sightings poster links die within hours; these keep.
+              select t.job_id
+                from transcriber.jobs j
+                join transcriber.transcripts t on t.job_id = j.id
+               where j.source ~ ('/' || s.post_id || '/?([?#].*)?$')
+                 and t.thumbnail is not null
+               limit 1
+            ) as thumb_job
        from transcriber.sightings s
        join usual u on u.handle = s.handle and u.median > 0
-      where s.posted_at > now() - interval '${BREAKOUT_DAYS} days'
+      where s.posted_at > now() - interval '${window} days'
         and s.plays is not null
         and s.plays >= u.median * ${BREAKOUT_MIN_MULTIPLE}
       order by multiple desc, s.plays desc
@@ -143,28 +174,84 @@ async function libraryBreakouts(): Promise<Breakout[]> {
     plays: Number(row.plays ?? 0),
     multiple: Number(row.multiple ?? 0),
     posted_at: row.posted_at ? String(row.posted_at) : null,
+    thumb_job: row.thumb_job ? String(row.thumb_job) : null,
   }))
 }
 
-async function spreadingSounds(): Promise<TrendSound[]> {
+async function spreadingSounds(days: TrendRange): Promise<TrendSound[]> {
+  // Same floor as breakouts: reels arrive weekly, and a sound needs two
+  // different creators to count at all.
+  const window = Math.max(days, 7)
+  const skip = [...NOT_A_SOUND].map((s) => `'${s}'`).join(', ')
   const rows = await sql.query(
     `select audio_title, max(audio_artist) as artist,
             count(distinct handle) as creators, coalesce(sum(plays), 0) as plays,
-            (array_agg(distinct handle))[1:3] as sample_handles
+            (array_agg(distinct handle))[1:3] as sample_handles,
+            max(audio_id) as audio_id,
+            bool_or(audio_url is not null and media_until > now()) as fresh_audio
        from transcriber.sightings
-      where posted_at > now() - interval '${SOUND_DAYS} days'
+      where posted_at > now() - interval '${window} days'
         and audio_title is not null
-        and lower(audio_title) not in (${[...NOT_A_SOUND].map((s) => `'${s}'`).join(', ')})
+        and lower(audio_title) not in (${skip})
       group by audio_title
      having count(distinct handle) >= 2
       order by creators desc, plays desc
       limit ${SOUND_LIMIT}`,
   )
-  return rows.map((row) => ({
-    title: String(row.audio_title),
-    artist: row.artist ? String(row.artist) : null,
-    creators: Number(row.creators ?? 0),
-    plays: Number(row.plays ?? 0),
-    sample_handles: Array.isArray(row.sample_handles) ? row.sample_handles.map(String) : [],
-  }))
+  if (rows.length === 0) return []
+
+  // One series query for all of them: distinct creators per sound per day.
+  // The axis ends at the newest *sighted* post, not today — reels arrive
+  // with Friday's pass, and days nobody has swept yet would otherwise read
+  // as every sound dying on Wednesday.
+  const titles = rows.map((row) => String(row.audio_title))
+  const [coverage] = await sql.query(`select max(posted_at)::date::text as through from transcriber.sightings`)
+  const through = coverage?.through ? new Date(`${coverage.through}T12:00:00Z`) : new Date()
+  const axis = windowDays(window, through)
+  const daily = await sql.query(
+    `select audio_title, posted_at::date::text as day, count(distinct handle) as creators
+       from transcriber.sightings
+      where audio_title = any($1) and posted_at > now() - interval '${window} days'
+      group by audio_title, posted_at::date`,
+    [titles],
+  )
+  const series = new Map<string, Map<string, number>>()
+  for (const row of daily) {
+    const byDay = series.get(String(row.audio_title)) ?? new Map<string, number>()
+    byDay.set(String(row.day), Number(row.creators))
+    series.set(String(row.audio_title), byDay)
+  }
+
+  return rows.map((row) => {
+    const title = String(row.audio_title)
+    const byDay = series.get(title) ?? new Map<string, number>()
+    const spark = axis.map((day) => byDay.get(day) ?? 0)
+    return {
+      title,
+      artist: row.artist ? String(row.artist) : null,
+      creators: Number(row.creators ?? 0),
+      plays: Number(row.plays ?? 0),
+      sample_handles: Array.isArray(row.sample_handles) ? row.sample_handles.map(String) : [],
+      audio_id: row.audio_id ? String(row.audio_id) : null,
+      fresh_audio: Boolean(row.fresh_audio),
+      spark,
+      direction: directionOf(spark),
+    }
+  })
+}
+
+/** The freshest stored, unexpired audio file for a sound — the Save button's
+ *  source. Instagram's media links die in hours; Scout's passes renew them,
+ *  so right after a pass most sounds have one and days later few do. */
+export async function freshAudioFor(title: string): Promise<{ url: string; post_id: string } | null> {
+  const rows = await sql.query(
+    `select audio_url, post_id
+       from transcriber.sightings
+      where audio_title = $1 and audio_url is not null and media_until > now()
+      order by media_until desc
+      limit 1`,
+    [title],
+  )
+  if (!rows[0]?.audio_url) return null
+  return { url: String(rows[0].audio_url), post_id: String(rows[0].post_id) }
 }

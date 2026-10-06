@@ -19,6 +19,9 @@ import type { TrendsBoard } from './trends-feed'
 
 const ANTHROPIC_MODEL = 'claude-sonnet-5-5'
 const MAX_ANSWER_TOKENS = 700
+/** A web-backed answer gets room to search and still land under Vercel's
+ *  function clock; three lookups answer any reasonable trends question. */
+const MAX_WEB_SEARCHES = 3
 export const MAX_QUESTION_CHARS = 500
 
 export const TRENDS_PROMPT = `You are the Trends panel of a content console for an agency whose creators make short-form Instagram reels. Answer the team's question using ONLY the data below. Rules:
@@ -28,21 +31,32 @@ export const TRENDS_PROMPT = `You are the Trends panel of a content console for 
 - Suggest at most 2–3 concrete video angles only when asked for ideas, each tied to a named data point.
 - Plain text, short lines, no markdown headers or tables. Lead with the answer.`
 
+/** The board-only rule, relaxed: the web is allowed in, as long as every
+ *  sentence still says where it came from. */
+export const TRENDS_WEB_PROMPT = TRENDS_PROMPT.replace(
+  'using ONLY the data below. Rules:\n- Every claim must trace to a line in the data. No outside knowledge about what is trending; if the data cannot answer, say so plainly.',
+  `using the data below, plus the web_search tool for anything the data cannot answer. Rules:
+- Say where each claim came from: the board's data (which list) or a web search (name the source).
+- Search the web when the question reaches past the board — context on a term, platform-wide trends, anything not stored here. Never let a web result contradict the board's own numbers; the board is the house's measured truth.`,
+)
+
 /** The board as the model sees it. Pure, so tests can pin what leaks in —
  *  handles and captions from the library are fine; nothing else rides along. */
 export function groundingText(board: TrendsBoard): string {
+  const window = board.days === 1 ? 'today' : `the past ${board.days} days`
   const lines: string[] = []
-  lines.push(`Data captured ${board.captured_on ?? 'never — no Google pull has run yet'}.`)
-  lines.push('', `GOOGLE SEARCH TRENDS (US, today's top searches):`)
+  lines.push(`Data captured ${board.captured_on ?? 'never — no Google pull has run yet'}. Window: ${window}.`)
+  lines.push('', `GOOGLE SEARCH TRENDS (US, top searches of ${window}):`)
   if (board.terms.length === 0) lines.push('  (none stored yet)')
   for (const term of board.terms) {
     const bits = [`${term.rank}. ${term.term}`]
     if (term.traffic) bits.push(`~${term.traffic} searches`)
     if (term.rising) bits.push('NEW this week')
+    if (board.days > 1) bits.push(`charted ${term.days_seen} of ${board.days} days, trend ${term.direction}`)
     if (term.news[0]) bits.push(`context: ${term.news[0].title}`)
     lines.push(`  ${bits.join(' · ')}`)
   }
-  lines.push('', `LIBRARY BREAKOUTS (watched accounts' reels at 2x+ their usual plays, last 14 days):`)
+  lines.push('', `LIBRARY BREAKOUTS (watched accounts' reels at 2x+ their usual plays, ${window}):`)
   if (board.breakouts.length === 0) lines.push('  (none in the window)')
   for (const reel of board.breakouts) {
     const bits = [`@${reel.handle} at ${reel.multiple}x usual (${reel.plays.toLocaleString('en-US')} plays)`]
@@ -50,28 +64,40 @@ export function groundingText(board: TrendsBoard): string {
     if (reel.caption) bits.push(`caption: ${reel.caption}`)
     lines.push(`  ${bits.join(' · ')}`)
   }
-  lines.push('', `SOUNDS SPREADING (used by 2+ different watched creators, last 14 days):`)
+  lines.push('', `SOUNDS SPREADING (used by 2+ different watched creators, ${window}):`)
   if (board.sounds.length === 0) lines.push('  (none in the window)')
   for (const sound of board.sounds) {
     lines.push(
-      `  "${sound.title}"${sound.artist ? ` — ${sound.artist}` : ''} · ${sound.creators} creators · ` +
+      `  "${sound.title}"${sound.artist ? ` — ${sound.artist}` : ''} · ${sound.creators} creators (trend ${sound.direction}) · ` +
         `${sound.plays.toLocaleString('en-US')} plays · e.g. ${sound.sample_handles.map((h) => `@${h}`).join(', ')}`,
     )
   }
   return lines.join('\n')
 }
 
-export type TrendsAnswer = { answer: string; engine: 'anthropic' | 'workers' }
+export type TrendsAnswer = {
+  answer: string
+  engine: 'anthropic' | 'workers'
+  /** Whether the answer was allowed to search the web. False on the Workers
+   *  fallback even when asked — the UI says why rather than pretending. */
+  web: boolean
+}
 
-export async function answerTrends(question: string, board: TrendsBoard): Promise<TrendsAnswer> {
-  const prompt = `${TRENDS_PROMPT}\n\n=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}`
-
+export async function answerTrends(
+  question: string,
+  board: TrendsBoard,
+  options: { web?: boolean } = {},
+): Promise<TrendsAnswer> {
   if (process.env.ANTHROPIC_API_KEY) {
-    const client = new Anthropic({ timeout: 60_000, maxRetries: 1 })
+    const web = Boolean(options.web)
+    const system = web ? TRENDS_WEB_PROMPT : TRENDS_PROMPT
+    const client = new Anthropic({ timeout: 120_000, maxRetries: 1 })
     const response = await client.messages.create({
       model: ANTHROPIC_MODEL,
       max_tokens: MAX_ANSWER_TOKENS,
-      messages: [{ role: 'user', content: prompt }],
+      system,
+      tools: web ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }] : undefined,
+      messages: [{ role: 'user', content: `=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}` }],
     })
     const answer = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -79,11 +105,12 @@ export async function answerTrends(question: string, board: TrendsBoard): Promis
       .join('')
       .trim()
     if (!answer) throw new Error('the model answered with no text')
-    return { answer, engine: 'anthropic' }
+    return { answer, engine: 'anthropic', web }
   }
 
   if (!aiReady()) throw new Error('no AI is configured — set ANTHROPIC_API_KEY or the Cloudflare AI token')
+  const prompt = `${TRENDS_PROMPT}\n\n=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}`
   const answer = await askText(prompt, { model: STRONG_WRITER_MODEL, maxTokens: MAX_ANSWER_TOKENS, temperature: 0.3 })
   if (!answer) throw new Error('the model answered with no text')
-  return { answer, engine: 'workers' }
+  return { answer, engine: 'workers', web: false }
 }

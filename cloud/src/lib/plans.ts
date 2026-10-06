@@ -207,7 +207,12 @@ function mediaFor(row: Record<string, unknown>): PlanMedia | null {
   const config = r2Config()
   const key = row.r2_key as string | null
   if (!config || !key || !row.uploaded_at) return null
-  const name = `${String(row.item_id).slice(0, 12)}.mp4`
+  // Saved as the card's own name (Geno, 2026-10-06): "V-119 reference.mp4"
+  // beats a random id — she names her own files V-119 back, so the pair
+  // sorts together in her folder. The id stays the fallback for the few
+  // cards the card_no backfill never reached.
+  const no = row.card_no === null || row.card_no === undefined ? null : Number(row.card_no)
+  const name = no ? `V-${no} reference.mp4` : `${String(row.item_id).slice(0, 12)}.mp4`
   return planMediaFor(config, key, name)
 }
 

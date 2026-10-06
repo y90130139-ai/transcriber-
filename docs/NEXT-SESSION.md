@@ -1,3 +1,39 @@
+# 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
+
+Three asks from Geno, all on `main` through `5bb5971`, tests green (123),
+`npx next build` clean. **Not yet deployed — Geno runs the Vercel deploy.**
+
+- **Trends tab** (console, between Week and Queue). The parked "Trends AI"
+  idea, built on the free path only: Google's Trending Now RSS (keyless)
+  ingested daily by the 10:00 cloud cron into `transcriber.trends_terms`
+  (table created in Neon 2026-10-06; "Pull today's trends" button covers the
+  gap before the first cron). Board = terms (with NEW-this-week flags) +
+  library breakouts (sightings at 2×+ creator's 90-day median, 14-day
+  window) + sounds spreading (2+ distinct watched creators, "Original
+  audio"/"Mix" excluded). The ask box answers ONLY from the board:
+  `lib/trends-ask.ts` uses Anthropic (`claude-sonnet-5-5`) when
+  `ANTHROPIC_API_KEY` is on Vercel — **it still is not** (same pending
+  decision as OPS /q) — else falls back to gpt-oss-120b on Workers AI
+  (works today; shares the captions allowance, single-shot so cheap).
+  Pure parser + types in `lib/trends-feed.ts` (import-free, tested);
+  queries in `lib/trends.ts`; ingest verified live (10 terms stored).
+  BigQuery/interest-curves from the parked plan still need GCP creds — not built.
+- **Baby pink** palette (`babypink`) in Make-it-yours — 11 presets now.
+  Light `#D2648C`, dark `#F49CBC`; pastel carried by the light/tint stops,
+  the accent deep enough that white type keeps roughly Sunny's footing.
+  Screenshotted both themes via a static harness.
+- **Two piles on her plan** (`lib/plan-buckets.ts`, pure + tested): a
+  segmented "To review / My reels" switch above the cards. Yes, made-already
+  or filmed → My reels; unanswered → To review; declines keep "Videos you
+  can't do". Cards report every verdict change up (`onVerdict` on
+  PlanItemCard, fired on optimistic set AND rollback); a yes from the review
+  pile shows a toast with a View button. Card numbers stay the plan's own in
+  both piles. Opens on To review when anything is unanswered. Preview renders
+  the same (console = her page, one component).
+  **Not clicked through on a live portal** — the auto-mode classifier
+  blocked reading a model token, so verify one real week (Magnus: 3 accepted
+  / 20 open) after deploy.
+
 # 2026-10-06: the portal grew up — reminders, Discover, themes, home screen
 
 Geno green-lit the whole portal vision except accounts/passwords (token

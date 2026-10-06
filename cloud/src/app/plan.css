@@ -369,7 +369,11 @@
 }
 
 /* -------------------------------------------------------- TRANSCRIPT */
-.plan-transcript { border-top: var(--sc-rule-hair); }
+.plan-transcript { border-top: var(--sc-rule-hair); padding-top: var(--sc-space-3); }
+/* A button, not a label row. The old quiet mono line was the most skipped
+   control on the card (Geno, 2026-10-06: "easily passed by") — this is the
+   words she films, so it gets the ember and the step-title size. White type
+   holds on both embers (#C2410C light, #E8663A dark). */
 .plan-transcript summary {
   cursor: pointer;
   list-style: none;
@@ -377,14 +381,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-  color: var(--sc-ink-300);
+  gap: var(--sc-space-3);
+  padding: 0 var(--sc-space-4);
+  background: var(--sc-ember);
+  color: #FFFFFF;
+  border-radius: var(--r-sm);
+  font-weight: 700;
+  font-size: var(--sc-text-base);
 }
+.plan-transcript summary:active { transform: scale(0.99); }
 .plan-transcript summary::-webkit-details-marker { display: none; }
-.plan-transcript summary::after { content: '+'; color: var(--sc-ember); font-size: var(--sc-text-lg); }
+.plan-transcript summary::after { content: '+'; color: #FFFFFF; font-size: var(--sc-text-lg); }
+.plan-transcript div { padding-top: var(--sc-space-3); }
 .plan-transcript[open] summary::after { content: '–'; }
 .plan-transcript div { padding-bottom: var(--sc-space-3); }
 .plan-transcript p {
@@ -512,6 +520,9 @@
   border-radius: 0 0 var(--r-sm) var(--r-sm);
   background: var(--sc-bone-light);
 }
+/* The channel she sends to, stamped by the page (never by the per-model
+   note) and loud enough to be the thing her eye keeps. */
+.plan-channel { color: var(--sc-ember); font-weight: 700; }
 .plan-delivery-note {
   margin: 0;
   font-family: var(--sc-font-text);
@@ -1900,6 +1911,14 @@
 /* ------------------------------------------------------------ QUICK STEPS
    The flow, open at the top of every plan (2026-09-27). */
 .plan .plan-quick { margin: var(--sc-space-4) 0; padding: var(--sc-space-4); border-radius: 12px; background: var(--sc-bone-light); border: var(--sc-rule-hair); }
+/* The box's name, so the three steps read as the manual (Geno, 2026-10-06). */
+.plan .plan-quick-head {
+  margin: 0 0 var(--sc-space-3);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
 .plan .plan-quick ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-3); }
 .plan .plan-quick li { display: grid; grid-template-columns: 2rem 1fr; column-gap: var(--sc-space-3); align-items: start; }
 .plan .plan-quick-no { grid-row: span 2; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--sc-ember); color: #fff; font-weight: 700; }

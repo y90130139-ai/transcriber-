@@ -474,7 +474,7 @@ export default function PlanItemCard({
           )}
           {item.blocks.length > 0 && (
             <details className="plan-transcript">
-              <summary>What they say, word for word</summary>
+              <summary><span aria-hidden>🗣️</span> What they say, word for word</summary>
               <div>{words}</div>
             </details>
           )}
@@ -550,7 +550,7 @@ export default function PlanItemCard({
           )}
 
           <details className="plan-transcript">
-            <summary>What they say, word for word</summary>
+            <summary><span aria-hidden>🗣️</span> What they say, word for word</summary>
             <div>{words}</div>
           </details>
         </Step>

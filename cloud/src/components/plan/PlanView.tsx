@@ -7,7 +7,6 @@ import RunSheet from './RunSheet'
 import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
 import { groupBySetup } from '@/lib/effort'
-import { BACKGROUND_RULE } from '@/lib/brief'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
@@ -151,7 +150,6 @@ export default function PlanView({
   // Either half is enough to have something to say. Neither, and every
   // delivery render on this page is skipped rather than drawn empty.
   const folder = model.drive_url
-  const hasDelivery = Boolean(folder || model.delivery_note)
 
   const overdue = useMemo(() => isOverdue(plan.due_date, model.timezone), [plan.due_date, model.timezone])
   // Her own reels are not this week's ideas (Susanna, 2026-09-27: "they look
@@ -343,14 +341,15 @@ export default function PlanView({
       <div className="plan-body" ref={body}>
         {plan.intro && <p className="plan-intro">{plan.intro}</p>}
 
-        {/* Her own rules first, because they are hers and they override. The
-            house background rule sits under them: it applies to every card,
-            so it belongs here once rather than repeated twenty-one times. */}
-        <section className="plan-rules" aria-label="What applies to everything">
-          <p className="plan-label">Always</p>
-          {model.standing_rules && <p>{model.standing_rules}</p>}
-          <p>{BACKGROUND_RULE}</p>
-        </section>
+        {/* Her own rules, when she has any. The house background rule used to
+            sit under them for everyone; Geno cut it 2026-10-06 ("unnecessary")
+            — backgrounds are the shot list's job now, per card. */}
+        {model.standing_rules && (
+          <section className="plan-rules" aria-label="What applies to everything">
+            <p className="plan-label">Always</p>
+            <p>{model.standing_rules}</p>
+          </section>
+        )}
 
         {/* The two things the analytics measure her against and the plan never
             asked for. Carousels come from the shoot-day photos, so they cost
@@ -374,7 +373,10 @@ export default function PlanView({
           </dl>
         </details>
 
-        <section className="plan-quick" aria-label="What to do">
+        <section className="plan-quick" aria-labelledby="plan-quick-head">
+          {/* Named so the steps read as the manual, not three stray facts
+              (Geno, 2026-10-06: "a little header... follow the steps"). */}
+          <h2 className="plan-quick-head" id="plan-quick-head">How to use this</h2>
           <ol>
             {QUICK_STEPS.map((step, index) => (
               <li key={step.title}>
@@ -469,18 +471,22 @@ export default function PlanView({
 
         {/* Where the week ends up. Last on the page on purpose — it is the
             last thing she does, and it is the one instruction that was
-            missing entirely rather than merely buried. */}
-        {hasDelivery && (
-          <section className="plan-delivery" aria-labelledby="plan-delivery-head">
-            <p className="plan-label" id="plan-delivery-head">When they are filmed</p>
-            {model.delivery_note && <p className="plan-delivery-note">{model.delivery_note}</p>}
-            {folder && (
-              <a className="plan-cta" href={folder} target="_blank" rel="noreferrer">
-                Open your folder
-              </a>
-            )}
-          </section>
-        )}
+            missing entirely rather than merely buried. The MARKETING line is
+            stamped in the page itself (Geno, 2026-10-06: "permanently put in
+            there") so no per-model note has to carry it again. */}
+        <section className="plan-delivery" aria-labelledby="plan-delivery-head">
+          <p className="plan-label" id="plan-delivery-head">When they are filmed</p>
+          {model.delivery_note && <p className="plan-delivery-note">{model.delivery_note}</p>}
+          <p className="plan-delivery-note">
+            If it will not open, send them in the Telegram{' '}
+            <b className="plan-channel">&ldquo;MARKETING&rdquo;</b> channel.
+          </p>
+          {folder && (
+            <a className="plan-cta" href={folder} target="_blank" rel="noreferrer">
+              Open your folder
+            </a>
+          )}
+        </section>
       </div>
 
       {notice && <CantDoNotice label={notice.label} onUndo={() => void addBack(notice.id)} />}

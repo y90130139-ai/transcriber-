@@ -9,12 +9,13 @@ import { DEFAULT_ZONE, displayPlace, placeFor } from '@/lib/timezones'
 import type { Model } from '../types'
 
 /** What a new model gets in the delivery note before anyone types anything.
- *  Geno's decision on 2026-09-06: the Drive folder is the route, the Telegram
- *  marketing channel is the stated alternative. Pre-filled rather than
- *  required, because the failure this exists to prevent is the field being
- *  left empty and her having nowhere to send a week of footage. */
-export const DELIVERY_NOTE_DEFAULT =
-  'Drop the finished videos in your Drive folder. If it will not open, send them in the Telegram "MARKETING" channel.'
+ *  Geno's decision on 2026-09-06: the Drive folder is the route. The
+ *  Telegram "MARKETING" fallback left this note on 2026-10-06 — the plan
+ *  page stamps that line itself now, so the note never has to carry it.
+ *  Pre-filled rather than required, because the failure this exists to
+ *  prevent is the field being left empty and her having nowhere to send a
+ *  week of footage. */
+export const DELIVERY_NOTE_DEFAULT = 'Drop the finished videos in your Drive folder.'
 
 export type ProfileForm = {
   name: string

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (!isBot(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const origin = new URL(request.url).origin
   const rows = await sql.query(
-    `select n.id, n.body, m.name as model_name, m.telegram_chat_id as chat_id, m.access_token,
+    `select n.id, n.body, n.item_id, m.name as model_name, m.telegram_chat_id as chat_id, m.access_token,
             i.card_no, i.title as card_title
        from transcriber.plan_messages n
        join transcriber.plan_items i on i.id = n.item_id
@@ -29,10 +29,13 @@ export async function GET(request: Request) {
       limit 20`,
   )
   return NextResponse.json({
-    items: rows.map(({ access_token, card_no, ...row }) => ({
+    items: rows.map(({ access_token, card_no, item_id, ...row }) => ({
       ...row,
       card: card_no ? `V-${card_no}` : null,
-      link: `${origin}/p/${access_token}`,
+      // Straight to the card, not the top of her week (Geno, 2026-10-06:
+      // the team was scrolling whole plans matching numbers by eye). The
+      // anchor matches the id PlanItemCard renders on each card.
+      link: `${origin}/p/${access_token}#${card_no ? `v-${card_no}` : `card-${item_id}`}`,
     })),
   })
 }

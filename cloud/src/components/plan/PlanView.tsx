@@ -15,6 +15,15 @@ import type { DeclineCode } from '@/lib/decline'
 /** How long "moved — Undo" stays up after a card leaves her feed. */
 const NOTICE_MS = 6000
 
+/** How long a card arrived at by link (#v-12) keeps its ember ring. Long
+ *  enough to be found after the eye catches the scroll landing, no longer. */
+const SPOT_MS = 4000
+
+/** One repaint's grace before jumping to the linked card: cards below the
+ *  fold start hidden by the reveal pass and the players need their first
+ *  layout, or the scroll lands short of the right spot. */
+const SPOT_DELAY_MS = 300
+
 /** One run of consecutive cards filmed in the same place. Runs, not buckets:
  *  the order on the plan is Geno's, and re-sorting it to collapse two visits to
  *  the kitchen into one would silently rewrite the week he sent her. */
@@ -89,6 +98,28 @@ export default function PlanView({
     const timer = setTimeout(() => setNotice(null), NOTICE_MS)
     return () => clearTimeout(timer)
   }, [notice])
+
+  /** Opened at `#v-12` — the deep link a relayed Telegram question carries
+   *  (2026-10-06, Geno: the team was scrolling whole weeks matching numbers
+   *  by eye). Jump to that card and ring it briefly. Like `useReveal`, this
+   *  writes a data attribute the CSS watches; a card that is not on the page
+   *  any more (declined, moved weeks) leaves the page exactly as it was. */
+  useEffect(() => {
+    const anchor = decodeURIComponent(window.location.hash.slice(1))
+    if (!anchor) return
+    let ring: ReturnType<typeof setTimeout> | undefined
+    const timer = setTimeout(() => {
+      const target = document.getElementById(anchor)
+      if (!target || !target.classList.contains('plan-item')) return
+      target.scrollIntoView({ block: 'start' })
+      target.setAttribute('data-spot', '')
+      ring = setTimeout(() => target.removeAttribute('data-spot'), SPOT_MS)
+    }, SPOT_DELAY_MS)
+    return () => {
+      clearTimeout(timer)
+      if (ring) clearTimeout(ring)
+    }
+  }, [])
   /** Her week's header rides along as she scrolls, condensed once it has left
    *  its own space, and tucked away entirely if she wants the screen back. */
   const [stuck, setStuck] = useState(false)

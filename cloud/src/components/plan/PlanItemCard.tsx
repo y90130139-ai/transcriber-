@@ -320,6 +320,11 @@ export default function PlanItemCard({
        is off. The CSS hides `[data-reveal='out']` and nothing else, so with the
        script broken or absent every card renders visible, exactly as before. */
     <li
+      /* The card's address on the page (#v-12, or #card-<id> before the
+         backfill reaches it). A question relayed to Telegram deep-links here,
+         so the team lands on the exact video instead of scrolling for the
+         number. */
+      id={item.card_no ? `v-${item.card_no}` : `card-${item.id}`}
       className="plan-item"
       data-reveal=""
       data-filmed={filmed || undefined}

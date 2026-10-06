@@ -39,6 +39,7 @@ export default function PlanItemCard({
   preview = false,
   inGroup = false,
   onDeclined,
+  onVerdict,
 }: {
   token: string
   item: PlanItem
@@ -68,6 +69,11 @@ export default function PlanItemCard({
   /** The decline is complete — a reason picked, and the words when "Something
    *  else" needs them. The page moves the card to "Videos you can't do". */
   onDeclined?: (code: DeclineCode, reason: string) => void
+  /** Every verdict change, as the card itself now believes it — the page
+   *  files the card under "To review" or "My reels" from this. Fired on the
+   *  optimistic set AND on a rollback, so the page never disagrees with the
+   *  card about where it belongs. */
+  onVerdict?: (next: Verdict) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -185,6 +191,7 @@ export default function PlanItemCard({
   async function save(chosen: Verdict, withCode: DeclineCode | null, why: string) {
     const previous = verdict
     setVerdict(chosen) // optimistic; a decline has to feel instant
+    onVerdict?.(chosen)
     // Out of her feed only once the "no" is whole: tapping "Can't do this"
     // opens the reasons, and the card must stay put while she picks one.
     const complete = chosen === 'declined' && withCode !== null && (!needsReason(withCode) || Boolean(why.trim()))
@@ -204,8 +211,10 @@ export default function PlanItemCard({
         code: chosen === 'declined' ? withCode : null,
       }),
     }).catch(() => null)
-    if (!response?.ok) setVerdict(previous)
-    else if (complete) onDeclined?.(withCode!, why.trim())
+    if (!response?.ok) {
+      setVerdict(previous)
+      onVerdict?.(previous)
+    } else if (complete) onDeclined?.(withCode!, why.trim())
   }
 
   /** Taking a card on, or turning it down. Tapping the same answer twice puts
@@ -642,7 +651,10 @@ export default function PlanItemCard({
           preview={preview}
           onChange={(next) => {
             setMade(next)
-            if (next) setVerdict('accepted')
+            if (next) {
+              setVerdict('accepted')
+              onVerdict?.('accepted')
+            }
           }}
         />
       )}

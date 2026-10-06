@@ -10,9 +10,10 @@ import { groupBySetup } from '@/lib/effort'
 import MakeItYours from './MakeItYours'
 import SetupProfile from './SetupProfile'
 import { cleanStyle } from '@/lib/portal-style'
+import { bucketOf, type PlanBucket } from '@/lib/plan-buckets'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
-import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
+import type { Plan, PlanItem, PlanModel, Verdict } from '@/lib/plans'
 import type { DeclineCode } from '@/lib/decline'
 
 /** How long "moved — Undo" stays up after a card leaves her feed. */
@@ -48,9 +49,9 @@ function groupByLocation(items: PlanItem[]): Group[] {
  *  works" list went the same day — every card now carries its own steps.
  *  She edits her own videos; that is said once, here. */
 const QUICK_STEPS = [
-  { title: 'Watch', text: 'Watch each video on your plan.' },
-  { title: 'Yes or no', text: 'Tap “I’ll do this” or “Can’t do this” on every card.' },
-  { title: 'Film', text: 'Film and edit your yeses — easiest first. Name each file by its number (V-1, V-2…).' },
+  { title: 'Watch', text: 'Watch each video under “To review”.' },
+  { title: 'Yes or no', text: 'Tap “I’ll do this” or “Can’t do this” on every card. Your yeses move to “My reels”.' },
+  { title: 'Film', text: 'Film and edit everything on “My reels” — easiest first. Name each file by its number (V-1, V-2…).' },
 ]
 
 export default function PlanView({
@@ -95,6 +96,26 @@ export default function PlanView({
    *  the card's own verdict state starts from that. */
   const [reopened, setReopened] = useState<Set<string>>(() => new Set())
   const [notice, setNotice] = useState<{ id: string; label: string } | null>(null)
+  /** Verdicts as the cards themselves now believe them — each card keeps its
+   *  own optimistic state and reports every change up, so the page can file
+   *  it under "To review" or "My reels" without a reload. */
+  const [verdicts, setVerdicts] = useState<Map<string, Verdict>>(() => new Map())
+  /** Which pile she is looking at. Opens on whatever still wants her answer;
+   *  a week she has fully answered opens on her own list. Her tap wins after
+   *  that — a card moving piles never yanks the view out from under her. */
+  const [view, setView] = useState<PlanBucket>(() => {
+    const live = items.filter((item) => item.verdict !== 'declined' && !item.mine)
+    return live.some((item) => bucketOf(item) === 'review') ? 'review' : 'mine'
+  })
+  /** "V-12 is on My reels" — the card left this pile on her tap, and the page
+   *  owes her one line about where it went. */
+  const [moved, setMoved] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!moved) return
+    const timer = setTimeout(() => setMoved(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [moved])
 
   useEffect(() => {
     if (!notice) return
@@ -166,32 +187,50 @@ export default function PlanView({
   // counted in what is left to film.
   // A card she said no to leaves both lists for "Videos you can't do" — the
   // feed is what she still has to film (Geno, 2026-09-27).
-  const shown = useMemo(() => items.filter((item) => !cantDo.has(item.id)).map((item) => reopened.has(item.id)
-    ? { ...item, verdict: 'open' as const, decline_code: null, decline_reason: null }
-    : item), [items, cantDo, reopened])
+  const shown = useMemo(() => items.filter((item) => !cantDo.has(item.id)).map((item) => {
+    const override = verdicts.get(item.id)
+    const base = override && override !== item.verdict ? { ...item, verdict: override } : item
+    return reopened.has(item.id)
+      ? { ...base, verdict: 'open' as const, decline_code: null, decline_reason: null }
+      : base
+  }), [items, cantDo, reopened, verdicts])
   const ideas = useMemo(() => shown.filter((item) => !item.mine), [shown])
   const yours = useMemo(() => shown.filter((item) => item.mine), [shown])
   const turnedDown = useMemo(() => items.filter((item) => cantDo.has(item.id)), [items, cantDo])
   const done = ideas.filter((item) => filmed.has(item.id)).length
   const total = ideas.length
 
-  // The week in filming sittings — talking heads in one, propped-phone
+  // The week in two piles (Geno, 2026-10-06): the ideas still waiting on her
+  // yes or no, and "My reels" — the ones she took on (or filmed outright,
+  // which is the same answer said louder). Card numbers stay the plan's own:
+  // V-7 is V-7 in either pile.
+  const review = useMemo(
+    () => ideas.filter((item) => bucketOf({ verdict: item.verdict, filmed: filmed.has(item.id) }) === 'review'),
+    [ideas, filmed],
+  )
+  const mine = useMemo(
+    () => ideas.filter((item) => bucketOf({ verdict: item.verdict, filmed: filmed.has(item.id) }) === 'mine'),
+    [ideas, filmed],
+  )
+  const visible = view === 'review' ? review : mine
+
+  // The pile in filming sittings — talking heads in one, propped-phone
   // visuals in another, skits last — quickest sitting first, quickest card
   // first inside each (Geno, 2026-10-06: "they could bang out the ones" that
   // share a setup). This re-orders the page, not the plan: positions, card
-  // numbers and everything stored are untouched. A week whose cards all land
+  // numbers and everything stored are untouched. A pile whose cards all land
   // in one sitting returns null and keeps the shape it always had.
-  const setups = useMemo(() => groupBySetup(ideas), [ideas])
+  const setups = useMemo(() => groupBySetup(visible), [visible])
 
-  // Grouping only turns on once somewhere has actually been named. A week with
+  // Grouping only turns on once somewhere has actually been named. A pile with
   // no locations set renders exactly the flat list it always has.
-  const groups = useMemo(() => groupByLocation(ideas), [ideas])
+  const groups = useMemo(() => groupByLocation(visible), [visible])
   const grouped = groups.some((group) => group.location)
 
   // Cards arrive as she scrolls to them. The ref goes on the body rather than
   // on each list, so a grouped week staggers across its groups in reading
   // order instead of restarting the count at every location bar.
-  const body = useReveal<HTMLDivElement>([items.length, grouped, setups !== null])
+  const body = useReveal<HTMLDivElement>([items.length, grouped, setups !== null, view])
 
   function moveToCantDo(item: PlanItem, code: DeclineCode, reason: string) {
     setCantDo((current) => new Map(current).set(item.id, { code, reason: reason || null }))
@@ -220,8 +259,34 @@ export default function PlanView({
       return copy
     })
     setReopened((current) => new Set(current).add(id))
+    // A stale card-side verdict would fight the reopen — the card remounts
+    // as unanswered, and the page has to believe the same thing.
+    setVerdicts((current) => {
+      const copy = new Map(current)
+      copy.delete(id)
+      return copy
+    })
     setNotice((current) => (current?.id === id ? null : current))
     return true
+  }
+
+  /** A card changed its answer. File it, and when a yes just left the pile
+   *  she is looking at, say where it went — a vanishing card with no word
+   *  reads as a bug, not a filing. */
+  function noteVerdict(item: PlanItem, next: Verdict) {
+    setVerdicts((current) => new Map(current).set(item.id, next))
+    setReopened((current) => {
+      if (!current.has(item.id)) return current
+      const copy = new Set(current)
+      copy.delete(item.id)
+      return copy
+    })
+    const label = cardIdOf(item, items.indexOf(item) + 1)
+    if (next === 'accepted' && view === 'review') setMoved(`${label} is on “My reels”`)
+    // Taking a yes back from "My reels" sends the card the other way.
+    if (next === 'open' && view === 'mine' && !filmed.has(item.id)) {
+      setMoved(`${label} is back under “To review”`)
+    }
   }
 
   function card(item: PlanItem, number: number) {
@@ -237,6 +302,7 @@ export default function PlanView({
         inGroup={Boolean(model.in_group)}
         onFilmed={(next) => mark(item.id, next)}
         onDeclined={(code, reason) => moveToCantDo(item, code, reason)}
+        onVerdict={(next) => noteVerdict(item, next)}
       />
     )
   }
@@ -418,8 +484,45 @@ export default function PlanView({
           </p>
         </section>
 
+        {/* Two piles, her choice pinned between them: what still wants a yes
+            or no, and the list she is actually filming. One long mixed feed
+            made her scroll everything to find anything (Geno, 2026-10-06). */}
+        {ideas.length > 0 && (
+          <nav className="plan-piles" aria-label="Your week in two piles">
+            <button
+              type="button"
+              className="plan-pile"
+              data-on={view === 'review' || undefined}
+              aria-pressed={view === 'review'}
+              onClick={() => setView('review')}
+            >
+              To review{review.length > 0 && <b>{review.length}</b>}
+            </button>
+            <button
+              type="button"
+              className="plan-pile"
+              data-on={view === 'mine' || undefined}
+              aria-pressed={view === 'mine'}
+              onClick={() => setView('mine')}
+            >
+              My reels{mine.length > 0 && <b>{mine.length}</b>}
+            </button>
+          </nav>
+        )}
+
         {ideas.length === 0 ? (
           <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>
+        ) : visible.length === 0 ? (
+          view === 'review' ? (
+            <p className="plan-empty">
+              Every idea has an answer — nothing waiting on you here.
+            </p>
+          ) : (
+            <p className="plan-empty">
+              Nothing here yet. Tap &ldquo;I&rsquo;ll do this&rdquo; on the ideas you like and
+              they land here.
+            </p>
+          )
         ) : setups ? (
           /* Batched by how it gets filmed: one phone setup, several videos.
              The first sitting is the quickest and says so — the fastest way
@@ -468,7 +571,7 @@ export default function PlanView({
           ))
         ) : (
           <ol className="plan-items">
-            {ideas.map((item, index) => card(item, index + 1))}
+            {visible.map((item) => card(item, ideas.indexOf(item) + 1))}
           </ol>
         )}
 
@@ -526,6 +629,23 @@ export default function PlanView({
       )}
 
       {notice && <CantDoNotice label={notice.label} onUndo={() => void addBack(notice.id)} />}
+
+      {/* Same toast, other filing. The undo toast wins when both fire — an
+          accidental decline costs her words, a filed yes costs nothing. */}
+      {moved && !notice && (
+        <div className="plan-cantdo-notice" role="status">
+          <span>{moved}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setView((current) => (current === 'review' ? 'mine' : 'review'))
+              setMoved(null)
+            }}
+          >
+            View
+          </button>
+        </div>
+      )}
     </main>
   )
 }

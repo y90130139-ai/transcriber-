@@ -59,8 +59,12 @@ export default function SetupProfile({
   onClose: () => void
 }) {
   const [pal, setPal] = useState('ember')
-  const [mode, setMode] = useState<'light' | 'dark'>(
-    () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'),
+  // `document` only behind the guard: this component is server-rendered with
+  // the rest of the page, and an unguarded read crashed SSR — Next silently
+  // fell back to client-only rendering for the WHOLE plan (empty HTML shell,
+  // caught on production 2026-10-06).
+  const [mode, setMode] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
   )
   const [picture, setPicture] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)

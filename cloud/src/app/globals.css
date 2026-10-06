@@ -341,6 +341,50 @@ body {
 }
 .card:hover .card-frame img { transform: scale(1.04); opacity: 1; }
 .card:focus-visible .card-frame img { transform: scale(1.04); opacity: 1; }
+/* The hover preview plays in the same frame the poster filled. */
+.card-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* What a card can do without being opened (2026-10-06): preview, save,
+   the caption fold. Quiet text buttons under the frame, plan-card style. */
+.card-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-2) 0 0;
+}
+.card-act {
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  background: transparent;
+  padding: 2px 10px;
+  font: inherit;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-700, var(--sc-ink-900));
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.card-act:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.card-act[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.card-asleep { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+
+.card-caption {
+  margin-top: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+}
+.card-caption p {
+  margin: 0 0 var(--sc-space-2);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.card-caption-quiet { color: var(--sc-ink-300) !important; margin: 0 !important; }
 
 /* No poster frame: set the handle large on ink instead of showing a grey box. */
 .card-frame-empty {

@@ -1,5 +1,19 @@
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
+**Round five (`449db5c`): subscription revenue broken out.** Earnings board
+gets a Subscriptions total (money + new/renewal counts + % of agency net),
+the accounts table a Subs column, each model's Earnings tab a Sub revenue
+stat (+% of her net). Read-side only over `earnings_days.by_type` — history
+included, no pull changes. **Free trials: NOT possible from this key.**
+Probed 2026-10-06: Infloww's open API has exactly two endpoints
+(`/v1/creators`, `/v1/transactions`; fans/subscriptions/stats all 404), and
+a 30-day scan of the whole roster found 0 zero-amount rows in 1,572 sub
+transactions — a $0 trial join writes no transaction, so trial starts and
+trial→paid conversion are invisible. Told Geno; if trials matter, the
+options are Infloww's app (manual), or asking Infloww for API scope. A
+new-vs-returning-fan split from `fanId` at pull time IS possible — not
+built, fan-level storage is a policy question (day rows are creator-only).
+
 **Round four (`edd9569`): the Google panel IS Trending Now.** Geno's
 screenshot of trends.google.com/trending showed no resemblance to the RSS
 panel, so the panel now reads the page's own keyless endpoint

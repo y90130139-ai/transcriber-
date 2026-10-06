@@ -1,5 +1,22 @@
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
+**Round four (`edd9569`): the Google panel IS Trending Now.** Geno's
+screenshot of trends.google.com/trending showed no resemblance to the RSS
+panel, so the panel now reads the page's own keyless endpoint
+(`POST trends.google.com/_/TrendsUi/data/batchexecute`, rpcid `i0OFE`,
+args `[null,null,geo,0,'en',hours,1]`): full list (2,132 rows for US/7d
+when probed; we cap at 1,000), per row volume / spike % / started-epoch /
+breakdown terms. Parser `parseTrendingNow` in `trends-feed.ts` (pure,
+tested, garbage→[]); `liveTrends(geo, days)` in `trends.ts` caches per
+(geo, hours) in `transcriber.trends_live_cache` (created 2026-10-06),
+TTL 10 min, stale-serving when Google sulks; the RSS daily archive is the
+last fallback (its cron unchanged). UI: state picker (US + 50 + DC), sort
+relevance/volume/newest, Show more paging, Export CSV, breakdown chips,
+term links to Google search. Window picker now maps to real hours
+(24/48/72/168, `DAYS_TO_HOURS`). Trends AI grounds on the live top 40 by
+volume for the picked geo+window. **Unofficial endpoint** — if it breaks,
+the panel degrades to archive; parser treats every field as optional.
+
 **Round three (`9d092a8`): library cards got hands.** `LibraryCard.tsx`
 (split from the grid): hover ~250ms plays the reel muted/looping in its own
 frame (hover-capable devices; a Preview button pins playback anywhere),

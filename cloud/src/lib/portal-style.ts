@@ -22,6 +22,10 @@ export const PALETTES = [
   { key: 'ember', name: 'Ember', light: '#C2410C', dark: '#E8663A' },
   { key: 'crimson', name: 'Crimson', light: '#B91C1C', dark: '#EF4444' },
   { key: 'rose', name: 'Rose', light: '#C2185B', dark: '#EC5A8B' },
+  // Softer than Rose on purpose — the pastel ask (Geno, 2026-10-06). The light
+  // voice is the deepest dusty pink that still reads "baby", so white type
+  // keeps roughly Sunny's footing; the tints carry the true pastel.
+  { key: 'babypink', name: 'Baby pink', light: '#D2648C', dark: '#F49CBC' },
   { key: 'fuchsia', name: 'Fuchsia', light: '#A21CAF', dark: '#D946EF' },
   { key: 'violet', name: 'Violet', light: '#7C3AED', dark: '#9A6BFF' },
   { key: 'indigo', name: 'Indigo', light: '#4338CA', dark: '#7584FF' },

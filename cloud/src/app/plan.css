@@ -525,6 +525,50 @@
   color: var(--sc-ink-300);
 }
 
+/* ------------------------------------------------------ TWO PILES
+
+   "To review" against "My reels" (2026-10-06). A segmented switch, not
+   tabs in the console's sense: two states of one list, so one control,
+   full width, the chosen half on ink like the group bars. The count sits
+   as a small counter figure, not a badge — it is a fact, not an alert. */
+.plan-piles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: var(--sc-space-8) 0 var(--sc-space-4);
+  padding: 4px;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: var(--sc-paper);
+}
+.plan-pile {
+  appearance: none;
+  border: 0;
+  border-radius: calc(var(--r-sm) - 4px);
+  padding: var(--sc-space-3) var(--sc-space-2);
+  background: transparent;
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-base);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast), color var(--sc-dur-fast);
+}
+.plan-pile:hover { color: var(--sc-ink-900); }
+.plan-pile:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+.plan-pile[data-on] {
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+}
+.plan-pile b {
+  margin-left: var(--sc-space-2);
+  font-family: var(--sc-font-counter);
+  font-weight: 500;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ember);
+}
+.plan-pile[data-on] b { color: var(--sc-ember-light, var(--sc-ember)); }
+
 /* ------------------------------------------------------ DELIVERY
 
    The foot of the page, and the last thing she does. It carries a heavy
@@ -2446,6 +2490,7 @@
    choice) per the theming trap in the handoff.
    ============================================================ */
 :root[data-pal='rose'] { --sc-ember: #C2185B; --sc-ember-deep: #9D1248; --sc-ember-light: #F06292; --sc-ember-tint: #FBE4EE; }
+:root[data-pal='babypink'] { --sc-ember: #D2648C; --sc-ember-deep: #B44A70; --sc-ember-light: #F4AFC8; --sc-ember-tint: #FCEAF1; }
 :root[data-pal='violet'] { --sc-ember: #7C3AED; --sc-ember-deep: #6428C4; --sc-ember-light: #A78BFA; --sc-ember-tint: #EFE7FD; }
 :root[data-pal='ocean'] { --sc-ember: #0E7490; --sc-ember-deep: #0A5A70; --sc-ember-light: #38BDF8; --sc-ember-tint: #DFF3F8; }
 :root[data-pal='forest'] { --sc-ember: #15803D; --sc-ember-deep: #0F5E2E; --sc-ember-light: #4ADE80; --sc-ember-tint: #E3F6E9; }
@@ -2457,6 +2502,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light'])[data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
+  :root:not([data-theme='light'])[data-pal='babypink'] { --sc-ember: #F49CBC; --sc-ember-deep: #F8BED3; --sc-ember-tint: #2A1620; }
   :root:not([data-theme='light'])[data-pal='violet'] { --sc-ember: #9A6BFF; --sc-ember-deep: #B597FF; --sc-ember-tint: #1D1430; }
   :root:not([data-theme='light'])[data-pal='ocean'] { --sc-ember: #2BA3DB; --sc-ember-deep: #5BBBE8; --sc-ember-tint: #0E1E28; }
   :root:not([data-theme='light'])[data-pal='forest'] { --sc-ember: #2EB564; --sc-ember-deep: #5BCB8C; --sc-ember-tint: #0F2217; }
@@ -2467,6 +2513,7 @@
   :root:not([data-theme='light'])[data-pal='sunny'] { --sc-ember: #DBA912; --sc-ember-deep: #F0C84A; --sc-ember-tint: #241C06; }
 }
 :root[data-theme='dark'][data-pal='rose'] { --sc-ember: #EC5A8B; --sc-ember-deep: #F28FB2; --sc-ember-tint: #2A1019; }
+:root[data-theme='dark'][data-pal='babypink'] { --sc-ember: #F49CBC; --sc-ember-deep: #F8BED3; --sc-ember-tint: #2A1620; }
 :root[data-theme='dark'][data-pal='violet'] { --sc-ember: #9A6BFF; --sc-ember-deep: #B597FF; --sc-ember-tint: #1D1430; }
 :root[data-theme='dark'][data-pal='ocean'] { --sc-ember: #2BA3DB; --sc-ember-deep: #5BBBE8; --sc-ember-tint: #0E1E28; }
 :root[data-theme='dark'][data-pal='forest'] { --sc-ember: #2EB564; --sc-ember-deep: #5BCB8C; --sc-ember-tint: #0F2217; }

@@ -63,6 +63,25 @@ const TASTE = `
        where vp.model_id = m.id and vi.rating is not null and vi.job_id <> j.id
          and lower(vt.author) = lower(t.author)
     ), 0)
+    /* A star in Discover is a 👍 she gave before the reel ever reached a
+       week (2026-10-06). Same weights, same cap. Passes are not votes: a
+       swipe-away is "not today", not "never". */
+    + ${TAG_VOTE} * coalesce((
+      select count(*)
+        from transcriber.discover ds
+        join transcriber.tags voted on voted.job_id = ds.job_id
+        join transcriber.tags here on here.job_id = j.id and here.axis = voted.axis and here.tag = voted.tag
+       where ds.model_id = m.id and ds.action = 'star' and ds.job_id <> j.id
+         and voted.axis in ('format', 'topic', 'hook', 'persona')
+         and voted.tag not in ('unknown', 'relatable')
+    ), 0)
+    + ${ACCOUNT_VOTE} * coalesce((
+      select count(*)
+        from transcriber.discover ds
+        join transcriber.transcripts dt on dt.job_id = ds.job_id
+       where ds.model_id = m.id and ds.action = 'star' and ds.job_id <> j.id
+         and lower(dt.author) = lower(t.author)
+    ), 0)
   ))
 `
 

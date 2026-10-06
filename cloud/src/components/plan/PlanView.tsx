@@ -7,6 +7,7 @@ import RunSheet from './RunSheet'
 import ThemeToggle from './ThemeToggle'
 import { useReveal } from '@/hooks/useReveal'
 import { groupBySetup } from '@/lib/effort'
+import MakeItYours from './MakeItYours'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
@@ -277,6 +278,14 @@ export default function PlanView({
               </svg>
               Your run
             </button>
+            {/* Her deck of picked reels — hers to browse, star and claim
+                (2026-10-06). Never in the console preview: starring from
+                Geno's screen would write her taste for her. */}
+            {!preview && (
+              <a className="plan-run plan-discover-link" href={`/p/${token}/discover`}>
+                &#10022; Discover
+              </a>
+            )}
             <ThemeToggle />
             {/* Only worth offering once it is actually in her way. */}
             {stuck && (
@@ -487,6 +496,10 @@ export default function PlanView({
             </a>
           )}
         </section>
+
+        {/* Her colors, her type. Not in the preview — a tap there would
+            save Geno's taste onto her pages. */}
+        {!preview && <MakeItYours token={token} style={model.portal_style} />}
       </div>
 
       {notice && <CantDoNotice label={notice.label} onUndo={() => void addBack(notice.id)} />}

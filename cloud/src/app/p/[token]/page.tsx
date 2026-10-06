@@ -4,6 +4,7 @@ import PlanView from '@/components/plan/PlanView'
 import { THEME_SCRIPT } from '@/components/plan/ThemeToggle'
 import { logEvent } from '@/lib/events'
 import { loadPlan, markOpened } from '@/lib/plans'
+import { styleScript } from '@/lib/portal-style'
 
 // The token is the auth: this route sits outside the password gate, holds no
 // session, and is never cached or statically rendered.
@@ -32,6 +33,12 @@ export default async function PlanPage({ params }: { params: Promise<{ token: st
           A fixed string with nothing interpolated into it — see THEME_SCRIPT,
           which is the only reason this is safe to set this way. */}
       <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      {/* Her saved look, same before-first-paint rule. The script is built
+          from keys validated against fixed lists (lib/portal-style.ts),
+          never from stored text. */}
+      {styleScript(plan.model.portal_style) && (
+        <script dangerouslySetInnerHTML={{ __html: styleScript(plan.model.portal_style) }} />
+      )}
       <PlanView token={token} model={plan.model} plan={plan.plan} items={plan.items} />
     </>
   )

@@ -1,5 +1,14 @@
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
+**Round three (`9d092a8`): library cards got hands.** `LibraryCard.tsx`
+(split from the grid): hover ~250ms plays the reel muted/looping in its own
+frame (hover-capable devices; a Preview button pins playback anywhere),
+**Save video** (the Mac's signed download link), and **± Caption** folds the
+whole caption open with Copy. Card data is lazy: one `/api/items/<id>` fetch
+per card per session (module-level cache; a no-media answer is NOT cached so
+the Mac waking up heals it). Mac asleep → "Mac asleep — no file right now"
+instead of dead buttons. Grid payload and 15s poll untouched.
+
 Three asks from Geno, all on `main` through `5bb5971`, tests green (123),
 `npx next build` clean. **Not yet deployed — Geno runs the Vercel deploy.**
 

@@ -144,7 +144,86 @@
 
 /* ------------------------------------------------- the evidence */
 .trends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sc-space-4); align-items: start; }
-@media (max-width: 1100px) { .trends-grid { grid-template-columns: 1fr; } }
+.trends-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .trends-grid, .trends-grid-two { grid-template-columns: 1fr; } }
+
+.trends-selects { display: flex; gap: var(--sc-space-2); align-items: center; }
+.trends-selects select {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+
+/* ------------------------------------------------- the live list
+
+   Google's Trending now, as a readable ledger: the term, its figures,
+   and the breakdown chips that say what it is about without a click. */
+.trends-live { list-style: none; margin: 0; padding: 0; }
+.trends-live-row {
+  display: grid;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-3) 0;
+  border-top: var(--sc-rule-hair);
+  min-width: 0;
+}
+.trends-live-row:first-child { border-top: 0; padding-top: 0; }
+.trends-live-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+.trends-live-term {
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-base);
+  font-weight: 500;
+  text-decoration: none;
+}
+.trends-live-term:hover { color: var(--sc-ember-deep); }
+.trends-live-figures {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.trends-live-figures b { color: var(--sc-ink-900); font-weight: 500; }
+.trends-live-figures em { font-style: normal; color: var(--sc-ember-deep); }
+.trends-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-1);
+  min-width: 0;
+}
+.trends-breakdown-chip {
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-700, var(--sc-ink-900));
+  white-space: nowrap;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trends-breakdown-more { font-size: var(--sc-text-xs); color: var(--sc-ink-300); white-space: nowrap; }
+.trends-more {
+  margin-top: var(--sc-space-3);
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ember-deep);
+  cursor: pointer;
+}
 
 .trends-panel {
   background: var(--sc-bone-light);

@@ -2,11 +2,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  cleanGeo,
   cleanRange,
   directionOf,
   foldTermDays,
+  parseTrendingNow,
   parseTrendsRss,
   sparkPoints,
+  startedLabel,
+  volumeLabel,
   windowDays,
   type TermDayRow,
   type TrendsBoard,
@@ -80,7 +84,7 @@ test('grounding text carries every list, the window, and flags what is missing',
     sounds: [],
   }
   const text = groundingText(board)
-  assert.match(text, /Window: the past 3 days/)
+  assert.match(text, /GOOGLE SEARCH TRENDS \(US daily archive/)
   assert.match(text, /golf swing.*~500\+ searches.*NEW this week.*charted 2 of 3 days, trend up/)
   assert.match(text, /@someone at 3\.2x usual \(120,000 plays\)/)
   assert.match(text, /sound: Vibin/)
@@ -132,4 +136,67 @@ test('foldTermDays folds a window into ranks, days seen and direction', () => {
   assert.equal(b.rising, false) // known since September
   assert.equal(b.direction, 'down') // fell out of the chart
   assert.equal(b.traffic, '1000+') // its newest stored day carries the figure
+})
+
+/* ---- the live Trending Now endpoint (captured shape, 2026-10-06) ---- */
+
+function liveEnvelope(rows: unknown[]): string {
+  const inner = JSON.stringify([null, rows])
+  const frame = JSON.stringify([['wrb.fr', 'i0OFE', inner, null, 'generic']])
+  return `)]}'\n\n${frame}\n25\n[["di",59]]\n`
+}
+
+const LIVE_ROWS = [
+  ['argentina vs benin', null, 'US', [1791228000], null, null, 500000, null, 1000,
+    ['argentina vs benin', 'argentina', 'messi last game'], [17], [[1, 'en', 'US']], 'argentina vs benin'],
+  ['gypsy rose', null, 'US', [1790900000], null, null, 2000000, null, 1000,
+    ['ken urker', 'gypsy rose husband'], [3], [], 'gypsy rose'],
+  ['bare row', null, 'US', null, null, null, null, null, null, null],
+]
+
+test('parseTrendingNow reads term, volume, spike, start and breakdown', () => {
+  const parsed = parseTrendingNow(liveEnvelope(LIVE_ROWS))
+  assert.equal(parsed.length, 3)
+  assert.deepEqual(parsed[0], {
+    term: 'argentina vs benin',
+    volume: 500000,
+    pct: 1000,
+    started: 1791228000,
+    breakdown: ['argentina vs benin', 'argentina', 'messi last game'],
+  })
+  // A row with every optional field missing still stands, empty where it was.
+  assert.deepEqual(parsed[2], { term: 'bare row', volume: null, pct: null, started: null, breakdown: [] })
+})
+
+test('parseTrendingNow answers garbage with an empty list, never a throw', () => {
+  assert.deepEqual(parseTrendingNow('not a response'), [])
+  assert.deepEqual(parseTrendingNow(`)]}'\n[["wrb.fr","i0OFE","broken json"]]`), [])
+})
+
+test('volume and started labels write what Google writes', () => {
+  assert.equal(volumeLabel(2_000_000), '2M+')
+  assert.equal(volumeLabel(500_000), '500K+')
+  assert.equal(volumeLabel(200), '200+')
+  assert.equal(volumeLabel(null), null)
+  const now = 1791228000 * 1000 + 3 * 86_400_000
+  assert.equal(startedLabel(1791228000, now), '3 days ago')
+  assert.equal(startedLabel(1791228000, 1791228000 * 1000 + 7 * 3_600_000), '7 hours ago')
+})
+
+test('cleanGeo admits the country and its states, nothing else', () => {
+  assert.equal(cleanGeo('US-TX'), 'US-TX')
+  assert.equal(cleanGeo('US'), 'US')
+  assert.equal(cleanGeo('FR'), 'US')
+  assert.equal(cleanGeo(undefined), 'US')
+})
+
+test('grounding prefers the live list and prints its figures', () => {
+  const board: TrendsBoard = {
+    captured_on: '2026-10-06', days: 7, terms: [], breakouts: [], sounds: [],
+    geo: 'US-TX',
+    live: [{ term: 'gypsy rose', volume: 2000000, pct: 1000, started: 1791000000, breakdown: ['ken urker'] }],
+  }
+  const text = groundingText(board)
+  assert.match(text, /GOOGLE TRENDING NOW \(US-TX, the past 7 days/)
+  assert.match(text, /gypsy rose · 2M\+ searches · \+1,000% · started .* · about: ken urker/)
 })

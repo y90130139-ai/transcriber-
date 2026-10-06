@@ -86,6 +86,144 @@ export type TrendsBoard = {
   terms: TrendTerm[]
   breakouts: Breakout[]
   sounds: TrendSound[]
+  /** Google's own Trending Now list for the window, when the live endpoint
+   *  answered — the panel and the AI prefer it over the daily archive. */
+  live?: LiveTrend[]
+  /** Which place `live` was asked for. */
+  geo?: string
+}
+
+/* ------------------------------------------------- Trending Now, live
+
+   The same keyless endpoint the trends.google.com/trending page calls —
+   the whole list (2,000+ over 7 days), each row carrying search volume,
+   the percent spike, when it started and the breakdown terms whose names
+   alone say what a trend is about (Geno, 2026-10-06: reading those beats
+   opening articles). Unofficial, so the parser treats every field as
+   optional and the caller keeps a cache to fall back on. */
+
+/** The tab's day picker in the endpoint's own unit. */
+export const DAYS_TO_HOURS: Record<TrendRange, number> = { 1: 24, 2: 48, 3: 72, 7: 168 }
+
+export type LiveTrend = {
+  term: string
+  /** Searches in the window, Google's figure (500000 → "500K+"). */
+  volume: number | null
+  /** The spike: 1000 means +1,000%. */
+  pct: number | null
+  /** Epoch seconds when the trend started. */
+  started: number | null
+  /** The trend breakdown — the related searches that say what it is. */
+  breakdown: string[]
+}
+
+const LIVE_MAX_ROWS = 1000
+const LIVE_MAX_BREAKDOWN = 10
+
+/** Decode the batchexecute envelope: a `)]}'` guard line, then frames of
+ *  `[["wrb.fr","i0OFE","<json>"]]`. Everything is someone else's private
+ *  format, so garbage in means [] out, never a throw. */
+export function parseTrendingNow(raw: string): LiveTrend[] {
+  try {
+    const start = raw.indexOf('[["wrb.fr"')
+    if (start < 0) return []
+    const frame = JSON.parse(raw.slice(start, findBalancedEnd(raw, start))) as unknown[][]
+    const inner = JSON.parse(String(frame[0][2])) as unknown[]
+    const rows = inner[1]
+    if (!Array.isArray(rows)) return []
+    const out: LiveTrend[] = []
+    for (const row of rows) {
+      if (!Array.isArray(row) || typeof row[0] !== 'string' || !row[0]) continue
+      const started = Array.isArray(row[3]) && typeof row[3][0] === 'number' ? row[3][0] : null
+      out.push({
+        term: row[0],
+        volume: typeof row[6] === 'number' ? row[6] : null,
+        pct: typeof row[8] === 'number' ? row[8] : null,
+        started,
+        breakdown: Array.isArray(row[9])
+          ? row[9].filter((t): t is string => typeof t === 'string').slice(0, LIVE_MAX_BREAKDOWN)
+          : [],
+      })
+      if (out.length >= LIVE_MAX_ROWS) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+/** The index just past the bracket that closes the one at `start`, honoring
+ *  strings and escapes — the response often has trailing frames after it. */
+function findBalancedEnd(text: string, start: number): number {
+  let depth = 0
+  let inString = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (ch === '\\') i++
+      else if (ch === '"') inString = false
+    } else if (ch === '"') inString = true
+    else if (ch === '[') depth++
+    else if (ch === ']' && --depth === 0) return i + 1
+  }
+  return text.length
+}
+
+/** 500000 → "500K+", 2000000 → "2M+" — Google's own notation. */
+export function volumeLabel(volume: number | null): string | null {
+  if (volume === null) return null
+  if (volume >= 1_000_000) return `${volume % 1_000_000 === 0 ? volume / 1_000_000 : (volume / 1_000_000).toFixed(1)}M+`
+  if (volume >= 1_000) return `${Math.round(volume / 1_000)}K+`
+  return `${volume}+`
+}
+
+/** The places the panel offers — the country and every state, Google's own
+ *  geo codes. The select stays useful without a search box at 51 rows. */
+export const US_GEOS: { code: string; name: string }[] = [
+  { code: 'US', name: 'United States' },
+  { code: 'US-AL', name: 'Alabama' }, { code: 'US-AK', name: 'Alaska' },
+  { code: 'US-AZ', name: 'Arizona' }, { code: 'US-AR', name: 'Arkansas' },
+  { code: 'US-CA', name: 'California' }, { code: 'US-CO', name: 'Colorado' },
+  { code: 'US-CT', name: 'Connecticut' }, { code: 'US-DE', name: 'Delaware' },
+  { code: 'US-DC', name: 'Washington DC' }, { code: 'US-FL', name: 'Florida' },
+  { code: 'US-GA', name: 'Georgia' }, { code: 'US-HI', name: 'Hawaii' },
+  { code: 'US-ID', name: 'Idaho' }, { code: 'US-IL', name: 'Illinois' },
+  { code: 'US-IN', name: 'Indiana' }, { code: 'US-IA', name: 'Iowa' },
+  { code: 'US-KS', name: 'Kansas' }, { code: 'US-KY', name: 'Kentucky' },
+  { code: 'US-LA', name: 'Louisiana' }, { code: 'US-ME', name: 'Maine' },
+  { code: 'US-MD', name: 'Maryland' }, { code: 'US-MA', name: 'Massachusetts' },
+  { code: 'US-MI', name: 'Michigan' }, { code: 'US-MN', name: 'Minnesota' },
+  { code: 'US-MS', name: 'Mississippi' }, { code: 'US-MO', name: 'Missouri' },
+  { code: 'US-MT', name: 'Montana' }, { code: 'US-NE', name: 'Nebraska' },
+  { code: 'US-NV', name: 'Nevada' }, { code: 'US-NH', name: 'New Hampshire' },
+  { code: 'US-NJ', name: 'New Jersey' }, { code: 'US-NM', name: 'New Mexico' },
+  { code: 'US-NY', name: 'New York' }, { code: 'US-NC', name: 'North Carolina' },
+  { code: 'US-ND', name: 'North Dakota' }, { code: 'US-OH', name: 'Ohio' },
+  { code: 'US-OK', name: 'Oklahoma' }, { code: 'US-OR', name: 'Oregon' },
+  { code: 'US-PA', name: 'Pennsylvania' }, { code: 'US-RI', name: 'Rhode Island' },
+  { code: 'US-SC', name: 'South Carolina' }, { code: 'US-SD', name: 'South Dakota' },
+  { code: 'US-TN', name: 'Tennessee' }, { code: 'US-TX', name: 'Texas' },
+  { code: 'US-UT', name: 'Utah' }, { code: 'US-VT', name: 'Vermont' },
+  { code: 'US-VA', name: 'Virginia' }, { code: 'US-WA', name: 'Washington' },
+  { code: 'US-WV', name: 'West Virginia' }, { code: 'US-WI', name: 'Wisconsin' },
+  { code: 'US-WY', name: 'Wyoming' },
+]
+
+const GEO_CODES = new Set(US_GEOS.map((g) => g.code))
+
+export function cleanGeo(raw: unknown): string {
+  return typeof raw === 'string' && GEO_CODES.has(raw) ? raw : 'US'
+}
+
+/** Epoch seconds → "7 hours ago" / "3 days ago", the Started column. */
+export function startedLabel(started: number | null, now = Date.now()): string | null {
+  if (started === null) return null
+  const minutes = Math.max(0, Math.round((now / 1000 - started) / 60))
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const dayCount = Math.round(hours / 24)
+  return `${dayCount} day${dayCount === 1 ? '' : 's'} ago`
 }
 
 /* ------------------------------------------------- series math */

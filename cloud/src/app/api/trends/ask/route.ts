@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
-import { trendsBoard } from '@/lib/trends'
+import { liveTrends, trendsBoard } from '@/lib/trends'
 import { answerTrends, MAX_QUESTION_CHARS } from '@/lib/trends-ask'
-import { cleanRange } from '@/lib/trends-feed'
+import { cleanGeo, cleanRange } from '@/lib/trends-feed'
 
 /** One question against the board — the same window the tab is showing, and
  *  `web: true` to let it search past the board (Anthropic key only; the
@@ -19,8 +19,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const board = await trendsBoard(cleanRange(body?.days))
-    const answered = await answerTrends(question, board, { web: body?.web === true })
+    const days = cleanRange(body?.days)
+    const geo = cleanGeo(body?.geo)
+    const [board, live] = await Promise.all([trendsBoard(days), liveTrends(geo, days)])
+    const answered = await answerTrends(question, { ...board, live, geo }, { web: body?.web === true })
     return NextResponse.json(answered)
   } catch (error) {
     return NextResponse.json(

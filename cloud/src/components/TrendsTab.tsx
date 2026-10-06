@@ -1,29 +1,44 @@
 'use client'
 
 /**
- * Trends — the Discovery tab (Geno, 2026-10-06): what the US is searching,
- * what the library's watched accounts are breaking out with, which sounds
- * are spreading, and a "Trends AI" box that answers questions grounded in
- * exactly that board — plus the web, when asked and when the key allows.
+ * Trends — the Discovery tab (Geno, 2026-10-06): what the country is
+ * searching, what the library's watched accounts are breaking out with,
+ * which sounds are spreading, and a "Trends AI" box grounded in exactly
+ * that board — plus the web, when asked and when the key allows.
  *
- * Same day, round two: a window picker (today → 7 days), direction chips
- * and mini line graphs on terms and sounds, poster cards on the breakouts
- * (the library's stored thumbs — the sightings links die in hours), a Save
- * button on a sound while a stored copy is still alive, and the permanent
- * "Use on Instagram" audio-page link.
+ * Round three, same day, off Geno's screenshot of trends.google.com: the
+ * Google panel is now the live Trending Now list itself — the full list
+ * (2,000+ over 7 days), each row with search volume, the spike, when it
+ * started, and the breakdown terms whose names alone say what a trend is
+ * about. A state picker, sort by volume/newest/relevance, and Export CSV.
+ * The daily RSS archive stays as the fallback for a day Google sulks.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { sparkPoints, TREND_RANGES, type Direction, type TrendRange, type TrendsBoard } from '@/lib/trends-feed'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  sparkPoints,
+  startedLabel,
+  TREND_RANGES,
+  US_GEOS,
+  volumeLabel,
+  type Direction,
+  type LiveTrend,
+  type TrendRange,
+  type TrendsBoard,
+} from '@/lib/trends-feed'
 
 type Exchange = { question: string; answer?: string; error?: string; note?: string }
+type LiveSort = 'relevance' | 'volume' | 'recent'
 
-const RANGE_LABEL: Record<TrendRange, string> = { 1: 'Today', 2: '2 days', 3: '3 days', 7: '7 days' }
+const RANGE_LABEL: Record<TrendRange, string> = { 1: '24 h', 2: '48 h', 3: '3 days', 7: '7 days' }
 
 const EXAMPLES = [
   'What’s trending today?',
   'Any Google trend our library is already proving?',
   'Which sound should we jump on this week?',
 ]
+
+/** Rows on screen before "Show more" — the whole list stays exportable. */
+const LIVE_PAGE = 30
 
 const SPARK_W = 72
 const SPARK_H = 20
@@ -32,8 +47,7 @@ function compact(n: number): string {
   return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
-/** The mini line graph. One day of history draws a flat midline — honest,
- *  and it fills in by itself as the table accrues days. */
+/** The mini line graph on the sounds panel. */
 function Spark({ series }: { series: number[] }) {
   if (series.length < 2) return null
   return (
@@ -54,41 +68,63 @@ function Dir({ direction }: { direction: Direction }) {
   )
 }
 
+/** The current view as a file, for whatever wants it next (Geno: "export
+ *  if we really wanted to"). Plain CSV, Excel-safe quoting. */
+function exportCsv(rows: LiveTrend[], geo: string, days: TrendRange) {
+  const quote = (value: string) => `"${value.replace(/"/g, '""')}"`
+  const lines = [
+    'trend,search_volume,spike_pct,started,breakdown',
+    ...rows.map((row) => [
+      quote(row.term),
+      volumeLabel(row.volume) ?? '',
+      row.pct !== null ? `+${row.pct}%` : '',
+      startedLabel(row.started) ?? '',
+      quote(row.breakdown.join(' | ')),
+    ].join(',')),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `trends-${geo}-${RANGE_LABEL[days].replace(' ', '')}.csv`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
 export default function TrendsTab() {
   const [board, setBoard] = useState<TrendsBoard | null>(null)
   const [days, setDays] = useState<TrendRange>(1)
+  const [geo, setGeo] = useState('US')
+  const [sort, setSort] = useState<LiveSort>('relevance')
+  const [shown, setShown] = useState(LIVE_PAGE)
   const [failed, setFailed] = useState(false)
-  const [pulling, setPulling] = useState(false)
-  const [pullError, setPullError] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
   const [web, setWeb] = useState(false)
   const [thread, setThread] = useState<Exchange[]>([])
   const [asking, setAsking] = useState(false)
   const threadEnd = useRef<HTMLDivElement>(null)
 
-  const load = useCallback(async (want: TrendRange) => {
-    const response = await fetch(`/api/trends?days=${want}`).catch(() => null)
+  const load = useCallback(async (wantDays: TrendRange, wantGeo: string) => {
+    const response = await fetch(`/api/trends?days=${wantDays}&geo=${wantGeo}`).catch(() => null)
     if (!response?.ok) return setFailed(true)
     setBoard(await response.json())
     setFailed(false)
   }, [])
 
-  useEffect(() => { void load(days) }, [load, days])
+  useEffect(() => {
+    setShown(LIVE_PAGE)
+    void load(days, geo)
+  }, [load, days, geo])
 
   useEffect(() => {
     threadEnd.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [thread])
 
-  /** Today's feed on demand — first run, or "the cron is hours away". */
-  async function pullNow() {
-    setPulling(true)
-    setPullError(null)
-    const response = await fetch(`/api/trends?days=${days}`, { method: 'POST' }).catch(() => null)
-    const body = await response?.json().catch(() => null)
-    if (response?.ok && body?.board) setBoard(body.board)
-    else setPullError(body?.error ?? 'The feed did not answer — try again in a minute.')
-    setPulling(false)
-  }
+  const live = useMemo(() => {
+    const rows = board?.live ?? []
+    if (sort === 'volume') return [...rows].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0) || (b.pct ?? 0) - (a.pct ?? 0))
+    if (sort === 'recent') return [...rows].sort((a, b) => (b.started ?? 0) - (a.started ?? 0))
+    return rows // relevance — Google's own order
+  }, [board, sort])
 
   async function ask(text?: string) {
     const asked = (text ?? question).trim()
@@ -99,7 +135,7 @@ export default function TrendsTab() {
     const response = await fetch('/api/trends/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: asked, days, web }),
+      body: JSON.stringify({ question: asked, days, geo, web }),
     }).catch(() => null)
     const body = await response?.json().catch(() => null)
     setThread((current) => current.map((entry, index) => {
@@ -116,8 +152,8 @@ export default function TrendsTab() {
   if (failed) return <p className="trends-empty">The board would not load — reload the page.</p>
   if (!board) return <p className="trends-empty">Reading the board…</p>
 
-  const stale = board.captured_on !== new Date().toISOString().slice(0, 10)
-  const windowWord = days === 1 ? 'today' : `the past ${days} days`
+  const placeName = US_GEOS.find((g) => g.code === geo)?.name ?? 'United States'
+  const windowWord = days === 1 ? 'the past 24 hours' : `the past ${RANGE_LABEL[days]}`
 
   return (
     <div className="trends">
@@ -126,14 +162,12 @@ export default function TrendsTab() {
           <p className="trends-kicker">Discovery</p>
           <h2 className="trends-title">Trends</h2>
           <p className="trends-sub">
-            {board.captured_on
-              ? `Google terms through ${board.captured_on}${stale ? ' — the next pull lands with the 10:00 pass' : ''}`
-              : 'No Google pull has run yet'}
+            {live.length > 0
+              ? `${live.length.toLocaleString('en-US')} trends · ${placeName} · ${windowWord}`
+              : 'Google is not answering — showing the daily archive'}
           </p>
         </div>
         <div className="trends-head-tools">
-          {/* The window. One pull a day means "today" and "24 hours" are the
-              same snapshot; the longer spans deepen as the table accrues. */}
           <nav className="trends-ranges" aria-label="Window">
             {TREND_RANGES.map((range) => (
               <button
@@ -148,14 +182,27 @@ export default function TrendsTab() {
               </button>
             ))}
           </nav>
-          <button type="button" className="trends-pull" onClick={() => void pullNow()} disabled={pulling}>
-            {pulling ? 'Pulling…' : 'Pull today’s trends'}
-          </button>
+          <div className="trends-selects">
+            <select value={geo} onChange={(event) => setGeo(event.target.value)} aria-label="Place">
+              {US_GEOS.map((place) => (
+                <option key={place.code} value={place.code}>{place.name}</option>
+              ))}
+            </select>
+            <select value={sort} onChange={(event) => setSort(event.target.value as LiveSort)} aria-label="Order">
+              <option value="relevance">By relevance</option>
+              <option value="volume">By search volume</option>
+              <option value="recent">Newest first</option>
+            </select>
+            {live.length > 0 && (
+              <button type="button" className="trends-pull" onClick={() => exportCsv(live, geo, days)}>
+                Export CSV
+              </button>
+            )}
+          </div>
         </div>
       </header>
-      {pullError && <p className="trends-error">{pullError}</p>}
 
-      {/* The box first: the panels below are its evidence, not the feature. */}
+      {/* The box first: everything below is its evidence, not the feature. */}
       <section className="trends-ask" aria-label="Trends AI">
         <p className="trends-panel-kicker">Trends AI</p>
         {thread.length === 0 && (
@@ -189,7 +236,7 @@ export default function TrendsTab() {
             type="text"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder={`Ask about ${windowWord}’s trends…`}
+            placeholder={`Ask about ${windowWord}…`}
             aria-label="Ask about the window's trends"
             maxLength={500}
           />
@@ -202,16 +249,19 @@ export default function TrendsTab() {
           Search the web too — for anything past the board’s own data
         </label>
         <p className="trends-foot">
-          Grounded in the three panels below over {windowWord}
-          {web ? ', plus live web search' : ''}.
+          Grounded in Google’s live list for {placeName} plus the library panels below
+          {web ? ', and live web search' : ''}.
         </p>
       </section>
 
-      <div className="trends-grid">
-        <section className="trends-panel" aria-label="Trending on Google">
-          <p className="trends-panel-kicker">Google search · US · {RANGE_LABEL[days].toLowerCase()}</p>
-          {board.terms.length === 0 ? (
-            <p className="trends-empty">Nothing stored yet — pull today’s trends above.</p>
+      {/* Google's own Trending Now, whole. The breakdown column is the
+          point: the related searches say what a trend is about without
+          opening an article (Geno's screenshot, 2026-10-06). */}
+      <section className="trends-panel" aria-label="Trending on Google">
+        <p className="trends-panel-kicker">Google Trending now · {placeName} · {windowWord}</p>
+        {live.length === 0 ? (
+          board.terms.length === 0 ? (
+            <p className="trends-empty">Nothing yet — Google is not answering and the archive is empty.</p>
           ) : (
             <ol className="trends-terms">
               {board.terms.map((term) => (
@@ -224,7 +274,6 @@ export default function TrendsTab() {
                     {term.traffic && <b>{term.traffic}</b>}
                     {days > 1 && <Dir direction={term.direction} />}
                     {days > 1 && <Spark series={term.spark} />}
-                    {days > 1 && <span>{term.days_seen}/{days} days</span>}
                     {term.news[0] && (
                       <a href={term.news[0].url} target="_blank" rel="noreferrer">{term.news[0].title}</a>
                     )}
@@ -232,13 +281,53 @@ export default function TrendsTab() {
                 </li>
               ))}
             </ol>
-          )}
-        </section>
+          )
+        ) : (
+          <>
+            <ol className="trends-live">
+              {live.slice(0, shown).map((trend) => (
+                <li key={trend.term} className="trends-live-row">
+                  <span className="trends-live-main">
+                    <a
+                      className="trends-live-term"
+                      href={`https://www.google.com/search?q=${encodeURIComponent(trend.term)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {trend.term}
+                    </a>
+                    <span className="trends-live-figures">
+                      {trend.volume !== null && <b>{volumeLabel(trend.volume)}</b>}
+                      {trend.pct !== null && <em>+{trend.pct.toLocaleString('en-US')}%</em>}
+                      {trend.started !== null && <span>{startedLabel(trend.started)}</span>}
+                    </span>
+                  </span>
+                  {trend.breakdown.length > 0 && (
+                    <span className="trends-breakdown" title={trend.breakdown.join(' · ')}>
+                      {trend.breakdown.slice(0, 4).map((piece) => (
+                        <span key={piece} className="trends-breakdown-chip">{piece}</span>
+                      ))}
+                      {trend.breakdown.length > 4 && (
+                        <span className="trends-breakdown-more">+{trend.breakdown.length - 4} more</span>
+                      )}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+            {live.length > shown && (
+              <button type="button" className="trends-more" onClick={() => setShown((count) => count + LIVE_PAGE * 2)}>
+                Show more · {Math.min(live.length - shown, LIVE_PAGE * 2)} of {(live.length - shown).toLocaleString('en-US')} left
+              </button>
+            )}
+          </>
+        )}
+      </section>
 
+      <div className="trends-grid trends-grid-two">
         <section className="trends-panel" aria-label="Library breakouts">
           {/* Reels land with Friday's weekly pass, so these two panels hold
-              their 7-day floor whatever the picker says — a 48-hour reel
-              window would be empty most of the week. */}
+              their 7-day floor whatever the picker says. */}
           <p className="trends-panel-kicker">Library breakouts · 7 days</p>
           {board.breakouts.length === 0 ? (
             <p className="trends-empty">No watched account beat its usual 2× in the window.</p>

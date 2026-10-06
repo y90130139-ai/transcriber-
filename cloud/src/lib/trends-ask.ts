@@ -15,7 +15,10 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { aiReady, askText, STRONG_WRITER_MODEL } from './ai'
-import type { TrendsBoard } from './trends-feed'
+import { startedLabel, volumeLabel, type TrendsBoard } from './trends-feed'
+
+/** Enough of the live list to answer with; 2,000 rows would drown it. */
+const LIVE_GROUNDING_ROWS = 40
 
 const ANTHROPIC_MODEL = 'claude-sonnet-5-5'
 const MAX_ANSWER_TOKENS = 700
@@ -43,18 +46,36 @@ export const TRENDS_WEB_PROMPT = TRENDS_PROMPT.replace(
 /** The board as the model sees it. Pure, so tests can pin what leaks in —
  *  handles and captions from the library are fine; nothing else rides along. */
 export function groundingText(board: TrendsBoard): string {
-  const window = board.days === 1 ? 'today' : `the past ${board.days} days`
+  const window = board.days === 1 ? 'the past 24 hours' : `the past ${board.days} days`
   const lines: string[] = []
-  lines.push(`Data captured ${board.captured_on ?? 'never — no Google pull has run yet'}. Window: ${window}.`)
-  lines.push('', `GOOGLE SEARCH TRENDS (US, top searches of ${window}):`)
-  if (board.terms.length === 0) lines.push('  (none stored yet)')
-  for (const term of board.terms) {
-    const bits = [`${term.rank}. ${term.term}`]
-    if (term.traffic) bits.push(`~${term.traffic} searches`)
-    if (term.rising) bits.push('NEW this week')
-    if (board.days > 1) bits.push(`charted ${term.days_seen} of ${board.days} days, trend ${term.direction}`)
-    if (term.news[0]) bits.push(`context: ${term.news[0].title}`)
-    lines.push(`  ${bits.join(' · ')}`)
+
+  // Google's own live Trending Now list carries the most signal — volume,
+  // the spike, and the breakdown terms that say what each trend is about.
+  // The daily archive only speaks when the live endpoint would not answer.
+  const live = (board.live ?? []).slice(0, LIVE_GROUNDING_ROWS)
+  if (live.length > 0) {
+    const where = board.geo && board.geo !== 'US' ? board.geo : 'US'
+    lines.push(`GOOGLE TRENDING NOW (${where}, ${window}; by search volume):`)
+    for (const trend of [...live].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))) {
+      const bits = [trend.term]
+      if (trend.volume !== null) bits.push(`${volumeLabel(trend.volume)} searches`)
+      if (trend.pct !== null) bits.push(`+${trend.pct.toLocaleString('en-US')}%`)
+      const since = startedLabel(trend.started)
+      if (since) bits.push(`started ${since}`)
+      if (trend.breakdown.length > 0) bits.push(`about: ${trend.breakdown.slice(0, 5).join(', ')}`)
+      lines.push(`  ${bits.join(' · ')}`)
+    }
+  } else {
+    lines.push(`GOOGLE SEARCH TRENDS (US daily archive, captured ${board.captured_on ?? 'never'}):`)
+    if (board.terms.length === 0) lines.push('  (none stored yet)')
+    for (const term of board.terms) {
+      const bits = [`${term.rank}. ${term.term}`]
+      if (term.traffic) bits.push(`~${term.traffic} searches`)
+      if (term.rising) bits.push('NEW this week')
+      if (board.days > 1) bits.push(`charted ${term.days_seen} of ${board.days} days, trend ${term.direction}`)
+      if (term.news[0]) bits.push(`context: ${term.news[0].title}`)
+      lines.push(`  ${bits.join(' · ')}`)
+    }
   }
   lines.push('', `LIBRARY BREAKOUTS (watched accounts' reels at 2x+ their usual plays, ${window}):`)
   if (board.breakouts.length === 0) lines.push('  (none in the window)')

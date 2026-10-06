@@ -25,11 +25,14 @@
  */
 import { sql } from './db'
 import {
+  DAYS_TO_HOURS,
   directionOf,
   foldTermDays,
+  parseTrendingNow,
   parseTrendsRss,
   windowDays,
   type Breakout,
+  type LiveTrend,
   type TermDayRow,
   type TrendRange,
   type TrendsBoard,
@@ -51,6 +54,56 @@ const MEDIAN_MIN_POSTS = 5
 const SOUND_LIMIT = 12
 /** Instagram labels every creator-made audio this; it is a bucket, not a sound. */
 const NOT_A_SOUND = new Set(['original audio', 'mix'])
+
+/* ------------------------------------------------- Trending Now, live */
+
+const LIVE_URL = 'https://trends.google.com/_/TrendsUi/data/batchexecute'
+/** How long one answer serves the tab. Ten minutes keeps a browsing session
+ *  on one Google call per window, and the page itself is no fresher. */
+const LIVE_TTL_MIN = 10
+
+/**
+ * Google's full Trending Now list for a place and window — the same data
+ * the trends.google.com/trending page draws, through its own keyless
+ * endpoint. Cached in Neon per (geo, hours); when Google answers garbage
+ * (the endpoint is unofficial), the last good answer serves instead, stale
+ * or not, because a thinner panel beats an empty one.
+ */
+export async function liveTrends(geo: string, days: TrendRange): Promise<LiveTrend[]> {
+  const hours = DAYS_TO_HOURS[days]
+  const [cached] = await sql.query(
+    `select rows, fetched_at > now() - interval '${LIVE_TTL_MIN} minutes' as fresh
+       from transcriber.trends_live_cache where geo = $1 and hours = $2`,
+    [geo, hours],
+  )
+  if (cached?.fresh && Array.isArray(cached.rows)) return cached.rows as LiveTrend[]
+
+  let parsed: LiveTrend[] = []
+  try {
+    const body = new URLSearchParams({
+      'f.req': JSON.stringify([[['i0OFE', JSON.stringify([null, null, geo, 0, 'en', hours, 1]), null, 'generic']]]),
+    })
+    const response = await fetch(LIVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: body.toString(),
+    })
+    if (response.ok) parsed = parseTrendingNow(await response.text())
+  } catch {
+    // fall through to the stale cache
+  }
+
+  if (parsed.length > 0) {
+    await sql.query(
+      `insert into transcriber.trends_live_cache (geo, hours, fetched_at, rows)
+       values ($1, $2, now(), $3::jsonb)
+       on conflict (geo, hours) do update set fetched_at = now(), rows = excluded.rows`,
+      [geo, hours, JSON.stringify(parsed)],
+    )
+    return parsed
+  }
+  return Array.isArray(cached?.rows) ? (cached.rows as LiveTrend[]) : []
+}
 
 /** Pull today's feed and store it under today's date (the feed is "now"; the
  *  date is ours). Re-running a day updates ranks rather than doubling rows. */

@@ -1,3 +1,36 @@
+# 2026-10-06: the portal grew up — reminders, Discover, themes, home screen
+
+Geno green-lit the whole portal vision except accounts/passwords (token
+links stay). All shipped; transcriber `main` through `629c59a`, bot
+through `c6aca0d` (pushed = deployed on Railway).
+
+- **Plan reminders** (`lib/reminders.ts` pure + 4 tests, `reminders-db.ts`,
+  `/api/bot/reminders`): Wed 16:00 ET if nothing filmed, Sat 11:00 ET if
+  anything left, once per plan per kind, ledger `plan_nudges` (recorded on
+  failure too). Bot `drainReminders` posts in MARKETING with
+  `content_plan.reminder_*` + plan link as text_link. **First live window:
+  Wednesday 2026-10-07 16:00 ET** — watch OPS and the bot logs.
+- **Discover** (`/p/<token>/discover`, `lib/discover.ts`, table
+  `transcriber.discover`): a 10-card swipe deck from `suggestionsFor`
+  (same guards as the console rail). Star → shelf + OPS ping via
+  `/api/bot/stars` (bot `drainStars`, OPS only) + feeds `TASTE` in
+  match.ts at the same weights as 👍. "Add to my week" →
+  `recreateTarget` + `appendItems`. Poster frames only (library files
+  live on the Mac, not R2) — **inline playback would need a worker
+  pipeline to upload deck candidates to R2; parked, ask Geno**.
+- **Make it yours** (`lib/portal-style.ts`, `models.portal_style`,
+  `/api/plan/<token>/style`): 6 accent palettes × 4 font voices, presets
+  only, both themes stated both ways; applied before first paint.
+- **Home screen**: per-token `manifest.webmanifest` + `/pwa-icon/*`
+  (drawn PNG). **No service worker on purpose** — fresh on every open.
+- **Accounts/passwords: rejected** (Geno agreed) — the token is the account.
+- Profile-building: the questionnaire (`/p/<token>/survey`) already covers
+  v1; a fuller "social profile" page was discussed, not built — ask before
+  building. `models.about` jsonb exists, unused.
+- **Two sessions ran in the bot repo at once** on 2026-10-06: the other
+  shipped the OPS-forum routing (`c4fda3b`, GOSIAN | OPS upgraded to
+  topics). 673 bot tests green with both changesets.
+
 # Handoff — 2026-10-01: the viewer runs on Scout's burner (Geno's call)
 
 - **122 failed downloads.** 118 are "could not download" (Instagram's empty

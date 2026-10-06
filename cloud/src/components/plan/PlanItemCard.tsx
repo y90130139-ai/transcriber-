@@ -439,12 +439,18 @@ export default function PlanItemCard({
       )}
 
       {/* Checked before she presses record, not after she has posted — the
-          only moment any of it can still change the video. */}
+          only moment any of it can still change the video. Folded (Geno,
+          2026-10-06: "so many words") — the same eight lines on every card
+          read as wallpaper by card three; a button she opens when she wants
+          them keeps the card short and the list useful. */}
       {filming && (
         <Step no={++step} title="Before you film">
-          <ul className="plan-film-check">
-            {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
-          </ul>
+          <details className="plan-transcript plan-film-fold">
+            <summary><span aria-hidden>&#128161;</span> Things you should know</summary>
+            <ul className="plan-film-check">
+              {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+            </ul>
+          </details>
         </Step>
       )}
 

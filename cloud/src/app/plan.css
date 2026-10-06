@@ -167,8 +167,8 @@
   font-variant-numeric: tabular-nums;
 }
 .plan-facts b { color: var(--sc-bone); font-weight: 500; }
-.plan-facts [data-late] { color: #F08460; }
-.plan-facts [data-late] b { color: #F08460; }
+.plan-facts [data-late] { color: var(--sc-ember-light); }
+.plan-facts [data-late] b { color: var(--sc-ember-light); }
 .plan-sep { color: #3A3733; }
 .plan-count b { color: var(--sc-ember-light); }
 
@@ -1022,8 +1022,8 @@
      type or intercept a tap. */
   background-image: radial-gradient(
     120% 100% at 100% 0%,
-    rgba(232, 102, 58, 0.16) 0%,
-    rgba(232, 102, 58, 0.04) 42%,
+    var(--pal-wash-16) 0%,
+    var(--pal-wash-04) 42%,
     transparent 70%
   );
 }
@@ -1068,7 +1068,7 @@
   /* A little bloom, so a filled tick reads as lit rather than merely
      coloured. Cheap: it is 8px tall and there are never more than a few
      dozen. */
-  box-shadow: 0 0 8px rgba(232, 102, 58, 0.45);
+  box-shadow: 0 0 8px var(--pal-wash-45);
 }
 
 /* --------------------------------------------------------- THE CONFIRM
@@ -1496,7 +1496,7 @@
 .plan-run {
   padding: 0 var(--sc-space-4) 0 var(--sc-space-3);
   border: 1px solid var(--sc-ember-light);
-  background: rgba(232, 102, 58, 0.14);
+  background: var(--pal-wash-14);
   color: var(--sc-ember-light);
   font-weight: 500;
 }
@@ -1511,11 +1511,11 @@
      pair of controls and reading as two different kinds of thing was what
      made the moon disappear against the header. */
   border: 1px solid var(--sc-ember-light);
-  background: rgba(232, 102, 58, 0.14);
+  background: var(--pal-wash-14);
   color: var(--sc-ember-light);
 }
 .plan-theme:hover,
-.plan-theme:focus-visible { background: rgba(232, 102, 58, 0.24); }
+.plan-theme:focus-visible { background: var(--pal-wash-24); }
 /* Both glyphs are drawn on the same optical centre. The sun is symmetrical
    and the moon is not, so without this the crescent drifted toward the edge
    of its circle while the sun sat true. */
@@ -1531,14 +1531,14 @@
    anyone who asked their phone for less motion. */
 @keyframes plan-run-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(232, 102, 58, 0); }
-  50%      { box-shadow: 0 0 0 7px rgba(232, 102, 58, 0.16); }
+  50%      { box-shadow: 0 0 0 7px var(--pal-wash-16); }
 }
 
 .plan-run {
   animation: plan-run-glow 2.6s var(--sc-ease) infinite;
 }
 .plan-run:hover,
-.plan-run:focus-visible { animation: none; background: rgba(232, 102, 58, 0.24); }
+.plan-run:focus-visible { animation: none; background: var(--pal-wash-24); }
 
 @media (prefers-reduced-motion: reduce) {
   .plan-run { animation: none; }
@@ -2412,6 +2412,29 @@
 }
 .plan-shot-line em { color: var(--sc-ink-500); font-style: normal; }
 .plan-shot-sound { padding: 0 var(--sc-space-1); }
+
+
+/* Accent washes (2026-10-06): every rgba(232,102,58,…) below used to be the
+   ember baked in as a literal, so a model's palette recolored the buttons
+   but not their glow, the header's wash, or the overdue line (Geno's
+   screenshot: a green page with orange edges). The fallbacks ARE the house
+   ember; browsers with color-mix follow her palette. */
+:root {
+  --pal-wash-04: rgba(232, 102, 58, 0.04);
+  --pal-wash-14: rgba(232, 102, 58, 0.14);
+  --pal-wash-16: rgba(232, 102, 58, 0.16);
+  --pal-wash-24: rgba(232, 102, 58, 0.24);
+  --pal-wash-45: rgba(232, 102, 58, 0.45);
+}
+@supports (color: color-mix(in srgb, red 1%, transparent)) {
+  :root {
+    --pal-wash-04: color-mix(in srgb, var(--sc-ember-light) 4%, transparent);
+    --pal-wash-14: color-mix(in srgb, var(--sc-ember-light) 14%, transparent);
+    --pal-wash-16: color-mix(in srgb, var(--sc-ember-light) 16%, transparent);
+    --pal-wash-24: color-mix(in srgb, var(--sc-ember-light) 24%, transparent);
+    --pal-wash-45: color-mix(in srgb, var(--sc-ember-light) 45%, transparent);
+  }
+}
 
 /* ============================================================
    MAKE IT YOURS (2026-10-06) — her accent and her type voice.

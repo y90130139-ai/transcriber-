@@ -2,6 +2,7 @@
 @import './library.css';
 @import './profile.css';
 @import './dashboard.css';
+@import './trends.css';
 @import './earnings.css';
 /* Last, so a motion rule wins the tie against the component rule it animates.
    This is the only stylesheet both the console and /p/[token] are guaranteed

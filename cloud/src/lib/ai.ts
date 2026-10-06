@@ -44,11 +44,10 @@ function textOf(result: Answer | undefined): string {
     .join('')
 }
 
-/** Ask, and return the first JSON object in the answer — or null. */
-export async function askJson<T>(
-  text: string,
-  options: { images?: string[]; maxTokens?: number; temperature?: number; model?: string } = {},
-): Promise<T | null> {
+type AskOptions = { images?: string[]; maxTokens?: number; temperature?: number; model?: string }
+
+/** Ask, and return the answer's text as the model wrote it — or null. */
+export async function askText(text: string, options: AskOptions = {}): Promise<string | null> {
   if (!aiReady()) return null
   const account = process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.R2_ACCOUNT_ID
   const content: Part[] = [
@@ -66,8 +65,15 @@ export async function askJson<T>(
   })
   if (!response.ok) throw new Error(`Workers AI ${response.status}: ${(await response.text()).slice(0, 160)}`)
   const body = (await response.json()) as { result?: Answer }
-  const said = textOf(body.result)
-  const match = /\{[\s\S]*\}/.exec(String(said).replace(/```json|```/g, ''))
+  const said = textOf(body.result).trim()
+  return said || null
+}
+
+/** Ask, and return the first JSON object in the answer — or null. */
+export async function askJson<T>(text: string, options: AskOptions = {}): Promise<T | null> {
+  const said = await askText(text, options)
+  if (said === null) return null
+  const match = /\{[\s\S]*\}/.exec(said.replace(/```json|```/g, ''))
   if (!match) return null
   try {
     return JSON.parse(match[0]) as T

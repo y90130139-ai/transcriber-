@@ -4,6 +4,7 @@ import { isScheduler, PLANNING_TZ, weekdayIn } from '@/lib/cron'
 import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
 import { archiveExpired } from '@/lib/expiry'
+import { ingestTrends } from '@/lib/trends'
 
 export const maxDuration = 60
 
@@ -45,6 +46,14 @@ export async function GET(request: Request) {
     did.expired = await archiveExpired()
   } catch (error) {
     did.expired = { error: error instanceof Error ? error.message : String(error) }
+  }
+
+  // Every day: today's Google search trends into the Trends tab's table.
+  // Free and keyless; a bad feed day must not cost the fallback check either.
+  try {
+    did.trends = await ingestTrends()
+  } catch (error) {
+    did.trends = { error: error instanceof Error ? error.message : String(error) }
   }
 
   // Every day, not just the scheduled ones: this is the check that notices the

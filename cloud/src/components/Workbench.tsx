@@ -8,6 +8,7 @@ import LibraryTab from './LibraryTab'
 import QueueTab from './QueueTab'
 import RosterTab from './roster/RosterTab'
 import SweepTab from './roster/SweepTab'
+import TrendsTab from './TrendsTab'
 import { EMPTY_FILTERS, toQuery, type Filters } from './FilterBar'
 import type { LibraryItem } from '@/lib/format'
 import DashboardHome from './dashboard/DashboardHome'
@@ -17,7 +18,7 @@ type Worker = { online: boolean; secondsAgo: number | null; video: boolean }
 // `creators` is the Instagram accounts we research — the word the database and
 // /api/creators already use. `models` is our own people, who are a different
 // entity in a different table and get their own tab.
-type Tab = 'dashboard' | 'queue' | 'library' | 'creators' | 'models' | 'today' | 'week'
+type Tab = 'dashboard' | 'queue' | 'library' | 'creators' | 'models' | 'today' | 'week' | 'trends'
 
 // Poll hard while the Mac is chewing on something, gently when it is idle.
 const POLL_BUSY_MS = 2500
@@ -46,6 +47,9 @@ const TABS: { id: Tab; label: string }[] = [
   // pointing at what they always did.
   { id: 'today', label: 'Today' },
   { id: 'week', label: 'Week' },
+  // Discovery (Geno, 2026-10-06): Google's search trends beside the
+  // library's own breakouts and sounds, with the Trends AI box on top.
+  { id: 'trends', label: 'Trends' },
   { id: 'queue', label: 'Queue' },
 ]
 
@@ -216,6 +220,8 @@ export default function Workbench() {
             onOpenModel={(id) => { setOpenModel(id); setTab('models') }}
           />
         )}
+
+        {tab === 'trends' && <TrendsTab />}
       </main>
 
       {open && <ItemView item={open} onClose={() => setOpen(null)} onChanged={reload} />}

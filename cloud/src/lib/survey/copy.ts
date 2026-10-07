@@ -300,7 +300,9 @@ export const ES_LABELS: Record<string, string> = {
   // formats
   'thirst-trap': 'Thirst trap', grwm: 'Arréglate conmigo (GRWM)', storytime: 'Storytime / historia', 'q-and-a': 'Preguntas y respuestas',
   'day-in-life': 'Un día conmigo', 'fit-check': 'Outfit del día', 'try-on': 'Probándome ropa', gym: 'Gym / ejercicio',
-  'pov-skit': 'POV / sketch de rol', comedy: 'Sketch de comedia', reaction: 'Reacción / dúo', 'lip-sync': 'Lip sync / tendencia',
+  // `comedy` names both the format and the persona (the map is flat by id).
+  'pov-skit': 'POV / sketch de rol', comedy: 'Comedia / humor', reaction: 'Reacción / dúo', 'lip-sync': 'Lip sync / tendencia',
+  omegle: 'Omegle / videochat con extraños',
   bts: 'Detrás de cámaras', promo: 'Promo / llamado a la acción', advice: 'Consejos / tutorial', rant: 'Opinión / desahogo',
   collab: 'Colaboración', teaser: 'Adelanto', 'talking-head': 'Hablando a cámara', skit: 'Sketch', 'text-overlay': 'Texto en pantalla',
   'street-interview': 'Entrevista en la calle', 'rage-bait': 'Polémica (rage bait)', 'snap-banner': 'Banner de Snapchat', dance: 'Baile',

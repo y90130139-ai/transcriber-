@@ -1,3 +1,33 @@
+# 2026-10-07: Geno's eight asks (through `918fc45`) + the ASAS restructure
+
+**The ASAS commit** (`60a9ca6`, author `y90130139-ai`, +0530): console went
+route-based — `(console)/` pages + ConsoleShell/ConsoleProvider, Workbench
+DELETED. It shipped no /trends route (fixed, `6e9f85f`) and rewrote the
+Mac-side Scout login/session files — **watch the next 19:00 pass**. Geno
+treats the commit as his; identity never explicitly confirmed.
+
+**The eight asks, all shipped:**
+1. Taxonomy: format `omegle`, persona `comedy` (+ lexicon + ES labels).
+2. Library cards: 🔇 Sound button — unmutes the hover preview, pins playback.
+3. D tier = "construction, 30-day sprint" (no platform): roster group, chip,
+   sorts below everyone in batch. **The 30-day sprint programme itself is a
+   SAVED TASK for later — Geno: "we'll get more into depth after that."**
+4. Messages tab on the model profile: every card thread, ANSWERED derived
+   (last word ours), inline reply (marks read, same rule as the editor).
+5. One card per reel: appendItems refuses same-plan repeats (ladders collapse
+   to their control), draft keeps a reel out of her pool 42 days
+   (REPEAT_COOLDOWN_DAYS), 151 bare duplicate rows deleted from Neon.
+6. Custom cards + `plan_templates` (new table): + Custom card in the plan
+   editor, label/format/directions, job_id now NULLABLE (her card skips
+   Watch-it), templates persist and are editable.
+7. Editors ecosystem: `editors` table + plan_items.editor_id/editor_notified_at,
+   per-card Editor picker, /e/<token> page (notes + player + download),
+   'Tell them' emails via Resend when RESEND_API_KEY/RESEND_FROM exist else
+   copy-link. **Editing notes now in-house: stripped from her payload.**
+8. Brand tab folded into Profile ('Brand & niche' section) + "What she says
+   yes to" (tags of her 👍/accepted, via /insights `her_picks`) + plan
+   editor "Before it goes" line (unanswered questions, unassigned edits).
+
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
 **Round seven (`20b9c4c`): intro → "In this plan".** The plan page's intro

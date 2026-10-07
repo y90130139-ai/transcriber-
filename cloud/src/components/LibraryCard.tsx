@@ -92,6 +92,10 @@ export default function LibraryCard({
   /** Playing right now — by hover, or pinned by the Preview button. */
   const [playing, setPlaying] = useState(false)
   const [pinned, setPinned] = useState(false)
+  /** Sound on (Geno, 2026-10-07): the hover preview is muted; this unmutes
+   *  it so you can hear what they are saying. Turning sound on also pins
+   *  playback, so walking the pointer away does not cut the audio mid-word. */
+  const [sound, setSound] = useState(false)
   const [captionOpen, setCaptionOpen] = useState(false)
   /** The one honest excuse: the files live on the Mac and it is asleep. */
   const [macAsleep, setMacAsleep] = useState(false)
@@ -122,10 +126,26 @@ export default function LibraryCard({
     if (playing && pinned) {
       setPinned(false)
       setPlaying(false)
+      setSound(false)
       return
     }
     const loaded = await load()
     if (!loaded.media) return
+    setPinned(true)
+    setPlaying(true)
+  }
+
+  /** Hear it. Usually the preview is already running muted under the
+   *  pointer, so this is an instant unmute; cold, it starts the video
+   *  with sound inside the same tap the browser's autoplay rules want. */
+  async function toggleSound() {
+    if (sound) {
+      setSound(false)
+      return
+    }
+    const loaded = detail ?? (await load())
+    if (!loaded.media) return
+    setSound(true)
     setPinned(true)
     setPlaying(true)
   }
@@ -163,11 +183,12 @@ export default function LibraryCard({
             <video
               src={video}
               poster={item.has_thumb ? thumbUrl(item.id) : undefined}
-              muted
+              muted={!sound}
               loop
               playsInline
               autoPlay
               preload="metadata"
+              onCanPlay={(event) => void event.currentTarget.play().catch(() => null)}
             />
           ) : (
             <Frame item={item} />
@@ -235,6 +256,15 @@ export default function LibraryCard({
       <span className="card-acts">
         <button type="button" className="card-act" data-on={playing && pinned || undefined} onClick={() => void togglePreview()}>
           {playing && pinned ? 'Stop' : 'Preview'}
+        </button>
+        <button
+          type="button"
+          className="card-act"
+          data-on={sound || undefined}
+          onClick={() => void toggleSound()}
+          aria-pressed={sound}
+        >
+          {sound ? '🔊 Mute' : '🔇 Sound'}
         </button>
         {detail?.media ? (
           <a className="card-act" href={detail.media.download}>Save video</a>

@@ -464,6 +464,17 @@ export async function appendItems(
   )
   const declined = new Set(refused.map((row) => String(row.job_id)))
 
+  // One card per reel per week (Geno, 2026-10-07). The axis ladder used to
+  // lay five rungs of one winner — two identical controls, three identical
+  // variants — and on her page it read as the same video five times. Now the
+  // first card for a job wins and the rest are refused, whatever path added
+  // them; a ladder collapses to its control.
+  const held = await sql.query(
+    `select job_id from transcriber.plan_items where plan_id = $1 and job_id = any($2::text[])`,
+    [planId, jobIds],
+  )
+  const already = new Set(held.map((row) => String(row.job_id)))
+
   // She films alone: a reel that needs someone else on camera never goes on
   // her week, however it is added (Susanna, the third time of asking,
   // 2026-09-27). `models.solo` is on unless someone turned it off for her.
@@ -471,7 +482,8 @@ export async function appendItems(
   const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(jobIds)
 
   for (const [index, jobId] of jobIds.entries()) {
-    if (declined.has(jobId) || needsOthers.has(jobId)) continue
+    if (declined.has(jobId) || needsOthers.has(jobId) || already.has(jobId)) continue
+    already.add(jobId) // a batch repeating one job dedupes itself too
     const extras = extrasFor?.(jobId, index) ?? {}
     // A reskin or an iteration points at HER reel, so the brief must stop
     // coaching her to fix its opening. `source_post` is what says whose it is.

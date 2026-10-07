@@ -31,6 +31,8 @@ import { weekFor, type Week } from './split'
 
 /** Same offset a hand-opened week uses. */
 const DUE_OFFSET_DAYS = 7
+/** How long a reel stays out of her pool after being on one of her weeks. */
+const REPEAT_COOLDOWN_DAYS = 42
 
 /**
  * The top of her week, in her words.
@@ -140,6 +142,20 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   const sources = [...new Set(week.cards.map((card) => card.source_post).filter(isText))]
   const jobs = await jobsForPosts(sources)
 
+  // A reel she was already asked for recently never comes back by itself
+  // (Geno, 2026-10-07: Nina's one winner was re-laid every single week).
+  // Six weeks of her plans are out of the pool; when the pool runs dry the
+  // week is honestly shorter rather than quietly repetitive.
+  const priorRows = await sql.query(
+    `select distinct i.job_id
+       from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+      where p.model_id = $1 and i.job_id is not null
+        and p.week_of >= $2::date - ${REPEAT_COOLDOWN_DAYS} and p.week_of < $2::date`,
+    [modelId, weekOf],
+  )
+  const recent = new Set(priorRows.map((row) => String(row.job_id)))
+
   const skipped: DraftResult['skipped'] = []
   const landed: Week['cards'] = []
   let written = 0
@@ -157,6 +173,10 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
       continue
     }
 
+    if (recent.has(jobId)) {
+      skipped.push({ bucket: card.bucket, why: 'Was on one of her recent weeks — one ask per reel.' })
+      continue
+    }
     const added = await appendItems(planId, modelId, [jobId], () => ({
       bucket: card.bucket,
       axis: card.axis,

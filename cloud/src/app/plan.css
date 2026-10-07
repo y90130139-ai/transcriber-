@@ -175,13 +175,33 @@
 /* ------------------------------------------------------------ BODY */
 .plan-body { padding: var(--sc-space-5) var(--sc-space-1) 0; }
 
-.plan-intro {
-  font-family: var(--sc-font-text);
-  font-size: var(--sc-text-base);
-  line-height: var(--sc-leading-body);
-  color: var(--sc-ink-700);
+/* .plan-intro is gone (2026-10-06) — the counted contents replaced it. */
+.plan-contents {
   margin: 0 0 var(--sc-space-5);
+  padding: var(--sc-space-4);
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: var(--sc-paper);
 }
+.plan-contents-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sc-space-1);
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-700);
+}
+.plan-contents-list b {
+  display: inline-block;
+  min-width: 2.6ch;
+  margin-right: var(--sc-space-2);
+  font-family: var(--sc-font-counter);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ember);
+}
+.plan-contents-extra { color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
 
 .plan-label {
   display: block;

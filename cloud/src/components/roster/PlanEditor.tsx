@@ -522,16 +522,9 @@ export default function PlanEditor({
                 </div>
               </div>
 
-              <div className="form-row">
-                <label className="axis-name" htmlFor="plan-intro">Intro — the first thing they read</label>
-                <textarea
-                  id="plan-intro"
-                  className="field"
-                  rows={2}
-                  defaultValue={plan.intro ?? ''}
-                  onBlur={(event) => patchPlan({ intro: event.target.value })}
-                />
-              </div>
+              {/* The intro box is gone (Geno, 2026-10-06): her page now opens
+                  with the counted contents of the plan instead of a written
+                  paragraph. plans.intro stays in the database untouched. */}
 
               <div className="planstate" data-ready={waiting === 0 && missing === 0}>
                 {waiting === 0 && missing === 0 ? (

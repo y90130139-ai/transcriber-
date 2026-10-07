@@ -12,6 +12,7 @@ import SetupProfile from './SetupProfile'
 import { cleanStyle } from '@/lib/portal-style'
 import { bucketOf, type PlanBucket } from '@/lib/plan-buckets'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
+import { contentLines } from '@/lib/plan-contents'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel, Verdict } from '@/lib/plans'
 import type { DeclineCode } from '@/lib/decline'
@@ -428,7 +429,25 @@ export default function PlanView({
       )}
 
       <div className="plan-body" ref={body}>
-        {plan.intro && <p className="plan-intro">{plan.intro}</p>}
+        {/* The intro paragraph is gone (Geno, 2026-10-06) — in its place,
+            what the week actually contains, counted: so she knows at a
+            glance it is 14 skits and 7 talking heads, plus the carousels
+            and stories that live in the fold below. */}
+        {ideas.length > 0 && (
+          <section className="plan-contents" aria-label="What is in this plan">
+            <p className="plan-label">In this plan</p>
+            <ol className="plan-contents-list">
+              {contentLines(ideas).map((line) => (
+                <li key={line.label}><b>{line.count}×</b> {line.label}</li>
+              ))}
+              <li className="plan-contents-extra">
+                <b>{CAROUSEL_PLAN.count}×</b> Carousel posts — photo sets, slots under
+                &ldquo;Stories and carousels&rdquo;
+              </li>
+              <li className="plan-contents-extra"><b>{STORY_PROMPTS.length}×</b> Stories — one a day</li>
+            </ol>
+          </section>
+        )}
 
         {/* Her own rules, when she has any. The house background rule used to
             sit under them for everyone; Geno cut it 2026-10-06 ("unnecessary")

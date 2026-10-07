@@ -869,3 +869,47 @@
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-900);
 }
+
+/* ============================================================
+   MESSAGES — her card threads across every week (2026-10-07).
+   MessagesTab.tsx. Open threads carry the ember edge.
+   ============================================================ */
+.msgs { display: grid; gap: var(--sc-space-3); }
+.msgs-standfirst { margin: 0; color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.msgs-thread {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-3) var(--sc-space-4);
+}
+.msgs-thread[data-open] { border-left: 3px solid var(--sc-ember); }
+.msgs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.msgs-head b { color: var(--sc-ink-900); font-family: var(--sc-font-counter); }
+.msgs-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28ch; }
+.msgs-state { margin-left: auto; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }
+.msgs-state[data-answered] { color: var(--sc-ink-500); }
+.msgs-list { list-style: none; margin: var(--sc-space-3) 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.msgs-list li { display: grid; grid-template-columns: max-content 1fr; gap: var(--sc-space-3); align-items: baseline; }
+.msgs-list li p { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-900); overflow-wrap: anywhere; }
+.msgs-list li[data-who='model'] p { font-weight: 500; }
+.msgs-list li[data-who='operator'] p { color: var(--sc-ink-500); }
+.msgs-when { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.msgs-reply { display: flex; gap: var(--sc-space-2); }
+.msgs-reply input {
+  flex: 1;
+  min-width: 0;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-paper, var(--sc-bone));
+  padding: var(--sc-space-2) var(--sc-space-3);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}

@@ -18,6 +18,9 @@ const TABS: { href: string; label: string }[] = [
   // pointing at what they always did.
   { href: '/today', label: 'Today' },
   { href: '/week', label: 'Week' },
+  // Discovery (2026-10-06): the restructure to routes dropped this one —
+  // the whole Trends build (live Google list, Trends AI) was unreachable.
+  { href: '/trends', label: 'Trends' },
   { href: '/sounds', label: 'Sounds' },
   { href: '/queue', label: 'Queue' },
 ]

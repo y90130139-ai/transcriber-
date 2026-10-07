@@ -179,3 +179,67 @@ the burner turns out to be challenged often enough to justify it.
 
 After that it is unattended: Saturday 10:00 sweep, Sunday 17:00 draft, and your
 part is reviewing weeks and pressing send.
+
+---
+
+## Backup burners, and instant alerts (added 2026-10-05)
+
+One burner was one point of failure: when its session expired, the next pass
+produced nothing until someone re-read cookies off the phone. Now any number of
+backup accounts can be registered, and an expiry fails over instead of stopping
+the sweep.
+
+**Add a backup** — same phone export as step 2, then:
+
+```bash
+./bin/scout-cookies --add --label 'backup 1' --header '<paste the Cookie: line>'
+```
+
+It writes `secrets/backup-1-cookies.txt`, registers it, and immediately proves
+it with one profile read — a backup that is already dead is reported at the
+moment it is added, not at the next failover.
+
+```bash
+./bin/scout-cookies --list              # accounts, active marker, last health
+./bin/scout-cookies --activate backup-1 # switch manually
+```
+
+**What happens when a session expires.** Every pass that hits a login wall or
+challenge marks that account dead, rotates the registry to a healthy backup on
+the spot, and alerts every configured channel with what happened and what to
+do. `session-check` (01:30/07:30/13:30/22:30, plus on worker login failures)
+probes **every** account, alerts on any change, and repeats once a day while one
+stays dead. When all of them are dead it says so, loudly.
+
+**Alerts go to Telegram and/or Discord.** Telegram already lives in
+`secrets/alerts.json`; add a Discord webhook once (it is a secret — the file
+is gitignored, never commit it):
+
+```bash
+./bin/alerts --discord 'https://discord.com/api/webhooks/…'
+./bin/alerts --test        # prove every channel
+./bin/alerts --show        # what's configured, masked
+```
+
+**What is watched, and how often.** Every login is probed with one profile
+read: Scout's registered accounts, the viewer burner (skipped while it shares
+Scout's jar), and the downloader if one is configured. `sessions` launchd runs
+01:30, 07:30, 10:30, 13:30, 16:30, 21:30; the worker re-arms the checks
+whenever the health state is more than six hours old, so a slept-through slot
+cannot leave a cookie unprobed. Probes defer while a Scout pass or the viewer
+is browsing. A dead login alerts instantly, rotates to a backup, and repeats
+once a day while it stays dead. After pulling this change, reinstall the
+sessions job so the new times take effect:
+
+```bash
+cp ops/launchd/com.geno.social-transcriber.sessions.plist ~/Library/LaunchAgents/
+launchctl bootout gui/$(id -u)/com.geno.social-transcriber.sessions 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.geno.social-transcriber.sessions.plist
+```
+
+**Signing back in** now takes the account id:
+
+```bash
+./bin/scout-login --account scout      # the main burner
+./bin/scout-login                        # whichever account is active
+```

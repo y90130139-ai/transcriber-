@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { speaks, type LibraryItem } from '@/lib/format'
+import { platformOfUrl } from '@/lib/socials'
+import PlatformIcon, { hasPlatformIcon } from './roster/PlatformIcon'
 
 const MARKS: Record<string, string> = { queued: '○', running: '●', failed: '×' }
 
@@ -63,9 +65,16 @@ export default function Queue({
         // A human's word, held or saved, is a decision; the pass's is a reading.
         const human = held !== undefined || item.speech_override !== null
         const running = item.status === 'running'
+        // The row's own logo where the link is a known platform — Instagram,
+        // TikTok — and the plain state mark where it is not.
+        const platform = item.source ? platformOfUrl(item.source) : null
         return (
           <div className="queue-row" key={item.id} data-status={item.status}>
-            <span className="queue-mark" aria-hidden>{MARKS[item.status] ?? '○'}</span>
+            <span className="queue-mark" aria-hidden>
+              {platform && hasPlatformIcon(platform)
+                ? <PlatformIcon platform={platform} size={14} />
+                : MARKS[item.status] ?? '○'}
+            </span>
 
             <button className="queue-label" onClick={() => onOpen(item)}>
               {item.label}

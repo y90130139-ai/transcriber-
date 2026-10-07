@@ -17,8 +17,16 @@ import type { Batch, BatchRow } from '@/lib/batch'
  * is invisible to her until somebody marks it sent, and there is no control
  * here — or parameter in the route behind it — that can send anything.
  */
-export default function BatchWeek({ onBuilt }: { onBuilt: () => void }) {
-  const [open, setOpen] = useState(false)
+export default function BatchWeek({ onBuilt, open: openProp, onOpenChange }: {
+  onBuilt: () => void
+  /** Controlled by the page when the trigger lives in its header; the button
+   *  used to sit on a row of its own. */
+  open?: boolean
+  onOpenChange?: (next: boolean) => void
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = openProp ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   const [weekOf, setWeekOf] = useState(() => assignableWeeks()[1])
   const [batch, setBatch] = useState<Batch | null>(null)
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
@@ -70,6 +78,8 @@ export default function BatchWeek({ onBuilt }: { onBuilt: () => void }) {
   }
 
   if (!open) {
+    // Controlled: the header owns the trigger, so there is nothing to render.
+    if (openProp !== undefined) return null
     return (
       <div className="backfill-open">
         <button className="btn btn-quiet" onClick={() => setOpen(true)}>

@@ -86,7 +86,7 @@ export async function loadEarningsBoard(days: EarningsWindow) {
         where day between $1 and $2 group by day order by day`,
       [from, to],
     ),
-    sql.query(`select id, name from transcriber.models where status = 'active' order by name`),
+    sql.query(`select id, name, photo_url, status from transcriber.models order by name`),
     sql.query(
       `select e.id, e.kind, e.status, e.period, e.created_at, e.error, m.name model_name
          from transcriber.earnings_messages e join transcriber.models m on m.id = e.model_id
@@ -126,17 +126,35 @@ export async function loadEarningsBoard(days: EarningsWindow) {
       subs: rows.reduce((n, r) => n + r.subs, 0),
       renewals: rows.reduce((n, r) => n + r.renewals, 0),
     },
-    daily: dense([], from, to).map((d) => ({ day: d.day, net: Number(byDay.get(d.day)?.net ?? 0) })),
+    daily: dense([], from, to).map((d) => ({
+      day: d.day,
+      net: Number(byDay.get(d.day)?.net ?? 0),
+      gross: Number(byDay.get(d.day)?.gross ?? 0),
+    })),
     accounts: rows,
-    models: models.map((m) => ({ id: String(m.id), name: String(m.name) })),
+    models: models.map((m) => ({
+      id: String(m.id),
+      name: String(m.name),
+      photo_url: m.photo_url ? String(m.photo_url) : null,
+      active: String(m.status) === 'active',
+    })),
     messages: messages.map((m) => ({
       id: String(m.id), kind: String(m.kind), status: String(m.status), model_name: String(m.model_name),
       period: String(m.period instanceof Date ? m.period.toISOString() : m.period).slice(0, 10),
       error: m.error ? String(m.error) : null,
     })),
     pulledAt: accounts.map((a) => a.pulled_at).filter(Boolean).sort().at(-1) ?? null,
-    reelHits: await rosterReelHits(accounts, from, today),
   }
+}
+
+/** Reel days that were hits and were followed by money, best first. Split out
+ *  of the board on purpose: it reads creator posts plus per-model history, so
+ *  the board paints first and the console fetches this right after. */
+export async function loadReelHits(days: EarningsWindow) {
+  const today = dayOf(Date.now())
+  const to = addDays(today, -1)
+  const from = addDays(to, -(days - 1))
+  return rosterReelHits(await loadAccounts(), from, today)
 }
 
 /** One model, all her accounts together: daily net and her last full week. */

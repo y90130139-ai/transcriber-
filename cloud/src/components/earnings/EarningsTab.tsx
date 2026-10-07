@@ -5,6 +5,7 @@ import type { EarningsWindow } from '@/lib/earnings/board'
 import type { WeeklyNumbers } from '@/lib/earnings/report'
 import { money, niceDay } from '@/lib/earnings/report'
 import BarChart from '../dashboard/BarChart'
+import MicroBars from '../dashboard/MicroBars'
 import ReelMoney from './ReelMoney'
 import type { ReelDay, ReelSummary } from '@/lib/earnings/reels'
 import PeriodSwitch from '../dashboard/PeriodSwitch'
@@ -71,11 +72,17 @@ export default function EarningsTab({ modelId }: { modelId: string }) {
           <h3>Net · {days} days</h3>
           <p className="dash-stat-value">{money(net)}</p>
           <p className="dash-stat-note">{shortDay(data.window.from)} – {shortDay(data.window.to)}</p>
+          {w?.change !== null && w?.change !== undefined && (
+            <p className="dash-pill" data-tone={w.change >= 0 ? 'up' : 'down'}>
+              {w.change > 0 ? '+' : ''}{w.change}% vs the week before
+            </p>
+          )}
         </article>
         <article className="dash-stat">
           <h3>Best day</h3>
           <p className="dash-stat-value">{best ? money(best.net) : '–'}</p>
           <p className="dash-stat-note">{best ? niceDay(best.day) : 'no sales yet'}</p>
+          {best && net > 0 && <p className="dash-pill">{Math.round((best.net / net) * 100)}% of the period</p>}
         </article>
         <article className="dash-stat">
           <h3>Sub revenue</h3>
@@ -87,7 +94,8 @@ export default function EarningsTab({ modelId }: { modelId: string }) {
         <article className="dash-stat">
           <h3>New subs</h3>
           <p className="dash-stat-value">{subs}</p>
-          <p className="dash-stat-note">{renewals} renewals</p>
+          <MicroBars values={data.daily.map((d) => d.subs)} />
+          <p className="dash-pill">{renewals} renewals</p>
         </article>
       </section>
 

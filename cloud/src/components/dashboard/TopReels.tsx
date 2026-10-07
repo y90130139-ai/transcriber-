@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Reel } from '@/lib/performance/load'
 import Avatar from './Avatar'
 import { ago, compact } from './format'
@@ -21,14 +21,28 @@ export default function TopReels({ reels, title = 'Top reels', note, onRepurpose
    *  Resolves to what to tell the operator. */
   onRepurpose?: (reel: Reel) => Promise<string>
 }) {
+  const strip = useRef<HTMLOListElement>(null)
+  function slide(direction: 1 | -1) {
+    const el = strip.current
+    if (!el) return
+    el.scrollBy({ left: direction * Math.min(el.clientWidth * 0.8, 560), behavior: 'smooth' })
+  }
   return (
     <section className="dash-panel dash-reels" aria-labelledby="dash-reels-h">
-      <header className="dash-panel-head">
-        <h2 id="dash-reels-h">{title}</h2>
-        <p>{note ?? 'Most viewed, posted in this period'}</p>
+      <header className="dash-panel-head dash-reels-head">
+        <div>
+          <h2 id="dash-reels-h">{title}</h2>
+          <p>{note ?? 'Most viewed, posted in this period'}</p>
+        </div>
+        {reels.length > 0 && (
+          <div className="dash-reel-nav" role="group" aria-label="Scroll reels">
+            <button type="button" onClick={() => slide(-1)} aria-label="Scroll reels left">←</button>
+            <button type="button" onClick={() => slide(1)} aria-label="Scroll reels right">→</button>
+          </div>
+        )}
       </header>
       {reels.length === 0 ? <p className="dash-empty">No reels in this period yet.</p> : (
-        <ol className="dash-reel-strip">
+        <ol className="dash-reel-strip" ref={strip}>
           {reels.map((reel) => <li key={reel.post_id}><ReelCard reel={reel} onRepurpose={onRepurpose} /></li>)}
         </ol>
       )}
@@ -55,7 +69,9 @@ function ReelCard({ reel, onRepurpose }: { reel: Reel; onRepurpose?: (reel: Reel
             aria-label={reel.video_url ? `Play ${reel.model_name}'s reel` : `Open ${reel.model_name}'s reel on Instagram`}>
             {reel.poster_url && !posterBroken
               ? <img src={reel.poster_url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setPosterBroken(true)} />
-              : <span className="dash-reel-blank" aria-hidden />}
+              : reel.video_url
+                ? <video src={reel.video_url} muted playsInline preload="metadata" aria-hidden tabIndex={-1} />
+                : <span className="dash-reel-blank" aria-hidden />}
             <span className="dash-reel-play" aria-hidden>{reel.video_url ? '▶' : '↗'}</span>
           </button>
         )}

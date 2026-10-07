@@ -4,6 +4,7 @@ import { forwardRef, useMemo, useState } from 'react'
 import type { ModelPerf } from '@/lib/performance/load'
 import { TAG_LABEL, type TagKey } from '@/lib/performance/math'
 import Avatar from './Avatar'
+import DropSelect from './DropSelect'
 import { ago, compact, percent, signed } from './format'
 import Sparkline from './Sparkline'
 import { TagChip, TrendBadge } from './TrendBadge'
@@ -44,10 +45,9 @@ const AccountsTable = forwardRef<HTMLElement, { models: ModelPerf[]; days: numbe
           <div className="dash-filters">
             <input className="field" type="search" placeholder="Search models…" value={query}
               onChange={(e) => setQuery(e.target.value)} aria-label="Search models" />
-            <select className="field" value={tag} onChange={(e) => setTag(e.target.value as TagKey | 'all')} aria-label="Filter by tag">
-              <option value="all">All tags</option>
-              {(Object.keys(TAG_LABEL) as TagKey[]).map((k) => <option key={k} value={k}>{TAG_LABEL[k]}</option>)}
-            </select>
+            <DropSelect value={tag} onChange={(v) => setTag(v as TagKey | 'all')} label="Filter by tag"
+              options={[{ value: 'all', label: 'All tags' },
+                ...(Object.keys(TAG_LABEL) as TagKey[]).map((k) => ({ value: k, label: TAG_LABEL[k] }))]} />
           </div>
         </header>
         <div className="dash-table-wrap">
@@ -74,9 +74,11 @@ const AccountsTable = forwardRef<HTMLElement, { models: ModelPerf[]; days: numbe
                     <span className="dash-who">
                       <Avatar name={m.name} src={m.photo_url} />
                       <span>
-                        <b>{m.name}</b>
+                        <span className="dash-who-top">
+                          <b>{m.name}</b>
+                          <TagChip tag={m.tag} label={m.tag_label} pinned={m.tag_pinned} />
+                        </span>
                         <small>{m.handles.length ? `@${m.handles[0]}${m.handles.length > 1 ? ` +${m.handles.length - 1}` : ''}` : 'No Instagram on file'}</small>
-                        <TagChip tag={m.tag} label={m.tag_label} pinned={m.tag_pinned} />
                       </span>
                     </span>
                   </th>

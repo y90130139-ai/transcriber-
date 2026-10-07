@@ -255,6 +255,37 @@ def _check_login_soon() -> None:
         print(f"    could not start the login check: {error}")
 
 
+# The launchd session checks (01:30/07:30/…) can be missed while the Mac
+# sleeps, and a cookie nobody probes is exactly the cookie that expires in
+# silence. The worker is always on, so it re-arms the checks whenever the
+# health state is stale. Half an hour between kicks, so a broken check cannot
+# spin.
+SESSION_STALE_SEC = 6 * 60 * 60
+SESSION_KICK_GAP_SEC = 30 * 60
+_last_session_kick = 0.0
+
+
+def maybe_kick_session_check() -> None:
+    global _last_session_kick
+    now = time.monotonic()
+    if now - _last_session_kick < SESSION_KICK_GAP_SEC:
+        return
+    state = config.ROOT / "secrets" / "session-health.json"
+    try:
+        if state.is_file() and time.time() - state.stat().st_mtime < SESSION_STALE_SEC:
+            return
+    except OSError:
+        pass
+    _last_session_kick = now
+    try:
+        subprocess.Popen(
+            [str(config.ROOT / "bin" / "session-check"), "--scout", "--viewer"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+    except OSError as error:
+        print(f"    could not start the session check: {error}")
+
+
 _warned_no_r2 = False
 
 # How often the bucket is checked against the app's ledger. Rare on purpose:
@@ -451,6 +482,8 @@ def serve(*, model: str = "best") -> None:
             moved = run_r2_errands(cloud, bucket, work)
             # And every six hours, what the bucket holds that no row claims.
             run_r2_reconcile(cloud, bucket)
+            # Keep the cookie probes armed even if launchd slept through them.
+            maybe_kick_session_check()
 
             if not jobs:
                 if not moved and idle_notice:

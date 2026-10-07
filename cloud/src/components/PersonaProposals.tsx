@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import taxonomy from '@/lib/taxonomy.json'
+import { toneOf } from '@/lib/taxonomy'
 
 /**
  * Personas the profiler proposes, waiting on a human.
@@ -86,8 +87,7 @@ export default function PersonaProposals() {
       {open && (
         <div className="proposals-body">
           <p className="watchlist-note">
-            Read from their best frames, captions and bio. Tap a chip to change it, then take it —
-            the persona carries to everything they post.
+            Read from their frames, captions and bio. Tap a chip to change it.
           </p>
           <div className="watchlist-actions">
             <button className="pill" disabled={busy} onClick={() => void findMore()}>
@@ -133,6 +133,7 @@ export default function PersonaProposals() {
                         key={tag}
                         className="chip"
                         data-on
+                        data-tone={toneOf('persona', tag)}
                         title="Tap to remove"
                         onClick={() => toggle(one.handle, tag, chosen)}
                       >
@@ -152,6 +153,7 @@ export default function PersonaProposals() {
                         <button
                           key={tag.id}
                           className="chip"
+                          data-tone={toneOf('persona', tag.id)}
                           onClick={() => toggle(one.handle, tag.id, chosen)}
                         >
                           {labelFor(tag.id)}

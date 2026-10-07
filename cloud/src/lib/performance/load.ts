@@ -5,7 +5,7 @@
  */
 import { sql } from '../db'
 import {
-  TAG_LABEL, attentionReasons, autoTag, daysBetween, median, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
+  TAG_LABEL, attentionReasons, autoTag, daysBetween, median, reelsByDay, sumHeld, direction, followerSeries, viewsByDay, viewsChange,
   type Direction, type Post, type Snapshot, type TagKey,
 } from './math'
 
@@ -74,6 +74,7 @@ export type Board = {
   followers_prev: Point[]
   views_series: Point[]
   views_prev: Point[]
+  reels_series: Point[]
   top_reels: Reel[]
 }
 
@@ -239,7 +240,8 @@ async function topReels(models: ModelRow[], fromIso: string, onlyHandles?: strin
   const handles = onlyHandles ?? [...owner.keys()]
   if (!handles.length) return []
   const rows = await sql.query(
-    `select post_id, handle, posted_at, plays, likes, comments, poster_url,
+    `select post_id, handle, posted_at, plays, likes, comments,
+            case when media_until > now() then poster_url end as poster_url,
             case when media_until > now() then video_url end as video_url
        from transcriber.creator_posts
       where handle = any($1::text[]) and kind = 'reel' and plays is not null and posted_at >= $2::timestamptz
@@ -307,6 +309,7 @@ export async function loadBoard(days: WindowDays, modelId?: string, now = Date.n
     followers_prev: followersPrev,
     views_series: viewsByDay(inPeriod, period),
     views_prev: viewsByDay(inPrev, prevPeriod),
+    reels_series: reelsByDay(inPeriod, period),
     top_reels: await topReels(models, new Date(now - days * DAY).toISOString(), modelId ? handles : undefined, modelId ? usualOf(rows.posts, now) : null),
   }
 }

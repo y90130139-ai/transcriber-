@@ -28,11 +28,8 @@ export function ReelDayRow({ d, name }: { d: ReelDay & { model_name?: string }; 
       </div>
       <div className="reel-day-money">
         <b>{money(d.net)}</b>
-        <small>
-          {d.moneyMultiple != null ? `${d.moneyMultiple}× her usual 2 days` : 'no baseline yet'}
-          {` · ${d.subs} subs`}
-          {!d.complete && ' · still counting'}
-        </small>
+        <small>{d.moneyMultiple != null ? `${d.moneyMultiple}× her usual 2 days` : 'no baseline yet'}</small>
+        <small>{d.subs} subs{!d.complete && ' · still counting'}</small>
       </div>
     </li>
   )

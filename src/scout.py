@@ -33,7 +33,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, scout_apify, scout_browser, scout_ig
+from . import alerts, config, scout_accounts, scout_apify, scout_browser, scout_ig
 
 BACKFILL_REELS = 30
 REFRESH_REELS = 30
@@ -98,11 +98,46 @@ def _settings() -> tuple[Cloud, dict]:
     return Cloud(url, secret), user.get("scout") or {}
 
 
-def _resolve(path: str | None) -> Path | None:
-    if not path:
-        return None
-    candidate = Path(path).expanduser()
-    return candidate if candidate.is_absolute() else config.ROOT / candidate
+def _active_jar() -> Path | None:
+    """The burner account the registry says to use, if its jar exists.
+
+    `scout_accounts` always knows an account even before the registry file
+    exists — it synthesises the one config.json names — so this is the same
+    path the passes used before backups existed."""
+    jar = scout_accounts.active_jar()
+    return jar if jar.is_file() else None
+
+
+def _handle_stop(stopped: str) -> None:
+    """A session stop during a pass is an account death, not a pause.
+
+    Mark it, rotate to a healthy backup on the spot, and say so on every alert
+    channel — this pass cannot continue, but the next one must not repeat the
+    mistake. A rate-limit pushback is left to session-check: only login walls,
+    challenges and expired sessions count as death here."""
+    from . import session_health  # the fix text lives there; loaded only on a stop
+
+    text = str(stopped).lower()
+    if not any(word in text for word in ("login", "challenge", "session", "expired")):
+        return
+    entry = scout_accounts.active()
+    scout_accounts.mark(entry["id"], "dead", str(stopped)[:200])
+    switched = scout_accounts.rotate(exclude=entry["id"])
+    if switched:
+        _, new = switched
+        alerts.send(
+            f"⚠️ Scout session expired ({entry['id']} — {entry['label']}).\n{str(stopped)[:200]}\n"
+            f"↪️ Switched to backup {new['id']} ({new['label']}); the next pass uses it.\n"
+            f"{session_health.burner_fix(entry)}",
+            log=log,
+        )
+    else:
+        alerts.send(
+            f"⚠️ Scout session expired ({entry['id']} — {entry['label']}).\n{str(stopped)[:200]}\n"
+            "🛑 No backup left to switch to. Add one:\n"
+            "./bin/scout-cookies --add --label 'backup 1' --header '…'",
+            log=log,
+        )
 
 
 def plan(creators: list[dict], min_baseline: int) -> dict[str, list[str]]:
@@ -202,11 +237,11 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     # Hours are free overnight on a Mac that is already awake.
     if only == "burner":
         gated = [c["handle"] for c in creators if c.get("handle")]
-    cookies = _resolve(settings.get("burner_cookies"))
+    cookies = _active_jar()
     if gated and only != "apify":
-        if not cookies or not cookies.is_file():
+        if cookies is None:
             log(f"  {len(gated)} gated accounts need the burner session — "
-                f"export its cookies to {settings.get('burner_cookies') or 'secrets/scout-cookies.txt'}")
+                f"export its cookies to {scout_accounts.active()['jar']}")
             stats["skipped"].append(f"burner: no cookies, {len(gated)} gated accounts")
         else:
             what = "accounts" if only == "burner" else "gated accounts"
@@ -260,6 +295,7 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
             access.update(learned)
             if stopped:
                 stats["errors"].append(f"burner stopped: {stopped}"[:300])
+                _handle_stop(stopped)
             log(f"  burner: {len(found)} reels from {len(learned)} accounts")
 
     stats["gated"] = sum(1 for a in access.values() if a == "gated")
@@ -322,9 +358,9 @@ def daily() -> int:
 
     No scrolling, no reels, no Apify: this is the cheap half of Scout."""
     cloud, settings = _settings()
-    cookies = _resolve(settings.get("burner_cookies"))
-    if not cookies or not cookies.is_file():
-        sys.exit("the daily pass needs the burner session — see docs/SCOUT-SETUP.md")
+    cookies = _active_jar()
+    if cookies is None:
+        sys.exit("the daily pass needs a burner session — see docs/SCOUT-SETUP.md")
 
     plan = cloud.post("/api/scout/targets", {})
     watched = [c["handle"] for c in (plan.get("creators") or []) if c.get("handle")]
@@ -340,6 +376,7 @@ def daily() -> int:
     snapshots, stopped = scout_browser.light_sweep(handles, cookies, log=log)
     if stopped:
         log(f"  stopped early: {stopped}")
+        _handle_stop(stopped)
 
     written = 0
     for index in range(0, len(snapshots), CHUNK) or [0]:
@@ -374,9 +411,9 @@ def roster() -> int:
     creator then measures her, against her targets instead of against curiosity.
     """
     cloud, settings = _settings()
-    cookies = _resolve(settings.get("burner_cookies"))
-    if not cookies or not cookies.is_file():
-        sys.exit("the roster pass needs the burner session — see docs/SCOUT-SETUP.md")
+    cookies = _active_jar()
+    if cookies is None:
+        sys.exit("the roster pass needs a burner session — see docs/SCOUT-SETUP.md")
 
     plan = cloud.post("/api/scout/targets", {})
     mine = list(plan.get("mine") or [])
@@ -396,7 +433,10 @@ def roster() -> int:
         if snap:
             snapshots.append(snap)
 
-    scout_browser.sweep(mine, cookies, log=log, record=keep)
+    _found, _access, stopped = scout_browser.sweep(mine, cookies, log=log, record=keep)
+    if stopped:
+        log(f"  stopped early: {stopped}")
+        _handle_stop(stopped)
 
     written = 0
     for index in range(0, max(len(posts), 1), CHUNK):
@@ -440,12 +480,12 @@ def session(handle: str) -> int:
     thing that can answer "is it still alive" without starting a whole pass.
     """
     _, settings = _settings()
-    cookies = _resolve(settings.get("burner_cookies"))
-    if not cookies or not cookies.is_file():
+    cookies = _active_jar()
+    if cookies is None:
         sys.exit("no burner cookie jar — see docs/SCOUT-SETUP.md")
 
     jar_age = (time.time() - cookies.stat().st_mtime) / 86400
-    state = cookies.with_name(scout_browser.STATE_NAME)
+    state = scout_accounts.state_for(cookies)
     log(f"jar written {jar_age:.1f} days ago"
         + (f" · browser state {(time.time() - state.stat().st_mtime) / 86400:.1f} days ago"
            if state.is_file() else " · no saved browser state yet"))
@@ -467,9 +507,9 @@ def check_burner(handle: str) -> int:
     """One profile, one feed, printed — to prove a freshly exported burner
     session works before trusting it with a whole pass."""
     _, settings = _settings()
-    cookies = _resolve(settings.get("burner_cookies"))
-    if not cookies:
-        sys.exit("set scout.burner_cookies in config.json first")
+    cookies = _active_jar()
+    if cookies is None:
+        sys.exit("no burner cookie jar — see docs/SCOUT-SETUP.md")
     # This is the tool you reach for when the session is in doubt, so a push-back
     # from Instagram is its *finding*, not a crash: report it and say which of
     # the two it is, because they need opposite fixes.

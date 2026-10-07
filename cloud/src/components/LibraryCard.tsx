@@ -22,6 +22,9 @@ import { useEffect, useRef, useState } from 'react'
 import { clock, compact, displayName, thumbUrl, type LibraryItem } from '@/lib/format'
 import { explainOutperformance } from '@/lib/outperformance'
 
+/** Transcripts start mid-thought; the card starts with a capital. */
+const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : text)
+
 type Detail = {
   caption: string | null
   media: { video: string; poster: string; download: string } | null
@@ -169,7 +172,8 @@ export default function LibraryCard({
           ) : (
             <Frame item={item} />
           )}
-          {item.is_hot && <span className="card-flame" aria-label="Outperforming">🔥</span>}
+          <span className="card-scrim" aria-hidden />
+          {item.is_hot && <span className="card-hot">Hot</span>}
           {item.duration_sec !== null && (
             <span className="card-tag" data-corner="right">{clock(item.duration_sec)}</span>
           )}
@@ -204,20 +208,25 @@ export default function LibraryCard({
             )}
           </span>
         </span>
-        <span className="card-handle">{displayName(item)}</span>
-        {item.preview && <span className="card-line">{item.preview}</span>}
+        <span className="card-top">
+          <span className="card-handle">{displayName(item)}</span>
+          {item.upload_date && <span className="card-date">{item.upload_date}</span>}
+        </span>
+        {item.preview && <span className="card-line">{sentence(item.preview)}</span>}
         <span className="card-meta">
-          {item.upload_date && <span>{item.upload_date}</span>}
-          {/* Views moved onto the frame, where the eye is. Repeating them
-              here was the overlap that made the line hard to read. */}
+          {/* Views live on the frame, where the eye is. */}
           {item.like_count !== null && <span>{compact(item.like_count)} likes</span>}
           {item.comment_count !== null && <span>{compact(item.comment_count)} cm</span>}
         </span>
         {item.tags && item.tags.length > 0 && (
           <span className="card-tags">
-            {item.tags.slice(0, 4).map((tag) => (
-              <span key={`${tag.axis}-${tag.tag}`} data-origin={tag.origin}>{tag.tag}</span>
+            {item.tags.map((tag, index) => (
+              <span key={`${tag.axis}-${tag.tag}`} data-axis={tag.axis} data-origin={tag.origin}
+                data-more={index >= 3 || undefined}>{tag.tag}</span>
             ))}
+            {item.tags.length > 3 && (
+              <span className="card-tags-more" aria-hidden>+{item.tags.length - 3}</span>
+            )}
           </span>
         )}
       </button>

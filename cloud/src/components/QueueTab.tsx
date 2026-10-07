@@ -73,6 +73,7 @@ export default function QueueTab({
 
   return (
     <div
+      className="queue-page"
       onDragEnter={(event) => {
         if (!event.dataTransfer.types.includes('Files')) return
         dragDepth.current += 1
@@ -92,9 +93,20 @@ export default function QueueTab({
     >
       {dragging && <div className="dropveil"><span>Drop it</span></div>}
 
-      <section className="well">
+      <header className="dash-head dash-head-flush">
+        <div>
+          <h2 className="dash-title">Queue</h2>
+          <p className="dash-sub">
+            {pending.length === 0
+              ? 'Nothing waiting'
+              : `${inFlight.length} in flight · ${waiting.length} waiting · ${stuck.length} stuck`}
+          </p>
+        </div>
+      </header>
+
+      <section className="queue-composer" aria-label="Add to the queue">
         <textarea
-          className="well-input"
+          className="queue-input"
           value={paste}
           onChange={(event) => setPaste(event.target.value)}
           onKeyDown={(event) => {
@@ -104,45 +116,43 @@ export default function QueueTab({
           aria-label="Paste links"
           rows={3}
         />
-        <div className="well-actions">
-          <button className="btn" onClick={submitLinks} disabled={busy || !paste.trim()}>
-            {busy ? 'Working' : 'Add'}
-          </button>
-          <label className="btn btn-quiet" style={{ textAlign: 'center' }}>
-            Add files
-            <input
-              type="file"
-              accept="video/*,audio/*"
-              multiple
-              hidden
-              onChange={(event) => void submitFiles([...(event.target.files ?? [])])}
-            />
-          </label>
-          {note && <span className="hint" data-tone={note.bad ? 'bad' : undefined}>{note.text}</span>}
-          {!note && !workerOnline && (
-            <span className="hint">These will wait here and run when the Mac wakes.</span>
-          )}
-          {!note && workerOnline && (
-            <span className="hint">
-              Everything gets listened to — the pass takes about a second, and each
-              row below says what it heard.
-            </span>
-          )}
+        <div className="queue-composer-foot">
+          <span className="hint" data-tone={note?.bad ? 'bad' : undefined}>
+            {note
+              ? note.text
+              : workerOnline
+                ? 'The pass takes about a second; each row says what it heard.'
+                : 'Will run when the Mac wakes.'}
+          </span>
+          <span className="queue-composer-actions">
+            <label className="pill">
+              Add files
+              <input
+                type="file"
+                accept="video/*,audio/*"
+                multiple
+                hidden
+                onChange={(event) => void submitFiles([...(event.target.files ?? [])])}
+              />
+            </label>
+            <button className="pill" data-primary="true" onClick={submitLinks} disabled={busy || !paste.trim()}>
+              {busy ? 'Working' : 'Add'}
+            </button>
+          </span>
         </div>
       </section>
 
-      <div className="section-head">
-        <h2>In flight</h2>
-        <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          {inFlight.length} item{inFlight.length === 1 ? '' : 's'}
-        </span>
-      </div>
-
-      {inFlight.length > 0 ? (
-        <Queue items={inFlight} onOpen={onOpen} onChanged={onChanged} />
-      ) : (
-        <div className="empty"><p>Nothing downloading right now.</p></div>
-      )}
+      <section className="dash-panel" aria-labelledby="queue-flight">
+        <header className="dash-panel-head">
+          <h2 id="queue-flight">In flight</h2>
+          <p>{inFlight.length} item{inFlight.length === 1 ? '' : 's'} downloading or listening</p>
+        </header>
+        {inFlight.length > 0 ? (
+          <Queue items={inFlight} onOpen={onOpen} onChanged={onChanged} />
+        ) : (
+          <p className="dash-empty">Nothing downloading right now.</p>
+        )}
+      </section>
 
       <WaitingList items={waiting} onOpen={onOpen} />
       <StuckList items={stuck} onOpen={onOpen} onChanged={onChanged} />

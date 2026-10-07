@@ -3,23 +3,29 @@
    OnlyFans money from Infloww, internal. Leans on the dashboard's panels,
    stats and table; only what is new lives here. */
 
-.dash-views {
-  display: inline-flex;
-  gap: var(--sc-space-1);
-  padding: var(--sc-space-1);
-  margin-bottom: var(--sc-space-4);
-  background: var(--sc-bone-light);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r, 8px);
-}
+
 
 .earn-stats { grid-template-columns: 1.4fr repeat(5, 1fr); }
 .earn-tab .earn-stats { grid-template-columns: 1.4fr repeat(3, 1fr); }
 
 /* The Subs column stacks money over counts, the way Account stacks names. */
 .earn-subs-count { display: block; font-size: var(--sc-text-xs); color: var(--sc-ink-300); white-space: nowrap; }
+
+/* The lead number is money — seven figures of it some months — so it sits a
+   size down from the Instagram lead, where the total is four characters. */
+.earn-stats .dash-stat-lead .dash-stat-value { font-size: 3.5rem; }
 .dash-stat[data-warn='true'] { border-color: var(--sc-ember); }
 .dash-stat[data-warn='true'] .dash-stat-note { color: var(--sc-ember-deep); }
+
+/* One account's share of the agency, as a bar. */
+.dash-meter { height: 4px; margin-top: auto; border-radius: 999px; background: var(--sc-ink-150); overflow: hidden; }
+.dash-meter i { display: block; height: 100%; border-radius: 999px; background: var(--sc-ink-300); }
+.dash-meter[data-warn='true'] i { background: var(--sc-ember); }
+
+/* The share column wears the same bar, tucked under the number. */
+.earn-share { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 3.5rem; }
+.earn-share i { display: block; height: 3px; border-radius: 999px; background: var(--sc-ink-300); }
+td[data-warn='true'] .earn-share i { background: var(--sc-ember); }
 
 .earn-table .num { text-align: right; }
 .earn-table tbody tr { cursor: default; }
@@ -38,13 +44,40 @@
   max-width: 16ch;
 }
 .earn-open {
-  margin-left: var(--sc-space-1);
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: var(--sc-space-2);
   border: 0;
+  border-radius: 50%;
   background: none;
   color: var(--sc-ember-deep);
   cursor: pointer;
   font: inherit;
+  vertical-align: middle;
 }
+.earn-open:hover { background: var(--sc-ember-tint); }
+
+/* The accounts search: the creators search's clothes at table scale. */
+.earn-search {
+  display: inline-flex; align-items: center; gap: var(--sc-space-2);
+  min-width: 16rem; padding: var(--sc-space-1) var(--sc-space-2);
+  background: var(--sc-bone-light); border: var(--sc-rule-hair); border-radius: var(--r-sm, 8px);
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.earn-search:focus-within { border-color: var(--sc-ember); }
+.earn-search-icon { width: 1rem; height: 1rem; flex: none; margin-left: var(--sc-space-1); color: var(--sc-ink-300); }
+.earn-search input {
+  flex: 1; min-width: 0; background: none; border: 0; padding: var(--sc-space-1) 0;
+  font: inherit; font-size: var(--sc-text-sm); color: var(--sc-ink-900);
+}
+.earn-search input:focus { outline: none; }
+.earn-search input::placeholder { color: var(--sc-ink-150); }
+.earn-search input::-webkit-search-cancel-button { display: none; }
+
+/* Model selectors share one lane across the table. */
+.earn-table .msel-trigger { min-width: 9.5rem; }
 .earn-pull { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
 .earn-bad { color: var(--sc-critical); }
 
@@ -82,7 +115,7 @@
 .reel-days { list-style: none; margin: 0; padding: 0; }
 .reel-day {
   display: grid;
-  grid-template-columns: 12ch minmax(0, 1fr) 16ch;
+  grid-template-columns: 12ch minmax(0, 1fr) 19ch;
   gap: var(--sc-space-3);
   align-items: start;
   padding: var(--sc-space-2) 0;
@@ -100,3 +133,78 @@
   .reel-day { grid-template-columns: 1fr; gap: var(--sc-space-1); }
   .reel-day-money { text-align: left; }
 }
+
+/* ---------------------------------------------- EARNINGS v2 (2026-10-07)
+   The Instagram tab's rhythm, money-first: unmatched as a banner instead
+   of a stat card, momentum + leaders as the main pair, movement faces by
+   money change, hits as money cards, and a searchable accounts table. */
+
+/* The chore, as a banner — not a stat card. Stats stay insight-only. */
+.earn-banner {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sc-space-2) var(--sc-space-3);
+  margin: 0; padding: var(--sc-space-3) var(--sc-space-4);
+  background: var(--sc-bone); border: var(--sc-rule-hair); border-color: var(--sc-ember);
+  border-radius: var(--r, 12px); font-size: var(--sc-text-sm); color: var(--sc-ink-700);
+}
+.earn-banner span { color: var(--sc-ink-300); }
+.earn-banner .dash-stat-link { margin-left: auto; }
+
+/* Top earners: four lanes, not five — no sparkline, money is the number. */
+.earn .dash-leading .dash-rank-row { grid-template-columns: 1.75rem auto 1fr auto; }
+.earn-lead-money { display: grid; justify-items: end; gap: 2px; }
+.earn-lead-money b { color: var(--sc-ink-900); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.earn-lead-money small { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); white-space: nowrap; }
+.dash-rank-row:hover .earn-lead-money b { color: var(--sc-ink-900); }
+
+/* Movement faces carry their money change under the name. */
+.earn-face small { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); }
+
+/* Hits as money cards: the date and the model, the caption, then the money
+   big — the inverse of a views strip, where the number comes last. */
+.earn-hits {
+  list-style: none; margin: 0; padding: 0 0 var(--sc-space-2);
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 260px);
+  gap: var(--sc-space-3); overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.earn-hits::-webkit-scrollbar { display: none; }
+.earn-hits > li { scroll-snap-align: start; }
+.earn-hit {
+  display: grid; gap: var(--sc-space-1); align-content: start;
+  background: var(--sc-bone); border: var(--sc-rule-hair); border-radius: var(--r, 12px);
+  padding: var(--sc-space-4); min-width: 0; height: 100%;
+  text-decoration: none; color: inherit; cursor: pointer;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.earn-hit:hover { border-color: var(--sc-ink-300); }
+.earn-hit:hover .earn-hit-cap { color: var(--sc-ember-deep); }
+.earn-hit-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sc-space-2); margin: 0; }
+.earn-hit-top b { color: var(--sc-ink-900); font-size: var(--sc-text-sm); font-weight: 600; }
+.earn-hit-model { display: inline-flex; align-items: center; gap: var(--sc-space-2); min-width: 0; }
+.earn-hit-model b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.earn-hit-top span { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); white-space: nowrap; }
+.earn-hit-cap {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--sc-ink-900); font-weight: 600; font-size: var(--sc-text-sm); text-decoration: none;
+}
+.earn-hit-cap:hover { color: var(--sc-ember-deep); }
+.earn-hit-views { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.earn-hit-money { margin: var(--sc-space-2) 0 0; }
+.earn-hit-money b {
+  font-family: var(--sc-font-display); font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight); color: var(--sc-ink-900); font-variant-numeric: tabular-nums;
+}
+.earn-hit-mult { margin: 0; }
+.earn-hit-mult .dash-pill { margin: 0; }
+.earn-hit-sub { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+
+@media (max-width: 720px) {
+  .earn-banner .dash-stat-link { margin-left: 0; }
+}
+
+/* The ink ground's pop block already styles .dash-stats cards and the two
+   main-pair panels (dashboard.css). The banner and hit cards ride the same
+   tokens: bone card on a bone-light panel in light, near-black on raised
+   ink in dark — no restatement needed. */
+:root:not([data-theme]) .earn-banner { border-width: 2px; border-radius: 18px; }
+:root:not([data-theme]) .earn-hit { border-width: 2px; border-radius: 14px; }

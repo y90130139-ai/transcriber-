@@ -36,7 +36,7 @@ import random
 import time
 from pathlib import Path
 
-from . import ig_browser
+from . import ig_browser, scout_accounts
 from .scout_ig import BurnerStopped, to_sighting
 
 PAUSE_SEC = (8.0, 15.0)
@@ -158,7 +158,9 @@ class Reader:
         path = Path(cookies_file).expanduser()
         if not path.is_file():
             raise FileNotFoundError(f"burner cookies not found at {path}")
-        self._state = path.with_name(STATE_NAME)
+        # One browser profile per account, so two burners can never share a
+        # session; the main jar keeps its historic state name (scout_accounts).
+        self._state = scout_accounts.state_for(path)
         self._play = sync_playwright().start()
         # Installed Chrome with an ordinary user agent, not Playwright's
         # headless build, which says "HeadlessChrome" (ig_browser.py).

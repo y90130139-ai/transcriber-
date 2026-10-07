@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { formatDate } from '@/lib/dates'
+import { thumbUrl } from '@/lib/format'
 import type { Sweep, SweepRow } from '@/lib/sweep'
 import type { Standing } from '@/lib/standing'
 import { useStanding } from './useStanding'
+import Avatar from '../dashboard/Avatar'
 
 /**
  * The daily sweep. Six lists and a scoreboard, answering the one question the
@@ -23,7 +25,7 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'ourSide',
     title: 'Our side',
-    blurb: 'No brief has gone out for this week. Nothing below is their fault until this list is empty.',
+    blurb: 'No brief out for this week. Nothing below is their fault yet.',
     tone: 'ours',
     line: (row) =>
       row.plan_id === null
@@ -61,14 +63,14 @@ const LISTS: { key: keyof Pick<Sweep,
   {
     key: 'neverOpened',
     title: 'Never opened it',
-    blurb: 'Sent, and the link has never been opened. Check it reached them before chasing the work.',
+    blurb: 'Sent, never opened. Check it reached them before chasing.',
     tone: 'ours',
     line: (row) => `sent ${row.days_since_sent} days ago · never opened`,
   },
   {
     key: 'openedNoAnswer',
     title: 'Opened, no answer',
-    blurb: 'They have seen the week and said nothing about it. This one is a conversation.',
+    blurb: 'Seen, nothing said. This one is a conversation.',
     line: (row) => `sent ${row.days_since_sent} days ago · opened, nothing back`,
   },
 ]
@@ -86,6 +88,11 @@ export function countdown(daysLeft: number | null): string | null {
 function percent(part: number, whole: number): string {
   if (whole === 0) return '—'
   return `${Math.round((part / whole) * 100)}%`
+}
+
+function share(part: number, whole: number): number {
+  if (whole === 0) return 0
+  return Math.round((part / whole) * 100)
 }
 
 /** The heat lists: who is on fire, who has gone cold, and the two situations
@@ -175,12 +182,12 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
           {' '}{scout.fix}
         </p>
       )}
-      <div className="section-head">
-        <h2>Today</h2>
-        <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          Week of {formatDate(sweep.weekOf)}
-        </span>
-      </div>
+      <header className="dash-head dash-head-flush">
+        <div>
+          <h2 className="dash-title">Today</h2>
+          <p className="dash-sub">Week of {formatDate(sweep.weekOf)}</p>
+        </div>
+      </header>
 
       {/* Supply and delivery, always together. A board that showed only what
           she did would blame her for a brief that was never sent. */}
@@ -188,11 +195,13 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
         <div className="score-cell" data-side="ours">
           <span className="axis-name">Sent on time · us</span>
           <b>{percent(score.sentOnTime, score.sent)}</b>
+          <div className="score-meter" aria-hidden><i style={{ width: `${share(score.sentOnTime, score.sent)}%` }} /></div>
           <span className="score-of">{score.sentOnTime} of {score.sent} weeks</span>
         </div>
         <div className="score-cell">
           <span className="axis-name">Accepted · them</span>
           <b>{percent(score.accepted, score.items)}</b>
+          <div className="score-meter" aria-hidden><i style={{ width: `${share(score.accepted, score.items)}%` }} /></div>
           <span className="score-of">
             {score.accepted} of {score.items}
             {score.declined > 0 && ` · ${score.declined} turned down`}
@@ -201,16 +210,18 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
         <div className="score-cell">
           <span className="axis-name">Filmed · them</span>
           <b>{percent(score.filmed, score.items)}</b>
+          <div className="score-meter" aria-hidden><i style={{ width: `${share(score.filmed, score.items)}%` }} /></div>
           <span className="score-of">{score.filmed} of {score.items}</span>
         </div>
         <div className="score-cell">
           <span className="axis-name">Posted · them</span>
           <b>{percent(score.posted, score.items)}</b>
+          <div className="score-meter" aria-hidden><i style={{ width: `${share(score.posted, score.items)}%` }} /></div>
           <span className="score-of">{score.posted} of {score.items}</span>
         </div>
         <p className="score-foot">
-          Across the last {score.weeks} weeks of sent plans. A week counts as on
-          time when the brief was in their hands before the week it is for started.
+          Across the last {score.weeks} sent weeks. On time = in their hands
+          before the week starts.
         </p>
       </div>
 
@@ -230,9 +241,12 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
                 {rows.map((row) => (
                   <li key={row.id}>
                     <button className="sweeprow" onClick={() => onOpenModel(row.id)}>
+                      <Avatar name={row.name} src={row.photo_url} size={40} />
+                      <span className="sweeprow-top">
+                        <span className="sweeprow-name">{row.name}</span>
+                        <span className="sweeprow-why">{list.line(row)}</span>
+                      </span>
                       <span className="sweeprow-tier">{row.tier}</span>
-                      <span className="sweeprow-name">{row.name}</span>
-                      <span className="sweeprow-why">{list.line(row)}</span>
                       {countdown(row.days_left) && (
                         <span className="sweeprow-due">{countdown(row.days_left)}</span>
                       )}
@@ -265,9 +279,12 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
                 {rows.map((row) => (
                   <li key={row.id}>
                     <button className="sweeprow" onClick={() => onOpenModel(row.id)}>
+                      <Avatar name={row.name} src={row.photo_url} size={40} />
+                      <span className="sweeprow-top">
+                        <span className="sweeprow-name">{row.name}</span>
+                        <span className="sweeprow-why">{standing[row.id]?.engagement.why}</span>
+                      </span>
                       <span className="sweeprow-tier">{standing[row.id]?.priority ?? '–'}</span>
-                      <span className="sweeprow-name">{row.name}</span>
-                      <span className="sweeprow-why">{standing[row.id]?.engagement.why}</span>
                     </button>
                   </li>
                 ))}
@@ -286,10 +303,7 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
           <h3>On more than one week</h3>
           <span className="tally">{sweep.collisions.length}</span>
         </div>
-        <p className="hint">
-          The same reel is on two active models&rsquo; weeks. Deliberate is fine —
-          this is here so it is deliberate.
-        </p>
+        <p className="hint">One reel, two active weeks. Kept so it stays deliberate.</p>
         {sweep.collisions.length === 0 ? (
           <p className="sweepclear">Clear.</p>
         ) : (
@@ -297,9 +311,12 @@ export default function SweepTab({ onOpenModel }: { onOpenModel: (id: string) =>
             {sweep.collisions.map((clash) => (
               <li key={clash.job_id}>
                 <span className="sweeprow" role="note">
+                  <Avatar name={clash.author ?? 'Reel'} src={thumbUrl(clash.job_id)} size={40} />
+                  <span className="sweeprow-top">
+                    <span className="sweeprow-name">{clash.author ?? clash.job_id}</span>
+                    <span className="sweeprow-why">{clash.names}</span>
+                  </span>
                   <span className="sweeprow-tier">{clash.models}</span>
-                  <span className="sweeprow-name">{clash.author ?? clash.job_id}</span>
-                  <span className="sweeprow-why">{clash.names}</span>
                 </span>
               </li>
             ))}

@@ -15,11 +15,14 @@ const PAD = { top: 12, right: 12, bottom: 28, left: 52 }
  */
 export default function LineChart({
   series, previous = [], label, emptyNote,
+  legend = { now: 'This period', prev: 'Previous period' },
 }: {
   series: Point[]
   previous?: Point[]
   label: string
   emptyNote: string
+  /** What the solid and dashed lines mean, when they are not two periods. */
+  legend?: { now: string; prev: string }
 }) {
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom
@@ -43,8 +46,8 @@ export default function LineChart({
     <figure className="dash-chart">
       {prev.length > 0 && (
         <figcaption className="dash-legend">
-          <span data-series="now">This period</span>
-          <span data-series="prev">Previous period</span>
+          <span data-series="now">{legend.now}</span>
+          <span data-series="prev">{legend.prev}</span>
         </figcaption>
       )}
       <div className="dash-plot">
@@ -56,7 +59,7 @@ export default function LineChart({
               <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end">{tickLabel(t, scale[1] !== undefined ? scale[1] - scale[0] : t)}</text>
             </g>
           ))}
-          {series.map((p, i) => (i % labelEvery === 0 || i === series.length - 1) && (
+          {series.map((p, i) => (i === series.length - 1 || (i % labelEvery === 0 && series.length - 1 - i > 1)) && (
             <text key={p.day} className="dash-axis" x={x(i, series.length)} y={H - 8} textAnchor={i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'}>{shortDay(p.day)}</text>
           ))}
           {prev.length > 0 && <path className="dash-line-prev" d={path(prev)} />}
@@ -66,16 +69,31 @@ export default function LineChart({
           {shown && at !== null && (
             <g className="dash-cross">
               <line x1={x(at, series.length)} x2={x(at, series.length)} y1={PAD.top} y2={PAD.top + plotH} />
-              <circle cx={x(at, series.length)} cy={y(shown.value)} r="5" />
+              <circle className="dash-cross-now" cx={x(at, series.length)} cy={y(shown.value)} r="5" />
+              {prev[at] && (
+                <circle className="dash-cross-prev" cx={x(at, series.length)} cy={y(prev[at].value)} r="4" />
+              )}
             </g>
           )}
         </svg>
         {shown && at !== null && (
           <div className="dash-tip" style={{ left: `${(x(at, series.length) / W) * 100}%` }} role="status">
             <b>{shortDay(shown.day)}</b>
-            <span>{shown.value.toLocaleString('en-US')}</span>
-            {at > 0 && <span className="dash-tip-sub">{signed(shown.value - series[at - 1].value)} that day</span>}
-            {prev[at] && <span className="dash-tip-sub">Previous: {compact(prev[at].value)}</span>}
+            <span className="dash-tip-row">
+              <i className="dash-tip-dot" data-series="now" aria-hidden />
+              {legend.now}: <b>{shown.value.toLocaleString('en-US')}</b>
+            </span>
+            {prev[at] && (
+              <span className="dash-tip-row">
+                <i className="dash-tip-dot" data-series="prev" aria-hidden />
+                {legend.prev}: <b>{compact(prev[at].value)}</b>
+              </span>
+            )}
+            {at > 0 && (
+              <span className="dash-tip-sub">
+                {signed(shown.value - series[at - 1].value)} {legend.now.toLowerCase()} vs the day before
+              </span>
+            )}
           </div>
         )}
       </div>

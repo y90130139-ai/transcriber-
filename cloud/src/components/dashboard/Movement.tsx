@@ -1,5 +1,6 @@
 import type { ModelPerf } from '@/lib/performance/load'
 import Avatar from './Avatar'
+import { signed } from './format'
 
 const GROUPS = [
   { key: 'up', title: 'Trending up', icon: '↑' },
@@ -12,7 +13,7 @@ export default function Movement({ models, onOpen }: { models: ModelPerf[]; onOp
   const unknown = models.filter((m) => !m.trend).length
   return (
     <section className="dash-panel dash-movement" aria-labelledby="dash-move-h">
-      <header className="dash-panel-head">
+      <header className="dash-panel-head dash-panel-head-flush">
         <h2 id="dash-move-h">Movement</h2>
         <p>Views on settled reels and follower change</p>
       </header>
@@ -24,9 +25,12 @@ export default function Movement({ models, onOpen }: { models: ModelPerf[]; onOp
               <h3><b aria-hidden>{group.icon}</b> {group.title} <span>{members.length}</span></h3>
               <div className="dash-faces">
                 {members.map((m) => (
-                  <button key={m.id} className="dash-face" onClick={() => onOpen(m.id)} title={m.name}>
-                    <Avatar name={m.name} src={m.photo_url} size={36} />
+                  <button key={m.id} className="dash-face" onClick={() => onOpen(m.id)} title={`${m.name} · ${signed(m.followers_gain)} followers`}>
+                    <Avatar name={m.name} src={m.photo_url} size={44} />
                     <span>{m.name.split(' ')[0]}</span>
+                    {m.followers_gain !== null && (
+                      <small data-sign={Math.sign(m.followers_gain)}>{signed(m.followers_gain)}</small>
+                    )}
                   </button>
                 ))}
                 {members.length === 0 && <p className="dash-empty">Nobody</p>}

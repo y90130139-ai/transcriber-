@@ -11,12 +11,17 @@ import Movement from './Movement'
 import PeriodSwitch, { type Period } from './PeriodSwitch'
 import StatCards from './StatCards'
 import TopReels from './TopReels'
+import ViewSwitch, { type DashView } from './ViewSwitch'
 import { shortDay } from './format'
 
 const PERIOD_KEY = 'sinaura-dash-period'
 
 /** The first thing the console shows: where every model stands on Instagram. */
-export default function Dashboard({ onOpenModel }: { onOpenModel: (id: string) => void }) {
+export default function Dashboard({ onOpenModel, view, onView }: {
+  onOpenModel: (id: string) => void
+  view: DashView
+  onView: (next: DashView) => void
+}) {
   const [period, setPeriod] = useState<Period>(30)
   const [board, setBoard] = useState<Board | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -50,18 +55,18 @@ export default function Dashboard({ onOpenModel }: { onOpenModel: (id: string) =
     <div className="dash">
       <header className="dash-head">
         <div>
-          <p className="dash-kicker">Account intelligence</p>
           <h2 className="dash-title">Overview</h2>
           <p className="dash-sub">Every model&rsquo;s Instagram, read by Scout each day.</p>
         </div>
         <div className="dash-head-tools">
-          <PeriodSwitch value={period} onChange={choose} />
-          {board && <p className="dash-range">{shortDay(board.from)} – {shortDay(board.to)}</p>}
+          <div className="dash-head-controls">
+            <ViewSwitch value={view} onChange={onView} />
+            <PeriodSwitch value={period} onChange={choose} />
+          </div>
         </div>
       </header>
 
       {error && <p className="dash-error" role="alert">{error} <button className="chip" onClick={() => void load(period)}>Retry</button></p>}
-      {!board && !error && <p className="dash-empty" aria-busy="true">Reading every account…</p>}
 
       {board && (
         <>
@@ -88,7 +93,7 @@ export default function Dashboard({ onOpenModel }: { onOpenModel: (id: string) =
           <Movement models={board.models} onOpen={onOpenModel} />
           <TopReels reels={board.top_reels} />
           <section className="dash-panel" aria-labelledby="dash-views-h">
-            <header className="dash-panel-head">
+            <header className="dash-panel-head dash-panel-head-flush">
               <h2 id="dash-views-h">Views by day posted</h2>
               <p>Plays on every model&rsquo;s reels, by the day they went up</p>
             </header>

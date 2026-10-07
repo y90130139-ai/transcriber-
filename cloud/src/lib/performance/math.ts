@@ -117,6 +117,17 @@ export function viewsByDay(posts: Post[], days: string[]): { day: string; value:
   return days.map((day) => ({ day, value: byDay.get(day) ?? 0 }))
 }
 
+/** Reels posted each day (a day with none is 0). */
+export function reelsByDay(posts: Post[], days: string[]): { day: string; value: number }[] {
+  const byDay = new Map<string, number>()
+  for (const p of posts) {
+    if (!p.posted_at) continue
+    const day = p.posted_at.slice(0, 10)
+    byDay.set(day, (byDay.get(day) ?? 0) + 1)
+  }
+  return days.map((day) => ({ day, value: byDay.get(day) ?? 0 }))
+}
+
 /**
  * Views direction from settled reels: the median of her newest settled reels
  * against the median of the ones before them. Null when there are not enough

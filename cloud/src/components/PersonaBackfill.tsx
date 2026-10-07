@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { labelOf, taxonomy } from '@/lib/taxonomy'
+import { useEffect, useState } from 'react'
+import { labelOf, taxonomy, toneOf } from '@/lib/taxonomy'
 
 /** One creator's shelf, and what the lexicon makes of it. */
 type Proposal = {
@@ -25,7 +25,7 @@ type Proposal = {
 }
 
 /** How many creators a sitting is. Ten covers most of the library by volume. */
-const BATCH = 10
+export const BATCH = 10
 
 /** How many of the matched phrases to show before the rest become a count.
  *  The evidence has to be readable at a glance or it stops being read. */
@@ -68,8 +68,11 @@ function why(one: Proposal['proposed'][number], posts: number): string {
   return parts.join(' · ')
 }
 
-export default function PersonaBackfill({ onApplied }: { onApplied: () => void }) {
-  const [open, setOpen] = useState(false)
+export default function PersonaBackfill({ onApplied, open, onOpenChange }: {
+  onApplied: () => void
+  open: boolean
+  onOpenChange: (next: boolean) => void
+}) {
   const [rows, setRows] = useState<Proposal[] | null>(null)
   const [chosen, setChosen] = useState<Record<string, string[]>>({})
   const [editing, setEditing] = useState<string | null>(null)
@@ -92,6 +95,13 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
       row.persona.length > 0 ? row.persona : row.proposed.map((one) => one.tag),
     ])))
   }
+
+  // The trigger lives in the tab header now; opening it is what asks for the
+  // proposals, once.
+  useEffect(() => {
+    if (open && rows === null) void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   function toggle(handle: string, tag: string) {
     setChosen((current) => {
@@ -124,26 +134,17 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
     onApplied()
   }
 
-  if (!open) {
-    return (
-      <div className="backfill-open">
-        <button className="btn btn-quiet" onClick={() => { setOpen(true); void load() }}>
-          Persona backfill — propose for the top {BATCH}
-        </button>
-      </div>
-    )
-  }
+  if (!open) return null
 
   return (
     <section className="backfill" aria-label="Persona backfill">
       <div className="section-head">
         <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Persona backfill</h2>
-        <button className="btn btn-quiet btn-small" onClick={() => setOpen(false)}>Close</button>
+        <button className="pill" onClick={() => onOpenChange(false)}>Close</button>
       </div>
       <p className="hint">
-        What each creator&rsquo;s own shelf suggests, with the words that suggested
-        it. Nothing is written until you approve it, and approving carries the
-        persona to every post of theirs — not just the ones from here on.
+        Proposed from their own shelf, with the words that suggested it. Carries
+        to every post of theirs once approved.
       </p>
 
       {rows === null ? (
@@ -164,11 +165,7 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
                 </div>
 
                 {row.proposed.length === 0 && picked.length === 0 ? (
-                  <p className="hint">
-                    Nothing in what they say points anywhere. Pick it by hand or
-                    leave them — a guess with no evidence behind it is worse than
-                    an empty field.
-                  </p>
+                  <p className="hint">Nothing points anywhere — pick by hand or leave them.</p>
                 ) : (
                   <div className="chips">
                     {[...new Set([...picked, ...row.proposed.map((one) => one.tag)])].map((tag) => (
@@ -176,6 +173,7 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
                         key={tag}
                         className="chip"
                         data-on={picked.includes(tag)}
+                        data-tone={toneOf('persona', tag)}
                         onClick={() => toggle(row.handle, tag)}
                       >
                         {labelOf('persona', tag)}
@@ -188,10 +186,7 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
                     what they have already posted — which is the exact gap this
                     panel exists to close, so it is worth naming. */}
                 {row.persona.length > 0 && row.tagged === 0 && (
-                  <p className="hint">
-                    Already set on them, but on none of their {row.posts} posts.
-                    Approving is what carries it down.
-                  </p>
+                  <p className="hint">Set on them, on none of their {row.posts} posts yet.</p>
                 )}
 
                 {/* The evidence. Approving a claim about a person without it is
@@ -215,6 +210,7 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
                         key={tag.id}
                         className="chip"
                         data-on={picked.includes(tag.id)}
+                        data-tone={toneOf('persona', tag.id)}
                         onClick={() => toggle(row.handle, tag.id)}
                       >
                         {tag.label}
@@ -225,14 +221,14 @@ export default function PersonaBackfill({ onApplied }: { onApplied: () => void }
 
                 <div className="backfill-actions">
                   <button
-                    className="btn btn-small"
+                    className="pill"
                     disabled={busy === row.handle}
                     onClick={() => void approve(row)}
                   >
                     {busy === row.handle ? 'Saving' : 'Approve'}
                   </button>
                   <button
-                    className="btn btn-quiet btn-small"
+                    className="pill"
                     onClick={() => setEditing(editing === row.handle ? null : row.handle)}
                   >
                     {editing === row.handle ? 'Done' : 'Correct it'}

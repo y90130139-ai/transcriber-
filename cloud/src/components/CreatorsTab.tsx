@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PersonaProposals from './PersonaProposals'
-import WatchlistPanel from './WatchlistPanel'
 import CreatorSheet from './CreatorSheet'
-import PersonaBackfill from './PersonaBackfill'
+import PersonaBackfill, { BATCH } from './PersonaBackfill'
+import DropMulti from './dashboard/DropMulti'
+import DropSelect from './dashboard/DropSelect'
 import { compact, thumbUrl } from '@/lib/format'
-import { labelOf, taxonomy } from '@/lib/taxonomy'
+import { labelOf, taxonomy, toneOf } from '@/lib/taxonomy'
 
 export type Creator = {
   handle: string
@@ -39,10 +40,12 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
 
   const [query, setQuery] = useState('')
   const [persona, setPersona] = useState<string[]>([])
-  const [showPersona, setShowPersona] = useState(false)
   // Persona carries to every future post a creator makes, so the ones missing
   // it are the highest-value thing on this screen to go and fix.
   const [needsPersona, setNeedsPersona] = useState(false)
+  // The backfill trigger sits beside the filter it belongs to; the panel it
+  // opens renders under the search line, where the work happens.
+  const [backfill, setBackfill] = useState(false)
   const [sort, setSort] = useState<Sort>('posts')
 
   const load = useCallback(async () => {
@@ -76,97 +79,82 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
 
   const active = persona.length + (query.trim() ? 1 : 0) + (needsPersona ? 1 : 0)
 
+  const tally = loading
+    ? 'Loading'
+    : active > 0
+      ? `${shown.length} of ${creators.length}`
+      : `${creators.length} creator${creators.length === 1 ? '' : 's'}`
+
   return (
     <>
-      <WatchlistPanel />
-      <PersonaProposals />
-      <section className="filters" aria-label="Creator filters">
-        <div className="filter-rail">
-          <input
-            className="pill pill-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find a creator"
-            aria-label="Find a creator"
-          />
-
-          <button
-            className="pill"
-            data-on={persona.length > 0}
-            onClick={() => setShowPersona(!showPersona)}
-          >
-            {taxonomy.persona.label}
-            {persona.length > 0 && <b> {persona.length}</b>}
-          </button>
-
-          <button className="pill" data-on={needsPersona} onClick={() => setNeedsPersona(!needsPersona)}>
-            Needs persona
-          </button>
-
-          <select
-            className="pill pill-select"
-            value={sort}
-            onChange={(event) => setSort(event.target.value as Sort)}
-            aria-label="Sort creators"
-          >
-            {SORTS.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
-
-          {active > 0 && (
-            <button
-              className="pill pill-clear"
-              onClick={() => { setQuery(''); setPersona([]); setNeedsPersona(false) }}
-            >
-              Clear {active}
-            </button>
-          )}
+      <header className="dash-head dash-head-flush">
+        <div>
+          <h2 className="dash-title">Creators</h2>
+          <p className="dash-sub">{tally}</p>
         </div>
-
-        {showPersona && (
-          <div className="filter-tags">
-            {taxonomy.persona.tags.map((tag) => (
+        <div className="dash-head-tools">
+          <div className="dash-head-controls">
+            <button className="pill" data-on={needsPersona} onClick={() => setNeedsPersona(!needsPersona)}>
+              Needs persona
+            </button>
+            <button className="pill" data-on={backfill} onClick={() => setBackfill(!backfill)}>
+              Persona backfill — propose for the top {BATCH}
+            </button>
+            <DropMulti
+              values={persona}
+              onChange={setPersona}
+              label={taxonomy.persona.label}
+              summary={taxonomy.persona.label}
+              options={taxonomy.persona.tags.map((tag) => ({ value: tag.id, label: tag.label }))}
+            />
+            <DropSelect
+              value={sort}
+              onChange={(next) => setSort(next as Sort)}
+              label="Sort creators"
+              options={SORTS.map((option) => ({ value: option.id, label: option.label }))}
+            />
+            {active > 0 && (
               <button
-                key={tag.id}
-                className="chip"
-                data-on={persona.includes(tag.id)}
-                onClick={() =>
-                  setPersona((current) =>
-                    current.includes(tag.id)
-                      ? current.filter((id) => id !== tag.id)
-                      : [...current, tag.id],
-                  )
-                }
+                className="pill pill-clear"
+                onClick={() => { setQuery(''); setPersona([]); setNeedsPersona(false) }}
               >
-                {tag.label}
+                Clear {active}
               </button>
-            ))}
+            )}
           </div>
+        </div>
+      </header>
+
+      <div className="searchline">
+        <svg className="searchline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="16.5" y1="16.5" x2="21" y2="21" />
+        </svg>
+        <input
+          className="searchline-input"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Find a creator"
+          aria-label="Find a creator"
+        />
+        {query && (
+          <button type="button" className="minput-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>
         )}
-      </section>
+      </div>
+
+      <PersonaProposals />
 
       {/* Only 44 of 166 items carry a persona. Fixing that per item is 166
           decisions; per creator it is about ten. */}
-      <PersonaBackfill onApplied={() => void load()} />
-
-      <div className="section-head">
-        <h2>Creators</h2>
-        <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          {loading
-            ? 'Loading'
-            : active > 0
-              ? `${shown.length} of ${creators.length}`
-              : `${creators.length} creator${creators.length === 1 ? '' : 's'}`}
-        </span>
-      </div>
+      <PersonaBackfill open={backfill} onOpenChange={setBackfill} onApplied={() => void load()} />
 
       {creators.length === 0 && !loading ? (
         <div className="empty"><p>No creators yet. Add a few reels first.</p></div>
       ) : shown.length === 0 ? (
         <div className="empty"><p>No creator matches that.</p></div>
       ) : (
-        <div className="models">
+        <div className="models" style={{ marginTop: 'var(--sc-space-5)' }}>
           {shown.map((creator) => (
             <button key={creator.handle} className="model" onClick={() => setOpen(creator.handle)}>
               <span className="model-frame">
@@ -176,18 +164,20 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
                   <span className="card-frame-empty">{creator.handle}</span>
                 )}
               </span>
-              <span className="model-handle">{creator.handle}</span>
+              <span className="model-top">
+                <span className="model-handle">{creator.handle}</span>
+                <span className="model-figures"><b>{compact(creator.median_score)}</b> normal</span>
+              </span>
               {creator.display_name && <span className="model-name">{creator.display_name}</span>}
               <span className="model-persona">
                 {creator.persona.length > 0
                   ? creator.persona.map((tag) => (
-                      <span key={tag}>{labelOf('persona', tag)}</span>
+                      <span key={tag} data-tone={toneOf('persona', tag)}>{labelOf('persona', tag)}</span>
                     ))
                   : <span data-empty="true">No persona set</span>}
               </span>
               <span className="model-figures">
-                <b>{creator.posts}</b> held · <b>{creator.recent_posts}</b> in 90d ·
-                normal <b>{compact(creator.median_score)}</b>
+                <b>{creator.posts}</b> held · <b>{creator.recent_posts}</b> in 90d
               </span>
             </button>
           ))}

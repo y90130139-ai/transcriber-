@@ -5,54 +5,29 @@ import SendSurveys from './SendSurveys'
 import ModelProfile, { type ProfileTab } from './ModelProfile'
 import PlanEditor from './PlanEditor'
 import BatchWeek from './BatchWeek'
-import StandingBadge from './StandingBadge'
 import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
 import { formatDate } from '@/lib/dates'
-import { displayHandle, labelOfPlatform, shortOfPlatform, withImpliedInstagram, withLinkedOnlyfans } from '@/lib/socials'
-import PlatformIcon, { hasPlatformIcon } from './PlatformIcon'
-import { labelOf } from '@/lib/taxonomy'
 import { reasonLabel } from '@/lib/inactive'
 import type { RosterModel } from './types'
+import type { Standing } from '@/lib/standing'
 import type { Sweep, SweepRow } from '@/lib/sweep'
 
 /** Our own people — as opposed to the Creators tab, which is the Instagram
  *  accounts we research. Different entity, different table, different tab. */
-/** Every account of hers, as tap targets on the card.
- *
- *  Capped: a card is a card, and a model on nine platforms would push her
- *  figures off the bottom of it. The rest are one tap away in the sheet. */
-function CardLinks({ model }: { model: RosterModel }) {
-  const links = withLinkedOnlyfans(withImpliedInstagram(model.socials ?? [], model.handle), model.onlyfans_accounts)
-  if (links.length === 0) return null
+
+/** The heat, worn on the photo: 🔥 on fire, 🧊 cold. The same reading the
+ *  Today page's heat lists are built on, loud enough to scan a grid by. */
+function HeatFlag({ standing }: { standing?: Standing }) {
+  const heat = standing?.engagement.heat
+  if (heat !== 'fire' && heat !== 'cold') return null
   return (
-    <span className="card-links">
-      {links.slice(0, CARD_LINKS).map((link) => (
-        <a
-          key={link.url}
-          className="card-link"
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`${labelOfPlatform(link.platform)} · ${displayHandle(link)}`}
-          aria-label={`${labelOfPlatform(link.platform)}: ${displayHandle(link)}`}
-          data-icon={hasPlatformIcon(link.platform) || undefined}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {hasPlatformIcon(link.platform)
-            ? <PlatformIcon platform={link.platform} />
-            : shortOfPlatform(link.platform)}
-        </a>
-      ))}
-      {links.length > CARD_LINKS && (
-        <span className="card-link" aria-hidden="true">+{links.length - CARD_LINKS}</span>
-      )}
+    <span className="roster-heat" data-heat={heat} title={standing?.engagement.why}>
+      {heat === 'fire' ? '🔥 On fire' : '🧊 Cold'}
     </span>
   )
 }
-
-const CARD_LINKS = 5
 
 /** Priority is the heading: the roster's whole job is to answer "who needs me",
  *  and that is who gets attention first. Plan type (bespoke / mixed / library)
@@ -68,7 +43,6 @@ const GROUPS: { key: Group; label: string }[] = [
   // Last, greyed out, one tap from coming back (2026-09-30).
   { key: 'inactive', label: 'Inactive' },
 ]
-const PLAN_TYPE = { A: 'bespoke', B: 'mixed', C: 'library only' } as const
 
 export default function RosterTab({
   openPlanFor,
@@ -89,6 +63,7 @@ export default function RosterTab({
   const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
   const [editingTab, setEditingTab] = useState<ProfileTab>('profile')
   const [planning, setPlanning] = useState<RosterModel | null>(null)
+  const [batchOpen, setBatchOpen] = useState(false)
   const { standing, reload: loadStanding } = useStanding()
   const groupOf = (model: RosterModel): Group =>
     model.status === 'paused' ? 'inactive' : standing[model.id]?.priority ?? 'none'
@@ -158,28 +133,38 @@ export default function RosterTab({
 
   return (
     <>
-      {/* Week creation was per model, per click — twenty models is twenty
-          clicks and eighty hand-authored cards every Monday. */}
-      <BatchWeek onBuilt={() => { void load(); void loadSweep() }} />
-
-      <div className="section-head">
-        <h2>Models</h2>
-        <div className="roster-head-actions">
-          <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-            {loading ? 'Loading' : weekOf ? `Week of ${formatDate(weekOf)}` : ''}
-          </span>
-          <button
-            className="chip"
-            aria-pressed={activeFirst}
-            data-on={activeFirst}
-            onClick={() => setActiveFirst((on) => !on)}
-          >
-            {activeFirst ? 'Most active first' : 'A–Z'}
-          </button>
-          <SendSurveys />
-          <button className="btn" onClick={() => setEditing('new')}>Add a model</button>
+      <header className="dash-head dash-head-flush">
+        <div>
+          <h2 className="dash-title">Models</h2>
+          <p className="dash-sub">
+            {loading
+              ? 'Loading'
+              : `${models.length} model${models.length === 1 ? '' : 's'}${weekOf ? ` · week of ${formatDate(weekOf)}` : ''}`}
+          </p>
         </div>
-      </div>
+        <div className="dash-head-tools">
+          <div className="dash-head-controls">
+            <button
+              className="pill"
+              aria-pressed={activeFirst}
+              data-on={activeFirst}
+              onClick={() => setActiveFirst((on) => !on)}
+            >
+              {activeFirst ? 'Most active first' : 'A–Z'}
+            </button>
+            <SendSurveys />
+            {/* Week creation was per model, per click — twenty models is
+                twenty clicks and eighty hand-authored cards every Monday. */}
+            <button className="btn btn-quiet" onClick={() => setBatchOpen(true)}>
+              Build a week for everyone
+            </button>
+            <button className="btn" onClick={() => setEditing('new')}>Add a model</button>
+          </div>
+        </div>
+      </header>
+
+      <BatchWeek open={batchOpen} onOpenChange={setBatchOpen}
+        onBuilt={() => { void load(); void loadSweep() }} />
 
       {models.length === 0 && !loading ? (
         <div className="empty">
@@ -197,11 +182,16 @@ export default function RosterTab({
           </h3>
         <div className="models">
           {inGroup(group.key).map((model) => (
-            <div key={model.id} className="model roster-card" data-paused={model.status === 'paused'}>
+            <div
+              key={model.id}
+              className="model roster-card"
+              data-paused={model.status === 'paused'}
+              onClick={() => setEditing(model)}
+            >
               <button
                 className="model-frame roster-frame"
                 onClick={() => setEditing(model)}
-                aria-label={`Edit ${model.name}`}
+                aria-label={`Open ${model.name}`}
               >
                 {model.photo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -213,8 +203,12 @@ export default function RosterTab({
                   <span className="roster-unread">{model.unread_notes} unread</span>
                 )}
                 <TrendChip trend={standing[model.id]?.trend} />
+                <HeatFlag standing={standing[model.id]} />
               </button>
 
+              {/* Two things on the face — who she is and where her week
+                  stands. Everything else (persona, figures, links, standing)
+                  lives in the sheet this card opens. */}
               <span className="model-handle">{model.name}</span>
               {model.status === 'paused' && (
                 <span className="roster-inactive">
@@ -223,49 +217,15 @@ export default function RosterTab({
               )}
               {model.handle && <span className="model-name">@{model.handle}</span>}
 
-              <StandingBadge standing={standing[model.id]} />
-
-              <span className="model-persona">
-                {model.persona.length > 0 ? (
-                  model.persona.map((tag) => <span key={tag}>{labelOf('persona', tag)}</span>)
-                ) : (
-                  <span data-empty="true">No persona set</span>
-                )}
-              </span>
-
-              <span className="model-figures">
-                <b>{model.week_items}</b> this week · <b>{model.week_filmed}</b> filmed
-                {model.week_waiting > 0 && <> · <b>{model.week_waiting}</b> uploading</>}
-                {model.week_declined > 0 && (
-                  <> · <b className="roster-declined">{model.week_declined}</b> turned down</>
-                )}
-                {/* Sent and seen used to be the same state. Only said once
-                    the plan is actually out — "not opened" on a draft nobody
-                    sent is noise, and the sweep's own side already carries
-                    that. */}
-                {model.plan_status === 'sent' && (
-                  model.week_opened
-                    ? <> · opened</>
-                    : <> · <b className="roster-declined">not opened</b></>
-                )}
-                {' · '}{PLAN_TYPE[model.tier ?? 'B']}
-              </span>
-
-              {/* Her accounts, on the grid. The common case — open her
-                  Instagram and look at what she posted — should not need the
-                  profile opened at all, which is the whole point of the ask.
-                  `stopPropagation` because the card behind opens the sheet. */}
-              <CardLinks model={model} />
-
-              {/* Why she is red, not just that she is. A count alone reads the
-                  same whether the week was never sent or she is filming it. */}
               <SweepFlags row={sweepFor(model.id)} />
 
               <span className="roster-actions">
-                <button className="btn btn-small" onClick={() => setPlanning(model)}>
+                <button className="btn btn-small"
+                  onClick={(event) => { event.stopPropagation(); setPlanning(model) }}>
                   {model.plan_status === 'sent' ? 'Plan · sent' : 'Plan'}
                 </button>
-                <button className="btn btn-quiet btn-small" onClick={() => setEditing(model)}>
+                <button className="btn btn-quiet btn-small"
+                  onClick={(event) => { event.stopPropagation(); setEditing(model) }}>
                   Edit
                 </button>
               </span>

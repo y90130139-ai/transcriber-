@@ -7,6 +7,10 @@ config.json
 __pycache__/
 *.pyc
 secrets/
+# The root .env carries live credentials (Neon, R2, Apify) — never commit it.
+.env
+.env.*
+!.env.example
 
 # macOS
 .DS_Store

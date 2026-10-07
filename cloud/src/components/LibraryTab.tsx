@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import BulkAssign from './roster/BulkAssign'
-import FilterBar, { type Filters } from './FilterBar'
+import DropMulti from './dashboard/DropMulti'
+import DropSelect from './dashboard/DropSelect'
+import { SORTS, WINDOWS, type Filters } from './FilterBar'
+import { AXES, taxonomy } from '@/lib/taxonomy'
 import LibraryGrid from './LibraryGrid'
-import { BADGE_LEGEND } from '@/lib/appeal'
 import SoundsPanel from './SoundsPanel'
 import type { LibraryItem } from '@/lib/format'
 
@@ -44,6 +46,15 @@ export default function LibraryTab({
     filters.persona.length + filters.format.length + filters.hook.length > 0 ||
     Boolean(filters.creator) || Boolean(filters.window) || filters.hot
 
+  const title = filters.hot ? 'Outperforming' : query ? 'Matches' : 'Library'
+  // "90 items" was true and read as complete. A truncated view now says so
+  // in the same breath as its own size.
+  const tally = loading
+    ? 'Loading'
+    : total > items.length
+      ? `Showing ${items.length} of ${total}`
+      : `${items.length} item${items.length === 1 ? '' : 's'}`
+
   const toggle = (id: string) =>
     setSelected((current) => {
       const next = new Set(current)
@@ -73,7 +84,69 @@ export default function LibraryTab({
 
   return (
     <>
+      <header className="dash-head dash-head-flush">
+        <div>
+          <h2 className="dash-title">{title}</h2>
+          <p className="dash-sub">{tally}</p>
+        </div>
+        <div className="dash-head-tools">
+          <div className="dash-head-controls">
+            <button
+              className="pill"
+              data-on={filters.hot}
+              onClick={() => onFilters({ ...filters, hot: !filters.hot })}
+            >
+              🔥 Hot
+            </button>
+            <DropSelect
+              value={filters.sort}
+              onChange={(next) => onFilters({ ...filters, sort: next as Filters['sort'] })}
+              label="Sort"
+              options={SORTS.map((option) => ({ value: option.id, label: option.label }))}
+            />
+            <DropSelect
+              value={filters.shelf}
+              onChange={(next) => onFilters({ ...filters, shelf: next as Filters['shelf'] })}
+              label="Shelf"
+              options={[
+                { value: '', label: 'All reels' },
+                { value: 'expiring', label: 'Expiring' },
+                { value: 'archived', label: 'Archived' },
+              ]}
+            />
+            {AXES.map((axis) => (
+              <DropMulti
+                key={axis}
+                values={filters[axis]}
+                onChange={(next) => onFilters({ ...filters, [axis]: next })}
+                label={taxonomy[axis].label}
+                summary={taxonomy[axis].label}
+                options={taxonomy[axis].tags.map((tag) => ({ value: tag.id, label: tag.label }))}
+              />
+            ))}
+            <DropSelect
+              value={filters.creator}
+              onChange={(next) => onFilters({ ...filters, creator: next })}
+              label="Creator"
+              options={[{ value: '', label: 'Every creator' },
+                ...creators.map((creator) => ({ value: creator.handle, label: `${creator.handle} (${creator.posts})` }))]}
+            />
+            <DropSelect
+              value={filters.window}
+              onChange={(next) => onFilters({ ...filters, window: next as Filters['window'] })}
+              label="Date range"
+              options={WINDOWS.map((option) => ({ value: option.id, label: option.label }))}
+            />
+          </div>
+        </div>
+      </header>
+
       <div className="searchline">
+        <svg className="searchline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="16.5" y1="16.5" x2="21" y2="21" />
+        </svg>
         <input
           className="searchline-input"
           value={query}
@@ -82,29 +155,10 @@ export default function LibraryTab({
           aria-label="Search transcripts"
         />
         {query && (
-          <button className="pill pill-clear" onClick={() => onQuery('')}>Clear</button>
+          <button type="button" className="minput-clear" onClick={() => onQuery('')} aria-label="Clear search">×</button>
         )}
       </div>
 
-      <FilterBar filters={filters} creators={creators} onChange={onFilters} />
-
-      <div className="section-head">
-        <h2>{filters.hot ? 'Outperforming' : query ? 'Matches' : 'Library'}</h2>
-        {/* "90 items" was true and read as complete. A truncated view now says
-            so in the same breath as its own size. */}
-        <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          {loading
-            ? 'Loading'
-            : total > items.length
-              ? `Showing ${items.length} of ${total}`
-              : `${items.length} item${items.length === 1 ? '' : 's'}`}
-        </span>
-      </div>
-
-      {/* The multiplier was rendered in four places and explained in none.
-          A `title` tooltip is useless on a phone, which is where this gets
-          read, so the legend is visible copy rather than a hover. */}
-      <p className="legend">{BADGE_LEGEND}</p>
       <SoundsPanel />
 
       {items.length > 0 ? (
@@ -116,10 +170,7 @@ export default function LibraryTab({
           {items.length < total && (
             <div className="loadmore">
               {atCap ? (
-                <p className="hint">
-                  Showing {items.length} of {total}. Narrow it with a filter or a
-                  search to reach the rest.
-                </p>
+                <p className="hint">Showing {items.length} of {total}.</p>
               ) : (
                 <button className="btn btn-quiet" onClick={onMore}>
                   Load more — {total - items.length} left

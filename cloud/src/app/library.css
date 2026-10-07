@@ -18,9 +18,11 @@
   border: 0;
   padding: 0 0 var(--sc-space-2);
   cursor: pointer;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
+  text-decoration: none;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #7C776F;
   border-bottom: 2px solid transparent;
@@ -34,41 +36,56 @@
 .searchline {
   display: flex;
   align-items: center;
-  gap: var(--sc-space-4);
-  border-bottom: var(--sc-rule-lock);
-  padding: var(--sc-space-8) 0 var(--sc-space-4);
+  gap: var(--sc-space-3);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  margin-top: var(--sc-space-6);
 }
+.searchline:focus-within { border-color: var(--sc-ember); }
+.searchline-icon { width: 1.25rem; height: 1.25rem; flex: none; color: var(--sc-ink-300); }
 .searchline-input {
   flex: 1;
   min-width: 0;
   background: transparent;
   border: 0;
   font-family: var(--sc-font-text);
-  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem);
+  font-weight: 500;
+  font-size: var(--sc-text-lg);
   letter-spacing: var(--sc-track-tight);
   color: var(--sc-ink-900);
-  padding: var(--sc-space-2) 0;
+  padding: 0;
 }
 .searchline-input:focus { outline: none; }
 .searchline-input::placeholder { color: var(--sc-ink-150); }
+.minput-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--sc-ink-300);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.minput-clear:hover { background: var(--sc-ember-tint); color: var(--sc-ink-900); }
 
 /* --------------------------------------------------------- FILTERS */
-.filters { padding: var(--sc-space-4) 0 0; }
 
-.filter-rail {
-  display: flex;
-  flex-wrap: wrap;           /* wraps to a second line rather than hiding
-                                the creator, time and sort controls off-screen */
-  gap: var(--sc-space-2);
-  padding-bottom: var(--sc-space-2);
-}
-.filter-rail .pill-select { max-width: 100%; }
+
+
 
 .pill {
   flex: 0 0 auto;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: var(--sc-space-2) var(--sc-space-3);
   border: var(--sc-rule-hair);
@@ -79,7 +96,21 @@
   white-space: nowrap;
   transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
 }
+
+
 .pill:hover { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.pill:disabled { opacity: 0.4; cursor: default; }
+.pill:disabled:hover { border-color: var(--sc-ink-150); color: var(--sc-ink-500); }
+
+/* The queue's Add: the one primary pill on its screen. */
+.pill[data-primary='true'] {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #0A0A0A;
+  font-weight: 700;
+}
+.pill[data-primary='true']:hover:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+.pill[data-primary='true']:disabled { opacity: 0.35; }
 .pill[data-on='true'] {
   background: var(--sc-ink-900);
   color: var(--sc-bone);
@@ -108,14 +139,7 @@
 
 .pill-clear { color: var(--sc-ember-deep); border-color: var(--sc-ember-deep); }
 
-.filter-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-4) 0;
-  border-top: 1px dotted var(--sc-ink-150);
-  margin-top: var(--sc-space-2);
-}
+
 
 /* ------------------------------------------------------------ CHIPS */
 .chips { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: center; }
@@ -153,6 +177,35 @@
 .chip-static { cursor: default; }
 .chip-static b { color: var(--sc-ember-deep); font-weight: 500; }
 
+/* ------------------------------------------------------- TAG COLOUR
+   Eight tones, picked by a tag's place in its axis (toneOf in lib/taxonomy),
+   so a shelf of persona tags reads as categories. Text mixes toward the ink
+   token: the same palette lightens on ink and deepens on bone. A selected
+   tag goes solid. */
+[data-tone='1'] { --tag-c: #E8663A; }  /* ember   */
+[data-tone='2'] { --tag-c: #D9A036; }  /* amber   */
+[data-tone='3'] { --tag-c: #5FA97C; }  /* moss    */
+[data-tone='4'] { --tag-c: #56A8A8; }  /* teal    */
+[data-tone='5'] { --tag-c: #7B8FD4; }  /* indigo  */
+[data-tone='6'] { --tag-c: #A98BD8; }  /* violet  */
+[data-tone='7'] { --tag-c: #D9799B; }  /* rose    */
+[data-tone='8'] { --tag-c: #9AA3AD; }  /* slate   */
+
+.chip[data-tone] {
+  border-color: color-mix(in srgb, var(--tag-c) 45%, transparent);
+  color: color-mix(in srgb, var(--tag-c) 76%, var(--sc-ink-900));
+  background: color-mix(in srgb, var(--tag-c) 12%, transparent);
+}
+.chip[data-tone]:hover {
+  border-color: var(--tag-c);
+  color: color-mix(in srgb, var(--tag-c) 58%, var(--sc-ink-900));
+}
+.chip[data-tone][data-on='true'] {
+  background: var(--tag-c);
+  border-color: var(--tag-c);
+  color: #0A0A0A;
+}
+
 /* -------------------------------------------------------- TAG AXES */
 .axes { display: grid; gap: var(--sc-space-4); margin-bottom: var(--sc-space-6); }
 
@@ -164,10 +217,12 @@
   gap: var(--sc-space-4);
   margin-bottom: var(--sc-space-2);
 }
+/* Labels speak the console's voice, not the typewriter's. */
 .axis-name {
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
   font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
 }
@@ -289,7 +344,7 @@
 .card-open {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-3);
+  gap: var(--sc-space-2);
   text-align: left;
   background: none;
   border: 0;
@@ -324,31 +379,63 @@
 .card[data-picked='true'] .card-pick { background: var(--sc-ember); }
 @media (hover: none) { .card-pick { opacity: 1; } }
 
-.card-flame {
+/* Outperformance as a pill on the frame, not an emoji. Top right: the pick
+   button owns the top-left corner. */
+.card-hot {
   position: absolute;
-  top: 0;
-  right: 0;
-  padding: 0.3rem 0.5rem;
-  background: var(--sc-ink-900);
-  font-size: 0.85rem;
-  line-height: 1;
+  top: var(--sc-space-2);
+  right: var(--sc-space-2);
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--r-pill, 999px);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-family: var(--sc-font-text);
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
+/* Tags wear their axis's colour: persona ember, format green, hook amber,
+   topic neutral. A tag somebody picked by hand is tinted and dotted — a
+   decision; a guess stays a quiet outline. Hover the row and the +N opens. */
 .card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sc-space-1);
-  font-family: var(--sc-font-mono);
-  font-size: 0.58rem;
-  letter-spacing: var(--sc-track-label);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .card-tags span {
-  border: 1px solid var(--sc-ink-150);
-  padding: 0.1rem 0.35rem;
-  color: var(--sc-ink-300);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  --tag: var(--sc-ink-500);
+  border: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  border-radius: var(--r-pill, 999px);
+  padding: 0.12rem 0.5rem;
+  color: var(--tag);
+  white-space: nowrap;
 }
-.card-tags span[data-origin='human'] { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.card-tags span[data-axis='persona'] { --tag: var(--sc-ember-deep); }
+.card-tags span[data-axis='format'] { --tag: var(--sc-positive); }
+.card-tags span[data-axis='hook'] { --tag: var(--sc-caution); }
+.card-tags span[data-origin='human'] { background: color-mix(in srgb, var(--tag) 14%, transparent); }
+.card-tags span[data-origin='human']::before {
+  content: '';
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.card-tags .card-tags-more { --tag: var(--sc-ink-300); }
+.card-tags span[data-more='true'] { display: none; }
+.card-tags:hover span[data-more='true'] { display: inline-flex; }
+.card-tags:hover .card-tags-more { display: none; }
 
 /* -------------------------------------------------------- SELECT BAR */
 .selectbar {
@@ -409,11 +496,13 @@
   flex-wrap: wrap;
 }
 
-/* ------------------------------------------------------------ MODELS */
+/* ------------------------------------------------------------ MODELS
+   The library card's language: uniform 4:5 frame, handle beside its number,
+   persona as tinted pills. */
 .models {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--sc-space-8) var(--sc-space-6);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sc-space-6) var(--sc-space-5);
 }
 
 .model {
@@ -430,7 +519,7 @@
 }
 .model-frame {
   position: relative;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   background: var(--sc-ink-900);
   display: block;
@@ -440,53 +529,72 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  opacity: 0.9;
+  opacity: 0.92;
   transition: transform var(--sc-dur) var(--sc-ease), opacity var(--sc-dur) var(--sc-ease);
 }
 .model:hover .model-frame img { transform: scale(1.04); opacity: 1; }
 
+.model-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  min-width: 0;
+}
 .model-handle {
   font-family: var(--sc-font-display);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--sc-track-tight);
-  line-height: 1;
-  font-size: var(--sc-text-lg);
+  line-height: 1.05;
+  font-size: var(--sc-text-base);
   color: var(--sc-ink-900);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .model-name {
-  font-family: var(--sc-font-counter);
-  font-style: italic;
+  font-family: var(--sc-font-text);
+  font-weight: 500;
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-300);
 }
 .model-persona { display: flex; flex-wrap: wrap; gap: var(--sc-space-1); }
 .model-persona span {
-  font-family: var(--sc-font-mono);
-  font-size: 0.58rem;
-  letter-spacing: var(--sc-track-label);
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  border: 1px solid var(--sc-ink-900);
-  padding: 0.1rem 0.35rem;
-  color: var(--sc-ink-900);
+  border: 1px solid color-mix(in srgb, var(--tag-c) 45%, transparent);
+  border-radius: var(--r-pill, 999px);
+  padding: 0.12rem 0.5rem;
+  color: var(--tag-c);
+  background: color-mix(in srgb, var(--tag-c) 12%, transparent);
+  white-space: nowrap;
 }
+/* The tone rules own --tag-c for toned tags; this is the fallback only. */
+.model-persona span:not([data-tone]) { --tag-c: var(--sc-ember-deep); }
+.model-persona span[data-tone] { color: color-mix(in srgb, var(--tag-c) 76%, var(--sc-ink-900)); }
 .model-persona span[data-empty='true'] {
   border-color: var(--sc-ink-150);
-  color: var(--sc-ink-150);
+  color: var(--sc-ink-300);
   border-style: dashed;
+  background: none;
 }
 .model-figures {
-  font-family: var(--sc-font-mono);
-  font-size: 0.62rem;
-  letter-spacing: var(--sc-track-label);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
   font-variant-numeric: tabular-nums;
 }
-.model-figures b { color: var(--sc-ink-900); font-weight: 500; }
+.model-figures b { color: var(--sc-ink-900); font-weight: 700; }
 
 /* ------------------------------------------------------------ LADDER */
 .ladder { list-style: none; margin: 0; padding: 0; }
@@ -496,10 +604,10 @@
   grid-template-columns: 72px minmax(0, 1fr);
   gap: var(--sc-space-4);
   padding: var(--sc-space-3) 0;
-  border-bottom: 1px dotted var(--sc-ink-150);
+  border-bottom: var(--sc-rule-hair);
   align-items: start;
 }
-.rung img { width: 72px; height: 90px; object-fit: cover; display: block; background: var(--sc-ink-900); }
+.rung img { width: 72px; height: 90px; object-fit: cover; display: block; background: var(--sc-ink-900); border-radius: var(--r-sm, 8px); }
 .rung-figure {
   font-family: var(--sc-font-display);
   font-weight: 700;
@@ -512,17 +620,17 @@
 }
 .rung[data-hot='true'] .rung-figure { color: var(--sc-ember); }
 .rung-meta {
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
   font-size: 0.62rem;
-  letter-spacing: var(--sc-track-label);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
 .rung-line {
-  font-family: var(--sc-font-counter);
-  font-style: italic;
+  font-family: var(--sc-font-text);
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-500);
   margin: var(--sc-space-1) 0 0;
@@ -560,6 +668,23 @@
 
 .roster-card[data-paused='true'] .model-frame img { opacity: 0.45; filter: grayscale(1); }
 
+/* The heat flag on the photo: ember for fire, ice-white for cold. */
+.roster-heat {
+  position: absolute;
+  left: var(--sc-space-2);
+  bottom: var(--sc-space-2);
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--r-pill, 999px);
+  font-family: var(--sc-font-text);
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.roster-heat[data-heat='fire'] { background: var(--sc-ember); color: #0A0A0A; }
+.roster-heat[data-heat='cold'] { background: #EDE9E3; color: #0A0A0A; }
+
 .roster-frame {
   border: 0;
   padding: 0;
@@ -571,18 +696,20 @@
 
 .roster-unread {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: var(--sc-space-2);
+  right: var(--sc-space-2);
   background: var(--sc-ember);
-  color: var(--sc-bone);
-  font-family: var(--sc-font-mono);
-  font-size: 0.58rem;
-  letter-spacing: var(--sc-track-label);
+  color: #0A0A0A;
+  font-family: var(--sc-font-text);
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.25rem 0.45rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--r-pill, 999px);
 }
 
-.roster-actions { display: flex; gap: var(--sc-space-2); margin-top: var(--sc-space-1); }
+.roster-actions { display: flex; gap: var(--sc-space-2); margin-top: auto; padding-top: var(--sc-space-1); }
 
 .btn-small { padding: var(--sc-space-2) var(--sc-space-4); }
 
@@ -957,13 +1084,22 @@ textarea.field { resize: vertical; }
 .score {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sc-space-4);
-  border: var(--sc-rule-hair);
-  background: var(--sc-paper);
-  padding: var(--sc-space-5) var(--sc-space-6);
-  margin-bottom: var(--sc-space-8);
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-6);
 }
-.score-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* Same card as the dashboard's stats: raised surface, display number. */
+.score-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  min-width: 0;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  padding: var(--sc-space-4) var(--sc-space-5);
+}
+.score-cell .axis-name { font-family: var(--sc-font-text); font-weight: 600; font-size: 0.62rem; letter-spacing: 0.08em; }
+.score-cell[data-side='ours'] { border-color: var(--sc-ember); }
 .score-cell b {
   font-family: var(--sc-font-display);
   font-weight: 700;
@@ -975,51 +1111,64 @@ textarea.field { resize: vertical; }
 }
 .score-cell[data-side='ours'] b { color: var(--sc-ember); }
 .score-cell[data-side='ours'] .axis-name { color: var(--sc-ember-deep); }
+.score-meter {
+  height: 4px;
+  margin: var(--sc-space-2) 0 var(--sc-space-1);
+  border-radius: 999px;
+  background: var(--sc-ink-150);
+  overflow: hidden;
+}
+.score-meter i { display: block; height: 100%; border-radius: 999px; background: var(--sc-ink-900); }
+.score-cell[data-side='ours'] .score-meter i { background: var(--sc-ember); }
 .score-of {
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
   color: var(--sc-ink-300);
   font-variant-numeric: tabular-nums;
 }
 .score-foot {
   grid-column: 1 / -1;
-  margin: var(--sc-space-2) 0 0;
-  padding-top: var(--sc-space-3);
-  border-top: var(--sc-rule-hair);
-  font-family: var(--sc-font-counter);
-  font-style: italic;
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-text);
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-300);
 }
 
-/* ------------------------------------------------------------ THE LISTS */
-.sweeplist { margin-bottom: var(--sc-space-8); }
+/* ------------------------------------------------------------ THE LISTS
+   Each list is a dashboard-style panel; the head is its title row, the rows
+   are quiet cards. Ours-first tone survives as the head's colour. */
+.sweeplist {
+  margin-bottom: var(--sc-space-4);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  padding: var(--sc-space-5) var(--sc-space-6);
+}
 .sweephead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sc-space-3);
-  border-bottom: var(--sc-rule-lock);
-  padding-bottom: var(--sc-space-2);
 }
 .sweephead h3 {
   margin: 0;
   font-family: var(--sc-font-display);
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: var(--sc-track-tight);
   font-size: var(--sc-text-lg);
   color: var(--sc-ink-900);
 }
-.sweeplist[data-tone='ours'] .sweephead { border-bottom-color: var(--sc-ember); }
 .sweeplist[data-tone='ours'] .sweephead h3 { color: var(--sc-ember-deep); }
-.sweeplist[data-tone='bad'] .sweephead { border-bottom-color: var(--sc-critical); }
-.sweeplist .hint { margin: var(--sc-space-2) 0 var(--sc-space-3); }
+.sweeplist[data-tone='bad'] .sweephead h3 { color: var(--sc-critical); }
+.sweeplist .hint { margin: var(--sc-space-1) 0 var(--sc-space-3); }
 
 .sweepclear {
   margin: 0;
-  font-family: var(--sc-font-counter);
-  font-style: italic;
+  font-family: var(--sc-font-text);
+  font-weight: 500;
+  font-size: var(--sc-text-sm);
   color: var(--sc-ink-300);
 }
 
@@ -1027,13 +1176,14 @@ textarea.field { resize: vertical; }
 .sweeprow {
   width: 100%;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--sc-space-3);
   flex-wrap: wrap;
-  min-height: 48px;
+  min-height: 44px;
   padding: var(--sc-space-3) var(--sc-space-4);
   border: var(--sc-rule-hair);
-  background: var(--sc-paper);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
   color: var(--sc-ink-500);
   cursor: pointer;
   text-align: left;
@@ -1041,7 +1191,7 @@ textarea.field { resize: vertical; }
   font-size: var(--sc-text-sm);
   transition: border-color var(--sc-dur-fast) var(--sc-ease);
 }
-.sweeprow:hover { border-color: var(--sc-ink-900); }
+.sweeprow:hover { border-color: var(--sc-ink-300); }
 
 /* A collision row opens nothing — there is no single model to open, which is
    the whole point of it. Same row, without the affordance that would say
@@ -1110,9 +1260,17 @@ textarea.field { resize: vertical; }
 
 .backfill {
   border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
   background: var(--sc-bone-light);
   padding: var(--sc-space-4);
   margin-bottom: var(--sc-space-6);
+}
+/* The panel reads in the console's own voice, not the serif counter. */
+.backfill .hint {
+  font-family: var(--sc-font-text);
+  font-style: normal;
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
 }
 .backfill-rows {
   list-style: none;
@@ -1189,28 +1347,48 @@ textarea.field { resize: vertical; }
 
 .sweeprow[role='note'] { cursor: default; }
 .sweeprow[role='note']:hover { border-color: var(--sc-ink-150); }
+/* The row is a face, then her name over the reason, then the pills. */
+.sweeprow .dash-avatar { flex: none; }
+.sweeprow-top { display: grid; gap: 2px; flex: 1; min-width: 0; text-align: left; }
 .sweeprow-tier {
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
+  font-weight: 700;
   font-size: 0.62rem;
-  letter-spacing: var(--sc-track-label);
+  letter-spacing: 0.06em;
   color: var(--sc-bone);
   background: var(--sc-ink-900);
-  padding: 2px var(--sc-space-2);
+  border-radius: var(--r-pill, 999px);
+  padding: 0.14rem 0.55rem;
   flex: 0 0 auto;
 }
 .sweeprow-name {
-  font-weight: 600;
+  display: block;
+  font-weight: 700;
   color: var(--sc-ink-900);
   letter-spacing: var(--sc-track-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sweeprow-why { color: var(--sc-ink-300); }
+.sweeprow-why {
+  display: block;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sweeprow-due {
   margin-left: auto;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-pill, 999px);
+  padding: 0.14rem 0.6rem;
   white-space: nowrap;
 }
 
@@ -1225,7 +1403,8 @@ textarea.field { resize: vertical; }
 }
 .healthrows b {
   color: var(--sc-ink-900);
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1237,12 +1416,14 @@ textarea.field { resize: vertical; }
   margin-top: var(--sc-space-1);
 }
 .rosterflag {
-  font-family: var(--sc-font-mono);
-  font-size: 0.58rem;
-  letter-spacing: var(--sc-track-label);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 2px var(--sc-space-2);
+  padding: 0.12rem 0.5rem;
   border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-pill, 999px);
   color: var(--sc-ink-300);
   white-space: nowrap;
 }
@@ -1251,7 +1432,8 @@ textarea.field { resize: vertical; }
 .rosterflag[data-tone='warn'] { border-color: var(--sc-caution); color: var(--sc-caution); }
 .rosterflag[data-tone='bad'] { border-color: var(--sc-critical); color: var(--sc-critical); }
 
-/* ------------------------------------------------------ TIER HEADINGS */
+/* ------------------------------------------------------ TIER HEADINGS
+   The console's own voice: display type, sentence case, quiet count. */
 .tiergroup { margin-bottom: var(--sc-space-8); }
 .tierhead {
   display: flex;
@@ -1261,12 +1443,13 @@ textarea.field { resize: vertical; }
   margin: 0 0 var(--sc-space-4);
   padding-bottom: var(--sc-space-2);
   border-bottom: var(--sc-rule-hair);
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-  color: var(--sc-ink-300);
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
 }
+.tierhead .tally { font-family: var(--sc-font-text); font-weight: 600; color: var(--sc-ink-300); }
 
 /* ---------------------------------------------------------- HER POSTS */
 .poststrip {
@@ -1401,17 +1584,19 @@ textarea.field { resize: vertical; }
   align-items: center;
   gap: var(--sc-space-1) var(--sc-space-2);
   margin-top: var(--sc-space-1);
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
   font-size: 0.62rem;
-  letter-spacing: var(--sc-track-label);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
   max-width: 100%;
 }
 .standing-mark { font-size: 0.9rem; line-height: 1; }
 .standing-tier {
-  padding: 1px var(--sc-space-2);
+  padding: 0.12rem 0.5rem;
   border: 1px solid var(--sc-ink-900);
+  border-radius: var(--r-pill, 999px);
   color: var(--sc-ink-900);
   font-weight: 700;
 }
@@ -1473,15 +1658,16 @@ textarea.field { resize: vertical; }
 /* Up is ember (the brand's one warm signal), down is ink on bone — a fall is
    worth noticing, not an alarm. Top-left on the card: top-right is unread. */
 .trendchip {
-  font-family: var(--sc-font-mono);
+  font-family: var(--sc-font-text);
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: var(--sc-track-label);
+  letter-spacing: 0.06em;
   line-height: 1;
-  padding: 0.3rem 0.45rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--r-pill, 999px);
   white-space: nowrap;
 }
-.trendchip[data-variant='photo'] { position: absolute; top: 0; left: 0; z-index: 1; }
+.trendchip[data-variant='photo'] { position: absolute; top: var(--sc-space-2); left: var(--sc-space-2); z-index: 1; }
 .trendchip[data-direction='up'] { background: var(--sc-ember); color: var(--sc-bone); }
 .trendchip[data-direction='down'] { background: var(--sc-bone); color: var(--sc-ink-900); border: 1px solid var(--sc-ink-900); }
 .trendchip[data-direction='flat'] { background: transparent; color: var(--sc-ink-500); border: 1px solid var(--sc-ink-150); }
@@ -1516,9 +1702,20 @@ textarea.field { resize: vertical; }
 
 .score {
   display: grid;
+  /* The scoreboard's `.score` block above sets `repeat(4, minmax(0, 1fr))`,
+     and this block never reset it — so every metric card was laying its name,
+     value, target and verdict out as four columns, which at card width is a
+     name wrapped one word per line beside a floating number. State the track
+     list here, and state the margin too: the scoreboard's `margin-bottom`
+     leaked the same way. */
+  grid-template-columns: 1fr;
+  margin-bottom: 0;
   gap: 2px;
   padding: var(--sc-space-3);
-  border: 1px solid var(--sc-rule-hair);
+  /* `1px solid var(--sc-rule-hair)` is `1px solid 1px solid …` after
+     substitution — invalid, so the whole border was dropped and the verdict
+     edge never painted. The token already carries the width and the style. */
+  border: var(--sc-rule-hair);
   border-radius: var(--sc-radius);
   border-left-width: 3px;
   background: var(--sc-paper);
@@ -1556,10 +1753,12 @@ textarea.field { resize: vertical; }
    "new concept" is outlined because it is an absence, not a signal. */
 .why { margin-top: var(--sc-space-2); }
 .why .chips { gap: var(--sc-space-1); }
-.why-chip[data-kind='sound'],
-.why-chip[data-kind='format'] { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+/* One colour per reason kind, same family as the tags everywhere else. */
+.why-chip[data-kind='sound'] { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.why-chip[data-kind='run'] { border-color: var(--sc-positive); color: var(--sc-positive); }
+.why-chip[data-kind='format'] { border-color: var(--sc-caution); color: var(--sc-caution); }
 .why-chip[data-kind='shared'] { border-color: var(--sc-ink-500); color: var(--sc-ink-700); }
-.why-chip[data-kind='new'] { border-style: dashed; }
+.why-chip[data-kind='new'] { border-style: dashed; color: var(--sc-ink-500); }
 .why-line {
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-500);
@@ -1567,29 +1766,187 @@ textarea.field { resize: vertical; }
 }
 
 /* ------------------------------------------------------------ THE WEEK
-   The digest reads top-down like a front page: the lede in sentences, the
-   patterns as tallies, then the ranked reels that produced them. */
+   Numbers first, then the week's shape, then what carried the winners, then
+   the ranked reels themselves. */
 .digest-nav { display: flex; align-items: center; gap: var(--sc-space-3); flex-wrap: wrap; }
 .digest-nav .pill:disabled { opacity: 0.35; cursor: default; }
-.digest-lede {
-  border-left: 3px solid var(--sc-ember);
-  padding: var(--sc-space-1) 0 var(--sc-space-1) var(--sc-space-4);
-  max-width: 62ch;
-}
-.digest-lede p {
-  font-family: var(--sc-font-display);
-  font-size: var(--sc-text-lg);
-  line-height: 1.3;
-  color: var(--sc-ink-900);
-  margin: 0 0 var(--sc-space-2);
-}
-.digest-lede p:first-child { font-weight: 700; }
-.digest-lede .hint { font-family: inherit; font-size: var(--sc-text-sm); margin-top: var(--sc-space-3); }
-.digest-patterns {
+/* The week's numbers wear the dashboard's own stat cards. */
+.wk-stats { grid-template-columns: 1.4fr 1fr 1fr; }
+
+/* Sounds going round, as a leaderboard of tracks. */
+.snd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.snd-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--sc-space-2) var(--sc-space-8);
-  margin-top: var(--sc-space-6);
+  grid-template-columns: 2rem minmax(0, 1fr) auto auto auto;
+  gap: var(--sc-space-4);
+  align-items: center;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+}
+.snd-main { display: grid; gap: 2px; min-width: 0; }
+.snd-title {
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snd-title em { font-style: normal; font-weight: 500; color: var(--sc-ink-300); }
+.snd-plays { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.snd-count { font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-500); white-space: nowrap; }
+.snd-count b { color: var(--sc-ink-900); font-weight: 700; }
+.snd-delta {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+.snd-delta[data-trend='up'] { color: var(--sc-positive); }
+.snd-delta[data-trend='down'] { color: var(--sc-critical); }
+@media (max-width: 720px) {
+  .snd-row { grid-template-columns: 1.5rem minmax(0, 1fr); }
+  .snd-count, .snd-delta, .snd-row .pill { grid-column: 2; justify-self: start; }
+}
+
+/* The winners' common ground, as ranked bars per axis. */
+.wk-patterns { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--sc-space-4) var(--sc-space-6); }
+.wk-pat-name {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.wk-pat-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.wk-pat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px var(--sc-space-3);
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+button.wk-pat-row { cursor: pointer; }
+button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
+.wk-pat-label {
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-pat-n {
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.wk-pat-meter { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--sc-ink-150); overflow: hidden; }
+.wk-pat-meter i { display: block; height: 100%; border-radius: 999px; background: var(--sc-ember); }
+
+/* Top 10, as a leaderboard: coloured rank, the reel's frame, the words, the
+   figure. No cards — the list is the thing. */
+.wk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
+.wk-row {
+  display: grid;
+  grid-template-columns: 2rem 56px minmax(0, 1fr) auto;
+  gap: var(--sc-space-4);
+  align-items: center;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+a.wk-row:hover { border-color: var(--sc-ink-300); }
+a.wk-row:hover .wk-who { color: var(--sc-ember-deep); }
+.wk-n {
+  font-family: var(--sc-font-display);
+  font-weight: 800;
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-300);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* The podium, in the one palette: ember for first, amber for second, moss
+   for third, ink for the rest. */
+[data-rank='1'] .wk-n { color: var(--sc-ember); }
+[data-rank='2'] .wk-n { color: #E8A33D; }
+[data-rank='3'] .wk-n { color: var(--sc-positive); }
+.wk-thumb {
+  position: relative;
+  width: 56px;
+  height: 70px;
+  border-radius: var(--r-sm, 8px);
+  overflow: hidden;
+  background: #0A0A0A;
+  display: block;
+}
+.wk-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wk-blank { position: absolute; inset: 0; background: linear-gradient(160deg, #2B2926, #0A0A0A); }
+.wk-main { display: grid; gap: var(--sc-space-1); min-width: 0; }
+.wk-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sc-space-2); min-width: 0; }
+.wk-who {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.wk-date {
+  flex: none;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--sc-ink-300);
+}
+.wk-line {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wk-fig {
+  font-family: var(--sc-font-display);
+  font-weight: 800;
+  font-size: var(--sc-text-xl);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+[data-rank='1'] .wk-fig { color: var(--sc-ember); }
+@media (max-width: 640px) {
+  .wk-row { grid-template-columns: 1.5rem 44px minmax(0, 1fr); }
+  .wk-fig { grid-column: 3; justify-self: start; }
 }
 
 /* ------------------------------------------------------------ HER ACCOUNTS

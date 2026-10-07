@@ -20,11 +20,10 @@ export default function LibraryGrid({
 
   return (
     <div className="grid">
-      {items.map((item, index) => (
+      {items.map((item) => (
         <LibraryCard
           key={item.id}
           item={item}
-          feature={index === 0 && items.length > 2}
           picked={selected.has(item.id)}
           selecting={selecting}
           onOpen={() => onOpen(item)}

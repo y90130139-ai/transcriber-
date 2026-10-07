@@ -1,6 +1,17 @@
 import type { Board } from '@/lib/performance/load'
 import { compact, percent, shortDay, signed } from './format'
+import MicroBars from './MicroBars'
 import Sparkline from './Sparkline'
+
+/** Fifteen dots, one per observed day: green means a story was up. */
+function StoryDots({ rate }: { rate: number }) {
+  const filled = Math.round(rate * 15)
+  return (
+    <div className="dash-dots" aria-hidden>
+      {Array.from({ length: 15 }, (_, index) => <i key={index} data-on={index < filled} />)}
+    </div>
+  )
+}
 
 /** The headline row. Each card is one number, what it covers, and which way. */
 export default function StatCards({ board, onAttention }: { board: Board; onAttention?: () => void }) {
@@ -20,45 +31,48 @@ export default function StatCards({ board, onAttention }: { board: Board; onAtte
   return (
     <section className="dash-stats" aria-label="Totals">
       <article className="dash-stat dash-stat-lead">
-        <h3>Total followers</h3>
+        <h3>Total followers · {board.days}d</h3>
         <p className="dash-stat-value">{compact(followers)}</p>
         <p className="dash-stat-note">
           <b data-sign={Math.sign(gain ?? 0)}>{signed(gain)}</b>
           {since ? ` since ${shortDay(since)}` : ' — no readings yet'}
         </p>
-        <Sparkline values={fs.map((p) => p.value)} width={120} />
+        <Sparkline values={fs.map((p) => p.value)} width={520} height={90} area
+          format={(v, i) => `${fs[i] ? `${shortDay(fs[i].day)} · ` : ''}${compact(v)} followers`} />
       </article>
       <article className="dash-stat">
-        <h3>Views</h3>
+        <h3>Views · {board.days}d</h3>
         <p className="dash-stat-value">{compact(views)}</p>
-        <p className="dash-stat-note">
-          on reels posted in {board.days} days
-          {viewsPrev > 0 && <> · <b data-sign={Math.sign(views - viewsPrev)}>{percent((views - viewsPrev) / viewsPrev)}</b></>}
-        </p>
+        <MicroBars values={board.views_series.map((p) => p.value)} tone="amber" />
+        {viewsPrev > 0 && (
+          <p className="dash-pill" data-tone={views >= viewsPrev ? 'up' : 'down'}>
+            {percent((views - viewsPrev) / viewsPrev)}
+          </p>
+        )}
       </article>
       <article className="dash-stat">
         <h3>Models</h3>
         <p className="dash-stat-value">{board.models.length}</p>
-        <p className="dash-stat-note">
-          {tracked.length} tracked on Instagram
-          {attention > 0 && (
-            <> · <button type="button" className="dash-stat-link" data-sign="-1" onClick={onAttention}>
-              {attention} need attention →
-            </button></>
-          )}
-        </p>
+        <p className="dash-stat-note">{tracked.length} tracked on Instagram</p>
+        {attention > 0 && (
+          <button type="button" className="dash-stat-link" onClick={onAttention}>
+            {attention} need attention →
+          </button>
+        )}
       </article>
       <article className="dash-stat">
-        <h3>Reels posted</h3>
+        <h3>Reels posted · {board.days}d</h3>
         <p className="dash-stat-value">{compact(reels)}</p>
-        <p className="dash-stat-note">
-          {tracked.length ? `${(reels / tracked.length / board.days * 7).toFixed(1)} a week per model` : '—'}
-        </p>
+        <MicroBars values={board.reels_series.map((p) => p.value)} />
+        {tracked.length > 0 && (
+          <p className="dash-pill">{(reels / tracked.length / board.days * 7).toFixed(1)} / wk per model</p>
+        )}
       </article>
       <article className="dash-stat">
-        <h3>Stories</h3>
+        <h3>Stories · {board.days}d</h3>
         <p className="dash-stat-value">{storyRate === null ? '—' : `${Math.round(storyRate * 100)}%`}</p>
-        <p className="dash-stat-note">of days with a story up, on average</p>
+        {storyRate !== null && <StoryDots rate={storyRate} />}
+        {storyRate !== null && <p className="dash-pill">of days with a story</p>}
       </article>
     </section>
   )

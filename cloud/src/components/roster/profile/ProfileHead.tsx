@@ -77,37 +77,37 @@ export default function ProfileHead({
         <button className="sheet-close" onClick={onClose} aria-label="Close">Close</button>
       </div>
 
-      <div className="sheet-cover">
-        <span className="sheet-kicker">
-          {isNew ? 'One of ours' : 'Ours — not a researched account'}
-        </span>
-        <h2>{form.name.trim() || 'New model'}</h2>
-      </div>
-
-      <div className="sheet-id">
+      {/* The hero: her face, her name, what she is, and the two controls that
+          decide how she is worked. Four levels — kicker, name, sub-line,
+          controls — instead of a stack of same-weight outlined boxes. */}
+      <header className="sheet-hero">
         <div className="sheet-avatar-wrap">
-        <label className="sheet-avatar" aria-label={form.photo_url ? 'Replace their photo' : 'Add a photo'}>
-          {form.photo_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={form.photo_url} alt="" width={264} height={264} />
-          ) : (
-            <span className="sheet-avatar-empty">{form.name.trim() || 'No photo'}</span>
-          )}
-          <span className="sheet-avatar-swap">{form.photo_url ? 'Replace' : 'Add'}</span>
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            disabled={busy}
-            onChange={(event) => onPhoto(event.target.files?.[0])}
-          />
-        </label>
-        {/* Outside the circle, which clips anything inside it. */}
-        <TrendChip trend={standing?.trend} />
+          <label className="sheet-avatar" aria-label={form.photo_url ? 'Replace their photo' : 'Add a photo'}>
+            {form.photo_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={form.photo_url} alt="" width={264} height={264} />
+            ) : (
+              <span className="sheet-avatar-empty">{form.name.trim() || 'No photo'}</span>
+            )}
+            <span className="sheet-avatar-swap">{form.photo_url ? 'Replace' : 'Add'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              disabled={busy}
+              onChange={(event) => onPhoto(event.target.files?.[0])}
+            />
+          </label>
+          {/* Outside the frame, which clips anything inside it. */}
+          <TrendChip trend={standing?.trend} />
         </div>
 
-        <div className="sheet-names">
-          <span>{form.handle ? `@${form.handle}` : 'No handle yet'}</span>
+        <div className="sheet-identity">
+          <span className="sheet-kicker">
+            {isNew ? 'One of ours' : 'Ours — not a researched account'}
+          </span>
+          <h2>{form.name.trim() || 'New model'}</h2>
+          <p className="sheet-sub">{form.handle ? `@${form.handle}` : 'No handle yet'}</p>
           <span className="sheet-flags">
             {standing && HEAT_MARK[standing.engagement.heat] && (
               <span title={standing.engagement.why}>
@@ -121,12 +121,15 @@ export default function ProfileHead({
             {form.ig_account_type === 'unknown' && <span data-tone="quiet">IG not checked</span>}
             {form.photo_url === null && <span data-tone="quiet">No photo</span>}
           </span>
+        </div>
+
+        <div className="sheet-controls">
           {modelId && <StandingControls modelId={modelId} onChanged={onStanding} />}
           {modelId && active && onActive && (
             <ActiveControl modelId={modelId} name={form.name || 'she'} state={active} onChange={onActive} />
           )}
         </div>
-      </div>
+      </header>
 
       <div className="sheet-links">
         {links.length === 0 ? (

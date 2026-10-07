@@ -5,7 +5,7 @@ import './globals.css'
 // Archivo is the brand's free stand-in for Neue Haas Grotesk Display.
 const archivo = Archivo({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
+  weight: ['400', '500', '700', '800'],
   variable: '--font-archivo',
   display: 'swap',
 })

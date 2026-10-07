@@ -64,13 +64,11 @@ export function StuckList({
   }
 
   return (
-    <>
-      <div className="section-head">
+    <section className="dash-panel" aria-label="Needs you">
+      <header className="dash-panel-head">
         <h2>Needs you</h2>
-        <span className="tally" style={{ color: 'var(--sc-ink-300)' }}>
-          {items.length} item{items.length === 1 ? '' : 's'}
-        </span>
-      </div>
+        <p>{items.length} item{items.length === 1 ? '' : 's'} · a person has to clear these</p>
+      </header>
       {error && <p className="hint" data-tone="bad">{error}</p>}
       <section className="queue" aria-label="Needs you">
         {items.map((item) => (
@@ -78,12 +76,12 @@ export function StuckList({
             <span className="queue-mark" aria-hidden>×</span>
             <button className="queue-label" onClick={() => onOpen(item)}>{item.label}</button>
             <span className="queue-stage">{stuckReason(item)}</span>
-            <button className="chip queue-retry" disabled={busy === item.id} onClick={() => void retry(item)}>
+            <button className="pill queue-retry" disabled={busy === item.id} onClick={() => void retry(item)}>
               {busy === item.id ? 'Queuing…' : 'Retry'}
             </button>
           </div>
         ))}
       </section>
-    </>
+    </section>
   )
 }

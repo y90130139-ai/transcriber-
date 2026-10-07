@@ -409,15 +409,17 @@ export default function ModelProfile({
         </div>
 
         <div className="sheet-bar">
-          <button className="btn" disabled={busy} onClick={() => void save()}>
-            {busy ? 'Working' : model ? 'Save' : 'Add them'}
-          </button>
-          {model && (
-            <button className="btn btn-quiet" disabled={busy} onClick={() => void remove()}>
-              Remove
-            </button>
-          )}
           {note && <span className="hint" data-tone={note.bad ? 'bad' : undefined}>{note.text}</span>}
+          <div className="sheet-actions">
+            {model && (
+              <button className="btn btn-quiet" disabled={busy} onClick={() => void remove()}>
+                Remove
+              </button>
+            )}
+            <button className="btn" disabled={busy} onClick={() => void save()}>
+              {busy ? 'Working' : model ? 'Save' : 'Add them'}
+            </button>
+          </div>
         </div>
       </aside>
     </>

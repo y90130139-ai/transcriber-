@@ -63,6 +63,8 @@ export type Digest = {
   until: string
   posted: number
   winners: number
+  /** Posted and winners on each of the week's seven days. */
+  daily: { day: string; posted: number; winners: number }[]
   /** How many of the strongest winners `common` was counted over. */
   basis: number
   top: DigestItem[]
@@ -84,6 +86,8 @@ export async function digestFor(weekOf: string): Promise<Digest> {
   const rows = await sql.query(
     `with ${SCORING_CTE}
      select t.job_id as id, t.author, t.upload_date, t.webpage_url,
+            -- Already YYYY-MM-DD text; the plain column is the day.
+            t.upload_date as upload_day,
             (t.thumbnail is not null) as has_thumb,
             ${preview('t.plain', 140, 't.on_screen_text')} as preview,
             ${SCORING_COLUMNS}
@@ -150,11 +154,29 @@ export async function digestFor(weekOf: string): Promise<Digest> {
     ).filter((row) => row.n >= MIN_SHARED).slice(0, PATTERNS_PER_AXIS),
   }
 
+  // The week's rhythm, day by day: everything that went up, and which of it
+  // popped. The line that shows a dead Tuesday or a runaway Saturday.
+  const dayOf = new Map(rows.map((row) => [String(row.id), String(row.upload_day)]))
+  const winnersByDay = new Map<string, number>()
+  for (const winner of winners) {
+    const day = dayOf.get(winner.id)
+    if (day) winnersByDay.set(day, (winnersByDay.get(day) ?? 0) + 1)
+  }
+  const daily = Array.from({ length: 7 }, (_, index) => {
+    const day = addDays(weekOf, index)
+    return {
+      day,
+      posted: rows.filter((row) => String(row.upload_day) === day).length,
+      winners: winnersByDay.get(day) ?? 0,
+    }
+  })
+
   return {
     week_of: weekOf,
     until,
     posted: rows.length,
     winners: winners.length,
+    daily,
     basis: best.length,
     top: winners.slice(0, DIGEST_TOP),
     common,

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useState } from 'react'
 type Suggested = { handle: string; found_via: string | null; seen: number }
 type Counts = { watching: number; suggested: number; gated: number }
 
-export default function WatchlistPanel() {
+export default function WatchlistPanel({ bare = false }: { bare?: boolean } = {}) {
   const [suggested, setSuggested] = useState<Suggested[]>([])
   const [counts, setCounts] = useState<Counts | null>(null)
   const [paste, setPaste] = useState('')
@@ -56,20 +56,28 @@ export default function WatchlistPanel() {
   )
 
   return (
-    <section className="watchlist">
-      <button className="watchlist-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>Watchlist</span>
-        {counts && (
-          <span className="watchlist-counts">
-            {counts.watching} watched · {counts.gated} need the burner
-            {counts.suggested > 0 && ` · ${counts.suggested} suggested`}
-          </span>
-        )}
-        <span aria-hidden>{open ? '−' : '+'}</span>
-      </button>
+    <section className="watchlist" data-bare={bare || undefined}>
+      {!bare && (
+        <button className="watchlist-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+          <span>Watchlist</span>
+          {counts && (
+            <span className="watchlist-counts">
+              {counts.watching} watched · {counts.gated} need the burner
+              {counts.suggested > 0 && ` · ${counts.suggested} suggested`}
+            </span>
+          )}
+          <span aria-hidden>{open ? '−' : '+'}</span>
+        </button>
+      )}
 
-      {open && (
+      {(open || bare) && (
         <div className="watchlist-body">
+          {bare && counts && (
+            <p className="watchlist-counts watchlist-counts-bare">
+              {counts.watching} watched · {counts.gated} need the burner
+              {counts.suggested > 0 && ` · ${counts.suggested} suggested`}
+            </p>
+          )}
           <label className="watchlist-add">
             <span>Add accounts — handles or profile links, any separator</span>
             <textarea
@@ -92,9 +100,7 @@ export default function WatchlistPanel() {
 
           {suggested.length > 0 && (
             <>
-              <p className="watchlist-note">
-                Found on reels the sweep picked. Nothing is swept until you say so.
-              </p>
+              <p className="watchlist-note">From reels the sweep picked.</p>
               <ul className="watchlist-suggested">
                 {suggested.map((one) => (
                   <li key={one.handle}>

@@ -35,6 +35,14 @@ export function isValidTag(axis: Axis, id: string): boolean {
   return index.has(`${axis}:${id}`)
 }
 
+/** A stable colour per tag — its place in the axis, cycled through the eight
+ *  tones the stylesheets define. A wall of tags then reads as categories
+ *  rather than one accent repeated. */
+export function toneOf(axis: Axis, id: string): number {
+  const at = taxonomy[axis].tags.findIndex((tag) => tag.id === id)
+  return at < 0 ? 8 : (at % 8) + 1
+}
+
 export function isAxis(value: string): value is Axis {
   return (AXES as string[]).includes(value)
 }

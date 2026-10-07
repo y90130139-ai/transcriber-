@@ -32,7 +32,8 @@ export async function mediaForPosts(codes: string[]): Promise<Record<string, Ree
   if (!unique.length) return {}
   const [posts, jobs] = await Promise.all([
     sql.query(
-      `select post_id, handle, poster_url, plays, likes, comments, posted_at,
+      `select post_id, handle, plays, likes, comments, posted_at,
+              case when media_until > now() then poster_url end as poster_url,
               case when media_until > now() then video_url end as video_url
          from transcriber.creator_posts where post_id = any($1::text[])`,
       [unique],

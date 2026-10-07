@@ -19,10 +19,11 @@ import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
 import TelegramLink from './profile/TelegramLink'
 import AnalyticsTab from './profile/AnalyticsTab'
+import StrategyTab from './profile/StrategyTab'
 import EarningsTab from '../earnings/EarningsTab'
 
 export type ProfileTab = Tab
-type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'week' | 'access'
+type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'strategy' | 'week' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -38,6 +39,9 @@ const TABS: { key: Tab; label: string }[] = [
   // Worked out from her accounts, never typed — see lib/insights.ts.
   { key: 'brand', label: 'Brand' },
   { key: 'blueprint', label: 'Blueprint' },
+  // Her Creator Intelligence report — Geno's 24-section template (2026-10-06),
+  // generated from everything on file. lib/report/.
+  { key: 'strategy', label: 'Strategy' },
   { key: 'week', label: 'Week' },
   // Heat is gone as a tab (2026-09-27): priority and revenue sit in the
   // header, the score on Analytics, the sent weeks on Reels.
@@ -380,6 +384,7 @@ export default function ModelProfile({
           {tab === 'reels' && modelId && <ReelsTab modelId={modelId} name={form.name || model?.name || ''} photo={model?.photo_url ?? null} />}
           {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}
+          {tab === 'strategy' && modelId && <StrategyTab modelId={modelId} name={form.name || model?.name || ''} />}
           {tab === 'week' && (
             <>
               {modelId && <TelegramLink modelId={modelId} initial={model?.telegram_chat_id ?? null} />}

@@ -742,3 +742,88 @@
 .survey-answers { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sc-space-1) var(--sc-space-4); margin: var(--sc-space-2) 0 0; font-size: var(--sc-text-sm); }
 .survey-answers dt { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-500); }
 .survey-answers dd { margin: 0; color: var(--sc-ink-900); }
+
+/* ============================================================
+   STRATEGY — her Creator Intelligence report (2026-10-06).
+   24 numbered folds, the gaps to ask her, and the permanent
+   correction layer. StrategyTab.tsx.
+   ============================================================ */
+.strategy { display: grid; gap: var(--sc-space-4); }
+.strategy-lede { margin: 0; color: var(--sc-ink-500); font-size: var(--sc-text-sm); line-height: var(--sc-leading-body); }
+.strategy-start { display: grid; gap: var(--sc-space-3); }
+.strategy-start textarea {
+  width: 100%;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-3);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+  resize: vertical;
+}
+.strategy-go {
+  justify-self: start;
+  border: 0;
+  border-radius: var(--r, 8px);
+  background: var(--sc-ember);
+  color: var(--sc-bone);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-2) var(--sc-space-4);
+  cursor: pointer;
+}
+.strategy-go:disabled { opacity: 0.6; cursor: default; }
+
+.strategy-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sc-space-3); }
+.strategy-meta { margin: 0; font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+.strategy-engine { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }
+.strategy-label {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+
+.strategy-gaps { border: var(--sc-rule-hair); border-left: 3px solid var(--sc-ember); border-radius: var(--r, 8px); padding: var(--sc-space-3) var(--sc-space-4); background: var(--sc-bone-light); }
+.strategy-gaps ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--sc-space-1); font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
+.strategy-gaps b { font-weight: 500; }
+
+.strategy-sections { display: grid; gap: var(--sc-space-2); }
+.strategy-section { border: var(--sc-rule-hair); border-radius: var(--r, 8px); background: var(--sc-bone-light); }
+.strategy-section summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  cursor: pointer;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-base);
+  color: var(--sc-ink-900);
+}
+.strategy-no { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ember-deep); }
+.strategy-section p {
+  margin: 0;
+  padding: 0 var(--sc-space-4) var(--sc-space-4);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+}
+
+.strategy-notes { margin: 0 0 var(--sc-space-2); padding: 0; list-style: none; display: grid; gap: var(--sc-space-1); font-size: var(--sc-text-sm); }
+.strategy-notes span { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-500); margin-right: var(--sc-space-2); }
+.strategy-correct-row { display: flex; gap: var(--sc-space-2); }
+.strategy-correct-row input {
+  flex: 1;
+  min-width: 0;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}

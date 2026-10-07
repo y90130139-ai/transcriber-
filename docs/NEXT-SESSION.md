@@ -1,5 +1,13 @@
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
+**Round seven (`20b9c4c`): intro → "In this plan".** The plan page's intro
+paragraph and the editor's intro box are both gone (plans.intro column
+untouched). In its place a counted contents block (`lib/plan-contents.ts`,
+pure + tested): per-format counts from each card's FIRST format tag
+(taxonomy labels; untagged cards count as "Videos"), plus fixed lines for
+the carousel minimum (CAROUSEL_PLAN.count) and 7× stories. Renders for
+ideas only (own-videos/declined excluded), in the portal and the preview.
+
 **Round six (`2a50737`): the Strategy tab — Creator Intelligence reports.**
 Geno's 24-section template (pasted 2026-10-06, embedded as `REPORT_PROMPT`
 in `lib/report/spec.ts`) now generates per model: new profile tab

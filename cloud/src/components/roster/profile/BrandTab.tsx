@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Insights } from '@/lib/insights'
 import type { Niche } from '@/lib/niches'
+import { labelOf } from '@/lib/taxonomy'
 import CreatorFace, { type Face } from '../../dashboard/CreatorFace'
 
 type Faces = { handles: Record<string, Face>; formats: Record<string, { thumb: string; author: string | null }> }
 
 type Payload = Insights & {
   accepted: { verticals: { format: string; name: string; tier: string | null }[] | null; similar_creators: string[] | null; wont_do: string[] | null } | null
+  /** The tags of reels she said yes to — 👍 or "I'll do this" — counted. */
+  her_picks?: { axis: string; tag: string; n: number }[]
 }
 
 const BASIS: Record<Insights['matching']['basis'], string> = {
@@ -105,6 +108,24 @@ export default function BrandTab({ modelId }: { modelId: string }) {
         <p>{data.level.route}</p>
         <span className="hint">{data.level.reasons.join(' · ')}</span>
       </section>
+
+      {/* Her niche as she votes it (2026-10-07): what she thumbs-up and
+          takes on, counted — the read to weigh her verticals against. */}
+      {(data.her_picks?.length ?? 0) > 0 && (
+        <section className="axis">
+          <div className="axis-head">
+            <span className="axis-name">What she says yes to</span>
+            <span className="hint">from her 👍 and “I’ll do this” taps</span>
+          </div>
+          <p className="brand-picks">
+            {data.her_picks!.map((pick) => (
+              <span key={`${pick.axis}-${pick.tag}`} className="brand-pick">
+                {labelOf(pick.axis as 'topic' | 'format', pick.tag)} ×{pick.n}
+              </span>
+            ))}
+          </p>
+        </section>
+      )}
 
       <section className="axis">
         <div className="axis-head">

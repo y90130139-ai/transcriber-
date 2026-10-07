@@ -938,3 +938,13 @@
 .customcard textarea { resize: vertical; }
 .customcard-save { display: flex; align-items: center; gap: var(--sc-space-2); font-size: var(--sc-text-sm); color: var(--sc-ink-500); margin-right: auto; }
 .customcard-note { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+
+/* Her yes-votes, counted (BrandTab, 2026-10-07). */
+.brand-picks { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sc-space-2); }
+.brand-pick {
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}

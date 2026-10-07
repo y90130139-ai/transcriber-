@@ -16,7 +16,21 @@ export async function GET(_request: Request, { params }: Params) {
   const [model] = await sql.query(
     `select verticals, similar_creators, formats, wont_do from transcriber.models where id = $1`, [id],
   )
-  return NextResponse.json({ ...insights, accepted: model ?? null })
+  // Her niche as SHE votes it (Geno, 2026-10-07): the tags of the reels she
+  // says yes to — 👍, "I'll do this", stars — counted. Read, never typed.
+  const picks = await sql.query(
+    `select g.axis, g.tag, count(*)::int as n
+       from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+       join transcriber.tags g on g.job_id = i.job_id
+      where p.model_id = $1 and (i.rating = 1 or i.accepted_at is not null)
+        and g.axis in ('topic', 'format')
+      group by g.axis, g.tag
+      order by n desc
+      limit 8`,
+    [id],
+  )
+  return NextResponse.json({ ...insights, accepted: model ?? null, her_picks: picks })
 }
 
 /**

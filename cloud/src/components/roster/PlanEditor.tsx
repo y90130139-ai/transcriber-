@@ -408,6 +408,10 @@ export default function PlanEditor({
     }
     return [...counts].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1])
   })()
+  // "Before it goes" (Geno, 2026-10-07): the things worth adding or
+  // answering before the send button, counted where they can be seen.
+  const unanswered = items.filter((item) => item.unread > 0).length
+  const unassignedEdits = items.filter((item) => item.editing_notes && !item.editor_id).length
   const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
   const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
   const filmed = items.filter((item) => item.filmed_at).length
@@ -545,6 +549,16 @@ export default function PlanEditor({
                   library video behind it. Templates keep the good ones. */}
               {planId && <CustomCard planId={planId} onAdded={() => void loadPlan()} />}
               <EditorsPanel editors={editors} reload={() => void reloadEditors()} />
+
+              {(unanswered > 0 || unassignedEdits > 0) && (
+                <div className="planstate planstate-short">
+                  <span>
+                    Before it goes:
+                    {unanswered > 0 && ` ${unanswered} question${unanswered === 1 ? '' : 's'} from them unanswered (Messages tab).`}
+                    {unassignedEdits > 0 && ` ${unassignedEdits} editing note${unassignedEdits === 1 ? '' : 's'} with no editor assigned.`}
+                  </span>
+                </div>
+              )}
 
               {repeated.length > 0 && (
                 <div className="planstate planstate-short">

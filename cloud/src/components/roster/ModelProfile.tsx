@@ -38,7 +38,8 @@ const TABS: { key: Tab; label: string }[] = [
   // tabs"). Tags moved into Profile the same day.
   { key: 'reels', label: 'Reels' },
   // Worked out from her accounts, never typed — see lib/insights.ts.
-  { key: 'brand', label: 'Brand' },
+  // Brand folded into Profile (Geno, 2026-10-07: 'anything brand should
+  // be dumped into profile'). The tab button is gone; the section lives on.
   { key: 'blueprint', label: 'Blueprint' },
   // Her Creator Intelligence report — Geno's 24-section template (2026-10-06),
   // generated from everything on file. lib/report/.
@@ -383,10 +384,15 @@ export default function ModelProfile({
               <TagsTab form={form} set={set} setForm={setForm} />
             </section>
           )}
+          {tab === 'profile' && modelId && (
+            <section className="profile-tags" aria-label="Brand">
+              <h3 className="profile-tags-head">Brand &amp; niche</h3>
+              <BrandTab modelId={modelId} />
+            </section>
+          )}
           {tab === 'analytics' && modelId && <AnalyticsTab modelId={modelId} />}
           {tab === 'earnings' && modelId && <EarningsTab modelId={modelId} />}
           {tab === 'reels' && modelId && <ReelsTab modelId={modelId} name={form.name || model?.name || ''} photo={model?.photo_url ?? null} />}
-          {tab === 'brand' && modelId && <BrandTab modelId={modelId} />}
           {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}
           {tab === 'strategy' && modelId && <StrategyTab modelId={modelId} name={form.name || model?.name || ''} />}
           {tab === 'messages' && modelId && <MessagesTab modelId={modelId} />}

@@ -479,3 +479,10 @@
 /* Media wells stay ink whatever the theme paints ink-900 as. */
 :root:not([data-theme]) .dash-reel-media { background: #0A0A0A; }
 :root:not([data-theme]) .dash-reel-blank { background: linear-gradient(160deg, #2B2926, #0A0A0A); }
+
+/* Strip cards line up (2026-10-07): text runs differ, so the body flexes
+   and the action row pins to the foot — no more lopsided button rows. */
+.dash-reel-strip > li { display: flex; flex-direction: column; }
+.dash-reel-strip .reels-actions,
+.dash-reel-strip .dash-reel-action:last-child { margin-top: auto; }
+.dash-reel-strip .reels-actions { display: grid; gap: var(--sc-space-1); padding-top: var(--sc-space-2); }

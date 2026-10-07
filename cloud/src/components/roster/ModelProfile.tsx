@@ -7,7 +7,6 @@ import AccessTab, { type Override } from './profile/AccessTab'
 import ProfileFigures from './profile/ProfileFigures'
 import BrandTab from './profile/BrandTab'
 import ReelsTab from './profile/ReelsTab'
-import BlueprintTab from './profile/BlueprintTab'
 import ProfileHead from './profile/ProfileHead'
 import ProfileTab from './profile/ProfileTab'
 import TagsTab from './profile/TagsTab'
@@ -24,7 +23,7 @@ import MessagesTab from './profile/MessagesTab'
 import EarningsTab from '../earnings/EarningsTab'
 
 export type ProfileTab = Tab
-type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'blueprint' | 'strategy' | 'messages' | 'week' | 'access'
+type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'strategy' | 'messages' | 'week' | 'access'
 
 const TABS: { key: Tab; label: string }[] = [
   // Short enough that four of them fit a 390px screen without scrolling. The
@@ -40,7 +39,7 @@ const TABS: { key: Tab; label: string }[] = [
   // Worked out from her accounts, never typed — see lib/insights.ts.
   // Brand folded into Profile (Geno, 2026-10-07: 'anything brand should
   // be dumped into profile'). The tab button is gone; the section lives on.
-  { key: 'blueprint', label: 'Blueprint' },
+  // Blueprint tab removed (Geno, 2026-10-07): Strategy carries the plan now.
   // Her Creator Intelligence report — Geno's 24-section template (2026-10-06),
   // generated from everything on file. lib/report/.
   { key: 'strategy', label: 'Strategy' },
@@ -393,7 +392,6 @@ export default function ModelProfile({
           {tab === 'analytics' && modelId && <AnalyticsTab modelId={modelId} />}
           {tab === 'earnings' && modelId && <EarningsTab modelId={modelId} />}
           {tab === 'reels' && modelId && <ReelsTab modelId={modelId} name={form.name || model?.name || ''} photo={model?.photo_url ?? null} />}
-          {tab === 'blueprint' && modelId && <BlueprintTab modelId={modelId} />}
           {tab === 'strategy' && modelId && <StrategyTab modelId={modelId} name={form.name || model?.name || ''} />}
           {tab === 'messages' && modelId && <MessagesTab modelId={modelId} />}
           {tab === 'week' && (

@@ -35,7 +35,6 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
   const [showDone, setShowDone] = useState(false)
   const [checks, setChecks] = useState<QualityCheck[] | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const repurpose = useRepurpose(modelId)
 
@@ -63,6 +62,18 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
   const tasks = (queue?.tasks ?? []).filter((task) => showDone || !task.done)
   const media = useReelMedia([...reels.map((p) => p.post_id), ...tasks.map((t) => t.source_post)])
   const who = { name, photo }
+
+  /** One tap closes a whole trial batch — the five cuts render as one card
+   *  (Geno, 2026-10-07: the same reel five times read as a bug). */
+  async function doneAll(ids: string[], done: boolean) {
+    await Promise.all(ids.map((task_id) =>
+      fetch(`/api/models/${modelId}/editor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'done', task_id, done }),
+      }).catch(() => null)))
+    await loadQueue()
+  }
 
   async function editor(body: Record<string, unknown>) {
     await fetch(`/api/models/${modelId}/editor`, {
@@ -138,18 +149,21 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
         {!queue ? <p className="hint">Building the queue…</p> : tasks.length === 0 ? (
           <p className="hint">{queue.tasks.length === 0 ? 'Nothing yet — re-cuts start the week they have a reel past 10× their usual.' : 'All done.'}</p>
         ) : (
-          <VideoStrip who={who} media={media} items={tasks.map((task) => {
+          <VideoStrip who={who} media={media} items={groupTrials(tasks).map((task) => {
             const file = task.download ?? media[task.source_post]?.download ?? null
+            const ids = task.group_ids ?? [task.id]
             return {
               code: task.source_post,
-              badge: { label: task.kind === 'edit' ? 'Edit' : 'Trial', tone: 'edit' },
-              sub: `Due ${formatDate(task.due_date)} · ${task.move}`,
+              badge: { label: task.kind === 'edit' ? 'Edit' : ids.length > 1 ? `Trial · ${ids.length} cuts` : 'Trial', tone: 'edit' },
+              sub: ids.length > 1
+                ? `Due ${formatDate(task.due_date)} · ${ids.length} different cuts of this winner — one card, ${ids.length} files back`
+                : `Due ${formatDate(task.due_date)} · ${task.move}`,
               actions: (
                 <div className="reels-actions">
                   {file
                     ? <a className="dash-reel-action" data-flagged="true" href={file}>Get the video</a>
                     : <span className="dash-reel-status" title="The clip lives on the Mac">No file — Mac offline</span>}
-                  <button type="button" className="dash-reel-action" onClick={() => void editor({ action: 'done', task_id: task.id, done: !task.done })}>
+                  <button type="button" className="dash-reel-action" onClick={() => void doneAll(ids, !task.done)}>
                     {task.done ? 'Undo' : 'Done ✓'}
                   </button>
                 </div>
@@ -169,16 +183,7 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
         )}
       </section>
 
-      {review && (
-        <details className="reels-more">
-          <summary>Sunday call</summary>
-          <button className="chip" onClick={async () => {
-            await navigator.clipboard.writeText(review.call.join('\n\n'))
-            setCopied(true); setTimeout(() => setCopied(false), 1600)
-          }}>{copied ? 'Copied' : 'Copy'}</button>
-          <ol className="brand-list">{review.call.map((line) => <li key={line}>{line}</li>)}</ol>
-        </details>
-      )}
+      {/* The Sunday call block is gone (Geno, 2026-10-07: unnecessary). */}
 
       <details className="reels-more">
         <summary>Quality check</summary>
@@ -208,4 +213,27 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
       )}
     </div>
   )
+}
+
+/** The five trial cuts of one winner fold into a single card; edits stay
+ *  individual (each is a different move). Done state is the group's: done
+ *  only when every cut is. */
+function groupTrials<T extends { id: string; kind: string; source_post: string; done: boolean }>(
+  tasks: T[],
+): (T & { group_ids?: string[] })[] {
+  const out: (T & { group_ids?: string[] })[] = []
+  const at = new Map<string, number>()
+  for (const task of tasks) {
+    if (task.kind !== 'trial') { out.push(task); continue }
+    const index = at.get(task.source_post)
+    if (index === undefined) {
+      at.set(task.source_post, out.length)
+      out.push({ ...task, group_ids: [task.id] })
+    } else {
+      const held = out[index]
+      held.group_ids!.push(task.id)
+      held.done = held.done && task.done
+    }
+  }
+  return out
 }

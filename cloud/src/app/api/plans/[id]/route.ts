@@ -35,7 +35,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (!plan) return notFound()
 
   const items = await sql.query(
-    `select i.id, i.job_id, i.position, i.notes, i.editing_notes,
+    `select i.id, i.job_id, i.position, i.notes, i.editing_notes, i.editor_id,
             i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
             -- t.title below is the reference's own title on Instagram, so the
             -- card's own name has to arrive under a different one.

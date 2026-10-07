@@ -9,6 +9,7 @@ import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
 import CustomCard from './CustomCard'
+import { EditorAssign, EditorsPanel, useEditors } from './Editors'
 import {
   UPLOAD_LABEL, uploadStateOf,
   type HerPost, type PlanHead, type PlanItemRow, type PlanSummary, type Suggestion,
@@ -318,6 +319,8 @@ export default function PlanEditor({
   }
 
   /** Put a suggested item on the open week and drop it out of the list. */
+  const { editors, reload: reloadEditors } = useEditors()
+
   async function addSuggested(jobId: string) {
     if (!planId) return
     await fetch(`/api/plans/${planId}/items`, {
@@ -541,6 +544,7 @@ export default function PlanEditor({
               {/* A card of the team's own — label, format, directions, no
                   library video behind it. Templates keep the good ones. */}
               {planId && <CustomCard planId={planId} onAdded={() => void loadPlan()} />}
+              <EditorsPanel editors={editors} reload={() => void reloadEditors()} />
 
               {repeated.length > 0 && (
                 <div className="planstate planstate-short">
@@ -826,6 +830,11 @@ export default function PlanEditor({
                           placeholder="Optional"
                           onBlur={(event) => patchItem(item.id, { editing_notes: event.target.value })}
                         />
+
+                        {/* In-house only: her page never shows these notes.
+                            Point the card at whoever will cut it. */}
+                        <EditorAssign itemId={item.id} editors={editors}
+                          value={item.editor_id ?? null} onChanged={reloadEditors} />
 
                         {/* Phase 5. What she actually posted, bound by hand.
                             Nothing here is inferred — see the note on the

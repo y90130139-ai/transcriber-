@@ -73,6 +73,8 @@ export type PlanItem = {
   location: string | null
   notes: string | null
   editing_notes: string | null
+  /** Who on the editing team this card is pointed at (console only). */
+  editor_id: string | null
   /** Phase 3. The same brief as discrete facts. Any of them null falls the card
    *  back to `notes`, which is all anything written before phase 3 has. */
   wardrobe: string | null
@@ -238,7 +240,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   // above, and do not move an authorization check in here: the point of this
   // function is that it is the same query for both callers.
   const rows = await sql.query(
-    `select i.id as item_id, i.position, i.notes, i.editing_notes,
+    `select i.id as item_id, i.position, i.notes, i.editing_notes, i.editor_id,
             i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
             i.card_no, i.title, i.location,
             (i.filmed_at is not null) as filmed, i.model_note,
@@ -307,6 +309,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     location: (row.location as string | null) ?? null,
     notes: (row.notes as string | null) ?? null,
     editing_notes: (row.editing_notes as string | null) ?? null,
+    editor_id: (row.editor_id as string | null) ?? null,
     wardrobe: (row.wardrobe as string | null) ?? null,
     camera: (row.camera as string | null) ?? null,
     takes: (row.takes as string | null) ?? null,
@@ -393,7 +396,10 @@ export async function loadPlan(token: unknown): Promise<
 
   const items = await planItemsFor(plan.id)
 
-  return { model, plan, items }
+  // Editing notes are in-house (Geno, 2026-10-07): for the editing team's
+  // page, never hers. Stripped here — not just unrendered — so they are not
+  // sitting in her page's payload either.
+  return { model, plan, items: items.map((item) => ({ ...item, editing_notes: null })) }
 }
 
 /**

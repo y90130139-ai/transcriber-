@@ -443,13 +443,9 @@ export default function PlanItemCard({
       </Step>
       )}
 
-      {/* No filming steps on these, so the editing note stands on its own. */}
-      {!filming && item.editing_notes && (
-        <p className="plan-editing">
-          <span className="plan-label">Editing</span>
-          {item.editing_notes}
-        </p>
-      )}
+      {/* Editing notes are in-house now (Geno, 2026-10-07) — they live on
+          the editing team's page, never on hers. The payload strips them
+          too; this comment marks where they used to render. */}
 
       {/* Checked before she presses record, not after she has posted — the
           only moment any of it can still change the video. Folded (Geno,
@@ -484,12 +480,6 @@ export default function PlanItemCard({
           <ShotListView list={shotList} face={expression} />
           {item.bucket && item.wardrobe && (
             <p className="plan-shot-line"><span>Wardrobe</span>{item.wardrobe}</p>
-          )}
-          {item.editing_notes && (
-            <p className="plan-editing">
-              <span className="plan-label">Editing</span>
-              {item.editing_notes}
-            </p>
           )}
           {item.blocks.length > 0 && (
             <details className="plan-transcript">

@@ -1820,3 +1820,88 @@ body {
 
 /* ----------------------------------------------------------- PLAYER */
 .console .reader .player { border-radius: 12px; }
+
+/* ============================================================
+   EDITOR SHEET — /e/<token> (2026-10-07). The editing team's
+   page: assigned cards, in-house notes, the files. Public route,
+   so it carries its own complete look on the house tokens.
+   ============================================================ */
+.editor-sheet {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--sc-space-8) var(--sc-space-4) var(--sc-space-16);
+  display: grid;
+  gap: var(--sc-space-4);
+}
+.editor-eyebrow {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.editor-sheet h1 {
+  margin: var(--sc-space-1) 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-3xl);
+  letter-spacing: var(--sc-track-wide);
+  color: var(--sc-ink-900);
+}
+.editor-sub { margin: 0; color: var(--sc-ink-500); }
+.editor-card {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  background: var(--sc-bone-light);
+  padding: var(--sc-space-4);
+  display: grid;
+  gap: var(--sc-space-3);
+}
+.editor-card h2 {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  color: var(--sc-ink-900);
+}
+.editor-card h2 span { font-family: var(--sc-font-mono); font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.editor-title { margin: 0; color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.editor-notes {
+  margin: 0;
+  padding: var(--sc-space-3);
+  border-left: 3px solid var(--sc-ember);
+  background: var(--sc-paper, var(--sc-bone));
+  border-radius: var(--r-sm, 6px);
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+}
+.editor-card video { width: 100%; max-height: 70vh; border-radius: var(--r-sm, 6px); background: var(--sc-ink-900); }
+.editor-links { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sc-space-4); font-size: var(--sc-text-sm); }
+.editor-links a { color: var(--sc-ember-deep); }
+.editor-links em { color: var(--sc-ink-300); font-style: italic; }
+.editor-done summary { cursor: pointer; color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+.editor-done p { margin: var(--sc-space-2) 0 0; color: var(--sc-ink-300); font-size: var(--sc-text-sm); }
+
+/* Editors in the plan editor (Editors.tsx). */
+.editorassign { display: flex; align-items: center; gap: var(--sc-space-2); margin-top: var(--sc-space-2); }
+.editorassign select { font: inherit; font-size: var(--sc-text-sm); padding: 2px 8px; }
+.editorspanel { margin-top: var(--sc-space-2); }
+.editorspanel-body {
+  margin-top: var(--sc-space-2);
+  display: grid;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+}
+.editorspanel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+.editorspanel-name { margin-right: auto; font-size: var(--sc-text-sm); color: var(--sc-ink-900); display: grid; }
+.editorspanel-name small { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.editorspanel-row input { font: inherit; font-size: var(--sc-text-sm); padding: var(--sc-space-1) var(--sc-space-2); border: var(--sc-rule-hair); border-radius: var(--r-sm, 6px); background: var(--sc-paper, var(--sc-bone)); }
+.editorspanel-said { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }

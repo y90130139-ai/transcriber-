@@ -144,6 +144,7 @@ export type PlanItemRow = {
   location: string | null
   notes: string | null
   editing_notes: string | null
+  editor_id?: string | null
   /** Phase 3. The brief as discrete fields; null falls back to `notes`. */
   wardrobe: string | null
   camera: string | null

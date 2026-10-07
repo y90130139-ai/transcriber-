@@ -18,7 +18,9 @@ import { PALETTES, cleanStyle, type PortalStyle } from '@/lib/portal-style'
 const PHOTO_SIZE = 256
 const PHOTO_QUALITY = 0.84
 
-async function shrink(file: File): Promise<string | null> {
+/** Shared with MakeItYours (2026-10-07): she can change her photo any
+ *  time, not only on first open. */
+export async function shrink(file: File): Promise<string | null> {
   const url = URL.createObjectURL(file)
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {

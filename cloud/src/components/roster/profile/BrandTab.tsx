@@ -100,7 +100,7 @@ export default function BrandTab({ modelId }: { modelId: string }) {
   const similarAccepted = Boolean(accepted?.similar_creators?.length)
 
   return (
-    <div className="brand">
+    <div className="brandtab">
       <section className="axis">
         <div className="axis-head">
           <span className="axis-name">Level · {data.level.level}</span>

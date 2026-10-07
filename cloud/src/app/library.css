@@ -1972,8 +1972,11 @@ a.wk-row:hover .wk-who { color: var(--sc-ember-deep); }
 /* ------------------------------------------------------------ HER BRAND
    Proposals with their evidence. The tier letter carries the ember because
    it is the ranking; everything else stays quiet. */
-.brand { display: grid; gap: var(--sc-space-4); }
-.brand p { margin: var(--sc-space-1) 0; }
+/* Renamed from .brand (2026-10-07): the route-based console's masthead
+   logo took that class name and its flex rule flattened this whole
+   section into side-by-side slivers. */
+.brandtab { display: grid; gap: var(--sc-space-4); }
+.brandtab p { margin: var(--sc-space-1) 0; }
 .brand-list { margin: var(--sc-space-2) 0; padding-left: 0; list-style: none; display: grid; gap: var(--sc-space-2); }
 .brand-list b { color: var(--sc-ember-deep); font-family: var(--sc-font-mono); margin-right: var(--sc-space-2); }
 .brand-list .axis-confirm { margin-left: var(--sc-space-2); }

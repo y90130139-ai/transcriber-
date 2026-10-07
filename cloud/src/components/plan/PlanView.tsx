@@ -635,7 +635,7 @@ export default function PlanView({
 
         {/* Her colors, her background. Not in the preview — a tap there
             would save Geno's taste onto her pages. */}
-        {!preview && <MakeItYours token={token} style={model.portal_style} />}
+        {!preview && <MakeItYours token={token} style={model.portal_style} photo={model.photo_url} />}
       </div>
 
       {setupOpen && (

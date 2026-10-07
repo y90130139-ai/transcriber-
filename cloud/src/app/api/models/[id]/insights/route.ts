@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
        join transcriber.plans p on p.id = i.plan_id
        join transcriber.tags g on g.job_id = i.job_id
       where p.model_id = $1 and (i.rating = 1 or i.accepted_at is not null)
-        and g.axis in ('topic', 'format')
+        and g.axis in ('topic', 'format') and g.tag <> 'unknown'
       group by g.axis, g.tag
       order by n desc
       limit 8`,

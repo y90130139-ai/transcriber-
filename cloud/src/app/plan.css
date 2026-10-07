@@ -2806,3 +2806,23 @@
 }
 .plan-look-photo b { font-weight: 500; color: var(--sc-ink-900); font-size: var(--sc-text-sm); }
 .plan-look-photo input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* The deck's sound tap (2026-10-07) — the video already plays in the
+   frame; this is the one control laid over it. Big enough for a thumb,
+   clear of the swipe (it stops the pointer events itself). */
+.disc-sound {
+  position: absolute;
+  top: var(--sc-space-3);
+  right: var(--sc-space-3);
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.55);
+  color: #fff;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.disc-sound[aria-pressed='true'] { background: var(--sc-ember); }

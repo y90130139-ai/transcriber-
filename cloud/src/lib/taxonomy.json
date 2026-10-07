@@ -1,472 +1,482 @@
 {
-  "note": "Tag vocabulary for the content library. Four independent axes: a creator is positioned in a persona niche, a video takes a format, it opens with a hook, and it is about a topic. Tag all four. `relatable` is the topic of a video about nothing in particular that any model can be handed with a twist; `unknown` is left alone.",
-  "persona": {
-    "label": "Persona / niche",
-    "hint": "How the creator is positioned. Usually stable per creator, so this drives the Models tab.",
-    "tags": [
-      {
-        "id": "faceless",
-        "label": "Faceless",
-        "desc": "Face never shown — body, hands or POV only. Rarely speaks, so it is set on the creator rather than inferred."
-      },
-      {
-        "id": "girl-next-door",
-        "label": "Girl next door",
-        "desc": "Approachable, low-glam, relatable"
-      },
-      {
-        "id": "latina",
-        "label": "Latina",
-        "desc": "Latina identity is part of the positioning, not incidental"
-      },
-      {
-        "id": "alt-goth",
-        "label": "Alt / goth",
-        "desc": "Dark alt aesthetic, alt-scene coded"
-      },
-      {
-        "id": "e-girl",
-        "label": "E-girl",
-        "desc": "Online-native, gamer/streamer adjacent"
-      },
-      {
-        "id": "fitness",
-        "label": "Fitness",
-        "desc": "Gym, physique, training-led identity"
-      },
-      {
-        "id": "cosplay-gaming",
-        "label": "Cosplay / gaming",
-        "desc": "Character cosplay, anime, gaming"
-      },
-      {
-        "id": "milf-mature",
-        "label": "MILF / mature",
-        "desc": "Older, experienced positioning"
-      },
-      {
-        "id": "pregnant",
-        "label": "Pregnant",
-        "desc": "Pregnancy-forward positioning, bump-led"
-      },
-      {
-        "id": "postpartum",
-        "label": "Postpartum / new mom",
-        "desc": "Post-birth body, recovery, newborn era"
-      },
-      {
-        "id": "lactation",
-        "label": "Lactation",
-        "desc": "Milk-focused positioning"
-      },
-      {
-        "id": "petite",
-        "label": "Petite",
-        "desc": "Small-frame positioning"
-      },
-      {
-        "id": "curvy-bbw",
-        "label": "Curvy / BBW",
-        "desc": "Fuller-figure positioning"
-      },
-      {
-        "id": "big-boobs",
-        "label": "Big boobs",
-        "desc": "Bust-forward positioning"
-      },
-      {
-        "id": "big-booty",
-        "label": "Big booty",
-        "desc": "Glute-forward positioning"
-      },
-      {
-        "id": "bimbo-hyperfem",
-        "label": "Bimbo / hyperfeminine",
-        "desc": "Exaggerated glam femininity"
-      },
-      {
-        "id": "tomboy",
-        "label": "Tomboy",
-        "desc": "Androgynous, sporty-casual"
-      },
-      {
-        "id": "domme",
-        "label": "Domme / femdom",
-        "desc": "Dominant, commanding"
-      },
-      {
-        "id": "brat-sub",
-        "label": "Brat / submissive",
-        "desc": "Playful-defiant or submissive"
-      },
-      {
-        "id": "findom",
-        "label": "Findom",
-        "desc": "Financial domination"
-      },
-      {
-        "id": "gfe",
-        "label": "Girlfriend experience",
-        "desc": "Intimacy, attentiveness, parasocial warmth"
-      },
-      {
-        "id": "toxic-gf",
-        "label": "Toxic girlfriend",
-        "desc": "Jealous, possessive, drama-led — the inverse of GFE warmth"
-      },
-      {
-        "id": "amateur",
-        "label": "Amateur / homemade",
-        "desc": "Deliberately unpolished, real"
-      },
-      {
-        "id": "luxury-glam",
-        "label": "Luxury / glam",
-        "desc": "High production, wealth signalling"
-      },
-      {
-        "id": "soft-cottagecore",
-        "label": "Soft / cottagecore",
-        "desc": "Gentle, pastel, domestic"
-      },
-      {
-        "id": "inked",
-        "label": "Inked / pierced",
-        "desc": "Tattoo- and piercing-forward"
-      },
-      {
-        "id": "sports-cheer",
-        "label": "Sports / cheer",
-        "desc": "Athlete or cheer coded"
-      },
-      {
-        "id": "uniform-roleplay",
-        "label": "Uniform / roleplay",
-        "desc": "Nurse, teacher, secretary personas"
-      },
-      {
-        "id": "feet",
-        "label": "Feet",
-        "desc": "Foot-focused positioning"
-      },
-      {
-        "id": "asmr",
-        "label": "ASMR",
-        "desc": "Audio-led, whisper/trigger content"
-      },
-      {
-        "id": "couples",
-        "label": "Couples",
-        "desc": "Duo account"
-      },
-      {
-        "id": "trans",
-        "label": "Trans",
-        "desc": "Trans creator positioning"
-      }
-    ]
-  },
-  "format": {
-    "label": "Content format",
-    "hint": "What this specific video does. Varies per video.",
-    "tags": [
-      {
-        "id": "thirst-trap",
-        "label": "Thirst trap",
-        "desc": "Body-forward, no dance or dialogue hook"
-      },
-      {
-        "id": "grwm",
-        "label": "GRWM",
-        "desc": "Get ready with me"
-      },
-      {
-        "id": "storytime",
-        "label": "Storytime",
-        "desc": "Narrated personal story"
-      },
-      {
-        "id": "q-and-a",
-        "label": "Q&A",
-        "desc": "Answering audience questions"
-      },
-      {
-        "id": "day-in-life",
-        "label": "Day in the life",
-        "desc": "Vlog-style"
-      },
-      {
-        "id": "fit-check",
-        "label": "Fit check",
-        "desc": "Outfit showcase"
-      },
-      {
-        "id": "try-on",
-        "label": "Try-on haul",
-        "desc": "Multiple outfits, hauled items"
-      },
-      {
-        "id": "gym",
-        "label": "Gym / workout",
-        "desc": "Training footage"
-      },
-      {
-        "id": "pov-skit",
-        "label": "POV / roleplay skit",
-        "desc": "Scripted scenario, second-person framing"
-      },
-      {
-        "id": "comedy",
-        "label": "Comedy skit",
-        "desc": "Bit or joke led"
-      },
-      {
-        "id": "reaction",
-        "label": "Reaction / duet",
-        "desc": "Responding to other content"
-      },
-      {
-        "id": "lip-sync",
-        "label": "Lip sync / trend",
-        "desc": "Trending audio participation"
-      },
-      {
-        "id": "bts",
-        "label": "Behind the scenes",
-        "desc": "Shoot or process footage"
-      },
-      {
-        "id": "promo",
-        "label": "Promo / CTA",
-        "desc": "Explicit funnel push"
-      },
-      {
-        "id": "advice",
-        "label": "Advice / tutorial",
-        "desc": "Teaching something"
-      },
-      {
-        "id": "rant",
-        "label": "Rant / opinion",
-        "desc": "Take-driven talking head"
-      },
-      {
-        "id": "collab",
-        "label": "Collab / feature",
-        "desc": "Appearing with another creator"
-      },
-      {
-        "id": "teaser",
-        "label": "Teaser",
-        "desc": "Preview of paid content"
-      },
-      {
-        "id": "talking-head",
-        "label": "Talking head",
-        "desc": "Straight to camera, dialogue carries it"
-      },
-      {
-        "id": "skit",
-        "label": "Skit",
-        "desc": "Scripted bit with characters or a scenario"
-      },
-      {
-        "id": "text-overlay",
-        "label": "Text overlay",
-        "desc": "On-screen text is the payload; audio secondary"
-      },
-      {
-        "id": "street-interview",
-        "label": "Street interview",
-        "desc": "Man-on-the-street Q&A format"
-      },
-      {
-        "id": "rage-bait",
-        "label": "Rage bait",
-        "desc": "Engineered to provoke argument in comments"
-      },
-      {
-        "id": "snap-banner",
-        "label": "Snapchat banner",
-        "desc": "Snapchat-style banner overlaid mid-video"
-      },
-      {
-        "id": "dance",
-        "label": "Dance",
-        "desc": "Choreography-led"
-      },
-      {
-        "id": "mirror",
-        "label": "Mirror",
-        "desc": "Filmed in or at a mirror — selfie framing, often with a flirty caption"
-      },
-      {
-        "id": "reveal",
-        "label": "Reveal",
-        "desc": "Builds to a reveal — outfit, look or transformation lands on the cut"
-      },
-      {
-        "id": "confession",
-        "label": "Confession",
-        "desc": "Confession-style talking — admits something to camera, intimate and direct"
-      },
-      {
-        "id": "car-confession",
-        "label": "Car confession",
-        "desc": "A confession or story told to camera from the driver's seat"
-      }
-    ]
-  },
-  "hook": {
-    "label": "Hook type",
-    "hint": "How the first ~3 seconds grab attention. The highest-signal field for figuring out why something performed.",
-    "tags": [
-      {
-        "id": "direct-address",
-        "label": "Direct address",
-        "desc": "Talks straight to camera immediately"
-      },
-      {
-        "id": "question",
-        "label": "Question",
-        "desc": "Opens on a question"
-      },
-      {
-        "id": "text-claim",
-        "label": "Text overlay claim",
-        "desc": "On-screen text carries the hook"
-      },
-      {
-        "id": "pov-relatable",
-        "label": "POV / relatable",
-        "desc": "Names a scenario the viewer is meant to see themselves in — POV:, me when…, when he…"
-      },
-      {
-        "id": "transition",
-        "label": "Transition reveal",
-        "desc": "Before/after or outfit switch"
-      },
-      {
-        "id": "contrast",
-        "label": "Shock / contrast",
-        "desc": "Unexpected juxtaposition"
-      },
-      {
-        "id": "trending-audio",
-        "label": "Trending audio",
-        "desc": "Audio itself is the draw"
-      },
-      {
-        "id": "in-media-res",
-        "label": "In media res",
-        "desc": "Drops mid-scene, no setup"
-      },
-      {
-        "id": "none",
-        "label": "No clear hook",
-        "desc": "Slow or absent opening"
-      }
-    ]
-  },
-  "topic": {
-    "label": "Topic / niche",
-    "hint": "What the video is ABOUT, as opposed to who is in it (persona) or what it does (format). This is what routes a golf reel to a golf model. Most reels have one; `relatable` and `unknown` are the two that are not subjects at all.",
-    "tags": [
-      {
-        "id": "golf",
-        "label": "Golf",
-        "desc": "On a course, range or simulator; putting, swinging, golf clothes"
-      },
-      {
-        "id": "cars",
-        "label": "Cars",
-        "desc": "Driving, car interiors as the subject, builds, racing, car culture"
-      },
-      {
-        "id": "gym",
-        "label": "Gym & fitness",
-        "desc": "Training, lifting, running, fitness routines"
-      },
-      {
-        "id": "gaming",
-        "label": "Gaming & anime",
-        "desc": "Games, streaming, anime, cosplay as subject matter"
-      },
-      {
-        "id": "chess",
-        "label": "Chess & tabletop",
-        "desc": "Chess, poker, cards, board games"
-      },
-      {
-        "id": "food",
-        "label": "Food & cooking",
-        "desc": "Cooking, eating, recipes, restaurants, drinks"
-      },
-      {
-        "id": "travel",
-        "label": "Travel",
-        "desc": "Trips, airports, hotels, being somewhere as the point"
-      },
-      {
-        "id": "pets",
-        "label": "Pets & animals",
-        "desc": "Dogs, cats, horses, animals as the subject"
-      },
-      {
-        "id": "medical",
-        "label": "Nursing & medical",
-        "desc": "Nurses, scrubs, clinics, shift-work life"
-      },
-      {
-        "id": "college",
-        "label": "College & school",
-        "desc": "Campus, classes, dorms, student life"
-      },
-      {
-        "id": "motherhood",
-        "label": "Motherhood",
-        "desc": "Kids, pregnancy as life rather than body, mom life"
-      },
-      {
-        "id": "outdoors",
-        "label": "Outdoors",
-        "desc": "Fishing, hunting, camping, hiking, the lake"
-      },
-      {
-        "id": "sports-fan",
-        "label": "Sports fan",
-        "desc": "Game day, teams, jerseys, watching sport"
-      },
-      {
-        "id": "music",
-        "label": "Music & nightlife",
-        "desc": "Concerts, DJs, festivals, clubs, singing"
-      },
-      {
-        "id": "trivia",
-        "label": "Facts & trivia",
-        "desc": "Facts, explainers, did-you-know, history"
-      },
-      {
-        "id": "work",
-        "label": "Work & money",
-        "desc": "Jobs, bosses, shifts, side hustles, money talk"
-      },
-      {
-        "id": "dating",
-        "label": "Dating & relationships",
-        "desc": "Dating life, exes, talking stages, relationship takes"
-      },
-      {
-        "id": "relatable",
-        "label": "Relatable (twistable)",
-        "desc": "About nothing in particular — a joke, a mood, a moment anyone recognises. Can be handed to any model by keeping the structure and changing the subject to her world."
-      },
-      {
-        "id": "unknown",
-        "label": "Unknown",
-        "desc": "Nothing said it. Left alone rather than guessed, and never matched on."
-      }
-    ]
-  }
+ "note": "Tag vocabulary for the content library. Four independent axes: a creator is positioned in a persona niche, a video takes a format, it opens with a hook, and it is about a topic. Tag all four. `relatable` is the topic of a video about nothing in particular that any model can be handed with a twist; `unknown` is left alone.",
+ "persona": {
+  "label": "Persona / niche",
+  "hint": "How the creator is positioned. Usually stable per creator, so this drives the Models tab.",
+  "tags": [
+   {
+    "id": "faceless",
+    "label": "Faceless",
+    "desc": "Face never shown — body, hands or POV only. Rarely speaks, so it is set on the creator rather than inferred."
+   },
+   {
+    "id": "girl-next-door",
+    "label": "Girl next door",
+    "desc": "Approachable, low-glam, relatable"
+   },
+   {
+    "id": "comedy",
+    "label": "Funny / comedy",
+    "desc": "The funny one — humor is the brand: jokes, bits, chaotic energy; the thirst is secondary to the laugh"
+   },
+   {
+    "id": "latina",
+    "label": "Latina",
+    "desc": "Latina identity is part of the positioning, not incidental"
+   },
+   {
+    "id": "alt-goth",
+    "label": "Alt / goth",
+    "desc": "Dark alt aesthetic, alt-scene coded"
+   },
+   {
+    "id": "e-girl",
+    "label": "E-girl",
+    "desc": "Online-native, gamer/streamer adjacent"
+   },
+   {
+    "id": "fitness",
+    "label": "Fitness",
+    "desc": "Gym, physique, training-led identity"
+   },
+   {
+    "id": "cosplay-gaming",
+    "label": "Cosplay / gaming",
+    "desc": "Character cosplay, anime, gaming"
+   },
+   {
+    "id": "milf-mature",
+    "label": "MILF / mature",
+    "desc": "Older, experienced positioning"
+   },
+   {
+    "id": "pregnant",
+    "label": "Pregnant",
+    "desc": "Pregnancy-forward positioning, bump-led"
+   },
+   {
+    "id": "postpartum",
+    "label": "Postpartum / new mom",
+    "desc": "Post-birth body, recovery, newborn era"
+   },
+   {
+    "id": "lactation",
+    "label": "Lactation",
+    "desc": "Milk-focused positioning"
+   },
+   {
+    "id": "petite",
+    "label": "Petite",
+    "desc": "Small-frame positioning"
+   },
+   {
+    "id": "curvy-bbw",
+    "label": "Curvy / BBW",
+    "desc": "Fuller-figure positioning"
+   },
+   {
+    "id": "big-boobs",
+    "label": "Big boobs",
+    "desc": "Bust-forward positioning"
+   },
+   {
+    "id": "big-booty",
+    "label": "Big booty",
+    "desc": "Glute-forward positioning"
+   },
+   {
+    "id": "bimbo-hyperfem",
+    "label": "Bimbo / hyperfeminine",
+    "desc": "Exaggerated glam femininity"
+   },
+   {
+    "id": "tomboy",
+    "label": "Tomboy",
+    "desc": "Androgynous, sporty-casual"
+   },
+   {
+    "id": "domme",
+    "label": "Domme / femdom",
+    "desc": "Dominant, commanding"
+   },
+   {
+    "id": "brat-sub",
+    "label": "Brat / submissive",
+    "desc": "Playful-defiant or submissive"
+   },
+   {
+    "id": "findom",
+    "label": "Findom",
+    "desc": "Financial domination"
+   },
+   {
+    "id": "gfe",
+    "label": "Girlfriend experience",
+    "desc": "Intimacy, attentiveness, parasocial warmth"
+   },
+   {
+    "id": "toxic-gf",
+    "label": "Toxic girlfriend",
+    "desc": "Jealous, possessive, drama-led — the inverse of GFE warmth"
+   },
+   {
+    "id": "amateur",
+    "label": "Amateur / homemade",
+    "desc": "Deliberately unpolished, real"
+   },
+   {
+    "id": "luxury-glam",
+    "label": "Luxury / glam",
+    "desc": "High production, wealth signalling"
+   },
+   {
+    "id": "soft-cottagecore",
+    "label": "Soft / cottagecore",
+    "desc": "Gentle, pastel, domestic"
+   },
+   {
+    "id": "inked",
+    "label": "Inked / pierced",
+    "desc": "Tattoo- and piercing-forward"
+   },
+   {
+    "id": "sports-cheer",
+    "label": "Sports / cheer",
+    "desc": "Athlete or cheer coded"
+   },
+   {
+    "id": "uniform-roleplay",
+    "label": "Uniform / roleplay",
+    "desc": "Nurse, teacher, secretary personas"
+   },
+   {
+    "id": "feet",
+    "label": "Feet",
+    "desc": "Foot-focused positioning"
+   },
+   {
+    "id": "asmr",
+    "label": "ASMR",
+    "desc": "Audio-led, whisper/trigger content"
+   },
+   {
+    "id": "couples",
+    "label": "Couples",
+    "desc": "Duo account"
+   },
+   {
+    "id": "trans",
+    "label": "Trans",
+    "desc": "Trans creator positioning"
+   }
+  ]
+ },
+ "format": {
+  "label": "Content format",
+  "hint": "What this specific video does. Varies per video.",
+  "tags": [
+   {
+    "id": "thirst-trap",
+    "label": "Thirst trap",
+    "desc": "Body-forward, no dance or dialogue hook"
+   },
+   {
+    "id": "grwm",
+    "label": "GRWM",
+    "desc": "Get ready with me"
+   },
+   {
+    "id": "storytime",
+    "label": "Storytime",
+    "desc": "Narrated personal story"
+   },
+   {
+    "id": "q-and-a",
+    "label": "Q&A",
+    "desc": "Answering audience questions"
+   },
+   {
+    "id": "day-in-life",
+    "label": "Day in the life",
+    "desc": "Vlog-style"
+   },
+   {
+    "id": "fit-check",
+    "label": "Fit check",
+    "desc": "Outfit showcase"
+   },
+   {
+    "id": "try-on",
+    "label": "Try-on haul",
+    "desc": "Multiple outfits, hauled items"
+   },
+   {
+    "id": "gym",
+    "label": "Gym / workout",
+    "desc": "Training footage"
+   },
+   {
+    "id": "pov-skit",
+    "label": "POV / roleplay skit",
+    "desc": "Scripted scenario, second-person framing"
+   },
+   {
+    "id": "comedy",
+    "label": "Comedy skit",
+    "desc": "Bit or joke led"
+   },
+   {
+    "id": "reaction",
+    "label": "Reaction / duet",
+    "desc": "Responding to other content"
+   },
+   {
+    "id": "lip-sync",
+    "label": "Lip sync / trend",
+    "desc": "Trending audio participation"
+   },
+   {
+    "id": "bts",
+    "label": "Behind the scenes",
+    "desc": "Shoot or process footage"
+   },
+   {
+    "id": "promo",
+    "label": "Promo / CTA",
+    "desc": "Explicit funnel push"
+   },
+   {
+    "id": "advice",
+    "label": "Advice / tutorial",
+    "desc": "Teaching something"
+   },
+   {
+    "id": "rant",
+    "label": "Rant / opinion",
+    "desc": "Take-driven talking head"
+   },
+   {
+    "id": "collab",
+    "label": "Collab / feature",
+    "desc": "Appearing with another creator"
+   },
+   {
+    "id": "teaser",
+    "label": "Teaser",
+    "desc": "Preview of paid content"
+   },
+   {
+    "id": "talking-head",
+    "label": "Talking head",
+    "desc": "Straight to camera, dialogue carries it"
+   },
+   {
+    "id": "skit",
+    "label": "Skit",
+    "desc": "Scripted bit with characters or a scenario"
+   },
+   {
+    "id": "text-overlay",
+    "label": "Text overlay",
+    "desc": "On-screen text is the payload; audio secondary"
+   },
+   {
+    "id": "street-interview",
+    "label": "Street interview",
+    "desc": "Man-on-the-street Q&A format"
+   },
+   {
+    "id": "omegle",
+    "label": "Omegle-style",
+    "desc": "Random video-chat reactions — Omegle/OmeTV/Monkey-style split screen, meeting strangers on camera"
+   },
+   {
+    "id": "rage-bait",
+    "label": "Rage bait",
+    "desc": "Engineered to provoke argument in comments"
+   },
+   {
+    "id": "snap-banner",
+    "label": "Snapchat banner",
+    "desc": "Snapchat-style banner overlaid mid-video"
+   },
+   {
+    "id": "dance",
+    "label": "Dance",
+    "desc": "Choreography-led"
+   },
+   {
+    "id": "mirror",
+    "label": "Mirror",
+    "desc": "Filmed in or at a mirror — selfie framing, often with a flirty caption"
+   },
+   {
+    "id": "reveal",
+    "label": "Reveal",
+    "desc": "Builds to a reveal — outfit, look or transformation lands on the cut"
+   },
+   {
+    "id": "confession",
+    "label": "Confession",
+    "desc": "Confession-style talking — admits something to camera, intimate and direct"
+   },
+   {
+    "id": "car-confession",
+    "label": "Car confession",
+    "desc": "A confession or story told to camera from the driver's seat"
+   }
+  ]
+ },
+ "hook": {
+  "label": "Hook type",
+  "hint": "How the first ~3 seconds grab attention. The highest-signal field for figuring out why something performed.",
+  "tags": [
+   {
+    "id": "direct-address",
+    "label": "Direct address",
+    "desc": "Talks straight to camera immediately"
+   },
+   {
+    "id": "question",
+    "label": "Question",
+    "desc": "Opens on a question"
+   },
+   {
+    "id": "text-claim",
+    "label": "Text overlay claim",
+    "desc": "On-screen text carries the hook"
+   },
+   {
+    "id": "pov-relatable",
+    "label": "POV / relatable",
+    "desc": "Names a scenario the viewer is meant to see themselves in — POV:, me when…, when he…"
+   },
+   {
+    "id": "transition",
+    "label": "Transition reveal",
+    "desc": "Before/after or outfit switch"
+   },
+   {
+    "id": "contrast",
+    "label": "Shock / contrast",
+    "desc": "Unexpected juxtaposition"
+   },
+   {
+    "id": "trending-audio",
+    "label": "Trending audio",
+    "desc": "Audio itself is the draw"
+   },
+   {
+    "id": "in-media-res",
+    "label": "In media res",
+    "desc": "Drops mid-scene, no setup"
+   },
+   {
+    "id": "none",
+    "label": "No clear hook",
+    "desc": "Slow or absent opening"
+   }
+  ]
+ },
+ "topic": {
+  "label": "Topic / niche",
+  "hint": "What the video is ABOUT, as opposed to who is in it (persona) or what it does (format). This is what routes a golf reel to a golf model. Most reels have one; `relatable` and `unknown` are the two that are not subjects at all.",
+  "tags": [
+   {
+    "id": "golf",
+    "label": "Golf",
+    "desc": "On a course, range or simulator; putting, swinging, golf clothes"
+   },
+   {
+    "id": "cars",
+    "label": "Cars",
+    "desc": "Driving, car interiors as the subject, builds, racing, car culture"
+   },
+   {
+    "id": "gym",
+    "label": "Gym & fitness",
+    "desc": "Training, lifting, running, fitness routines"
+   },
+   {
+    "id": "gaming",
+    "label": "Gaming & anime",
+    "desc": "Games, streaming, anime, cosplay as subject matter"
+   },
+   {
+    "id": "chess",
+    "label": "Chess & tabletop",
+    "desc": "Chess, poker, cards, board games"
+   },
+   {
+    "id": "food",
+    "label": "Food & cooking",
+    "desc": "Cooking, eating, recipes, restaurants, drinks"
+   },
+   {
+    "id": "travel",
+    "label": "Travel",
+    "desc": "Trips, airports, hotels, being somewhere as the point"
+   },
+   {
+    "id": "pets",
+    "label": "Pets & animals",
+    "desc": "Dogs, cats, horses, animals as the subject"
+   },
+   {
+    "id": "medical",
+    "label": "Nursing & medical",
+    "desc": "Nurses, scrubs, clinics, shift-work life"
+   },
+   {
+    "id": "college",
+    "label": "College & school",
+    "desc": "Campus, classes, dorms, student life"
+   },
+   {
+    "id": "motherhood",
+    "label": "Motherhood",
+    "desc": "Kids, pregnancy as life rather than body, mom life"
+   },
+   {
+    "id": "outdoors",
+    "label": "Outdoors",
+    "desc": "Fishing, hunting, camping, hiking, the lake"
+   },
+   {
+    "id": "sports-fan",
+    "label": "Sports fan",
+    "desc": "Game day, teams, jerseys, watching sport"
+   },
+   {
+    "id": "music",
+    "label": "Music & nightlife",
+    "desc": "Concerts, DJs, festivals, clubs, singing"
+   },
+   {
+    "id": "trivia",
+    "label": "Facts & trivia",
+    "desc": "Facts, explainers, did-you-know, history"
+   },
+   {
+    "id": "work",
+    "label": "Work & money",
+    "desc": "Jobs, bosses, shifts, side hustles, money talk"
+   },
+   {
+    "id": "dating",
+    "label": "Dating & relationships",
+    "desc": "Dating life, exes, talking stages, relationship takes"
+   },
+   {
+    "id": "relatable",
+    "label": "Relatable (twistable)",
+    "desc": "About nothing in particular — a joke, a mood, a moment anyone recognises. Can be handed to any model by keeping the structure and changing the subject to her world."
+   },
+   {
+    "id": "unknown",
+    "label": "Unknown",
+    "desc": "Nothing said it. Left alone rather than guessed, and never matched on."
+   }
+  ]
+ }
 }

@@ -13,6 +13,7 @@ export type Lexicon = Record<string, string[]>
 export const FORMAT_WORDS: Lexicon = {
   grwm: ['get ready with me', 'grwm', 'getting ready with me', 'doing my makeup', 'get ready with'],
   storytime: ['story time', 'storytime', 'let me tell you', 'so basically', 'long story short', 'you will not believe'],
+  omegle: ['omegle', 'ometv', 'ome tv', 'monkey app', 'video chat with strangers', 'random video chat', 'skipped me'],
   'q-and-a': ['q and a', 'q&a', 'you asked', 'someone asked me', 'answering your questions', 'you guys asked'],
   'day-in-life': ['day in my life', 'day in the life', 'my whole day', 'a day with me'],
   'fit-check': ['fit check', 'outfit of the day', 'ootd', "what i'm wearing", 'this outfit'],
@@ -47,6 +48,7 @@ export const FORMAT_WORDS: Lexicon = {
 
 export const PERSONA_WORDS: Lexicon = {
   fitness: ['gym', 'workout', 'lifting', 'macros', 'training', 'reps', 'protein'],
+  comedy: ['funny', 'comedy', 'joke', 'bit', 'skit', 'punchline', 'hilarious', 'making fun of', 'crying laughing'],
   gfe: ['babe', 'baby', 'miss you', 'goodnight', 'my love', 'sweetheart'],
   domme: ['obey', 'kneel', 'good boy', 'on your knees', 'mistress', 'femdom'],
   'brat-sub': ['brat', 'make me', 'yes daddy', 'submissive'],

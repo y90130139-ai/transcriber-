@@ -380,6 +380,9 @@ export default function PlanItemCard({
       {/* The card as steps, in the order she works through it (Susanna,
           2026-09-27: "what to do, what to say, what to write", like the OF
           scripts). Numbered by what is actually on this card. */}
+      {/* A custom card has no reference video at all — the directions ARE
+          the card, so there is nothing to watch and the step says nothing. */}
+      {(item.media || item.webpage_url) && (
       <Step no={++step} title="Watch it">
         {item.media ? (
           <video
@@ -438,6 +441,7 @@ export default function PlanItemCard({
           </span>
         </div>
       </Step>
+      )}
 
       {/* No filming steps on these, so the editing note stands on its own. */}
       {!filming && item.editing_notes && (

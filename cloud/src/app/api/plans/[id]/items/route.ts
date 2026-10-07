@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { appendItems, draftBothFor, isUntouchedDraft, newId, trashKeys } from '@/lib/models'
+import { isValidTag } from '@/lib/taxonomy'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -29,6 +30,32 @@ export async function POST(request: Request, { params }: Params) {
   if (!modelId) return notFound()
 
   const body = await request.json().catch(() => ({}))
+
+  // A custom card (Geno, 2026-10-07): no library video behind it — a blank
+  // template the team labels, formats and writes themselves. It lands as a
+  // normal card; her page simply has no "Watch it" step for it.
+  if (body.custom && typeof body.custom === 'object') {
+    const custom = body.custom as { label?: unknown; format?: unknown; body?: unknown }
+    const label = typeof custom.label === 'string' ? custom.label.trim().slice(0, 120) : ''
+    if (!label) return NextResponse.json({ error: 'give the card a label' }, { status: 400 })
+    const format = typeof custom.format === 'string' && isValidTag('format', custom.format) ? custom.format : null
+    const text = typeof custom.body === 'string' ? custom.body.trim().slice(0, 4000) : ''
+    const [item] = await sql.query(
+      `insert into transcriber.plan_items (id, plan_id, job_id, position, notes, title, bucket, card_no)
+       select $1, $2, null,
+              coalesce(max(i.position), -1) + 1,
+              $3, $4, 'custom',
+              (select coalesce(max(prior.card_no), 0) + 1
+                 from transcriber.plan_items prior
+                 join transcriber.plans pp on pp.id = prior.plan_id
+                where pp.model_id = $5)
+         from transcriber.plan_items i where i.plan_id = $2
+       returning id`,
+      [newId(), id, [format ? `Format: ${format}` : null, text].filter(Boolean).join('\n\n') || null, label, modelId],
+    )
+    return NextResponse.json({ added: 1, item_id: String(item.id) })
+  }
+
   const offered = Array.isArray(body.job_ids)
     ? body.job_ids
     : typeof body.job_id === 'string'

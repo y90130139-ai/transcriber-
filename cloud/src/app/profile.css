@@ -913,3 +913,28 @@
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-900);
 }
+
+/* Custom cards in the plan editor (2026-10-07) — CustomCard.tsx. */
+.customcard-open { margin-top: var(--sc-space-2); }
+.customcard {
+  margin-top: var(--sc-space-2);
+  display: grid;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-bone-light);
+}
+.customcard-row { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: center; }
+.customcard select, .customcard input[type='text'], .customcard textarea {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 8px);
+  background: var(--sc-paper, var(--sc-bone));
+  padding: var(--sc-space-2) var(--sc-space-3);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+.customcard textarea { resize: vertical; }
+.customcard-save { display: flex; align-items: center; gap: var(--sc-space-2); font-size: var(--sc-text-sm); color: var(--sc-ink-500); margin-right: auto; }
+.customcard-note { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }

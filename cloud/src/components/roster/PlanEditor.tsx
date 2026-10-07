@@ -8,6 +8,7 @@ import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
+import CustomCard from './CustomCard'
 import {
   UPLOAD_LABEL, uploadStateOf,
   type HerPost, type PlanHead, type PlanItemRow, type PlanSummary, type Suggestion,
@@ -536,6 +537,10 @@ export default function PlanEditor({
                   </span>
                 )}
               </div>
+
+              {/* A card of the team's own — label, format, directions, no
+                  library video behind it. Templates keep the good ones. */}
+              {planId && <CustomCard planId={planId} onAdded={() => void loadPlan()} />}
 
               {repeated.length > 0 && (
                 <div className="planstate planstate-short">

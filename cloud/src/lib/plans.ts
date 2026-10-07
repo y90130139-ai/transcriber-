@@ -101,7 +101,7 @@ export type PlanItem = {
   /** The 70/20/10 card: which bucket, the one variable under test, what must
    *  not move, and when it goes out. All null on cards drafted before the split
    *  existed, which render exactly as they always did. */
-  bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
+  bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
   /** Her own reel's shortcode when the card is one of her videos. */
   source_post: string | null
   /** Repurpose cards: when the refreshed file went back to her. */
@@ -377,8 +377,8 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   })
 }
 
-function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'repurpose' {
-  return value === 'reskin' || value === 'iteration' || value === 'test' || value === 'repurpose'
+function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' {
+  return value === 'reskin' || value === 'iteration' || value === 'test' || value === 'repurpose' || value === 'custom'
 }
 
 /** Everything her page renders, for one token. */

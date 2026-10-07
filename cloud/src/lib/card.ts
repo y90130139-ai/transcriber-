@@ -56,7 +56,7 @@ export function expressionFor(formats: string[]): string {
   return hit ? hit[1] : EXPRESSION_DEFAULT
 }
 
-export type Bucket = 'reskin' | 'iteration' | 'test' | 'repurpose'
+export type Bucket = 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom'
 
 /** What she keeps and what she changes — the manual's copy-exactly-vs-change
  *  decision, which the card never stated. */
@@ -209,4 +209,5 @@ export const BUCKET_LABEL: Record<Bucket, string> = {
   iteration: 'One more go',
   test: 'New idea',
   repurpose: 'Repurpose',
+  custom: 'From the team',
 }

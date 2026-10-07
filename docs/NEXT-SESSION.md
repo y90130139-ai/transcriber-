@@ -1,5 +1,25 @@
 # 2026-10-06 (later): Trends tab, Baby pink, the week in two piles
 
+**Round six (`2a50737`): the Strategy tab — Creator Intelligence reports.**
+Geno's 24-section template (pasted 2026-10-06, embedded as `REPORT_PROMPT`
+in `lib/report/spec.ts`) now generates per model: new profile tab
+**Strategy** (between Blueprint and Week). `lib/report/evidence.ts` gathers
+profile fields, latest survey answers, up to 3 `model_intake.raw` dumps,
+top-8 reels by plays, up to 6 transcripts of HER OWN videos
+(`transcripts.author` = her handles), decline reasons grouped, 👍/👎
+counts, and her last 30 plan-thread messages — plus an optional paste box
+per run (meeting notes). Output: structured sections + **gaps** (questions
+to ask her) stored in `models.about` (first use of that column) with
+engine + sources provenance. **Corrections are permanent**: PATCH appends,
+every regeneration folds them in as overrides; the report text is never
+hand-edited. Engine: `claude-opus-5-5` when ANTHROPIC_API_KEY lands (this
+is the feature that most wants it), gpt-oss on Workers until then (UI says
+so; shares the captions allowance — the first live run is Geno's click,
+NOT tested end-to-end against a real model yet). The second half of
+Geno's paste (the reel-writing creative-director prompt) is NOT built —
+it is the future consumer of these reports; ask before wiring it into
+plan generation.
+
 **Round five (`449db5c`): subscription revenue broken out.** Earnings board
 gets a Subscriptions total (money + new/renewal counts + % of agency net),
 the accounts table a Subs column, each model's Earnings tab a Sub revenue

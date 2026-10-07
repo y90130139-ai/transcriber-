@@ -167,7 +167,9 @@ export function engagementOf(
   return { ...base, heat: 'steady', why: `Scoring ${score} over ${weeks.length} sent weeks` }
 }
 
-export type Priority = 'S' | 'A' | 'B' | 'C'
+/** D (2026-10-07): construction — no platform, no socials yet. She is on
+ *  the 30-day sprint, not in the reel queue; the engine never suggests D. */
+export type Priority = 'S' | 'A' | 'B' | 'C' | 'D'
 export type RevenueBand = 'high' | 'mid' | 'low'
 export type Situation = 'star' | 'at_risk' | 'rising' | 'steady' | 'dormant'
 

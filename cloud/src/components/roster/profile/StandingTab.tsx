@@ -21,7 +21,7 @@ import TrendLine from '../TrendLine'
  * All three read and write `/api/models/<id>/standing` through `useStanding`.
  */
 
-const PRIORITIES: Priority[] = ['S', 'A', 'B', 'C']
+const PRIORITIES: Priority[] = ['S', 'A', 'B', 'C', 'D']
 const BANDS: { key: RevenueBand; label: string }[] = [
   { key: 'high', label: 'High' },
   { key: 'mid', label: 'Mid' },
@@ -88,7 +88,9 @@ export function StandingControls({ modelId, onChanged }: { modelId: string; onCh
           <button key={letter} type="button" className="head-chip" disabled={busy}
             data-on={standing.priority === letter}
             data-suggested={suggested === letter && standing.priority !== letter ? 'true' : undefined}
-            title={suggested === letter && standing.priority !== letter ? `Suggested: ${letter}` : undefined}
+            title={letter === 'D'
+              ? 'Construction — no platform yet, on the 30-day sprint'
+              : suggested === letter && standing.priority !== letter ? `Suggested: ${letter}` : undefined}
             onClick={() => void save({ priority: standing.priority === letter ? null : letter })}>
             {letter}
           </button>

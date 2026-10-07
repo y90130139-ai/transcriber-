@@ -6,7 +6,7 @@ import { loadStanding } from '@/lib/standing'
 type Params = { params: Promise<{ id: string }> }
 
 const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-const PRIORITIES = ['S', 'A', 'B', 'C']
+const PRIORITIES = ['S', 'A', 'B', 'C', 'D']
 const BANDS = ['high', 'mid', 'low']
 
 /** One model's standing, with the breakdown behind it. */

@@ -85,7 +85,7 @@ export async function previewBatch(weekOf?: string): Promise<Batch> {
       -- Priority first, so an S-ranked model gets first refusal on a contested
       -- reel; unranked models after C. Plan type breaks ties, as it always did.
       order by case m.priority when 'S' then 0 when 'A' then 1 when 'B' then 2
-                               when 'C' then 3 else 4 end,
+                               when 'C' then 3 when 'D' then 5 else 4 end,
                m.tier, m.name`,
     [week],
   )

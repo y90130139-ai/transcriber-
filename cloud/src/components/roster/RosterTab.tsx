@@ -33,12 +33,14 @@ function HeatFlag({ standing }: { standing?: Standing }) {
  *  and that is who gets attention first. Plan type (bespoke / mixed / library)
  *  used to be the heading and is now a word on the card — it says what her
  *  plan is made of, not where she ranks. */
-type Group = 'S' | 'A' | 'B' | 'C' | 'none' | 'inactive'
+type Group = 'S' | 'A' | 'B' | 'C' | 'D' | 'none' | 'inactive'
 const GROUPS: { key: Group; label: string }[] = [
   { key: 'S', label: 'S · priority' },
   { key: 'A', label: 'A · priority' },
   { key: 'B', label: 'B · priority' },
   { key: 'C', label: 'C · priority' },
+  // No platform yet — being built from zero on the 30-day sprint (2026-10-07).
+  { key: 'D', label: 'D · construction — 30-day sprint' },
   { key: 'none', label: 'Not ranked yet' },
   // Last, greyed out, one tap from coming back (2026-09-30).
   { key: 'inactive', label: 'Inactive' },

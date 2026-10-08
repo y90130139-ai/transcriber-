@@ -1271,6 +1271,12 @@ const statements = [
    )`,
   `create unique index if not exists format_kinds_one
      on transcriber.format_kinds (format, lower(label))`,
+
+  // Per-card switches (2026-10-08): hide the filming directions, hide the
+  // automated captions — a written card without a video captions nothing.
+  // Null/false = shown, exactly as every card behaved before.
+  `alter table transcriber.plan_items add column if not exists hide_film boolean`,
+  `alter table transcriber.plan_items add column if not exists hide_captions boolean`,
 ]
 
 for (const statement of statements) {

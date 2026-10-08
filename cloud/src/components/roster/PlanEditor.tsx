@@ -975,48 +975,31 @@ export default function PlanEditor({
                               label="Move to another week"
                               placeholder="Week →"
                               value=""
-<<<<<<< HEAD
                               onChange={(next) => void moveToWeek(item.id, next)}
                               options={moveTargets.map((week) => ({
                                 value: week,
                                 label: `${formatDate(week)}${knownWeeks.has(week) ? '' : ' (new)'}`,
                               }))}
                             />
-=======
-                              aria-label="Move to another week"
-                              title="Move this card to another week"
-                              onChange={(event) => void moveToWeek(item.id, event.target.value)}
-                            >
-                              <option value="">Week →</option>
-                              {moveTargets.map((week) => (
-                                <option key={week} value={week}>
-                                  {formatDate(week)}{knownWeeks.has(week) ? '' : ' (new)'}
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              className="chip"
+                            <DropSelect
+                              label="Make versions of this card"
+                              placeholder="①②③"
                               value=""
-                              aria-label="Make versions of this card"
-                              title="Same concept, different outfits — Version 1, 2, 3…"
-                              onChange={(event) => {
-                                const total = Number(event.target.value)
-                                event.target.value = ''
+                              onChange={(next) => {
+                                const total = Number(next)
                                 if (total >= 2) void makeVersions(item.id, total)
                               }}
-                            >
-                              <option value="">①②③</option>
-                              {[2, 3, 4, 5, 6, 7, 8].map((total) => (
-                                <option key={total} value={total}>{total} versions</option>
-                              ))}
-                            </select>
+                              options={[2, 3, 4, 5, 6, 7, 8].map((total) => ({
+                                value: String(total),
+                                label: `${total} versions`,
+                              }))}
+                            />
                             <button
                               className="chip"
                               onClick={() => void duplicateItem(item.id)}
                               aria-label="Duplicate"
                               title="Duplicate this card — press again for each variation"
                             >⧉</button>
->>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
                         </div>

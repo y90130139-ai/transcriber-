@@ -1235,7 +1235,6 @@ const statements = [
      received_at   timestamptz not null default now()
    )`,
 
-<<<<<<< HEAD
   // Her own posts are matched on the handle, case-insensitively — the reads on
   // her sheet and the roster's post count both say `lower(t.author) = lower(...)`.
   // The plain author index cannot serve a match wrapped in `lower()`, so the
@@ -1274,7 +1273,7 @@ const statements = [
      points     jsonb not null,
      primary key (terms_key, geo, range_id)
    )`,
-=======
+
   // The mixed-source plan (2026-10-08). Every card says where it came from —
   // reference / reskin / original / ai_draft / blank — and a reskin carries
   // the one line that changes it. Null `source` derives from `bucket`
@@ -1317,7 +1316,6 @@ const statements = [
   // Null/false = shown, exactly as every card behaved before.
   `alter table transcriber.plan_items add column if not exists hide_film boolean`,
   `alter table transcriber.plan_items add column if not exists hide_captions boolean`,
->>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
 ]
 
 for (const statement of statements) {

@@ -98,7 +98,6 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   return (
     <div className="customcard" role="group" aria-label="Add a custom card">
       <div className="customcard-row">
-<<<<<<< HEAD
         <DropSelect
           label="Start from a template"
           value={picked}
@@ -111,30 +110,12 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
         <DropSelect
           label="Format"
           value={format}
-          onChange={setFormat}
+          onChange={(value) => { setFormat(value); setGermanNo('') }}
           options={[
             { value: '', label: 'Format…' },
             ...FORMATS.map((tag) => ({ value: tag.id, label: tag.label })),
           ]}
         />
-=======
-        <select value={picked} onChange={(event) => pick(event.target.value)} aria-label="Start from a template">
-          <option value="">Blank template…</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>{template.label}</option>
-          ))}
-        </select>
-        <select
-          value={format}
-          onChange={(event) => { setFormat(event.target.value); setGermanNo('') }}
-          aria-label="Format"
-        >
-          <option value="">Format…</option>
-          {FORMATS.map((tag) => (
-            <option key={tag.id} value={tag.id}>{tag.label}</option>
-          ))}
-        </select>
->>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
       </div>
 
       {/* The German playbook (2026-10-08): one format tag, 57 numbered

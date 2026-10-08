@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SendSurveys from './SendSurveys'
 import ModelProfile, { type ProfileTab } from './ModelProfile'
 import PlanEditor from './PlanEditor'
@@ -8,6 +8,7 @@ import BatchWeek from './BatchWeek'
 import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
+import { warmProfile } from './profile/warm'
 import { formatDate } from '@/lib/dates'
 import { reasonLabel } from '@/lib/inactive'
 import type { RosterModel } from './types'
@@ -46,6 +47,11 @@ const GROUPS: { key: Group; label: string }[] = [
   { key: 'inactive', label: 'Inactive' },
 ]
 
+/** How long the pointer rests on a card before its reads start. Long enough
+ *  that a card merely crossed on the way somewhere else never fires; short
+ *  enough that reaching for the click is the head start, not the wait. */
+const WARM_AFTER_MS = 120
+
 export default function RosterTab({
   openPlanFor,
   openProfileFor,
@@ -78,6 +84,36 @@ export default function RosterTab({
     const delta = (model: RosterModel) => standing[model.id]?.trend?.delta ?? 0
     return [...members].sort((a, b) => score(b) - score(a) || delta(b) - delta(a))
   }
+
+  /**
+   * The card answers before the click.
+   *
+   * Every read her sheet makes — the figures strip, the priority chips, every
+   * tab — starts while the pointer is still resting on the card, so the tap
+   * opens onto data rather than onto placeholders. The timer is the filter: a
+   * pointer that only crosses the grid never fires, and leaving cancels.
+   * Touch has no hover to wait on, so the tap itself warms, and the sheet
+   * warms again on mount either way — `begin` in lib/live.ts makes the
+   * duplicates one request.
+   */
+  const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warmSoon = useCallback((id: string) => {
+    if (warmTimer.current) clearTimeout(warmTimer.current)
+    warmTimer.current = setTimeout(() => {
+      warmTimer.current = null
+      warmProfile(id)
+    }, WARM_AFTER_MS)
+  }, [])
+  const cool = useCallback(() => {
+    if (!warmTimer.current) return
+    clearTimeout(warmTimer.current)
+    warmTimer.current = null
+  }, [])
+  const warmNow = useCallback((id: string) => {
+    cool()
+    warmProfile(id)
+  }, [cool])
+  useEffect(() => cool, [cool])
 
   const load = useCallback(async () => {
     const response = await fetch('/api/models')
@@ -189,6 +225,11 @@ export default function RosterTab({
               className="model roster-card"
               data-paused={model.status === 'paused'}
               onClick={() => setEditing(model)}
+              onMouseEnter={() => warmSoon(model.id)}
+              onMouseLeave={cool}
+              onFocusCapture={() => warmSoon(model.id)}
+              onBlurCapture={cool}
+              onTouchStart={() => warmNow(model.id)}
             >
               <button
                 className="model-frame roster-frame"

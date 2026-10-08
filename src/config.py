@@ -6,6 +6,7 @@ system-wide dependencies and no API keys anywhere in the pipeline.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,7 +32,7 @@ EMBEDDING_MODEL = MODEL_DIR / "nemo_en_titanet_large.onnx"
 
 DEFAULT_OUT_DIR = ROOT / "out"
 INBOX_DIR = ROOT / "inbox"
-USER_CONFIG = ROOT / "config.json"
+USER_CONFIG = Path(os.environ.get("TRANSCRIBER_CONFIG", ROOT / "config.json"))
 
 SAMPLE_RATE = 16_000
 ASR_THREADS = 8

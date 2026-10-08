@@ -199,9 +199,13 @@ class Reader:
         """Open a page and keep every post the site fetched, keyed by pk."""
         found: dict[str, dict] = {}
         profile: dict = {}
+        blocked: list[str] = []
         page = self._ctx.new_page()
 
         def collect(response):
+            if "instagram.com" in response.url and response.status in (401, 403, 429):
+                blocked.append(f"Instagram HTTP {response.status} at {response.url.split('?')[0]}")
+                return
             if "/graphql" not in response.url and "/api/graphql" not in response.url:
                 return
             try:
@@ -221,11 +225,24 @@ class Reader:
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
             page.wait_for_timeout(SETTLE_MS)
+            if blocked:
+                raise BurnerStopped(blocked[0])
             if any(w in page.url for w in WALL):
                 raise BurnerStopped(f"redirected to {page.url} — the burner session needs signing in again")
             for _ in range(SCROLL_ROUNDS):
                 page.mouse.wheel(0, 4000)
                 page.wait_for_timeout(SETTLE_MS)
+                if blocked:
+                    raise BurnerStopped(blocked[0])
+            body_text = page.locator("body").inner_text(timeout=5_000).lower()
+            warning = next((phrase for phrase in (
+                "we restrict certain activity",
+                "automated behavior",
+                "automated behaviour",
+                "try again later",
+            ) if phrase in body_text), None)
+            if warning:
+                raise BurnerStopped(f"Instagram warning page: {warning}")
         finally:
             try:
                 page.close()

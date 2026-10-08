@@ -27,7 +27,7 @@ from pathlib import Path
 
 from . import config
 
-REGISTRY = config.ROOT / "secrets" / "scout-accounts.json"
+REGISTRY = Path(os.environ.get("SCOUT_ACCOUNTS_FILE", config.ROOT / "secrets" / "scout-accounts.json"))
 DEFAULT_JAR = "secrets/scout-cookies.txt"
 STATUSES = ("alive", "dead", "unknown", "off")
 

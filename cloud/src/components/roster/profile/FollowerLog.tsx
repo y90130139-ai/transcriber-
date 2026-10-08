@@ -6,6 +6,7 @@ import {
   PLATFORMS, labelOfPlatform, readCount, showCount, withImpliedInstagram,
   type Platform, type Social,
 } from '@/lib/socials'
+import DropSelect from '../../dashboard/DropSelect'
 import type { Reading } from './reach'
 
 /**
@@ -84,34 +85,24 @@ export default function FollowerLog({
       ) : (
         <>
           <div className="socialrow">
-            <select
-              className="field"
-              aria-label="Which account"
+            <DropSelect
+              label="Which account"
               value={platform}
-              onChange={(event) => setPlatform(event.target.value as Platform)}
-            >
-              {/* Her own accounts first, then the rest — logging a platform she
-                  is not on is possible but should not be the easy path. */}
-              {accounts.length > 0 && (
-                <optgroup label="Hers">
-                  {/* One option per platform, not per account: a reading is
-                      stored against the platform, and a model running three
-                      Instagrams would otherwise offer "Instagram" three
-                      indistinguishable times — which React also rejects as a
-                      duplicate key. Her per-account followers come from the
-                      roster pass instead, on the scorecards above. */}
-                  {[...new Set(accounts.map((account) => account.platform))].map((one) => (
-                    <option key={`own-${one}`} value={one}>{labelOfPlatform(one)}</option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label="Anywhere else">
-                {PLATFORMS.filter((one) => !accounts.some((account) => account.platform === one))
-                  .map((one) => (
-                    <option key={one} value={one}>{labelOfPlatform(one)}</option>
-                  ))}
-              </optgroup>
-            </select>
+              onChange={(next) => setPlatform(next as Platform)}
+              // Her own accounts first, then the rest — logging a platform she
+              // is not on is possible but should not be the easy path. One
+              // option per platform, not per account: a reading is stored
+              // against the platform, and a model running three Instagrams
+              // would otherwise offer "Instagram" three indistinguishable
+              // times.
+              options={[
+                ...[...new Set(accounts.map((account) => account.platform))].map((one) => ({
+                  value: one, label: labelOfPlatform(one),
+                })),
+                ...PLATFORMS.filter((one) => !accounts.some((account) => account.platform === one))
+                  .map((one) => ({ value: one, label: labelOfPlatform(one) })),
+              ]}
+            />
             <input
               className="field"
               aria-label="How many followers"

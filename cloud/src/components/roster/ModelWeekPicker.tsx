@@ -1,6 +1,7 @@
 'use client'
 
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
+import DropSelect from '../dashboard/DropSelect'
 
 export type Target = { id: string; name: string }
 
@@ -33,28 +34,21 @@ export default function ModelWeekPicker({
 }) {
   return (
     <>
-      <select
-        className="pill pill-select"
+      <DropSelect
         value={modelId}
-        onChange={(event) => onModel(event.target.value)}
-        aria-label="Model"
-      >
-        {models.map((model) => (
-          <option key={model.id} value={model.id}>{model.name}</option>
-        ))}
-      </select>
-      <select
-        className="pill pill-select"
+        onChange={onModel}
+        label="Model"
+        options={models.map((model) => ({ value: model.id, label: model.name }))}
+      />
+      <DropSelect
         value={weekOf}
-        onChange={(event) => onWeek(event.target.value)}
-        aria-label="Week"
-      >
-        {assignableWeeks().map((week, index) => (
-          <option key={week} value={week}>
-            {index === 0 ? 'This week' : 'Next week'} · {formatDate(week)}
-          </option>
-        ))}
-      </select>
+        onChange={onWeek}
+        label="Week"
+        options={assignableWeeks().map((week, index) => ({
+          value: week,
+          label: `${index === 0 ? 'This week' : 'Next week'} · ${formatDate(week)}`,
+        }))}
+      />
     </>
   )
 }

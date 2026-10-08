@@ -22,13 +22,22 @@ export async function GET() {
       order by c.updated_at desc
       limit 60`,
   )
+  // The watched side of the page: what the sweep actually reads, newest
+  // first. Capped — the counts row carries the real total.
+  const watching = await sql.query(
+    `select handle, access, updated_at
+       from transcriber.creators
+      where watch = 'watching'
+      order by updated_at desc nulls last
+      limit 300`,
+  )
   const [counts] = await sql.query(
     `select count(*) filter (where watch = 'watching')::int as watching,
             count(*) filter (where watch = 'suggested')::int as suggested,
             count(*) filter (where watch = 'watching' and access = 'gated')::int as gated
        from transcriber.creators`,
   )
-  return NextResponse.json({ suggested, counts })
+  return NextResponse.json({ suggested, watching, counts })
 }
 
 export async function POST(request: Request) {

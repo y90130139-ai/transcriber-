@@ -11,11 +11,19 @@ export const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 
 /** A maison dropdown: trigger button plus a dark panel of options. Fixed to
  *  the viewport on open so table scroll containers can never clip it. Full
  *  keyboard support: arrows move, Enter picks, Escape backs out. */
-export default function DropSelect({ value, options, onChange, label }: {
+export default function DropSelect({ value, options, onChange, label, id, disabled, placeholder, className }: {
   value: string
   options: MenuOption[]
   onChange: (next: string) => void
   label: string
+  /** The trigger's id, so a real <label htmlFor> can still point at it. */
+  id?: string
+  disabled?: boolean
+  /** Shown on the trigger while no option matches the value — an action
+   *  menu (pick a week, move a card) has a verb there, not a value. */
+  placeholder?: string
+  /** Extra classes for the trigger, for hosts with their own pills. */
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const [focus, setFocus] = useState(0)
@@ -82,9 +90,11 @@ export default function DropSelect({ value, options, onChange, label }: {
 
   return (
     <>
-      <button ref={trigger} type="button" className="msel-trigger" data-open={open || undefined}
+      <button ref={trigger} type="button"
+        className={className ? `msel-trigger ${className}` : 'msel-trigger'}
+        id={id} disabled={disabled} data-open={open || undefined}
         aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => toggle()}>
-        <span>{cap(selected < 0 ? value : options[selected].label)}</span>
+        <span>{cap(selected < 0 ? placeholder || value : options[selected].label)}</span>
         <i className="msel-chev" aria-hidden>▾</i>
       </button>
       {open && at && createPortal(

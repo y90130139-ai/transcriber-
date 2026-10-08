@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { ReelMedia } from '@/lib/reel-media'
+import { useLive } from '@/lib/live'
 import Avatar from './Avatar'
 import { compact } from './format'
 
@@ -14,20 +15,14 @@ export type StripItem = {
   actions?: ReactNode
 }
 
-/** Covers, video and numbers for a set of reels, fetched once. */
+/** Covers, video and numbers for a set of reels, fetched once — and remembered,
+ *  so the strip renders finished instead of filling in row by row. */
 export function useReelMedia(codes: string[]): Record<string, ReelMedia> {
-  const [media, setMedia] = useState<Record<string, ReelMedia>>({})
   const key = [...new Set(codes)].sort().join(',')
-  useEffect(() => {
-    if (!key) return
-    let live = true
-    fetch(`/api/reels/media?codes=${encodeURIComponent(key)}`)
-      .then((r) => (r.ok ? r.json() : { media: {} }))
-      .then((body) => { if (live) setMedia(body.media ?? {}) })
-      .catch(() => null)
-    return () => { live = false }
-  }, [key])
-  return media
+  const live = useLive<{ media: Record<string, ReelMedia> }>(
+    key ? `/api/reels/media?codes=${encodeURIComponent(key)}` : null,
+  )
+  return live.data?.media ?? {}
 }
 
 /**

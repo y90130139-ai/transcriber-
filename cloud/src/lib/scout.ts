@@ -84,7 +84,7 @@ export type Sighting = {
   collaborators: string[]
   tagged: string[]
   pinned: boolean
-  via: 'apify' | 'burner'
+  via: 'burner'
   audio_url: string | null
   video_url: string | null
   poster_url: string | null
@@ -138,8 +138,7 @@ export function parseSighting(raw: unknown): Sighting | null {
   const postId = typeof r.post_id === 'string' ? r.post_id.trim() : ''
   const handle = typeof r.handle === 'string' ? r.handle.trim().toLowerCase() : ''
   if (!POST_ID.test(postId) || !HANDLE.test(handle)) return null
-  const via = r.via === 'burner' ? 'burner' : r.via === 'apify' ? 'apify' : null
-  if (!via) return null
+  if (r.via !== 'burner') return null
 
   const url = `https://instagram.com/reel/${postId}`
   const dated = datedOf(r.posted_at, postId)
@@ -162,7 +161,7 @@ export function parseSighting(raw: unknown): Sighting | null {
     collaborators: handles(r.collaborators).filter((h) => h !== handle),
     tagged: handles(r.tagged).filter((h) => h !== handle),
     pinned: r.pinned === true,
-    via,
+    via: 'burner',
     audio_url: mediaUrl(r.audio_url),
     video_url: mediaUrl(r.video_url),
     poster_url: mediaUrl(r.poster_url),
@@ -267,7 +266,7 @@ export async function storeSightings(input: Sighting[]): Promise<number> {
             audio_artist   = coalesce(excluded.audio_artist, transcriber.sightings.audio_artist),
             original_audio = coalesce(excluded.original_audio, transcriber.sightings.original_audio),
             -- An empty list is "this reader did not say", not "nobody": the
-            -- burner and Apify see collaborators differently, and these
+            -- separate readers can see collaborators differently, and these
             -- columns are where suggestions come from.
             collaborators  = case when cardinality(excluded.collaborators) > 0
                                   then excluded.collaborators else transcriber.sightings.collaborators end,

@@ -124,7 +124,7 @@ export default function ProfileHead({
         </div>
 
         <div className="sheet-controls">
-          {modelId && <StandingControls modelId={modelId} onChanged={onStanding} />}
+          {modelId && <StandingControls modelId={modelId} onChanged={onStanding} seed={standing} />}
           {modelId && active && onActive && (
             <ActiveControl modelId={modelId} name={form.name || 'she'} state={active} onChange={onActive} />
           )}

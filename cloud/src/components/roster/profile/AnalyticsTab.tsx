@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Board, ModelPerf } from '@/lib/performance/load'
 import { TAG_LABEL, type TagKey } from '@/lib/performance/math'
+import { useLive } from '@/lib/live'
 import BarChart from '../../dashboard/BarChart'
+import DropSelect from '../../dashboard/DropSelect'
 import LineChart from '../../dashboard/LineChart'
 import PeriodSwitch, { type Period } from '../../dashboard/PeriodSwitch'
 import TopReels from '../../dashboard/TopReels'
@@ -18,18 +20,12 @@ type Data = Board & { model: ModelPerf; accounts: Account[] }
 /** One model's Instagram: growth, views, her tag, each account, her best reels. */
 export default function AnalyticsTab({ modelId }: { modelId: string }) {
   const [period, setPeriod] = useState<Period>(30)
-  const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const load = useCallback(async () => {
-    setError(null)
-    const response = await fetch(`/api/models/${modelId}/performance?days=${period}`).catch(() => null)
-    if (!response?.ok) { setError('Their numbers did not load.'); return }
-    setData(await response.json())
-  }, [modelId, period])
-
-  useEffect(() => { void load() }, [load])
+  // Cached: the roster warms this on hover, so the tab is drawn, not loaded.
+  const perf = useLive<Data>(`/api/models/${modelId}/performance?days=${period}`)
+  const data = perf.data
 
   async function pin(value: string) {
     setSaving(true)
@@ -38,13 +34,14 @@ export default function AnalyticsTab({ modelId }: { modelId: string }) {
       body: JSON.stringify({ tag: value || null }),
     })
     setSaving(false)
-    if (response.ok) void load()
+    if (response.ok) perf.reload()
     else setError('The tag did not save.')
   }
 
   const repurpose = useRepurpose(modelId)
 
   if (error) return <p className="dash-error" role="alert">{error}</p>
+  if (perf.error) return <p className="dash-error" role="alert">Their numbers did not load.</p>
   if (!data) return <p className="dash-empty" aria-busy="true">Reading their accounts…</p>
   const m = data.model
   if (!m.handles.length) return <p className="dash-empty">No Instagram on file for them — add one in Profile and Scout starts reading it the next day.</p>
@@ -80,11 +77,17 @@ export default function AnalyticsTab({ modelId }: { modelId: string }) {
         <section className="dash-panel dash-details" aria-labelledby="one-details-h">
           <header className="dash-panel-head"><h2 id="one-details-h">Account details</h2></header>
           <label className="axis-name" htmlFor="one-tag">Tag</label>
-          <select id="one-tag" className="field" disabled={saving} value={m.tag_pinned ? m.tag ?? '' : ''}
-            onChange={(e) => void pin(e.target.value)}>
-            <option value="">Automatic{m.auto_tag ? ` — ${TAG_LABEL[m.auto_tag]}` : ' — not enough data'}</option>
-            {(Object.keys(TAG_LABEL) as TagKey[]).map((k) => <option key={k} value={k}>{TAG_LABEL[k]} (pinned)</option>)}
-          </select>
+          <DropSelect
+            id="one-tag"
+            label="Tag"
+            disabled={saving}
+            value={m.tag_pinned ? m.tag ?? '' : ''}
+            onChange={(next) => void pin(next)}
+            options={[
+              { value: '', label: `Automatic${m.auto_tag ? ` — ${TAG_LABEL[m.auto_tag]}` : ' — not enough data'}` },
+              ...(Object.keys(TAG_LABEL) as TagKey[]).map((k) => ({ value: k, label: `${TAG_LABEL[k]} (pinned)` })),
+            ]}
+          />
           <p className="hint">
             <TagChip tag={m.tag} label={m.tag_label} pinned={m.tag_pinned} />{' '}
             {m.views_change !== null ? `Settled reels ${percent(m.views_change)} on the ten before.` : 'Too few settled reels to compare views.'}

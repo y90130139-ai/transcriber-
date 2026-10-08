@@ -14,16 +14,14 @@ export const maxDuration = 60
  * Vercel's Hobby plan allows a small number of once-a-day crons, so one daily
  * call carries both standing jobs and decides by weekday which is due:
  *
- *   Saturday → start the watchlist sweep (open accounts, via Apify)
  *   Sunday   → draft every active model's week
  *   Every day → archive library reels past 90 days (lib/expiry.ts)
  *
  * Both were launchd jobs on the Mac. They are the parts that must not miss a
- * week if the Mac is asleep or gone, and neither needs anything local: the
- * sweep runs on Apify's machines and the draft is pure database work.
+ * week if the Mac is asleep or gone; the draft is pure database work.
  *
- * The Mac keeps the gated half of the sweep (`./bin/scout --only burner`),
- * which needs a residential address and a signed-in session.
+ * Instagram scraping is owned by the Railway worker. This cron never starts
+ * an Instagram scrape; the Railway watchdog checks freshness every two hours.
  */
 export async function GET(request: Request) {
   if (!isScheduler(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -31,10 +29,6 @@ export async function GET(request: Request) {
   const force = new URL(request.url).searchParams.get('job')
   const day = weekdayIn()
   const did: Record<string, unknown> = { weekday: day }
-
-  if (force === 'sweep' || (!force && day === 6)) {
-    did.sweep = await startSweep(request)
-  }
 
   if (force === 'autodraft' || (!force && day === 0)) {
     did.autodraft = await draftNextWeek()
@@ -56,8 +50,8 @@ export async function GET(request: Request) {
     did.trends = { error: error instanceof Error ? error.message : String(error) }
   }
 
-  // Every day, not just the scheduled ones: this is the check that notices the
-  // Mac has stopped. It returns immediately while the Mac is alive.
+  // Keep the existing serverless queue fallback armed; Railway invokes the
+  // same route more frequently so work does not depend on the daily cron.
   did.fallback = await callSelf(request, '/api/worker/cloud')
 
   return NextResponse.json(did)
@@ -76,29 +70,6 @@ async function callSelf(request: Request, path: string) {
   } catch (error) {
     return { error: String(error).slice(0, 160) }
   }
-}
-
-/**
- * The paid sweep, now a *fallback* rather than the weekly habit.
- *
- * The Mac reads the whole watchlist through a real browser for nothing
- * (`bin/scout --only burner`, Saturdays). Firing Apify on the same morning
- * would pay ~$4 a week to fetch what has already been fetched, so this only
- * spends money when the free pass did not happen — the Mac asleep, gone, or
- * its session expired. Resilience was always the point of running this in the
- * cloud; paying for it every week never was.
- */
-async function startSweep(request: Request) {
-  const [recent] = await sql.query(
-    `select max(started_at) as at
-       from transcriber.scout_runs
-      where started_at > now() - interval '3 days'
-        and notes->>'kind' is distinct from 'autodraft'`,
-  )
-  if (recent?.at) {
-    return { skipped: 'the Mac already swept', last_sweep: recent.at }
-  }
-  return callSelf(request, '/api/scout/apify')
 }
 
 /**

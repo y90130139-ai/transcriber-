@@ -11,7 +11,8 @@
  * what marks her messages read (same rule as the plan editor) — so the
  * check appears exactly when the answer exists, never before.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useLive } from '@/lib/live'
 
 type Thread = {
   item_id: string
@@ -26,19 +27,12 @@ type Thread = {
 }
 
 export default function MessagesTab({ modelId }: { modelId: string }) {
-  const [threads, setThreads] = useState<Thread[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // Cached: the roster warms this on hover, so the tab is drawn, not loaded.
+  const messages = useLive<{ threads: Thread[] }>(`/api/models/${modelId}/messages`)
+  const threads = messages.data?.threads ?? null
+  const [failed, setFailed] = useState<string | null>(null)
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/messages`).catch(() => null)
-    if (!response?.ok) return setError('Her messages did not load. Try again in a moment.')
-    setThreads((await response.json()).threads ?? [])
-    setError(null)
-  }, [modelId])
-
-  useEffect(() => { void load() }, [load])
 
   async function reply(thread: Thread) {
     const text = (draft[thread.item_id] ?? '').trim()
@@ -51,13 +45,15 @@ export default function MessagesTab({ modelId }: { modelId: string }) {
     }).catch(() => null)
     if (response?.ok) {
       setDraft((current) => ({ ...current, [thread.item_id]: '' }))
-      await load()
+      setFailed(null)
+      messages.reload()
     } else {
-      setError('The reply did not send. Nothing was lost — try again.')
+      setFailed('The reply did not send. Nothing was lost — try again.')
     }
     setSending(null)
   }
 
+  const error = failed ?? (messages.error ? 'Her messages did not load. Try again in a moment.' : null)
   if (error && !threads) return <p className="dash-error" role="alert">{error}</p>
   if (!threads) return <p className="dash-empty" aria-busy="true">Reading her messages…</p>
   if (threads.length === 0) {

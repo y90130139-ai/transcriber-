@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ANY_FORMAT, OVERRIDE_FIELDS, type OverrideField } from '@/lib/brief'
 import { DECLINE_LABEL, isDeclineCode } from '@/lib/decline'
 import { taxonomy } from '@/lib/taxonomy'
+import DropSelect from '../../dashboard/DropSelect'
 import type { ProfileForm, SetField } from './form'
 
 const COPY_RESET_MS = 1600
@@ -93,37 +94,30 @@ export default function AccessTab({
           <ul className="overrides">
             {defaults.map((row, index) => (
               <li key={`${row.format}-${row.field}-${index}`} className="override">
-                <select
-                  className="field"
+                <DropSelect
+                  label="Which format"
                   value={row.format}
-                  aria-label="Which format"
-                  onChange={(event) =>
+                  onChange={(next) =>
                     setDefaults((current) => current.map((one, at) =>
-                      at === index ? { ...one, format: event.target.value } : one))
+                      at === index ? { ...one, format: next } : one))
                   }
-                >
-                  <option value={ANY_FORMAT}>Every format of theirs</option>
-                  {form.formats.map((tag) => (
-                    <option key={tag} value={tag}>
-                      {taxonomy.format.tags.find((one) => one.id === tag)?.label ?? tag}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="field"
+                  options={[
+                    { value: ANY_FORMAT, label: 'Every format of theirs' },
+                    ...form.formats.map((tag) => ({
+                      value: tag,
+                      label: taxonomy.format.tags.find((one) => one.id === tag)?.label ?? tag,
+                    })),
+                  ]}
+                />
+                <DropSelect
+                  label="Which field"
                   value={row.field}
-                  aria-label="Which field"
-                  onChange={(event) =>
+                  onChange={(next) =>
                     setDefaults((current) => current.map((one, at) =>
-                      at === index
-                        ? { ...one, field: event.target.value as OverrideField }
-                        : one))
+                      at === index ? { ...one, field: next as OverrideField } : one))
                   }
-                >
-                  {OVERRIDE_FIELDS.map((field) => (
-                    <option key={field} value={field}>{FIELD_LABEL[field]}</option>
-                  ))}
-                </select>
+                  options={OVERRIDE_FIELDS.map((field) => ({ value: field, label: FIELD_LABEL[field] }))}
+                />
                 <input
                   className="field"
                   value={row.value}

@@ -5,26 +5,24 @@ through two readers, and posts every sighting back. The app keeps them all,
 measures each reel against its own creator's median, and queues the winners
 into the ordinary transcribe queue — which this Mac's worker then drains.
 
-    open accounts  → Apify's logged-out reel scraper   (scout_apify.py)
-    gated accounts → a throwaway signed-in session      (scout_ig.py)
+    all accounts   → serial signed-in browser session   (scout_browser.py)
 
 A creator the app has never swept, or has too few sightings of to take a
 median from, gets a deep backfill. Everyone else gets the pick window
 refreshed, because a reel's plays keep climbing for days after it posts.
 
-Config lives in `config.json` under `scout`, never in the environment:
+Local config lives in `config.json`; Railway supplies it from mounted secrets:
 
     "scout": {
-      "apify_token": "apify_api_…",
       "burner_cookies": "secrets/scout-cookies.txt",
-      "burner_user_agent": "…",   # the browser the burner signed in on; see scout_ig.USER_AGENT
-      "max_usd_per_run": 5
+      "burner_user_agent": "…"
     }
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import secrets
 import sys
 import time
@@ -33,7 +31,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import alerts, config, scout_accounts, scout_apify, scout_browser, scout_ig
+from . import alerts, config, scout_accounts, scout_browser, scout_ig
 
 BACKFILL_REELS = 30
 REFRESH_REELS = 30
@@ -118,6 +116,22 @@ def _handle_stop(stopped: str) -> None:
     from . import session_health  # the fix text lives there; loaded only on a stop
 
     text = str(stopped).lower()
+    if any(word in text for word in ("401", "403", "429", "rate", "warning", "automated", "restrict")):
+        pause_file = Path(os.environ.get(
+            "SCOUT_PAUSE_FILE", config.ROOT / "secrets" / "scout-paused.json"))
+        pause_file.parent.mkdir(parents=True, exist_ok=True)
+        pause_file.write_text(json.dumps({"stopped_at": datetime.now(timezone.utc).isoformat(),
+                                          "reason": str(stopped)[:240]}))
+        try:
+            pause_file.chmod(0o600)
+        except OSError:
+            pass
+        alerts.send(
+            f"🛑 Scout Instagram pass stopped; no automatic retry.\n{str(stopped)[:240]}\n"
+            "A persistent safety stop is set. A human must clear the pause after checking the account.",
+            log=log,
+        )
+        return
     if not any(word in text for word in ("login", "challenge", "session", "expired")):
         return
     entry = scout_accounts.active()
@@ -154,25 +168,6 @@ def plan(creators: list[dict], min_baseline: int) -> dict[str, list[str]]:
     return groups
 
 
-def _apify_pass(handles: list[str], token: str, *, limit: int, newer_than: str | None,
-                max_usd: float, stats: dict) -> tuple[list[dict], dict[str, str]]:
-    if not handles:
-        return [], {}
-    try:
-        items, info = scout_apify.run(handles, token, limit=limit, newer_than=newer_than,
-                                      max_usd=max_usd, log=log)
-    except scout_apify.ApifyError as error:
-        log(f"  apify failed: {error}")
-        stats["errors"].append(str(error)[:300])
-        return [], {}
-    stats["cost_usd"] += info["cost_usd"]
-    sightings = [s for s in (scout_apify.to_sighting(i) for i in items) if s]
-    access = scout_apify.access_from(items, handles)
-    log(f"  apify {info['status'].lower()}: {len(items)} rows → {len(sightings)} reels, "
-        f"${info['cost_usd']:.2f}")
-    return sightings, access
-
-
 def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     cloud, settings = _settings()
     run_id = datetime.now().strftime("%Y%m%d-%H%M") + "-" + secrets.token_hex(3)
@@ -198,54 +193,18 @@ def sweep(*, limit_handles: int | None, dry: bool, only: str | None) -> int:
     # What has been read but not yet stored, so a long pass survives a stumble.
     pending: dict[str, list] = {"reels": [], "posts": [], "snaps": []}
     access: dict[str, str] = {}
-    budget = float(settings.get("max_usd_per_run") or DEFAULT_MAX_USD)
-
-    token = settings.get("apify_token")
-    if only != "burner":
-        if not token:
-            log("  no scout.apify_token in config.json — open accounts skipped")
-            stats["skipped"].append("apify: no token")
-        else:
-            for handles, limit, newer in (
-                (groups["backfill"], BACKFILL_REELS, None),
-                (groups["refresh"], REFRESH_REELS, f"{window} days"),
-            ):
-                remaining = budget - stats["cost_usd"]
-                if handles and remaining < 0.05:
-                    log("  run budget spent — the rest wait for next week")
-                    stats["skipped"].append(f"budget: {len(handles)} accounts")
-                    continue
-                found, learned = _apify_pass(handles, token, limit=limit, newer_than=newer,
-                                             max_usd=remaining, stats=stats)
-                sightings += found
-                access.update(learned)
-
-    # Anything Apify just found to be gated joins this week's burner pass
-    # rather than waiting a week to be tried.
-    gated = groups["gated"] + [h for h, a in access.items() if a == "gated" and h not in groups["gated"]]
-
-    # `--only burner` reads *everything*, not only the gated half.
-    #
-    # The browser reader was built for the accounts Apify cannot open, but it
-    # has no idea whether an account is gated — it opens the page a person
-    # would open. So it reads the open half just as well, for nothing, and on
-    # 2026-09-20 that stopped being a curiosity: once the gated sweep marked
-    # all 72 readable, every creator was `open` and the whole watchlist would
-    # have gone back to Apify at ~$4 a week. The credits are needed elsewhere.
-    #
-    # The trade is time for money: Apify finishes in minutes, this takes hours.
-    # Hours are free overnight on a Mac that is already awake.
-    if only == "burner":
-        gated = [c["handle"] for c in creators if c.get("handle")]
+    # Scout now has one reader only: the signed-in browser. Every account is
+    # visited serially, and any challenge/rate-limit stops the pass immediately.
+    # Apify was removed so public accounts are no longer scraped by a vendor.
+    gated = [c["handle"] for c in creators if c.get("handle")]
     cookies = _active_jar()
-    if gated and only != "apify":
+    if gated:
         if cookies is None:
             log(f"  {len(gated)} gated accounts need the burner session — "
                 f"export its cookies to {scout_accounts.active()['jar']}")
             stats["skipped"].append(f"burner: no cookies, {len(gated)} gated accounts")
         else:
-            what = "accounts" if only == "burner" else "gated accounts"
-            log(f"  burner: reading {len(gated)} {what} (slowly, on purpose)")
+            log(f"  browser: reading {len(gated)} accounts serially (slowly, on purpose)")
             try:
                 def keep(reels: list, rows: list, snap: dict | None) -> None:
                     """The same read, kept for cadence as well as scoring — and
@@ -546,7 +505,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scout", description="Sweep the watchlist for winning reels.")
     parser.add_argument("--dry", action="store_true", help="show the plan, fetch nothing")
     parser.add_argument("--limit", type=int, help="sweep only the first N watched accounts")
-    parser.add_argument("--only", choices=("apify", "burner"), help="run one reader only")
+    parser.add_argument("--only", choices=("burner",), help="run the signed-in browser reader")
     parser.add_argument("--check-burner", metavar="HANDLE", help="test the burner session on one account")
     parser.add_argument("--session", nargs="?", const="instagram", metavar="HANDLE",
                         help="is the burner still signed in? one page load, header only")

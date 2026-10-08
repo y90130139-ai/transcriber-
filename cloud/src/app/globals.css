@@ -4,6 +4,12 @@
 @import './dashboard.css';
 @import './trends.css';
 @import './earnings.css';
+/* The console's app frame — sidebar rail, top bar, the framed page. Scoped to
+   .shell, which only ConsoleShell renders. */
+@import './shell.css';
+/* The platform pages (Instagram / TikTok / Twitter-X) — the rail's platform
+   groups and the reference-style media feed. Scoped under .console. */
+@import './platform.css';
 /* Last, so a motion rule wins the tie against the component rule it animates.
    This is the only stylesheet both the console and /p/[token] are guaranteed
    to load — the root layout imports this file on every route — which is why
@@ -24,20 +30,11 @@ body {
 ::selection { background: var(--sc-ember); color: var(--sc-bone); }
 
 /* ============================================================
-   MASTHEAD — the one ink surface. Everything below reads on bone.
+   THE TOP RULE — the console's old masthead is retired; the app
+   frame (rail, top bar, framed page) lives in shell.css now.
+   What stays here is the ink furniture the shell reuses: the
+   wordmark, the brand lockup, the worker beacon and the tally.
    ============================================================ */
-.masthead {
-  background: var(--sc-ink-900);
-  color: var(--sc-bone);
-  padding: var(--sc-space-6) var(--sc-space-8) var(--sc-space-4);
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: end;
-  gap: var(--sc-space-6);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
 
 .wordmark {
   font-family: var(--sc-font-display);
@@ -54,14 +51,6 @@ body {
 /* The agency mark, same file as the invoice app. The image is the whole lockup. */
 .brand { display: flex; align-items: center; margin: 0; }
 .brand img { height: 2rem; width: auto; display: block; }
-
-.masthead-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-4);
-  flex-wrap: wrap;
-  justify-self: end;
-}
 
 .status {
   font-family: var(--sc-font-mono);
@@ -340,14 +329,27 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--sc-space-6) var(--sc-space-5);
+  /* The platform feeds' grid, adopted (2026-10-08): same card size and the
+     same tight gap, so the two grids read as one system. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sc-space-3);
+}
+/* One rhythm under the search box, whether the sounds strip is there or not:
+   search → 24px → sounds → 24px → grid. The strip used to hug the first row
+   of cards, and with nothing to show the grid sat straight on the search box. */
+.searchline + .grid, .sounds + .grid { margin-top: var(--sc-space-6); }
+
+/* The frame is the whole card now — the platform feeds' shape. Everything
+   else on the card floats over it; nothing sits under it. */
+.card {
+  position: relative;
+  min-width: 0;
+  transition: transform var(--sc-dur) var(--sc-ease);
 }
 
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-3);
+.card-open {
+  display: block;
+  width: 100%;
   text-align: left;
   background: none;
   border: 0;
@@ -355,15 +357,18 @@ body {
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: transform var(--sc-dur) var(--sc-ease);
+  border-radius: var(--r, 12px);
 }
 
 .card-frame {
   position: relative;
-  aspect-ratio: 4 / 5;
+  display: block;
+  aspect-ratio: 9 / 16;
   overflow: hidden;
   background: var(--sc-ink-900);
   border-radius: var(--r, 12px);
+  border: 1px solid var(--sb-line, rgba(255, 255, 255, 0.08));
+  transition: box-shadow var(--sc-dur) var(--sc-ease), border-color var(--sc-dur) var(--sc-ease);
 }
 /* The frame's floor darkens so the pills on it always read, whatever the
    poster is doing behind them. */
@@ -371,7 +376,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, transparent 26%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52) 0%, transparent 24%, transparent 56%, rgba(0, 0, 0, 0.66) 100%);
 }
 .card-frame img {
   width: 100%; height: 100%;
@@ -385,52 +390,89 @@ body {
 /* The hover preview plays in the same frame the poster filled. */
 .card-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* What a card can do without being opened (2026-10-06): preview, save,
-   the caption fold. Quiet text buttons under the frame, plan-card style. */
-.card-acts {
+/* The tools, top right over the frame — the platform feeds' language: small
+   translucent squares, ember when their state is on. Preview, sound, save the
+   file, read the caption, select. */
+.card-tools {
+  position: absolute;
+  top: var(--sc-space-2);
+  right: var(--sc-space-2);
+  z-index: 4;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-2) 0 0;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  max-width: 62%;
+  opacity: 0.85;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
+.card:hover .card-tools,
+.card:focus-within .card-tools { opacity: 1; }
+@media (hover: none) { .card-tools { opacity: 1; } }
+
+.card-tool {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(10, 10, 10, 0.6);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  backdrop-filter: blur(4px);
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.card-tool:hover { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+.card-tool[data-on='true'] { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+.card-tool svg { display: block; }
+
+/* The caption is a fold over the floor of the frame, not a panel under the
+   card — the card stays one object. The tools sit above it (z-index), so it
+   can always be closed again. */
+.card-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  max-height: 64%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sc-space-4);
+  background: rgba(10, 10, 10, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 0 var(--r, 12px) var(--r, 12px);
+  backdrop-filter: blur(8px);
+}
+.card-caption p {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: #EDE9E3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.card-caption-quiet { color: rgba(255, 255, 255, 0.5) !important; margin: 0 !important; }
 .card-act {
-  border: var(--sc-rule-hair);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 999px;
-  background: transparent;
-  padding: 2px 10px;
+  padding: 3px 12px;
   font: inherit;
   font-size: var(--sc-text-xs);
-  color: var(--sc-ink-700, var(--sc-ink-900));
+  color: #EDE9E3;
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
 }
-.card-act:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
-.card-act[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
-.card-asleep { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
-
-.card-caption {
-  margin-top: var(--sc-space-2);
-  padding: var(--sc-space-3);
-  background: var(--sc-bone-light);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r, 8px);
-}
-.card-caption p {
-  margin: 0 0 var(--sc-space-2);
-  font-size: var(--sc-text-sm);
-  line-height: var(--sc-leading-body);
-  color: var(--sc-ink-900);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.card-caption-quiet { color: var(--sc-ink-300) !important; margin: 0 !important; }
+.card-act:hover { border-color: var(--sc-ember); color: var(--sc-ember-light); }
 
 @media (hover: hover) {
   .card:hover { transform: translateY(-3px); }
-  .card:hover .card-frame { box-shadow: var(--sc-lift-2); }
-  .card:hover .card-handle { color: var(--sc-ember-deep); }
+  .card:hover .card-frame { border-color: rgba(255, 255, 255, 0.16); box-shadow: var(--sc-lift-2); }
 }
 
 /* No poster frame: set the handle large on ink instead of showing a grey box. */
@@ -449,38 +491,128 @@ body {
   word-break: break-word;
 }
 
-.card-tag {
-  position: absolute;
-  left: 0; bottom: 0;
-  background: rgba(10, 10, 10, 0.72);
-  color: var(--sc-bone);
-  font-family: var(--sc-font-text);
-  font-weight: 600;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.35rem 0.6rem;
-  border-radius: var(--r-pill, 999px);
-  font-variant-numeric: tabular-nums;
-}
-.card-tag[data-corner='right'] { left: auto; right: var(--sc-space-2); bottom: var(--sc-space-2); background: var(--sc-ember); }
+/* ------------------------------------------------------- THE CARD OVERLAYS
 
-/* The Reels-tab corner: the eye and its number, then the verdict. Laid out as
-   a row so a long label pushes the next chip along instead of covering it, and
-   wrapping upward on a narrow card rather than spilling over the duration. */
+   The platform feeds' furniture, worn by the library cards (2026-10-08):
+   chips top left, tools top right, the name and the verdict over the floor,
+   the numbers stacked bottom right. One language for both grids. */
+
+.card-topline {
+  position: absolute;
+  top: var(--sc-space-2);
+  left: var(--sc-space-2);
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  /* Clear of the five tool squares in the corner. */
+  max-width: calc(100% - 10.5rem);
+}
+.card-when,
+.card-chip,
+.card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.66rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.card-chip[data-tone='hot'] {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #0A0A0A;
+  font-weight: 700;
+}
+.card-chip[data-tone='quiet'] { color: rgba(255, 255, 255, 0.6); }
+/* The 90-day clock (lib/expiry.ts). Caution, not ember: ember means hot. */
+.card-tag[data-tone='expiring'] { background: var(--sc-caution); border-color: var(--sc-caution); color: #fff; }
+.card-tag[data-tone='expired'] { color: rgba(255, 255, 255, 0.55); }
+
+.card-foot {
+  position: absolute;
+  left: var(--sc-space-3);
+  right: 5.2rem;
+  bottom: var(--sc-space-3);
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+.card-handle {
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.card-line {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.66rem;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+/* The verdict: an ember pill like the reference's score, quieted for the
+   softer badges. */
+.card-score {
+  justify-self: start;
+  margin-top: 0.22rem;
+  padding: 0.16rem 0.48rem;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.card-score[data-tone='warm'] { background: rgba(10, 10, 10, 0.72); color: var(--sc-bone); }
+.card-score[data-tone='cool'] { background: rgba(10, 10, 10, 0.6); color: rgba(255, 255, 255, 0.78); }
+
+/* The numbers — bottom right, stacked the way the feeds stack them. */
 .card-stats {
   position: absolute;
-  left: var(--sc-space-2);
-  bottom: var(--sc-space-2);
-  display: flex;
-  flex-wrap: wrap-reverse;
-  align-items: flex-end;
-  gap: var(--sc-space-1);
-  /* Never reach the duration chip in the opposite corner. */
-  max-width: calc(100% - 5.5rem);
+  right: var(--sc-space-2);
+  bottom: var(--sc-space-3);
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  justify-items: end;
+  gap: 0.28rem;
 }
-.card-stats .card-tag { position: static; display: inline-flex; align-items: center; gap: 0.3rem; }
-.card-eye { width: 0.85rem; height: auto; flex: none; }
+.card-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.46rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.66rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.card-stat svg { color: rgba(255, 255, 255, 0.66); }
 
 /* Visible to a screen reader, not on the card: the eye says "views" to anyone
    who can see it, and nothing at all to anyone who cannot. */
@@ -500,67 +632,6 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ember);
-}
-
-.card-tag[data-tone='hot'] { background: var(--sc-ember); }
-.card-tag[data-tone='warm'] { background: var(--sc-ink-900); }
-.card-tag[data-tone='cool'] { background: var(--sc-ink-900); opacity: 0.72; }
-/* The 90-day clock (lib/expiry.ts). Caution, not ember: ember means hot. */
-.card-tag[data-tone='expiring'] { background: var(--sc-caution); color: #fff; }
-.card-tag[data-tone='expired'] { background: var(--sc-ink-300); color: var(--sc-bone); }
-
-.card-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sc-space-2);
-  min-width: 0;
-}
-.card-handle {
-  font-family: var(--sc-font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--sc-track-tight);
-  line-height: 1.05;
-  font-size: var(--sc-text-base);
-  color: var(--sc-ink-900);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.card-date {
-  flex: none;
-  font-family: var(--sc-font-text);
-  font-weight: 600;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  color: var(--sc-ink-300);
-  font-variant-numeric: tabular-nums;
-}
-
-.card-line {
-  font-family: var(--sc-font-text);
-  font-size: var(--sc-text-sm);
-  line-height: 1.3;
-  color: var(--sc-ink-300);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.card-meta {
-  font-family: var(--sc-font-text);
-  font-weight: 600;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sc-ink-300);
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  gap: var(--sc-space-3);
-  flex-wrap: wrap;
 }
 
 .card-pending .card-frame { display: grid; place-items: center; }
@@ -698,6 +769,56 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The head's second pass (2026-10-08): kind and date as a kicker above the
+ * name, the figures as one aligned meta row, and the link as a chip instead
+ * of a bare URL. Everything mono and tabular so the three lines share an
+ * edge instead of each inventing its own. */
+.reader-kicker {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #7C776F;
+  font-variant-numeric: tabular-nums;
+}
+.reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2) var(--sc-space-3);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  font-variant-numeric: tabular-nums;
+}
+.reader-meta span + span::before {
+  content: '·';
+  margin-right: var(--sc-space-3);
+  color: #45413C;
+}
+.reader-boost { color: #E8663A; }
+.reader-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  color: #E8663A;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease),
+              background var(--sc-dur-fast) var(--sc-ease);
+}
+.reader-source:hover { border-color: #E8663A; background: rgba(232, 102, 58, 0.12); }
+.reader-source svg { display: block; }
+
 .copybar {
   display: flex;
   gap: var(--sc-space-2);
@@ -732,18 +853,57 @@ body {
   font-size: var(--sc-text-sm);
 }
 
-.block { margin-bottom: var(--sc-space-6); }
-.block-head {
+/* A section label with the rule running out to its right — the reader's one
+ * heading treatment, used for the transcript. */
+.reader-section {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin: var(--sc-space-8) 0 var(--sc-space-4);
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
+  font-weight: 500;
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
   color: var(--sc-ink-300);
-  margin-bottom: var(--sc-space-1);
+}
+.reader-section::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sc-ink-150);
+}
+
+/* The transcript reads as a caption track: time in its own right-aligned
+ * gutter, the words in a single column — so a long transcript scans by its
+ * left edge instead of zig-zagging. */
+.block {
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr);
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
+}
+.block-time {
+  margin: 0;
+  padding-top: 0.2rem;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.04em;
+  color: var(--sc-ink-300);
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.block-head b { color: var(--sc-ember-deep); font-weight: 500; }
-.block p {
+.block-body { min-width: 0; }
+.block-speaker {
+  margin: 0 0 2px;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.block-text {
   margin: 0;
   color: var(--sc-ink-700);
   font-size: var(--sc-text-base);
@@ -789,8 +949,6 @@ body {
 .gate .hint[data-tone='bad'] { color: #F08460; }
 
 @media (max-width: 720px) {
-  .masthead { grid-template-columns: 1fr; align-items: start; gap: var(--sc-space-3); padding: var(--sc-space-4); }
-  .masthead-meta { justify-self: start; }
   .page { padding: 0 var(--sc-space-4) var(--sc-space-16); }
   .queue-composer { padding: var(--sc-space-4); }
   .queue-composer-foot { justify-content: flex-start; }
@@ -824,8 +982,8 @@ body {
 }
 
 /* ---------------------------------------------------------- SURFACES */
-.console .masthead { border-radius: 0 0 var(--r) var(--r); }
-.console .card-frame,
+/* `.card-frame` deliberately absent: the library cards wear the platform
+   feeds' frames now (2026-10-08), and those are `--r` (12px), not `--r-sm`. */
 .console .model-frame,
 .console .form-photo-frame,
 .console .picker-grid,
@@ -853,11 +1011,11 @@ body {
   overflow-y: auto;
 }
 .console .reader-head { border-radius: 0; }
-/* The frame's pills stay pills; the pick button tucks into the frame's own
-   rounded corner instead of poking a square out of it. */
+/* The frame's pills stay pills. */
 .console .card-tag,
-.console .card-hot { border-radius: var(--r-pill); }
-.console .card-pick { border-radius: var(--r) 0 var(--r-sm) 0; }
+.console .card-chip,
+.console .card-stat,
+.console .card-when { border-radius: var(--r-pill); }
 .console .roster-unread { border-radius: var(--r-pill); }
 .console .rosterflag,
 .console .sweeprow-tier { border-radius: var(--r-pill); }
@@ -900,7 +1058,6 @@ body {
   /* At this width the panel is the whole screen. A rounded edge against the
      bezel reads as a rendering fault rather than as a card. */
   .console .reader { border-radius: 0; }
-  .console .masthead { border-radius: 0; }
 }
 
 /* ============================================================
@@ -911,9 +1068,10 @@ body {
    match `:not([data-theme])` at the same moment, so the old "identical
    values, edit both" invariant is retired — the two surfaces may differ.
 
-   Values are the ink ground from tokens.css: #0A0A0A ground, #141210 raised,
-   #33302C rules, ember lightened because #C2410C on black is only 3.8:1.
-   This is the palette the review's instrument board was built on.
+   Values are the workspace ground shared with the invoice app (2026-10-07):
+   #171717 ground, #1E1E1E raised, #33302C rules, ember lightened because
+   #C2410C on this ground is only 3.8:1. This is the palette the review's
+   instrument board was built on.
 
    The trap, restated: a rule that paints a *surface* with --sc-ink-900, or
    *text* with --sc-bone, inverts along with the token. Where that inversion is
@@ -935,9 +1093,9 @@ body {
   --sc-ink-300: #7C776F;
   --sc-ink-150: #33302C;
 
-  --sc-bone:       #0A0A0A;
-  --sc-bone-light: #141210;
-  --sc-paper:      #0A0A0A;
+  --sc-bone:       #171717;
+  --sc-bone-light: #1E1E1E;
+  --sc-paper:      #171717;
 
   --sc-ember:      #E8663A;
   --sc-ember-deep: #F08460;
@@ -967,17 +1125,12 @@ body {
 :root:not([data-theme]) body { background: var(--sc-bone); color: var(--sc-ink-500); }
 
 /* --- the ink surfaces that stay ink ------------------------------- */
-:root:not([data-theme]) .masthead,
 :root:not([data-theme]) .reader-head,
 :root:not([data-theme]) .selectbar,
-:root:not([data-theme]) .gate { background: #0A0A0A; }
-
-/* The instrument bar sits above the ground on its own hairline. */
-:root:not([data-theme]) .masthead { border-bottom: 1px solid #33302C; }
+:root:not([data-theme]) .gate { background: var(--sc-bone); }
 
 /* …and everything inside them that painted its text with --sc-bone, which
    on this ground is near-black. Left alone the wordmark disappears. */
-:root:not([data-theme]) .masthead,
 :root:not([data-theme]) .wordmark,
 :root:not([data-theme]) .reader-head h3,
 :root:not([data-theme]) .tab:hover,
@@ -995,14 +1148,6 @@ body {
 :root:not([data-theme]) .gate .btn,
 :root:not([data-theme]) .selectbar .btn { background: var(--sc-ink-900); color: #0A0A0A; border-color: var(--sc-ink-900); }
 
-/* The bulk assign's pickers. `.selectbar` is pinned above, so a
-   select painting its type with --sc-bone — which is now the near-black
-   ground — renders black on black. Same trap as the wordmark, same fix. */
-:root:not([data-theme]) .selectbar .pill-select {
-  color: var(--sc-ink-900);
-  background-image: linear-gradient(45deg, transparent 50%, var(--sc-ink-900) 50%),
-                    linear-gradient(135deg, var(--sc-ink-900) 50%, transparent 50%);
-}
 :root:not([data-theme]) .gate .btn:hover:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
 :root:not([data-theme]) .btn { color: #0A0A0A; }
 :root:not([data-theme]) .btn:hover:not(:disabled) { color: #0A0A0A; }
@@ -1011,11 +1156,9 @@ body {
 :root:not([data-theme]) .chip[data-on='true'],
 :root:not([data-theme]) .chip[data-origin='human'],
 :root:not([data-theme]) .pill[data-on='true'],
-:root:not([data-theme]) .picker-option[data-on='true'] b,
 :root:not([data-theme]) .roster-unread,
 :root:not([data-theme]) .sweeprow-tier,
 :root:not([data-theme]) .card-tag { color: #0A0A0A; }
-:root:not([data-theme]) .picker-option[data-on='true'] span,
 :root:not([data-theme]) .fitrail .chip[data-on='true'] em { color: #45413C; }
 :root:not([data-theme]) .card-tag[data-corner='right'] { color: #0A0A0A; }
 
@@ -1042,54 +1185,11 @@ body {
 
 /* --- the light-tinted boxes -------------------------------------- */
 :root:not([data-theme]) .failbox { background: #2A1512; }
-:root:not([data-theme]) .card-pick { color: var(--sc-ink-900); }
 :root:not([data-theme]) .gate .hint[data-tone='bad'] { color: #F08460; }
 
-/* The masthead sits on pure black, so the hairline under a live tab and the
-   beacon both need to stay above it to be seen at all. */
+/* The rail sits on pure black, so the beacon needs to stay above it to be
+   seen at all. */
 :root:not([data-theme]) .status .beacon { background: #45413C; }
-
-/* The shot scaffold in the item reader: the reference's structure, laid out so
-   it can be rebuilt. Tokens only — an undefined var() invalidates the whole
-   property here rather than falling back. */
-.scaffold {
-  margin: var(--sc-space-4) 0;
-  padding: var(--sc-space-4);
-  border: var(--sc-rule-hair);
-}
-
-.scaffold h4 {
-  margin: 0 0 var(--sc-space-2);
-  font-family: var(--sc-font-display);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-}
-
-.scaffold-why {
-  margin: 0 0 var(--sc-space-2);
-  font-size: var(--sc-text-xs);
-  line-height: 1.5;
-  color: var(--sc-ink-300);
-}
-
-.scaffold-beats { margin: 0; padding-left: var(--sc-space-4); }
-
-.scaffold-beats li { margin-bottom: var(--sc-space-3); }
-
-.scaffold-beats span { display: block; }
-
-.scaffold-at {
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-  color: var(--sc-ink-300);
-}
-
-.scaffold-ref { font-style: italic; margin: 2px 0; }
-
-.scaffold-do { font-size: var(--sc-text-xs); line-height: 1.5; color: var(--sc-ink-300); }
 
 /* ============================================================
    PHASE 9 — one visual system, and depth in it.
@@ -1394,75 +1494,173 @@ body {
 :root:not([data-theme]) .console .planphone { background: var(--sc-bone); border-color: #33302C; }
 :root:not([data-theme]) .console .planphone-screen { background: var(--sc-bone); }
 
-/* ── The watchlist and the sounds strip ─────────────────────────────────────
-   Both are lists that sit above a grid and must not compete with it: one
-   ink rule, no card, ember only on the count that changes. */
-/* The watchlist keeps its rule above; the sounds strip sits under the search
-   box, which is a boxed field now — a second line under it read as a seam. */
-.watchlist { border-top: var(--sc-rule-hair); margin: 0 0 1rem; }
-.sounds { margin: var(--sc-space-5) 0 var(--sc-space-2); }
-/* As a page of its own there is nothing above it to divide from. */
-.watchlist[data-bare='true'] { border-top: 0; margin: 0; }
-.watchlist-counts-bare { margin: 0 0 var(--sc-space-2); }
-
-.watchlist-head, .sounds-head {
+/* ── The sounds strip ───────────────────────────────────────────────────────
+   Sits under the search box, which is a boxed field now — a second line under
+   it read as a seam. One ink rule, no card, ember only on the count. */
+.sounds { margin: var(--sc-space-6) 0 0; }
+.sounds-head {
   display: flex; gap: 0.75rem; align-items: baseline; width: 100%;
   padding: 0.7rem 0; background: none; border: 0; cursor: pointer;
   font: inherit; font-size: 0.78rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--sc-ink-900);
 }
-.watchlist-counts, .sounds-count { margin-left: auto; color: var(--sc-ink-500); letter-spacing: 0.04em; }
-.watchlist-head span:last-child, .sounds-head span:last-child { color: var(--sc-ember); margin-left: 0.5rem; }
+.sounds-count { margin-left: auto; color: var(--sc-ink-500); letter-spacing: 0.04em; }
+.sounds-head span:last-child { color: var(--sc-ember); margin-left: 0.5rem; }
 
-.watchlist-body { padding: 0 0 1rem; display: grid; gap: 0.6rem; }
-.watchlist-add span { display: block; font-size: 0.78rem; color: var(--sc-ink-500); margin-bottom: 0.3rem; }
-.watchlist-add textarea {
-  width: 100%; padding: 0.6rem; border: var(--sc-rule-hair); border-radius: 0;
-  font: inherit; font-size: 0.9rem; background: var(--sc-bone); color: var(--sc-ink-900); resize: vertical;
+/* ── The watchlist page (2026-10-07) ────────────────────────────────────────
+   Counts as stat cards, suggestions as a panel of rows with real buttons and
+   a search, the add box in a side rail, and the watched accounts visible
+   below. The page used to be one flat wall of seventy-five handles. */
+.watch-stats { grid-template-columns: repeat(3, 1fr); margin-top: var(--sc-space-6); }
+.watch-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--sc-space-4); align-items: start;
+  margin-top: var(--sc-space-4);
 }
-.watchlist-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
-.watchlist-said, .watchlist-note { font-size: 0.8rem; color: var(--sc-ink-500); }
-.watchlist-suggested { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
-.watchlist-suggested li { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
-.watchlist-suggested span { color: var(--sc-ink-500); font-size: 0.8rem; }
+.watch-panel {
+  border: var(--sc-rule-hair); border-radius: 12px;
+  background: var(--sc-bone-light); overflow: hidden;
+}
+.watch-watching { margin-top: var(--sc-space-4); }
+.watch-head { display: flex; align-items: flex-start; gap: var(--sc-space-4); padding: var(--sc-space-4); }
+.watch-heading { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.watch-title { margin: 0; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; color: var(--sc-ink-900); }
+.watch-sub { margin: 0; font-size: 0.8rem; color: var(--sc-ink-300); }
+.watch-count {
+  flex: none; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px; border: var(--sc-rule-hair); color: var(--sc-ink-300);
+}
+.watch-toolbar { display: flex; align-items: center; gap: var(--sc-space-3); padding: 0 var(--sc-space-4) var(--sc-space-4); }
+.watch-search {
+  flex: 1; min-width: 0; display: flex; align-items: center;
+  border: var(--sc-rule-hair); border-radius: 10px; background: var(--sc-bone);
+  padding: 0 var(--sc-space-3);
+}
+.watch-search:focus-within { border-color: var(--sc-ember); }
+.watch-search input {
+  flex: 1; min-width: 0; background: none; border: 0; padding: 10px 0;
+  font: inherit; font-size: 0.9rem; color: var(--sc-ink-900);
+}
+.watch-search input:focus { outline: none; }
+.watch-search input::placeholder { color: var(--sc-ink-150); }
+.watch-list {
+  list-style: none; margin: 0; padding: 0 var(--sc-space-4) var(--sc-space-4);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--sc-space-2);
+}
+.watch-list-watching { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.watch-row {
+  display: grid; gap: var(--sc-space-3); align-content: start;
+  padding: var(--sc-space-3);
+  border: var(--sc-rule-hair); border-radius: 10px; background: var(--sc-bone);
+}
+.watch-who { display: grid; gap: 3px; min-width: 0; }
+.watch-handle { color: var(--sc-ink-900); font-weight: 600; font-size: 0.9rem; text-decoration: none; }
+.watch-handle:hover { color: var(--sc-ember-light); }
+.watch-meta { color: var(--sc-ink-300); font-size: 0.78rem; }
+.watch-meta[data-gated] { color: var(--sc-ember-light); }
+.watch-actions { display: flex; gap: var(--sc-space-2); flex-wrap: wrap; }
+.watch-empty { margin: 0; padding: 0 var(--sc-space-4) var(--sc-space-4); font-size: 0.85rem; color: var(--sc-ink-300); }
+.watch-add-body { display: grid; gap: var(--sc-space-3); padding: 0 var(--sc-space-4) var(--sc-space-4); }
+.watch-field { display: grid; gap: 6px; }
+.watch-field-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-300); }
+.watch-field textarea {
+  width: 100%; min-height: 120px; padding: 10px 12px;
+  border: var(--sc-rule-hair); border-radius: 10px;
+  background: var(--sc-bone); color: var(--sc-ink-900);
+  font: inherit; font-size: 0.9rem; resize: vertical;
+}
+.watch-field textarea:focus {
+  outline: none; border-color: var(--sc-ember);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ember) 22%, transparent);
+}
+.watch-field textarea::placeholder { color: var(--sc-ink-150); }
+.watch-said { margin: 0; font-size: 0.8rem; color: var(--sc-ink-500); }
+@media (max-width: 1100px) { .watch-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .watch-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .watch-stats { grid-template-columns: 1fr; } }
 
-.sounds-list { list-style: none; margin: 0; padding: 0 0 1rem; display: grid; gap: 0.45rem; }
+.sounds-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
 .sounds-list li { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; font-size: 0.88rem; }
 .sounds-title em { font-style: normal; color: var(--sc-ink-500); }
 .sounds-meta { color: var(--sc-ember); font-size: 0.8rem; letter-spacing: 0.04em; }
 
-/* Persona proposals: a face, a reason, the chips, and two buttons. The chip
-   row is the edit — no separate mode, because the decision and the correction
-   are the same gesture. */
-.proposals { margin: 0 0 1rem; }
-.proposals-body { padding: 0 0 1rem; display: grid; gap: 0.8rem; }
-.proposals-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
-.proposals-list li {
-  display: grid; gap: 0.5rem 0.9rem; align-items: start;
-  grid-template-columns: 64px minmax(0, 1fr);
-  padding-bottom: 0.9rem; border-bottom: var(--sc-rule-hair);
+/* Persona proposals: the reads waiting on a human, as a panel of cards.
+   A face, the reason it was read, the chips as the edit, and the two
+   decisions. The panel opens itself while reads are waiting — the work used
+   to hide behind a collapsed row. */
+.proposals {
+  margin: var(--sc-space-6) 0 0;
+  border: var(--sc-rule-hair);
+  border-radius: 12px;
+  background: var(--sc-bone-light);
+  overflow: hidden;
 }
-.proposals-list img { object-fit: cover; width: 64px; height: 80px; }
+.proposals-head {
+  display: flex; align-items: center; gap: var(--sc-space-4);
+  width: 100%; padding: var(--sc-space-4);
+  background: none; border: 0; cursor: pointer; text-align: left;
+}
+.proposals-heading { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.proposals-title { font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; color: var(--sc-ink-900); }
+.proposals-sub { font-size: 0.8rem; color: var(--sc-ink-300); }
+.proposals-count {
+  flex: none;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px;
+  border: var(--sc-rule-hair); color: var(--sc-ink-300);
+}
+.proposals-count[data-waiting] {
+  color: var(--sc-ember-light);
+  border-color: color-mix(in srgb, var(--sc-ember) 45%, transparent);
+  background: color-mix(in srgb, var(--sc-ember) 14%, transparent);
+}
+.proposals-chevron { flex: none; color: var(--sc-ember); font-size: 1.05rem; line-height: 1; padding: 0 2px; }
+.proposals-body {
+  display: grid; gap: var(--sc-space-4);
+  padding: var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+}
+.proposals-bar { display: flex; align-items: center; gap: var(--sc-space-3); flex-wrap: wrap; }
+.proposals-said { font-size: 0.8rem; color: var(--sc-ink-500); }
+.proposals-empty { margin: 0; font-size: 0.85rem; color: var(--sc-ink-300); }
+
+.proposals-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--sc-space-3);
+}
+.proposals-card {
+  display: grid; grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3);
+  border: var(--sc-rule-hair); border-radius: 10px;
+  background: var(--sc-bone);
+  align-content: start;
+}
+.proposals-face { min-width: 0; }
+.proposals-face img { display: block; object-fit: cover; width: 72px; height: 90px; border-radius: 8px; }
 /* Held open when there is no face, or when the Mac that serves it is asleep.
-   Without it the text fell into the 64px image column and wrapped one word to
-   a line, with the chips stacked alongside — every creator whose poster was
-   missing rendered as a broken row. */
-.proposals-blank { display: block; width: 64px; height: 80px; background: var(--sc-bone-light); }
-/* Pinned rather than flowed: the row is two columns and everything that is
-   not the face belongs in the second one, whether or not a face rendered. */
-.proposals-who { grid-column: 2; display: grid; gap: 0.2rem; font-size: 0.9rem; }
-.proposals-who span { color: var(--sc-ink-500); font-size: 0.78rem; }
-.proposals-who em { font-style: normal; color: var(--sc-ink-700); font-size: 0.82rem; }
-.proposals-tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.proposals-actions { grid-column: 2; display: flex; gap: 0.6rem; }
+   Without it the text fell into the image column and wrapped one word to a
+   line — every creator whose poster was missing rendered as a broken card. */
+.proposals-blank { display: block; width: 72px; height: 90px; border-radius: 8px; background: var(--sc-bone-light); }
+.proposals-content { min-width: 0; display: grid; gap: var(--sc-space-3); align-content: start; }
+.proposals-who { display: grid; gap: 3px; font-size: 0.9rem; min-width: 0; }
+.proposals-who a { color: var(--sc-ink-900); font-weight: 600; text-decoration: none; }
+.proposals-who a:hover { color: var(--sc-ember-light); }
+.proposals-who span { color: var(--sc-ink-300); font-size: 0.78rem; }
+.proposals-who em { font-style: normal; color: var(--sc-ink-500); font-size: 0.82rem; line-height: 1.4; }
+.proposals-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* The correction list, only while it is open. Dimmed against the read chips
    above it: those are the answer, these are the alternatives. */
-.proposals-tags-all { grid-column: 2; padding: 0.5rem 0; border-top: var(--sc-rule-hair); }
+.proposals-tags-all { padding-top: var(--sc-space-3); border-top: var(--sc-rule-hair); }
 .proposals-tags-all .chip { color: var(--sc-ink-300); }
 .proposals-more { border-style: dashed; }
+.proposals-actions { display: flex; gap: var(--sc-space-2); }
 @media (max-width: 640px) {
-  .proposals-list li { grid-template-columns: 48px minmax(0, 1fr); }
-  .proposals-list img, .proposals-blank { width: 48px; height: 60px; }
+  .proposals-list { grid-template-columns: 1fr; }
+  .proposals-card { grid-template-columns: 56px minmax(0, 1fr); }
+  .proposals-face img, .proposals-blank { width: 56px; height: 70px; }
 }
 
 /* ============================================================
@@ -1506,6 +1704,12 @@ body {
   padding: 12px 14px;
   min-height: 44px;
 }
+/* The custom dropdowns in the sheet's forms keep the field's height and
+   radius, so a row of controls reads as one family. */
+.console .sheet .msel-trigger {
+  border-radius: 10px;
+  min-height: 44px;
+}
 .console .sheet .field:focus,
 .console .sheet .field:focus-visible {
   outline: none;
@@ -1520,6 +1724,90 @@ body {
   color: var(--sc-ink-300);
 }
 .console .sheet .hint { color: var(--sc-ink-300); font-size: 0.82rem; }
+
+/* --------------------------------------------------- SECTIONS & PICKERS */
+
+/* Every block in the sheet speaks one language: a solid hairline, an
+   uppercase label, state as pills. The dotted rules and mono buttons were
+   the old form's voice and read as a different app inside this one. */
+.console .sheet .axis {
+  border-top: 1px solid var(--sc-ink-150);
+  padding-top: var(--sc-space-5);
+  display: grid;
+  gap: var(--sc-space-3);
+}
+.console .sheet .axis-head { margin-bottom: 0; align-items: center; }
+.console .sheet .axis-confirm {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: 999px;
+  padding: 7px 16px;
+  min-height: 36px;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+  background: none;
+}
+.console .sheet .axis-confirm:hover { border-color: var(--sc-ember); color: var(--sc-ember-light); }
+.console .sheet .axis[data-tone='refuse'] .axis-name { color: var(--sc-critical); }
+.console .sheet .axis[data-tone='refuse'] .axis-confirm:hover { border-color: var(--sc-critical); color: var(--sc-critical); }
+@media (max-width: 720px) {
+  .console .sheet .axis-confirm { min-height: 44px; }
+}
+
+/* The picker grid: options as wells; chosen is an ember tint, so a chosen
+   tag never flips the grid into a second, brighter theme. */
+.console .sheet .picker { border-top: 1px solid var(--sc-ink-150); }
+.console .sheet .picker-grid {
+  border: 1px solid var(--sc-ink-150);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.console .sheet .picker-option { background: var(--sc-bone); }
+.console .sheet .picker-option b {
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.console .sheet .picker-option span { font-family: var(--sc-font-text); font-style: normal; }
+.console .sheet .picker-option:hover { background: color-mix(in srgb, var(--sc-ember) 10%, var(--sc-bone)); }
+.console .sheet .picker-option[data-on='true'] { background: color-mix(in srgb, var(--sc-ember) 16%, var(--sc-bone)); }
+.console .sheet .picker-option[data-on='true'] b { color: var(--sc-ember-light); }
+.console .sheet .picker-option[data-on='true'] span { color: var(--sc-ink-500); }
+
+/* -------------------------------------------------------- BEST POSTS */
+
+.console .sheet .toppost {
+  border-radius: 10px;
+  background: var(--sc-bone);
+  padding: 10px;
+}
+.console .sheet .toppost:hover { border-color: var(--sc-ember); }
+.console .sheet .toppost img, .console .sheet .toppost-none { border-radius: 8px; }
+.console .sheet .toppost-figures { font-family: var(--sc-font-text); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.04em; }
+.console .sheet .toppost-figures b { font-weight: 700; }
+.console .sheet .toppost-when { font-family: var(--sc-font-text); font-style: normal; font-size: 0.78rem; }
+.console .sheet .toppost-rank { min-width: 2ch; text-align: right; font-size: 1.05rem; }
+.console .sheet .toppost-acts { display: flex; gap: var(--sc-space-2); }
+
+/* ---------------------------------------------------------- REPORT */
+
+.console .sheet .strategy-sections { gap: var(--sc-space-3); }
+.console .sheet .strategy-section { border-radius: 12px; background: var(--sc-bone); }
+.console .sheet .strategy-section summary { padding: var(--sc-space-4); font-size: var(--sc-text-lg); }
+.console .sheet .strategy-no { color: var(--sc-ember); font-weight: 600; }
+.console .sheet .strategy-section p {
+  max-width: 66ch;
+  padding: 0 var(--sc-space-4) var(--sc-space-3);
+  font-size: var(--sc-text-base);
+  line-height: 1.65;
+  color: var(--sc-ink-500);
+}
+.console .sheet .strategy-section p:last-child { padding-bottom: var(--sc-space-4); }
 
 /* Chips: pills with a soft fill; the selected one is ember, once. */
 .console .sheet .chip {
@@ -1635,7 +1923,6 @@ body {
      1. Pills for every control, one hairline per section, dotted rules gone.
      2. Ember on the one action that matters (Add to a plan), quiet everything
         else; the copy bar keeps a single filled pill for its primary.
-     3. The scaffold reads as a card, not an outlined slab.
 
    Scoped to `.console .reader` so the panels, the plan page and the rest of
    the console are untouched.
@@ -1707,25 +1994,13 @@ body {
   border-color: var(--sc-ember);
   color: #fff;
 }
-
-/* --------------------------------------------------------- SCAFFOLD */
-.console .reader .scaffold {
-  background: var(--sc-bone);
-  border: var(--sc-rule-hair);
-  border-radius: 12px;
-  padding: var(--sc-space-5) var(--sc-space-6);
+/* Remove sits at the far edge, away from the copy actions it sits beside —
+   and it answers in critical, not ink, when pointed at. */
+.console .copybar [data-end] { margin-left: auto; }
+.console .copybar .btn-quiet[data-end]:hover:not(:disabled) {
+  border-color: var(--sc-critical);
+  color: var(--sc-critical);
 }
-.console .reader .scaffold h4 {
-  font-family: var(--sc-font-text);
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--sc-ink-900);
-}
-.console .reader .scaffold-why { color: var(--sc-ink-500); }
-.console .reader .scaffold-ref { color: var(--sc-ink-700); }
-.console .reader .scaffold-do { color: var(--sc-ink-300); }
 
 /* ------------------------------------------------------------- AXES */
 .console .reader .axis {
@@ -1802,14 +2077,6 @@ body {
   background: color-mix(in srgb, var(--sc-ember) 86%, #fff);
   border-color: color-mix(in srgb, var(--sc-ember) 86%, #fff);
 }
-.console .reader .pill-select {
-  border-radius: 999px;
-  border: 1px solid var(--sc-ink-150);
-  background-color: transparent;
-  padding: 8px 34px 8px 14px;
-  min-height: 36px;
-}
-
 /* --------------------------------------------------------- NOSPEECH */
 .console .reader .nospeech {
   border: var(--sc-rule-hair);
@@ -1820,6 +2087,412 @@ body {
 
 /* ----------------------------------------------------------- PLAYER */
 .console .reader .player { border-radius: 12px; }
+
+/* ============================================================
+   THE RECORD — one reel, opened.
+
+   One surface, one colour: the whole popup is the sheet's own
+   ground, and every region is told apart by a hairline divider
+   alone — no ink band, no tinted column, no black media plane.
+
+   A centred record split down the middle: the topbar and masthead
+   state who made it and what it did, the left half is the clip —
+   fixed, so the video is on screen the whole time — and the right
+   half scrolls alone: how to rebuild it, its tags, where it goes,
+   and its words.
+
+   One clock runs through it. The beat and the transcript line
+   under the playhead light up together, and a click on either
+   sends the clip to that second.
+   ============================================================ */
+
+.console .reader.record {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  /* A stated height, not a hugged one: the halves split the record down the
+     middle, the clip owns the left half for as long as the record is open,
+     and only the notes pane scrolls. */
+  height: min(90dvh, 1020px);
+  width: min(1120px, 100% - var(--sc-space-8));
+  transform: translate(-50%, -50%);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: 16px;
+  box-shadow: var(--sc-lift-3);
+  animation: float-in var(--sc-dur) var(--sc-spring);
+  /* The panes scroll, the bars do not show. */
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.console .reader.record::-webkit-scrollbar { display: none; }
+.console .reader.record:focus { outline: none; }
+
+/* ------------------------------------------------- TOPBAR & MASTHEAD */
+
+/* Pins to the top while the record scrolls on a phone, so Close is never
+   more than a thumb away. */
+.record-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-8);
+  background: var(--sc-bone-light);
+  border-bottom: var(--sc-rule-hair);
+}
+.record-mast {
+  flex: none;
+  display: grid;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-5) var(--sc-space-8) var(--sc-space-6);
+  border-bottom: var(--sc-rule-hair);
+}
+.record-mast-actions { display: flex; align-items: center; gap: var(--sc-space-2); }
+/* The topbar speaks with one voice: Open the post sits quiet beside Close,
+   grey on grey — the one accent up here is the kicker. */
+.record-topbar .reader-source {
+  margin-left: 0;
+  color: var(--sc-ink-500);
+  border-color: var(--sc-ink-150);
+}
+.record-topbar .reader-source:hover {
+  color: var(--sc-ember-deep);
+  border-color: var(--sc-ember-deep);
+  background: none;
+}
+.record-topbar .sheet-close {
+  color: var(--sc-ink-500);
+  border-color: var(--sc-ink-150);
+  background: none;
+}
+.record-topbar .sheet-close:hover { color: var(--sc-ember-deep); border-color: var(--sc-ember-deep); }
+.record-kicker {
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+  font-variant-numeric: tabular-nums;
+}
+.record-name {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.9;
+  font-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.record-flag {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-caution);
+  border: 1px solid color-mix(in srgb, var(--sc-caution) 45%, transparent);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+/* The figures, as a stated strip rather than a sentence of dots. */
+.record-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3) var(--sc-space-8);
+  margin: 0;
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+}
+.record-facts div { display: grid; gap: 2px; }
+.record-facts dt {
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.record-facts dd {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.record-facts div[data-tone='ember'] dd { color: var(--sc-ember-deep); }
+
+/* ----------------------------------------------------------- BODY */
+
+.record-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+/* The left half: the clip, centred, and it stays put — the pane never
+   scrolls, so the video is on screen the whole time. */
+.record-play {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--sc-space-6);
+}
+.record-play .failbox { margin: 0 0 var(--sc-space-5); }
+.record-play .hint { color: var(--sc-ink-300); }
+.record-media {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  gap: var(--sc-space-4);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+/* The right half: the working notes — it alone scrolls, so the clip never
+   leaves, and one hairline parts it from the picture. */
+.record-side {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: var(--sc-rule-hair);
+  padding: var(--sc-space-6);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.record-side::-webkit-scrollbar { display: none; }
+.record-block + .record-block {
+  border-top: var(--sc-rule-hair);
+  margin-top: var(--sc-space-5);
+  padding-top: var(--sc-space-5);
+}
+/* The pickers and the assign bar bring their own top rules; against the
+   block's rule they would double. */
+.record-side .axis:first-child { border-top: 0; padding-top: 0; }
+.record-side .assignbar { border-top: 0; padding-top: 0; }
+.record-block > .reader-section:first-child { margin-top: 0; }
+.record-label {
+  margin: 0 0 var(--sc-space-3);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.record-why {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-xs);
+  line-height: 1.55;
+  color: var(--sc-ink-300);
+}
+
+/* ---------------------------------------------------------- BEATS */
+
+.record-beats { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.record-beats li {
+  border-left: 2px solid transparent;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease),
+              background var(--sc-dur-fast) var(--sc-ease);
+}
+.record-beats li[data-on='true'] { border-left-color: var(--sc-ember); background: var(--sc-ember-tint); }
+.record-beat {
+  display: grid;
+  grid-template-columns: 2.8rem minmax(0, 1fr);
+  gap: var(--sc-space-3);
+  width: 100%;
+  padding: var(--sc-space-2) var(--sc-space-2) var(--sc-space-2) var(--sc-space-3);
+  background: none;
+  border: 0;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font: inherit;
+  text-align: left;
+}
+button.record-beat { cursor: pointer; }
+button.record-beat:hover { background: var(--sc-ember-tint); }
+.record-beat-at {
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--sc-ink-300);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.record-beats li[data-on='true'] .record-beat-at { color: var(--sc-ember-deep); }
+.record-beat-body { display: grid; gap: 2px; min-width: 0; }
+.record-beat-role {
+  font-family: var(--sc-font-text);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.record-beat-ref {
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  font-size: var(--sc-text-sm);
+  line-height: 1.45;
+  color: var(--sc-ink-700);
+}
+.record-beat-do { font-size: var(--sc-text-xs); line-height: 1.5; color: var(--sc-ink-300); }
+
+/* ---------------------------------------------------------- STAGE */
+
+/* The clip fills the pane it is given, at the reels' own 9:16 — the
+   player never reflows when metadata lands, and anything odd is
+   letterboxed inside rather than reshaping the record. The box is
+   also the video layer's compositing boundary: clipped and promoted,
+   a mispainted frame cannot smear across the panel. */
+.record-stage {
+  margin: 0;
+  aspect-ratio: 9 / 16;
+  height: 100%;
+  max-height: 100%;
+  width: auto;
+  max-width: 100%;
+  border-radius: var(--r);
+  overflow: hidden;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+.console .reader.record .record-stage .player {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  object-fit: contain;
+}
+.record-note {
+  max-width: 44ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  text-align: center;
+}
+
+
+/* ----------------------------------------------------- TRANSCRIPT */
+
+/* The time is a door into the clip, like the beats are. */
+.record-time {
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0.2rem 0 0;
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.04em;
+  color: var(--sc-ink-300);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.record-time:hover { color: var(--sc-ember-deep); }
+.record-line[data-on='true'] .record-time { color: var(--sc-ember-deep); }
+.record-line[data-on='true'] .block-text { color: var(--sc-ink-900); }
+
+/* ----------------------------------------------------------- FOOT */
+
+.record-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-4) var(--sc-space-8)
+           calc(var(--sc-space-4) + env(safe-area-inset-bottom));
+  background: var(--sc-bone-light);
+  border-top: var(--sc-rule-hair);
+}
+.console .reader.record .record-foot .btn {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #fff;
+}
+.console .reader.record .record-foot .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-ember) 86%, #fff);
+  border-color: color-mix(in srgb, var(--sc-ember) 86%, #fff);
+  color: #fff;
+}
+.console .reader.record .record-foot .btn-quiet {
+  background: none;
+  border: 1px solid var(--sc-ink-150);
+  color: var(--sc-ink-500);
+}
+.console .reader.record .record-foot .btn-quiet:hover:not(:disabled) {
+  background: none;
+  border-color: var(--sc-ink-900);
+  color: var(--sc-ink-900);
+}
+.record-foot [data-end] { margin-left: auto; }
+.console .reader.record .record-foot .btn-quiet[data-end]:hover:not(:disabled) {
+  border-color: var(--sc-critical);
+  color: var(--sc-critical);
+}
+
+/* ------------------------------------------------------- NARROW */
+
+/* One column: the clip, then the notes that act on it, then the
+   words. The rail stops being a plane and becomes a band. */
+@media (max-width: 880px) {
+  /* One flow again: the sheet itself scrolls, and the clip is no longer a
+     fixed pane. The clip, then the notes that act on it, then the words. */
+  .console .reader.record { height: auto; overflow-y: auto; }
+  .record-body { display: block; flex: none; }
+  .record-play { padding: var(--sc-space-5) var(--sc-space-4); }
+  .record-media { height: auto; grid-template-rows: auto auto; }
+  .record-stage { height: min(52vh, 560px); }
+  .record-side {
+    overflow: visible;
+    border-left: 0;
+    border-top: var(--sc-rule-hair);
+    padding: var(--sc-space-5) var(--sc-space-4);
+  }
+  .record-topbar { padding: var(--sc-space-3) var(--sc-space-4); }
+  .record-mast { padding: var(--sc-space-2) var(--sc-space-4) var(--sc-space-5); }
+  .record-facts { gap: var(--sc-space-3) var(--sc-space-5); }
+  .record-foot { padding: var(--sc-space-3) var(--sc-space-4) calc(var(--sc-space-3) + env(safe-area-inset-bottom)); }
+  /* Slimmer pills, so the foot costs a phone two short rows and not two tall
+     ones. */
+  .console .reader.record .record-foot .btn { padding: 8px 14px; }
+}
+@media (max-width: 720px) {
+  .console .reader.record {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: auto;
+    max-height: 94dvh;
+    border: 0;
+    border-top: var(--sc-rule-lock);
+    border-radius: 16px 16px 0 0;
+    animation: float-up var(--sc-dur) var(--sc-ease);
+  }
+}
 
 /* ============================================================
    EDITOR SHEET — /e/<token> (2026-10-07). The editing team's
@@ -1889,7 +2562,12 @@ body {
 
 /* Editors in the plan editor (Editors.tsx). */
 .editorassign { display: flex; align-items: center; gap: var(--sc-space-2); margin-top: var(--sc-space-2); }
-.editorassign select { font: inherit; font-size: var(--sc-text-sm); padding: 2px 8px; }
+.editorassign .msel-trigger {
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 4px 10px;
+}
 .editorspanel { margin-top: var(--sc-space-2); }
 .editorspanel-body {
   margin-top: var(--sc-space-2);

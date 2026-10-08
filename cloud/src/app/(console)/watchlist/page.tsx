@@ -13,7 +13,7 @@ export default function WatchlistPage() {
           <p className="dash-sub">Accounts the sweep reads beyond the roster.</p>
         </div>
       </header>
-      <WatchlistPanel bare />
+      <WatchlistPanel />
     </div>
   )
 }

@@ -1,0 +1,468 @@
+/* ============================================================
+   THE PLATFORM PAGES — 2026-10-07. Instagram / TikTok / X.
+
+   The rail grew a platform rail (Geno's ask, matching the
+   reference's list): each platform opens to its own pages, and
+   Instagram ships with the imported OFMPro media feed — the
+   reference's card grid, retold in this console's clothes.
+
+   Scoped under `.console` like every later console block, so a
+   stray rule can never reach her plan page. The ground is the
+   ink world: rgba-white fills, ember spent once, no brand
+   colours (the house rule in lib/socials.ts, kept).
+   ============================================================ */
+
+/* ---------------------------------------------------------- HEAD */
+.pl-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  /* The .dash grid's own 24px gap is the space under the head; the old
+     stat row that this padding used to balance against is gone. */
+  padding: var(--sc-space-12) 0 0;
+}
+
+.pl-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--r);
+  background: var(--sc-bone-light);
+  border: 1px solid #33302C;
+  color: var(--sc-ink-900);
+  box-shadow: var(--sc-lift-1);
+}
+
+.pl-head-copy { min-width: 0; }
+.pl-title {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-3xl);
+  letter-spacing: var(--sc-track-tight);
+  line-height: var(--sc-leading-tight);
+  color: var(--sc-ink-900);
+}
+.pl-sub {
+  margin: var(--sc-space-1) 0 0;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+}
+.pl-sub b { color: var(--sc-ink-900); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------- TOOLBAR */
+.pl-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+  padding-top: var(--sc-space-3);
+}
+.pl-search {
+  flex: 0 1 20rem;
+  min-width: 12rem;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  color: var(--sc-ink-900);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  padding: 0.52rem 0.75rem;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.pl-search::placeholder { color: var(--sc-ink-300); }
+.pl-search:focus { outline: none; border-color: var(--sc-ember); }
+.pl-bar-sorts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+.pl-bar-count {
+  margin-left: auto;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- THE GRID */
+.pl-grid {
+  display: grid;
+  /* Cards at a real size (2026-10-07, Geno: "bigger") — 4-up on a full
+     desktop instead of 5-up. Was minmax(208px). */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sc-space-3);
+}
+.pl-grid-note {
+  margin: 0;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  max-width: 72ch;
+}
+
+.pl-card { position: relative; min-width: 0; }
+.pl-card[data-on='true'] .pl-frame {
+  box-shadow: 0 0 0 2px var(--sc-ember);
+}
+
+.pl-frame {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: #000;
+  border: 1px solid var(--sb-line, rgba(255, 255, 255, 0.08));
+  transition: box-shadow var(--sc-dur) var(--sc-ease), border-color var(--sc-dur) var(--sc-ease);
+}
+@media (hover: hover) {
+  .pl-card:hover .pl-frame { border-color: rgba(255, 255, 255, 0.16); box-shadow: var(--sc-lift-2); }
+}
+.pl-frame video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+  /* The first frame fades in once it has actually painted (onLoadedData);
+     until then the shimmer below holds the frame. */
+  opacity: 0;
+  transition: opacity var(--sc-dur) var(--sc-ease);
+}
+.pl-frame video[data-loaded='true'] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .pl-frame video { transition: none; }
+}
+
+/* X rows are not all video: pictures draw as stills in the same frame. */
+.pl-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+/* The hold: a quiet shimmer where the video will paint. */
+.pl-loading {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #111, #0C0C0C);
+}
+.pl-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: pl-shimmer 1.6s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-loading::after { animation: none; }
+}
+
+/* The floor darkens so the chips on it always read. */
+.pl-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52) 0%, transparent 24%, transparent 58%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+/* The whole frame opens the post; the tools sit above the link. */
+.pl-open { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.pl-open:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: -2px; }
+
+/* Nothing to play (signed link expired, mirror gone): say so quietly. */
+.pl-blank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: var(--sc-space-2);
+  color: rgba(255, 255, 255, 0.38);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    #0D0D0D;
+  text-align: center;
+  padding: var(--sc-space-4);
+}
+.pl-blank span {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------- OVERLAYS */
+/* The top-left line: age, and the slide count beside it when there is one. */
+.pl-topline {
+  position: absolute;
+  top: var(--sc-space-2);
+  left: var(--sc-space-2);
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  max-width: calc(100% - 8.5rem);
+}
+.pl-when,
+.pl-slides,
+.pl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.66rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+/* The week's reason tag can run long; it ellipsizes rather than spills. */
+.pl-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+.pl-tools {
+  position: absolute;
+  top: var(--sc-space-2);
+  right: var(--sc-space-2);
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.82;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.pl-card:hover .pl-tools,
+.pl-card:focus-within .pl-tools { opacity: 1; }
+.pl-tool {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(10, 10, 10, 0.6);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+  backdrop-filter: blur(4px);
+}
+.pl-tool:hover { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+.pl-tool[data-on='true'] { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+.pl-tool svg { display: block; }
+
+/* Who and how it scored — bottom left, over the floor. */
+.pl-foot {
+  position: absolute;
+  left: var(--sc-space-3);
+  right: 5.2rem;
+  bottom: var(--sc-space-3);
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.pl-user {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.pl-subline {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.64rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.pl-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  justify-self: start;
+  margin-top: 0.18rem;
+  padding: 0.16rem 0.44rem;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The numbers — bottom right, stacked the way the reference stacks them. */
+.pl-stats {
+  position: absolute;
+  right: var(--sc-space-2);
+  bottom: var(--sc-space-3);
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  justify-items: end;
+  gap: 0.28rem;
+}
+.pl-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.46rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.66rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.pl-stat svg { color: rgba(255, 255, 255, 0.66); }
+
+/* ---------------------------------------------------------- SELECTION */
+.pl-bulk {
+  position: fixed;
+  left: 50%;
+  bottom: var(--sc-space-6);
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 0.5rem 0.6rem 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--sc-bone-light);
+  border: 1px solid #33302C;
+  box-shadow: var(--sc-lift-3);
+  animation: pl-rise var(--sc-dur) var(--sc-ease);
+}
+@keyframes pl-rise { from { opacity: 0; transform: translate(-50%, 8px); } }
+.pl-bulk-count {
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pl-bulk .chip, .pl-bulk .btn { white-space: nowrap; }
+
+/* ---------------------------------------------------------- STATES */
+.pl-skeleton { position: relative; aspect-ratio: 9 / 16; border-radius: var(--r); overflow: hidden; background: var(--sc-bone-light); border: var(--sc-rule-hair); }
+.pl-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: pl-shimmer 1.6s infinite;
+}
+@keyframes pl-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .pl-skeleton::after { animation: none; }
+  .pl-bulk { animation: none; }
+}
+
+.pl-fail {
+  margin-top: var(--sc-space-4);
+  padding: var(--sc-space-6);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: #2A1512;
+  color: var(--sc-critical);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  line-height: 1.7;
+  display: grid;
+  gap: var(--sc-space-3);
+  justify-items: start;
+}
+.pl-fail button {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(224, 104, 94, 0.4);
+  background: transparent;
+  color: var(--sc-critical);
+  cursor: pointer;
+}
+.pl-fail button:hover { background: rgba(224, 104, 94, 0.12); }
+
+.pl-none {
+  margin-top: var(--sc-space-4);
+  padding: var(--sc-space-12) var(--sc-space-6);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  text-align: center;
+  display: grid;
+  gap: var(--sc-space-3);
+  justify-items: center;
+}
+.pl-none p {
+  margin: 0;
+  font-family: var(--sc-font-counter);
+  font-style: italic;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-lg);
+}
+
+/* The platform shell, waiting on its data. */
+.pl-soon {
+  display: grid;
+  gap: var(--sc-space-6);
+}
+.pl-soon-box {
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r);
+  padding: var(--sc-space-12) var(--sc-space-6);
+  text-align: center;
+  display: grid;
+  gap: var(--sc-space-3);
+  justify-items: center;
+}
+.pl-soon-box p {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+}
+.pl-soon-box strong {
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+
+/* ---------------------------------------------------------- SMALL */
+@media (max-width: 720px) {
+  .pl-head { padding-top: var(--sc-space-8); }
+  .pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sc-space-2); }
+  .pl-bar-count { margin-left: 0; width: 100%; }
+  .pl-tools { opacity: 1; }
+  .pl-tool { width: 2rem; height: 2rem; }
+}

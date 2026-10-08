@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import {
   FIRE_AT, COLD_BELOW, HEAT_MARK, isCleared,
   type Priority, type RevenueBand,
 } from '@/lib/engagement'
 import type { Standing } from '@/lib/standing'
+import { put, useLive } from '@/lib/live'
 import TrendChip from '../TrendChip'
 import TrendLine from '../TrendLine'
 
@@ -44,23 +45,22 @@ function ago(iso: string | null): string {
   return `${days} days ago`
 }
 
-export function useStanding(modelId: string, onChanged?: () => void) {
-  const [standing, setStanding] = useState<Standing | null>(null)
+export function useStanding(modelId: string, onChanged?: () => void, seed?: Standing | null) {
+  // Cached: the roster warms this on hover, so the header chips are there the
+  // moment the sheet opens. The header, the Analytics card and Reels' sent
+  // weeks all read the same URL, so all three read the same answer.
+  //
+  // `seed` is the standing the roster already loaded for every card: the chips
+  // render from it on the first frame, and this URL's own answer replaces it.
+  const url = `/api/models/${modelId}/standing`
+  const live = useLive<{ standing: Standing | null }>(url)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/standing`)
-    if (response.ok) setStanding((await response.json()).standing ?? null)
-    else setError('Their standing did not load.')
-  }, [modelId])
-
-  useEffect(() => { void load() }, [load])
 
   async function save(patch: { priority?: Priority | null; revenue_band?: RevenueBand | null }) {
     setBusy(true)
     setError(null)
-    const response = await fetch(`/api/models/${modelId}/standing`, {
+    const response = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -68,16 +68,22 @@ export function useStanding(modelId: string, onChanged?: () => void) {
     const body = await response.json().catch(() => ({}))
     setBusy(false)
     if (!response.ok) return setError(body.error ?? 'That did not save.')
-    setStanding(body.standing ?? null)
+    // What the save returned is what every holder of this URL shows next.
+    put(url, { standing: body.standing ?? null })
     onChanged?.()
   }
 
-  return { standing, busy, error, save }
+  return {
+    standing: live.data?.standing ?? seed ?? null,
+    busy,
+    error: error ?? (live.error ? 'Their standing did not load.' : null),
+    save,
+  }
 }
 
 /** Priority and revenue, tappable, in the header beside her name. */
-export function StandingControls({ modelId, onChanged }: { modelId: string; onChanged?: () => void }) {
-  const { standing, busy, error, save } = useStanding(modelId, onChanged)
+export function StandingControls({ modelId, onChanged, seed }: { modelId: string; onChanged?: () => void; seed?: Standing | null }) {
+  const { standing, busy, error, save } = useStanding(modelId, onChanged, seed)
   if (!standing) return null
   const suggested = standing.suggestion.priority
   return (

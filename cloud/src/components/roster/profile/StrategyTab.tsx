@@ -13,8 +13,9 @@
  * every regeneration and override the other evidence. The report text
  * itself is never hand-edited — correct it, then regenerate.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { AboutDoc } from '@/lib/report/spec'
+import { put, useLive } from '@/lib/live'
 
 const ENGINE_NOTE: Record<AboutDoc['engine'], string | null> = {
   anthropic: null,
@@ -22,8 +23,6 @@ const ENGINE_NOTE: Record<AboutDoc['engine'], string | null> = {
 }
 
 export default function StrategyTab({ modelId, name }: { modelId: string; name: string }) {
-  const [about, setAbout] = useState<AboutDoc | null>(null)
-  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paste, setPaste] = useState('')
   const [pasteOpen, setPasteOpen] = useState(false)
@@ -31,25 +30,24 @@ export default function StrategyTab({ modelId, name }: { modelId: string; name: 
   const [note, setNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/report`).catch(() => null)
-    if (response?.ok) setAbout((await response.json()).about ?? null)
-    setLoaded(true)
-  }, [modelId])
-
-  useEffect(() => { void load() }, [load])
+  // Cached: the roster warms this on hover, so the tab is drawn, not loaded.
+  // Generations and corrections write their response back with `put`, so the
+  // cache never shows the report a regeneration just replaced.
+  const url = `/api/models/${modelId}/report`
+  const report = useLive<{ about: AboutDoc | null }>(url)
+  const about = report.data?.about ?? null
 
   async function generate() {
     setWorking(true)
     setError(null)
-    const response = await fetch(`/api/models/${modelId}/report`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paste: paste.trim() || undefined }),
     }).catch(() => null)
     const body = await response?.json().catch(() => null)
     if (response?.ok && body?.about) {
-      setAbout(body.about)
+      put(url, { about: body.about })
       setPaste('')
       setPasteOpen(false)
     } else {
@@ -62,14 +60,14 @@ export default function StrategyTab({ modelId, name }: { modelId: string; name: 
     const text = note.trim()
     if (!text) return
     setSavingNote(true)
-    const response = await fetch(`/api/models/${modelId}/report`, {
+    const response = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: text }),
     }).catch(() => null)
     const body = await response?.json().catch(() => null)
     if (response?.ok && body?.about) {
-      setAbout(body.about)
+      put(url, { about: body.about })
       setNote('')
     } else {
       setError(body?.error ?? 'The correction did not save.')
@@ -77,7 +75,7 @@ export default function StrategyTab({ modelId, name }: { modelId: string; name: 
     setSavingNote(false)
   }
 
-  if (!loaded) return <p className="dash-empty" aria-busy="true">Reading…</p>
+  if (!report.ready) return <p className="dash-empty" aria-busy="true">Reading…</p>
 
   return (
     <div className="strategy">
@@ -150,7 +148,11 @@ export default function StrategyTab({ modelId, name }: { modelId: string; name: 
                   <span className="strategy-no">{String(index + 1).padStart(2, '0')}</span>
                   {section.title}
                 </summary>
-                <p>{section.body}</p>
+                {/* Bodies arrive as plain text; blank lines are paragraph
+                    breaks, and a wall of prose at this length is unreadable. */}
+                {section.body.split(/\n{2,}/).map((paragraph, at) => (
+                  <p key={at}>{paragraph}</p>
+                ))}
               </details>
             ))}
           </div>

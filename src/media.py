@@ -194,7 +194,7 @@ def _from_direct(direct: dict, workdir: Path, url: str) -> Source:
 
     yt-dlp resolves an Instagram post through the private `/api/v1` endpoints,
     and those are retired — measured 2026-09-20, when all 24 failed jobs came
-    from the burner reader and none from Apify. There is nothing to resolve
+    directly from the signed-in browser reader. There is nothing to resolve
     here: the sweep saw `video_versions[0].url` on Instagram's own response and
     kept it, along with the caption, the handle and the date. Instagram's CDN
     serves those files without a session.

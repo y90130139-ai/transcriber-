@@ -4,10 +4,9 @@ import { liveTrends, trendsBoard } from '@/lib/trends'
 import { answerTrends, MAX_QUESTION_CHARS } from '@/lib/trends-ask'
 import { cleanGeo, cleanRange } from '@/lib/trends-feed'
 
-/** One question against the board — the same window the tab is showing, and
- *  `web: true` to let it search past the board (Anthropic key only; the
- *  Workers fallback answers board-only and says so). Console-only; the model
- *  error comes back as itself, never swallowed into a generic 500. */
+/** One question against the board — the same window the tab is showing.
+ *  Console-only; the model error comes back as itself, never swallowed into
+ *  a generic 500. */
 export async function POST(request: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
     const days = cleanRange(body?.days)
     const geo = cleanGeo(body?.geo)
     const [board, live] = await Promise.all([trendsBoard(days), liveTrends(geo, days)])
-    const answered = await answerTrends(question, { ...board, live, geo }, { web: body?.web === true })
+    const answered = await answerTrends(question, { ...board, live, geo })
     return NextResponse.json(answered)
   } catch (error) {
     return NextResponse.json(

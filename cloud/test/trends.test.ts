@@ -3,9 +3,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   cleanGeo,
+  cleanInterestRange,
   cleanRange,
   directionOf,
   foldTermDays,
+  interestStamp,
+  interestTick,
+  parseInterestExplore,
+  parseInterestQuery,
+  parseInterestTimeline,
   parseTrendingNow,
   parseTrendsRss,
   sparkPoints,
@@ -199,4 +205,64 @@ test('grounding prefers the live list and prints its figures', () => {
   const text = groundingText(board)
   assert.match(text, /GOOGLE TRENDING NOW \(US-TX, the past 7 days/)
   assert.match(text, /gypsy rose · 2M\+ searches · \+1,000% · started .* · about: ken urker/)
+})
+
+/* ---- interest over time (explore + multiline, captured shape 2026-10-08) ---- */
+
+const EXPLORE = `)]}'
+{"widgets":[{"id":"GEO_MAP","token":"other"},{"id":"TIMESERIES","token":"AB6YKJMAAAAAasgTSBy5","request":{"time":"2026-09-30T22:03:38 2026-10-07T22:03:38","resolution":"HOUR","locale":"en-US"}}]}`
+
+const TIMELINE = `)]}'
+{"default":{"timelineData":[
+  {"time":"1790805600","formattedAxisTime":"Sep 30 at 10:00 PM","value":[0,10],"hasData":[true,true]},
+  {"time":"1790812800","formattedAxisTime":"Oct 1 at 12:00 AM","value":[3,22],"hasData":[true,true]},
+  {"time":"broken","value":[1,2]},
+  {"time":"1790816400","value":["x",2]},
+  {"time":"1790818200","value":[7,31]}
+]}}`
+
+test('parseInterestExplore finds the TIMESERIES widget behind the guard line', () => {
+  const widget = parseInterestExplore(EXPLORE)
+  assert.ok(widget)
+  assert.equal(widget.token, 'AB6YKJMAAAAAasgTSBy5')
+  assert.equal((widget.request as { resolution?: string }).resolution, 'HOUR')
+  assert.equal(parseInterestExplore('not a response'), null)
+  assert.equal(parseInterestExplore(')]}\'\n{"widgets":[{"id":"GEO_MAP"}]}'), null)
+  assert.equal(parseInterestExplore(')]}\'\n{"widgets":[{"id":"TIMESERIES","request":{}}]}'), null)
+})
+
+test('parseInterestTimeline keeps finite points and drops broken rows', () => {
+  const points = parseInterestTimeline(TIMELINE)
+  assert.deepEqual(points, [
+    { t: 1790805600, v: [0, 10] },
+    { t: 1790812800, v: [3, 22] },
+    { t: 1790818200, v: [7, 31] },
+  ])
+  assert.deepEqual(parseInterestTimeline('garbage'), [])
+})
+
+test('parseInterestQuery reads "a vs b" and commas, dedupes, caps at five', () => {
+  assert.deepEqual(parseInterestQuery('namibia vs usa'), ['namibia', 'usa'])
+  assert.deepEqual(parseInterestQuery('namibia vs. usa'), ['namibia', 'usa'])
+  assert.deepEqual(parseInterestQuery('a, b, A'), ['a', 'b'])
+  assert.deepEqual(parseInterestQuery('  spaced   term  '), ['spaced term'])
+  assert.deepEqual(parseInterestQuery('a|b,c vs d,e vs f vs g'), ['a|b', 'c', 'd', 'e', 'f'])
+  assert.deepEqual(parseInterestQuery('   '), [])
+})
+
+test('cleanInterestRange admits the graph windows, defaults to 7 days', () => {
+  assert.equal(cleanInterestRange('now 1-d'), 'now 1-d')
+  assert.equal(cleanInterestRange('today 5-y'), 'today 5-y')
+  assert.equal(cleanInterestRange('now 4-H'), 'now 7-d')
+  assert.equal(cleanInterestRange(null), 'now 7-d')
+})
+
+test('interest stamps and ticks are pinned to UTC', () => {
+  assert.equal(interestStamp(0, 'now 1-d'), 'Jan 1, 12:00 AM')
+  assert.equal(interestStamp(0, 'now 7-d'), 'Jan 1, 1970')
+  assert.equal(interestStamp(0, 'today 12-m'), 'Jan 1970')
+  assert.equal(interestStamp(0, 'today 5-y'), '1970')
+  assert.equal(interestTick(0, 'now 1-d'), '12 AM')
+  assert.equal(interestTick(0, 'today 12-m'), 'Jan')
+  assert.equal(interestTick(0, 'now 7-d'), 'Jan 1')
 })

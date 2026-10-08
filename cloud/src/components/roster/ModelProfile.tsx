@@ -16,6 +16,8 @@ import { BLANK, fromModel, type ProfileForm } from './profile/form'
 import type { Reading } from './profile/reach'
 import type { HerPost, RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
+import { useLive } from '@/lib/live'
+import { forgetProfile, warmProfile } from './profile/warm'
 import TelegramLink from './profile/TelegramLink'
 import AnalyticsTab from './profile/AnalyticsTab'
 import StrategyTab from './profile/StrategyTab'
@@ -102,12 +104,10 @@ export default function ModelProfile({
   const [revoked, setRevoked] = useState(Boolean(model?.token_revoked_at))
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
-  /** What she has turned down, across every week she has ever had. */
-  const [declines, setDeclines] = useState<{ code: string | null; n: number }[]>([])
-  /** Her own answers for the brief's fields, in front of the global tables. */
+  /** Her own answers for the brief's fields, in front of the global tables.
+   *  Editable below, so the cached read seeds a draft rather than rendering
+   *  straight through — Save is what makes an edit hers. */
   const [defaults, setDefaults] = useState<Override[]>([])
-  const [readings, setReadings] = useState<Reading[]>([])
-  const [posts, setPosts] = useState<HerPost[]>([])
   /** The intake form this sheet was filled from, stamped once the save lands so
    *  a form that was read and then ignored stays distinguishable from one that
    *  actually became her profile. */
@@ -115,34 +115,32 @@ export default function ModelProfile({
 
   const modelId = model?.id ?? null
 
-  const loadReadings = useCallback(() => {
-    if (!modelId) return
-    fetch(`/api/models/${modelId}/followers`)
-      .then((response) => (response.ok ? response.json() : { readings: [] }))
-      .then((body) => setReadings(body.readings ?? []))
-      .catch(() => setReadings([]))
-  }, [modelId])
+  // Every read here is warm before the sheet opens — the roster starts them on
+  // hover, and the effect at the bottom of this block covers taps that arrived
+  // without one — so the face of the sheet renders data, not placeholders.
+  // See lib/live.ts and profile/warm.ts.
+  const followers = useLive<{ readings: Reading[] }>(modelId ? `/api/models/${modelId}/followers` : null)
+  const meta = useLive<{ declines: { code: string | null; n: number }[] }>(modelId ? `/api/models/${modelId}` : null)
+  const brief = useLive<{ defaults: Override[] }>(modelId ? `/api/models/${modelId}/brief` : null)
+  const herPosts = useLive<{ posts: HerPost[] }>(modelId ? `/api/models/${modelId}/posts` : null)
+
+  // The card already carries her newest readings and her post count, so the
+  // strip under her name is drawn the moment the sheet opens — the full reads
+  // replace them as they land. Her own read wins whenever it exists, even when
+  // it is empty: a cleared log must not fall back to the card's copy.
+  const readings = followers.data ? followers.data.readings : model?.readings ?? []
+  const declines = meta.data?.declines ?? []
+  const posts = herPosts.data?.posts ?? []
+  const postCount = herPosts.data ? posts.length : model?.posts_count ?? 0
+  const loadReadings = followers.reload
 
   useEffect(() => {
-    if (!modelId) return
-    fetch(`/api/models/${modelId}`)
-      .then((response) => (response.ok ? response.json() : { declines: [] }))
-      .then((body) => setDeclines(body.declines ?? []))
-      .catch(() => setDeclines([]))
-    fetch(`/api/models/${modelId}/brief`)
-      .then((response) => (response.ok ? response.json() : { defaults: [] }))
-      .then((body) => setDefaults(body.defaults ?? []))
-      .catch(() => setDefaults([]))
-    // Her own posts, for "her best posts" and the count in the strip. Already
-    // ingested metadata-only and matched on her handle — nothing here asks
-    // Instagram for anything.
-    fetch(`/api/models/${modelId}/posts`)
-      .then((response) => (response.ok ? response.json() : { posts: [] }))
-      .then((body) => setPosts(body.posts ?? []))
-      .catch(() => setPosts([]))
-  }, [modelId])
+    if (brief.data) setDefaults(brief.data.defaults ?? [])
+  }, [brief.data])
 
-  useEffect(() => { loadReadings() }, [loadReadings])
+  useEffect(() => {
+    if (modelId) warmProfile(modelId)
+  }, [modelId])
 
   /**
    * The way out.
@@ -294,6 +292,14 @@ export default function ModelProfile({
       }).catch(() => null)
     }
 
+    // Everything warmed for her was read from the record just changed, so it
+    // is dropped and started again — the hover on her card is what keeps the
+    // next open instant.
+    if (id) {
+      forgetProfile(id)
+      warmProfile(id)
+    }
+
     onSaved()
   }
 
@@ -343,7 +349,7 @@ export default function ModelProfile({
 
         <ProfileFigures
           readings={readings}
-          posts={posts.length}
+          posts={postCount}
           week={model ? { items: model.week_items, filmed: model.week_filmed } : null}
           onRecord={() => setTab('profile')}
         />

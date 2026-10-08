@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DAY_SHORT } from '@/lib/dates'
 import { labelOf } from '@/lib/taxonomy'
+import { useLive } from '@/lib/live'
 
 type Row = {
   id: string | null
@@ -37,16 +38,11 @@ function stateLine(s: Row): string {
 /** Her questionnaire: send it, see where it stands, see what she said and
  *  what it changed on her profile (lib/survey). */
 export default function SurveyPanel({ modelId }: { modelId: string }) {
-  const [s, setS] = useState<Row | null>(null)
+  // Cached: the roster warms this on hover, so the panel is drawn, not loaded.
+  const survey = useLive<{ survey: Row | null }>(`/api/models/${modelId}/survey`)
+  const s = survey.data?.survey ?? null
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/survey`)
-    if (response.ok) setS((await response.json()).survey)
-  }, [modelId])
-
-  useEffect(() => { void load() }, [load])
 
   async function send() {
     setBusy(true)
@@ -54,7 +50,7 @@ export default function SurveyPanel({ modelId }: { modelId: string }) {
     try {
       const response = await fetch(`/api/models/${modelId}/survey`, { method: 'POST' })
       if (!response.ok) throw new Error()
-      await load()
+      survey.reload()
     } catch {
       setError('Could not queue it. Try again in a moment.')
     } finally {

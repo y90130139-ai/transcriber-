@@ -1,15 +1,23 @@
 'use client'
 
 /**
- * One library card (split out of LibraryGrid, 2026-10-06 — Geno: clicking
- * into every reel to find out what it is "is too time-consuming").
+ * One library card — redrawn as a platform card (2026-10-08).
  *
- * Three things the grid card can now do without opening the item:
- *   preview   the video itself plays in the frame, muted and looping —
- *             automatically under the pointer on a mouse machine, by the
- *             Preview button anywhere
+ * The grid used to be a picture with a paragraph under it: handle, preview,
+ * likes, tags, buttons — six pieces of furniture below every frame. The
+ * /instagram feed showed the better shape: the frame IS the card, and
+ * everything lives on it, the way the reference app draws a reel. This is
+ * that shape with the library's own contents in it — the age and the 90-day
+ * clock top left, the tools top right, who and what it says over the floor,
+ * the numbers stacked bottom right.
+ *
+ * All six behaviours survive the redraw:
+ *   preview   the video plays in the frame under the pointer, or pinned
+ *   sound     the mute tool unmutes and keeps it playing
  *   save      the file straight off the Mac, same link ItemView offers
- *   caption   a fold with the reel's whole caption, plan-card style
+ *   caption   a fold over the floor with the reel's whole caption
+ *   select    the check tool, or any tap while a selection is live
+ *   tags      worn as chips above the name, hover for the rest
  *
  * The video and the caption are not in the grid's own payload (90 cards,
  * polled every 15 seconds — signed links there would churn every poll), so
@@ -19,7 +27,12 @@
  * says so instead of pretending.
  */
 import { useEffect, useRef, useState } from 'react'
-import { clock, compact, displayName, thumbUrl, type LibraryItem } from '@/lib/format'
+import { Icon } from '@/components/console/ConsoleIcons'
+import {
+  CaptionGlyph, CheckGlyph, CommentGlyph, DownloadGlyph,
+  HeartGlyph, MuteGlyph, PauseGlyph, PlayGlyph, SoundGlyph,
+} from '@/components/platform/glyphs'
+import { ago, clock, compact, displayName, thumbUrl, type LibraryItem } from '@/lib/format'
 import { explainOutperformance } from '@/lib/outperformance'
 
 /** Transcripts start mid-thought; the card starts with a capital. */
@@ -89,12 +102,12 @@ export default function LibraryCard({
   onToggle: () => void
 }) {
   const [detail, setDetail] = useState<Detail | null>(null)
-  /** Playing right now — by hover, or pinned by the Preview button. */
+  /** Playing right now — by hover, or pinned by the Preview tool. */
   const [playing, setPlaying] = useState(false)
   const [pinned, setPinned] = useState(false)
-  /** Sound on (Geno, 2026-10-07): the hover preview is muted; this unmutes
-   *  it so you can hear what they are saying. Turning sound on also pins
-   *  playback, so walking the pointer away does not cut the audio mid-word. */
+  /** Sound on: the hover preview is muted; this unmutes it so you can hear
+   *  what they are saying. Turning sound on also pins playback, so walking
+   *  the pointer away does not cut the audio mid-word. */
   const [sound, setSound] = useState(false)
   const [captionOpen, setCaptionOpen] = useState(false)
   /** The one honest excuse: the files live on the Mac and it is asleep. */
@@ -163,12 +176,10 @@ export default function LibraryCard({
   }
 
   const video = detail?.media?.video ?? null
+  const verdict = item.badges && item.badges.length > 0 ? item.badges[0] : null
 
   return (
-    <article
-      className={`card${feature ? ' card-feature' : ''}`}
-      data-picked={picked}
-    >
+    <article className={`card${feature ? ' card-feature' : ''}`} data-picked={picked}>
       <button
         type="button"
         className="card-open"
@@ -194,92 +205,134 @@ export default function LibraryCard({
             <Frame item={item} />
           )}
           <span className="card-scrim" aria-hidden />
-          {item.is_hot && <span className="card-hot">Hot</span>}
-          {item.duration_sec !== null && (
-            <span className="card-tag" data-corner="right">{clock(item.duration_sec)}</span>
-          )}
-          {/* Bottom-left, the way the Reels tab does it: the eye and the
-              number first, the verdict beside it. A row rather than two
-              absolutely-positioned tags, so they can never land on top of
-              each other however long the label runs. */}
-          <span className="card-stats">
+
+          {/* Top left: when it landed, how long it runs, and anything the
+              library itself has to say — hot, the 90-day clock, a sleeping
+              Mac. The same chips the platform feeds wear. */}
+          <span className="card-topline">
+            {item.upload_date && (
+              <span className="card-when">
+                <Icon name="calendar" size={12} />
+                {ago(item.upload_date)}
+              </span>
+            )}
+            {item.duration_sec !== null && (
+              <span className="card-when">
+                <Icon name="clock" size={12} />
+                {clock(item.duration_sec)}
+              </span>
+            )}
+            {item.is_hot && <span className="card-chip" data-tone="hot">Hot</span>}
+            {macAsleep && (
+              <span className="card-chip" data-tone="quiet" title="The files live on the Mac and it cannot be reached right now">Mac asleep</span>
+            )}
             <ExpiryTag item={item} />
+          </span>
+
+          {/* Over the floor: the tags, who it is, what it says, the verdict.
+              The numbers stack in the opposite corner, as the feeds do. */}
+          <span className="card-foot">
+            {item.tags && item.tags.length > 0 && (
+              <span className="card-tags">
+                {item.tags.map((tag, index) => (
+                  <span key={`${tag.axis}-${tag.tag}`} data-axis={tag.axis} data-origin={tag.origin}
+                    data-more={index >= 3 || undefined}>{tag.tag}</span>
+                ))}
+                {item.tags.length > 3 && (
+                  <span className="card-tags-more" aria-hidden>+{item.tags.length - 3}</span>
+                )}
+              </span>
+            )}
+            <span className="card-handle" title={item.title ?? item.author_name ?? undefined}>
+              {displayName(item)}
+            </span>
+            {item.preview && <span className="card-line">{sentence(item.preview)}</span>}
+            {verdict ? (
+              <span className="card-score" data-tone={verdict.tone} title={verdict.detail}>{verdict.label}</span>
+            ) : item.outperformance !== null && item.outperformance !== undefined ? (
+              <span className="card-score" title={explainOutperformance(item.outperformance)}>
+                {item.outperformance}×
+              </span>
+            ) : null}
+          </span>
+
+          <span className="card-stats">
             {item.sig_plays !== null && item.sig_plays !== undefined && (
-              <span className="card-tag" title={`${Number(item.sig_plays).toLocaleString()} views`}>
-                <svg className="card-eye" viewBox="0 0 24 16" aria-hidden="true">
-                  <path d="M1 8s4-6 11-6 11 6 11 6-4 6-11 6S1 8 1 8Z" fill="none"
-                        stroke="currentColor" strokeWidth="2" />
-                  <circle cx="12" cy="8" r="3" fill="currentColor" />
-                </svg>
+              <span className="card-stat" title={`${Number(item.sig_plays).toLocaleString()} views`}>
+                <PlayGlyph />
                 {compact(Number(item.sig_plays))}
                 <span className="sr-only"> views</span>
               </span>
             )}
-            {item.badges && item.badges.length > 0 ? (
-              <span className="card-tag" data-tone={item.badges[0].tone} title={item.badges[0].detail}>
-                {item.badges[0].label}
+            {item.like_count !== null && (
+              <span className="card-stat" title={`${item.like_count.toLocaleString()} likes`}>
+                <HeartGlyph />
+                {compact(item.like_count)}
               </span>
-            ) : (
-              item.outperformance !== null &&
-              item.outperformance !== undefined && (
-                <span className="card-tag" title={explainOutperformance(item.outperformance)}>
-                  {item.outperformance}×
-                </span>
-              )
+            )}
+            {item.comment_count !== null && (
+              <span className="card-stat" title={`${item.comment_count.toLocaleString()} comments`}>
+                <CommentGlyph />
+                {compact(item.comment_count)}
+              </span>
             )}
           </span>
         </span>
-        <span className="card-top">
-          <span className="card-handle">{displayName(item)}</span>
-          {item.upload_date && <span className="card-date">{item.upload_date}</span>}
-        </span>
-        {item.preview && <span className="card-line">{sentence(item.preview)}</span>}
-        <span className="card-meta">
-          {/* Views live on the frame, where the eye is. */}
-          {item.like_count !== null && <span>{compact(item.like_count)} likes</span>}
-          {item.comment_count !== null && <span>{compact(item.comment_count)} cm</span>}
-        </span>
-        {item.tags && item.tags.length > 0 && (
-          <span className="card-tags">
-            {item.tags.map((tag, index) => (
-              <span key={`${tag.axis}-${tag.tag}`} data-axis={tag.axis} data-origin={tag.origin}
-                data-more={index >= 3 || undefined}>{tag.tag}</span>
-            ))}
-            {item.tags.length > 3 && (
-              <span className="card-tags-more" aria-hidden>+{item.tags.length - 3}</span>
-            )}
-          </span>
-        )}
       </button>
 
-      {/* What the card can do without being opened (Geno, 2026-10-06). */}
-      <span className="card-acts">
-        <button type="button" className="card-act" data-on={playing && pinned || undefined} onClick={() => void togglePreview()}>
-          {playing && pinned ? 'Stop' : 'Preview'}
+      {/* The tools sit above the frame like the feed's, and above the caption
+          fold so it can always be closed again. */}
+      <span className="card-tools">
+        <button
+          type="button"
+          className="card-tool"
+          data-on={(playing && pinned) || undefined}
+          onClick={() => void togglePreview()}
+          aria-pressed={playing && pinned}
+          title={playing && pinned ? 'Stop the preview' : 'Preview the video'}
+        >
+          {playing && pinned ? <PauseGlyph /> : <PlayGlyph />}
         </button>
         <button
           type="button"
-          className="card-act"
+          className="card-tool"
           data-on={sound || undefined}
           onClick={() => void toggleSound()}
           aria-pressed={sound}
+          title={sound ? 'Mute' : 'Play with sound'}
         >
-          {sound ? '🔊 Mute' : '🔇 Sound'}
+          {sound ? <SoundGlyph /> : <MuteGlyph />}
         </button>
         {detail?.media ? (
-          <a className="card-act" href={detail.media.download}>Save video</a>
+          <a className="card-tool" href={detail.media.download} title="Save the video file">
+            <DownloadGlyph />
+          </a>
         ) : (
-          <button type="button" className="card-act" onClick={() => void save()}>Save video</button>
+          <button type="button" className="card-tool" onClick={() => void save()} title="Save the video file">
+            <DownloadGlyph />
+          </button>
         )}
         <button
           type="button"
-          className="card-act"
+          className="card-tool"
+          data-on={captionOpen || undefined}
           aria-expanded={captionOpen}
           onClick={() => void toggleCaption()}
+          title={captionOpen ? 'Hide the caption' : 'Read the caption'}
         >
-          {captionOpen ? '– Caption' : '+ Caption'}
+          <CaptionGlyph />
         </button>
-        {macAsleep && <span className="card-asleep">Mac asleep — no file right now</span>}
+        <button
+          type="button"
+          className="card-tool"
+          data-on={picked || undefined}
+          aria-label={picked ? 'Deselect' : 'Select'}
+          aria-pressed={picked}
+          onClick={onToggle}
+          title={picked ? 'Deselect' : 'Select'}
+        >
+          <CheckGlyph />
+        </button>
       </span>
 
       {captionOpen && (
@@ -302,16 +355,6 @@ export default function LibraryCard({
           )}
         </div>
       )}
-
-      <button
-        type="button"
-        className="card-pick"
-        aria-label={picked ? 'Deselect' : 'Select'}
-        aria-pressed={picked}
-        onClick={onToggle}
-      >
-        {picked ? '✓' : '+'}
-      </button>
     </article>
   )
 }
@@ -329,7 +372,7 @@ function ExpiryTag({ item }: { item: LibraryItem }) {
   }
   return (
     <span className="card-tag" data-tone="expiring" title={`Leaves the library in ${left} day${left === 1 ? '' : 's'} — put it on someone's week`}>
-      ⏳ Expiring · {left}d
+      Expiring · {left}d
     </span>
   )
 }

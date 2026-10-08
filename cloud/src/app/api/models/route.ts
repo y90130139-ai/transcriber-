@@ -27,7 +27,15 @@ export async function GET(request: Request) {
             -- column existed, which is not the same as "no".
             (w.opened_at is not null) as week_opened,
             coalesce(u.unread, 0)::int  as unread_notes,
-            coalesce(d.declined, 0)::int as week_declined
+            coalesce(d.declined, 0)::int as week_declined,
+            -- The figures strip under her name wants her newest readings and
+            -- how many of her own posts the library holds — and wants them the
+            -- moment her card opens. Carried here for the same reason the week
+            -- above is: the sheet's face is drawn from what the grid already
+            -- has, and her own reads replace these the moment they land. Forty
+            -- is enough for the spark, the delta and the log's first screen.
+            fr.readings,
+            coalesce(pc.posts, 0)::int as posts_count
        from transcriber.models m
        left join lateral (
          select p.id as plan_id, p.status as plan_status, p.opened_at,
@@ -57,6 +65,21 @@ export async function GET(request: Request) {
            join transcriber.plans p on p.id = i.plan_id
           where p.model_id = m.id and p.week_of = $1::date and i.declined_at is not null
        ) d on true
+       left join lateral (
+         select json_agg(reading) as readings
+           from (
+             select f.id, f.platform, f.followers::int as followers, f.source, f.taken_at
+               from transcriber.model_followers f
+              where f.model_id = m.id
+              order by f.taken_at desc
+              limit 40
+           ) reading
+       ) fr on true
+       left join lateral (
+         select count(*) as posts
+           from transcriber.transcripts t
+          where lower(t.author) = lower(m.handle)
+       ) pc on true
       order by (m.status = 'active') desc, m.name`,
     [currentWeekOf()],
   )

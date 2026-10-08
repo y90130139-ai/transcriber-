@@ -10,6 +10,7 @@
  * into Telegram — same idea as a model's plan link, no login.
  */
 import { useCallback, useEffect, useState } from 'react'
+import DropSelect from '../dashboard/DropSelect'
 
 export type EditorRow = {
   id: string
@@ -42,21 +43,24 @@ export function EditorAssign({ itemId, editors, value, onChanged }: {
   return (
     <label className="editorassign">
       <span className="axis-name">Editor</span>
-      <select
+      <DropSelect
+        label="Editor"
         value={value ?? ''}
-        onChange={(event) => {
+        onChange={(next) => {
           void fetch('/api/editors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assign: { item_id: itemId, editor_id: event.target.value || null } }),
+            body: JSON.stringify({ assign: { item_id: itemId, editor_id: next || null } }),
           }).then(() => onChanged())
         }}
-      >
-        <option value="">Nobody yet</option>
-        {editors.map((editor) => (
-          <option key={editor.id} value={editor.id}>{editor.name}{editor.is_head ? ' · head' : ''}</option>
-        ))}
-      </select>
+        options={[
+          { value: '', label: 'Nobody yet' },
+          ...editors.map((editor) => ({
+            value: editor.id,
+            label: `${editor.name}${editor.is_head ? ' · head' : ''}`,
+          })),
+        ]}
+      />
     </label>
   )
 }

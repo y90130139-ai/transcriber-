@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { EarningsWindow } from '@/lib/earnings/board'
 import type { WeeklyNumbers } from '@/lib/earnings/report'
 import { money, niceDay } from '@/lib/earnings/report'
+import { useLive } from '@/lib/live'
 import BarChart from '../dashboard/BarChart'
 import MicroBars from '../dashboard/MicroBars'
 import ReelMoney from './ReelMoney'
@@ -28,19 +29,19 @@ const TYPE_WORD: Record<string, string> = {
  *  her Monday report is built from. */
 export default function EarningsTab({ modelId }: { modelId: string }) {
   const [days, setDays] = useState<EarningsWindow>(30)
-  const [data, setData] = useState<ModelEarnings | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (d: EarningsWindow) => {
-    setError(null)
-    const response = await fetch(`/api/earnings/model/${modelId}?days=${d}`).catch(() => null)
-    if (!response?.ok) { setError('Her earnings did not load. Try again in a moment.'); return }
-    setData(await response.json())
-  }, [modelId])
+  // Cached: the roster warms this on hover, so the tab is drawn, not loaded.
+  const earn = useLive<ModelEarnings>(`/api/earnings/model/${modelId}?days=${days}`)
+  const data = earn.data
 
-  useEffect(() => { void load(days) }, [load, days])
-
-  if (error) return <p className="dash-error" role="alert">{error} <button className="chip" onClick={() => void load(days)}>Retry</button></p>
+  if (earn.error) {
+    return (
+      <p className="dash-error" role="alert">
+        Her earnings did not load. Try again in a moment.{' '}
+        <button className="chip" onClick={earn.reload}>Retry</button>
+      </p>
+    )
+  }
   if (!data) return <p className="dash-empty" aria-busy="true">Reading her earnings…</p>
   if (data.accounts.length === 0) {
     return <p className="dash-empty">No OnlyFans account is matched to her yet. Match one on Dashboard → Earnings.</p>

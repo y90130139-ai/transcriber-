@@ -1,5 +1,5 @@
 /** Shapes shared by the console's model portal screens. */
-import type { Social } from '@/lib/socials'
+import type { Platform, Social } from '@/lib/socials'
 
 export type Model = {
   id: string
@@ -47,6 +47,16 @@ export type Model = {
   created_at: string
 }
 
+/** One follower reading. Same shape her sheet's own read returns, so the two
+ *  are interchangeable as the figures strip renders them. */
+export type CardReading = {
+  id: string
+  platform: Platform
+  followers: number
+  source: 'manual' | 'insights'
+  taken_at: string
+}
+
 /** A roster card carries this week at a glance, so the grid answers "is anyone
  *  waiting on me" without opening anything. */
 export type RosterModel = Model & {
@@ -61,6 +71,12 @@ export type RosterModel = Model & {
    *  genuinely never opened; the column is null-safe in SQL so this is always
    *  a boolean here. */
   week_opened: boolean
+  /** Her newest readings and how many of her own posts are ingested, carried
+   *  so the sheet's figures strip is drawn from what the grid already loaded
+   *  rather than waiting on a fetch. Null on a response read before these
+   *  columns existed; her sheet's own reads replace them a moment later. */
+  readings: CardReading[] | null
+  posts_count: number
 }
 
 export type PlanSummary = {

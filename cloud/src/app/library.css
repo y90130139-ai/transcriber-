@@ -119,15 +119,6 @@
 .pill b { color: var(--sc-ember); font-weight: 500; }
 .pill[data-on='true'] b { color: var(--sc-ember-light); }
 
-.pill-select {
-  appearance: none;
-  padding-right: var(--sc-space-6);
-  background-image: linear-gradient(45deg, transparent 50%, var(--sc-ink-500) 50%),
-                    linear-gradient(135deg, var(--sc-ink-500) 50%, transparent 50%);
-  background-position: right 12px center, right 7px center;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-}
 /* A search box wearing the rail's clothes, so it sits in line with the pills. */
 .pill-input {
   cursor: text;
@@ -239,74 +230,91 @@
 }
 .axis-confirm:hover { color: var(--sc-ember); }
 
-.picker { margin-top: var(--sc-space-3); border-top: 1px dotted var(--sc-ink-150); padding-top: var(--sc-space-3); }
+.picker { margin-top: var(--sc-space-3); border-top: var(--sc-rule-hair); padding-top: var(--sc-space-3); }
+/* The picker speaks in the sheet's voice, not the typewriter's: options are
+   sentences people read, so both the name and the description are set in the
+   text face. Uppercase mono over a serif italic was two voices arguing in a
+   field someone is trying to scan. */
 .picker-search {
   width: 100%;
   background: transparent;
   border: 0;
   border-bottom: var(--sc-rule-hair);
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
+  text-transform: none;
   padding: var(--sc-space-2) 0;
   color: var(--sc-ink-900);
 }
+.picker-search::placeholder { color: var(--sc-ink-300); }
 .picker-search:focus { outline: none; border-bottom-color: var(--sc-ember); }
 .picker-hint {
-  font-family: var(--sc-font-counter);
-  font-style: italic;
-  font-size: var(--sc-text-sm);
+  font-family: var(--sc-font-text);
+  font-style: normal;
+  font-size: var(--sc-text-xs);
+  line-height: 1.55;
   color: var(--sc-ink-300);
   margin: var(--sc-space-2) 0;
 }
 .picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 1px;
   background: var(--sc-ink-150);
   border: var(--sc-rule-hair);
   max-height: 42vh;
   overflow-y: auto;
+  /* The list scrolls, the bar does not show — same as every other menu. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.picker-grid::-webkit-scrollbar { display: none; }
 .picker-option {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  align-content: start;
   text-align: left;
   background: var(--sc-bone-light);
   border: 0;
-  padding: var(--sc-space-2) var(--sc-space-3);
+  padding: var(--sc-space-3);
   cursor: pointer;
   font: inherit;
 }
 .picker-option b {
-  font-family: var(--sc-font-mono);
-  font-size: 0.65rem;
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
+  font-family: var(--sc-font-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--sc-ink-900);
-  font-weight: 500;
 }
 .picker-option span {
-  font-family: var(--sc-font-counter);
-  font-style: italic;
-  font-size: var(--sc-text-xs);
+  font-family: var(--sc-font-text);
+  font-style: normal;
+  font-size: 0.72rem;
+  line-height: 1.45;
   color: var(--sc-ink-300);
-  line-height: 1.3;
 }
-.picker-option:hover { background: var(--sc-ember-tint); }
-.picker-option[data-on='true'] { background: var(--sc-ink-900); }
-.picker-option[data-on='true'] b { color: var(--sc-bone); }
-.picker-option[data-on='true'] span { color: #A8A29A; }
+/* Chosen reads as an ember tint, the same signal the chips wear — never a
+   second, blacker theme inside the grid. */
+.picker-option:hover { background: color-mix(in srgb, var(--sc-ember) 10%, var(--sc-bone-light)); }
+.picker-option[data-on='true'] { background: color-mix(in srgb, var(--sc-ember) 18%, var(--sc-bone-light)); }
+.picker-option[data-on='true'] b { color: var(--sc-ember-deep); }
+.picker-option[data-on='true'] span { color: var(--sc-ink-500); }
 
 /* ----------------------------------------------------------- PLAYER */
+/* The player keeps the clip's own shape (2026-10-08): auto width against a
+   max-height, so a 9:16 reel draws 9:16 and centred instead of letterboxing
+   itself inside a full-width frame. */
 .player {
-  width: 100%;
-  max-height: 62vh;
-  background: var(--sc-ink-900);
   display: block;
-  margin-bottom: var(--sc-space-6);
-  border-radius: var(--sc-radius);
+  width: auto;
+  max-width: 100%;
+  max-height: 58vh;
+  margin: 0 auto var(--sc-space-6);
+  border-radius: var(--r-sm, 8px);
+  background: #0A0A0A;
 }
 
 /* Pinned to the corner rather than carried by the head.
@@ -340,90 +348,43 @@
 .flame { font-size: 0.9em; }
 
 /* -------------------------------------------------------- CARD EXTRAS */
-.card { position: relative; }
-.card-open {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-2);
-  text-align: left;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  width: 100%;
-}
+/* The frame owns the whole card now (globals.css); selection still rings it. */
 .card[data-picked='true'] .card-frame { outline: 3px solid var(--sc-ember); outline-offset: -3px; }
 
-.card-pick {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2rem;
-  height: 2rem;
-  display: grid;
-  place-items: center;
-  background: rgba(10, 10, 10, 0.72);
-  color: var(--sc-bone);
-  border: 0;
-  cursor: pointer;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-sm);
-  opacity: 0;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-.card:hover .card-pick,
-.card:focus-within .card-pick,
-.card[data-picked='true'] .card-pick { opacity: 1; }
-.card[data-picked='true'] .card-pick { background: var(--sc-ember); }
-@media (hover: none) { .card-pick { opacity: 1; } }
-
-/* Outperformance as a pill on the frame, not an emoji. Top right: the pick
-   button owns the top-left corner. */
-.card-hot {
-  position: absolute;
-  top: var(--sc-space-2);
-  right: var(--sc-space-2);
-  padding: 0.22rem 0.55rem;
-  border-radius: var(--r-pill, 999px);
-  background: var(--sc-ember);
-  color: #0A0A0A;
-  font-family: var(--sc-font-text);
-  font-weight: 700;
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Tags wear their axis's colour: persona ember, format green, hook amber,
-   topic neutral. A tag somebody picked by hand is tinted and dotted — a
-   decision; a guess stays a quiet outline. Hover the row and the +N opens. */
+/* Tags, worn over the frame's floor above the name — the platform feeds'
+   chips, tinted by axis. They sit on ink now, so the tones are the light
+   ones; a tag somebody picked by hand is tinted and dotted, a guess stays a
+   quiet outline. Hover the row and the +N opens. */
 .card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sc-space-1);
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
   font-family: var(--sc-font-text);
   font-weight: 600;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  /* The foot ignores the pointer; the row does not — its hover opens the +N. */
+  pointer-events: auto;
 }
 .card-tags span {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  --tag: var(--sc-ink-500);
-  border: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  --tag: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--r-pill, 999px);
-  padding: 0.12rem 0.5rem;
+  padding: 0.14rem 0.5rem;
   color: var(--tag);
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(4px);
   white-space: nowrap;
 }
-.card-tags span[data-axis='persona'] { --tag: var(--sc-ember-deep); }
-.card-tags span[data-axis='format'] { --tag: var(--sc-positive); }
-.card-tags span[data-axis='hook'] { --tag: var(--sc-caution); }
-.card-tags span[data-origin='human'] { background: color-mix(in srgb, var(--tag) 14%, transparent); }
+.card-tags span[data-axis='persona'] { --tag: #EF9B72; }
+.card-tags span[data-axis='format'] { --tag: #7FCBA0; }
+.card-tags span[data-axis='hook'] { --tag: #DDBE6E; }
+.card-tags span[data-origin='human'] { background: color-mix(in srgb, var(--tag) 22%, rgba(10, 10, 10, 0.55)); }
 .card-tags span[data-origin='human']::before {
   content: '';
   width: 0.32rem;
@@ -432,7 +393,7 @@
   background: currentColor;
   flex: none;
 }
-.card-tags .card-tags-more { --tag: var(--sc-ink-300); }
+.card-tags .card-tags-more { --tag: rgba(255, 255, 255, 0.5); }
 .card-tags span[data-more='true'] { display: none; }
 .card-tags:hover span[data-more='true'] { display: inline-flex; }
 .card-tags:hover .card-tags-more { display: none; }
@@ -473,21 +434,6 @@
   flex-wrap: wrap;
   min-width: 0;
 }
-
-/* The bar is an ink surface in BOTH themes — light theme paints it ink-900,
-   the dark block in globals.css pins it to #000 — so a select inheriting
-   `.pill`'s ink-500 type is dark on dark and effectively invisible. Its arrow
-   is drawn in ink-500 too and has the same problem. */
-.selectbar .pill-select {
-  background-color: transparent;
-  color: var(--sc-bone);
-  border-color: #3A3733;
-  background-image: linear-gradient(45deg, transparent 50%, var(--sc-bone) 50%),
-                    linear-gradient(135deg, var(--sc-bone) 50%, transparent 50%);
-}
-/* The menu itself is drawn by the OS on its own ground, so it has to be told
-   a real pair of colours rather than inheriting the bar's. */
-.selectbar .pill-select option { color: var(--sc-ink-900); background: var(--sc-paper); }
 
 .bulkassign-clash {
   display: flex;
@@ -715,7 +661,11 @@
 
 /* ------------------------------------------------------------- FORMS */
 .form-row { display: grid; gap: var(--sc-space-2); margin-bottom: var(--sc-space-5); }
-.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sc-space-4); }
+/* Two columns side by side, each keeping its own height. Without
+   `align-items: start`, the column with the longer hint stretched its
+   neighbour, and the short field beside it — a name input, a number — ballooned
+   to match the hint's height, which reads as a broken box rather than a field. */
+.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sc-space-4); align-items: start; }
 
 .field {
   width: 100%;
@@ -886,7 +836,7 @@ textarea.field { resize: vertical; }
   margin-bottom: var(--sc-space-6);
 }
 .assignbar-row { display: flex; gap: var(--sc-space-2); flex-wrap: wrap; align-items: center; }
-.assignbar-row .pill-select { max-width: 17rem; }
+.assignbar-row .msel-trigger { max-width: 17rem; }
 
 @media (max-width: 720px) {
   .reader-wide { width: 100vw; }
@@ -1080,7 +1030,9 @@ textarea.field { resize: vertical; }
 
 /* ------------------------------------------------------- SCOREBOARD
    Supply and delivery on one row, always. Ours carries the ember so the half
-   that is actually our fault cannot be skimmed past. */
+   that is actually our fault cannot be skimmed past — a 2px rule across the
+   top, the same accent the dashboard's lead stat wears, rather than a whole
+   card outlined in orange. */
 .score {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1089,6 +1041,7 @@ textarea.field { resize: vertical; }
 }
 /* Same card as the dashboard's stats: raised surface, display number. */
 .score-cell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-1);
@@ -1099,7 +1052,14 @@ textarea.field { resize: vertical; }
   padding: var(--sc-space-4) var(--sc-space-5);
 }
 .score-cell .axis-name { font-family: var(--sc-font-text); font-weight: 600; font-size: 0.62rem; letter-spacing: 0.08em; }
-.score-cell[data-side='ours'] { border-color: var(--sc-ember); }
+.score-cell[data-side='ours']::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--sc-ember);
+  border-radius: var(--r, 12px) var(--r, 12px) 0 0;
+}
 .score-cell b {
   font-family: var(--sc-font-display);
   font-weight: 700;
@@ -1136,15 +1096,40 @@ textarea.field { resize: vertical; }
   color: var(--sc-ink-300);
 }
 
-/* ------------------------------------------------------------ THE LISTS
-   Each list is a dashboard-style panel; the head is its title row, the rows
-   are quiet cards. Ours-first tone survives as the head's colour. */
+/* ------------------------------------------------------------ THE WORK
+   Main column and a rail. Ours runs long on a bad day, so it takes the main
+   column; theirs, standing and the housekeeping stack in the rail beside it.
+   A list with nothing on it contributes one line to a clear strip instead of
+   a panel — a column of six "Clear." cards buried the one that didn't. */
+.sweep-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr);
+  gap: var(--sc-space-4);
+  align-items: start;
+  margin-bottom: var(--sc-space-8);
+}
+.sweep-zone { display: grid; gap: var(--sc-space-3); min-width: 0; align-content: start; }
+.sweep-rail { display: grid; gap: var(--sc-space-6); align-content: start; min-width: 0; }
+.sweep-zone-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sc-space-2); }
+.sweep-zone-head h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+/* Ours is the half that is our fault, so it wears the accent — the same
+   distinction the scoreboard draws. */
+.sweep-zone[data-zone='ours'] .sweep-zone-head h2 { color: var(--sc-ember-deep); }
+.sweep-zone-head .hint { flex: 1 1 100%; margin: 0; }
+
 .sweeplist {
-  margin-bottom: var(--sc-space-4);
   background: var(--sc-bone-light);
   border: var(--sc-rule-hair);
   border-radius: var(--r, 12px);
-  padding: var(--sc-space-5) var(--sc-space-6);
+  padding: var(--sc-space-4) var(--sc-space-5) var(--sc-space-5);
+  min-width: 0;
 }
 .sweephead {
   display: flex;
@@ -1172,6 +1157,41 @@ textarea.field { resize: vertical; }
   color: var(--sc-ink-300);
 }
 
+/* The clear strip — every check that came back empty, one quiet line each.
+   It still names the check: a sweep that skips one silently is a sweep you
+   stop trusting. Dashed, so "we checked" never reads as "a card". */
+.sweepchecks {
+  list-style: none;
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-5);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm, 8px);
+}
+.sweepchecks li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-700);
+}
+.sweepchecks svg { color: var(--sc-positive); flex: none; align-self: center; }
+.sweepchecks li b { font-weight: 600; color: var(--sc-ink-900); }
+.sweepchecks em {
+  font-style: normal;
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  border-left: 1px solid var(--sc-ink-150);
+  padding-left: var(--sc-space-2);
+}
+
 .sweeprows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
 .sweeprow {
   width: 100%;
@@ -1180,7 +1200,7 @@ textarea.field { resize: vertical; }
   gap: var(--sc-space-3);
   flex-wrap: wrap;
   min-height: 44px;
-  padding: var(--sc-space-3) var(--sc-space-4);
+  padding: var(--sc-space-2) var(--sc-space-3);
   border: var(--sc-rule-hair);
   border-radius: var(--r-sm, 8px);
   background: var(--sc-bone);
@@ -1192,10 +1212,6 @@ textarea.field { resize: vertical; }
   transition: border-color var(--sc-dur-fast) var(--sc-ease);
 }
 .sweeprow:hover { border-color: var(--sc-ink-300); }
-
-/* A collision row opens nothing — there is no single model to open, which is
-   the whole point of it. Same row, without the affordance that would say
-   otherwise. */
 /* ------------------------------------------------------ PERSONA BACKFILL
 
    A creator at a time, with the words that fired under each proposal. It sits
@@ -1220,13 +1236,13 @@ textarea.field { resize: vertical; }
   min-width: 0;
 }
 /* Placed by element, never by `:nth-of-type` on the shared `.field` class —
-   that counts per element type, so the value input and the first select both
+   that counts per element type, so the value input and the first picker both
    answered to "the first one" and the row came apart into three. The two
    pickers sit on one line; the sentence gets the whole width under them,
    because it is the part that has something to say. */
-.override > select { grid-row: 1; min-width: 0; }
-.override > select:first-of-type { grid-column: 1; }
-.override > select:last-of-type { grid-column: 2; }
+.override > .msel-trigger { grid-row: 1; min-width: 0; }
+.override > .msel-trigger:nth-of-type(1) { grid-column: 1; }
+.override > .msel-trigger:nth-of-type(2) { grid-column: 2; }
 .override > input { grid-row: 2; grid-column: 1 / span 3; min-width: 0; }
 .override > .chip { grid-row: 1; grid-column: 3; }
 
@@ -1345,9 +1361,7 @@ textarea.field { resize: vertical; }
   flex-wrap: wrap;
 }
 
-.sweeprow[role='note'] { cursor: default; }
-.sweeprow[role='note']:hover { border-color: var(--sc-ink-150); }
-/* The row is a face, then her name over the reason, then the pills. */
+/* The row is a face, then their name over the reason, then the pills. */
 .sweeprow .dash-avatar { flex: none; }
 .sweeprow-top { display: grid; gap: 2px; flex: 1; min-width: 0; text-align: left; }
 .sweeprow-tier {
@@ -1392,21 +1406,104 @@ textarea.field { resize: vertical; }
   white-space: nowrap;
 }
 
-.healthrows {
+/* ----------------------------------------------------- STANDING + HOUSE
+   Standing lists live in their own grid — one card per live situation, and
+   the empty ones fall to the same clear strip as the checks above. Then the
+   housekeeping: collisions (a record, folded) and library health. */
+.sweep-stand .sweep-zone-head { margin-bottom: var(--sc-space-3); }
+.sweep-heat {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-3);
+}
+.sweep-house {
+  display: grid;
+  gap: var(--sc-space-3);
+  padding-bottom: var(--sc-space-8);
+}
+
+/* The fold: the head is the button, so the count stays visible when closed. */
+.sweep-fold-head {
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  justify-content: flex-start;
+}
+.sweep-fold-cue {
+  margin-left: auto;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.sweep-fold-head:hover h3, .sweep-fold[data-open='true'] h3 { color: var(--sc-ember-deep); }
+.sweep-fold[data-open='true'] .sweep-fold-cue { color: var(--sc-ember-deep); }
+
+.clashes {
   list-style: none;
   margin: var(--sc-space-3) 0 0;
   padding: 0;
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: var(--sc-space-2);
-  font-size: var(--sc-text-sm);
-  color: var(--sc-ink-500);
+  max-height: 380px;
+  overflow-y: auto;
 }
-.healthrows b {
-  color: var(--sc-ink-900);
+.clash {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+}
+.clash-top { display: grid; gap: 1px; flex: 1; min-width: 0; }
+.clash-name {
   font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clash-why {
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.healthstats {
+  list-style: none;
+  margin: var(--sc-space-3) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sc-space-3);
+}
+.healthstats li { display: grid; gap: 2px; min-width: 0; }
+.healthstats b {
+  font-family: var(--sc-font-display);
   font-weight: 700;
+  font-size: var(--sc-text-xl);
+  line-height: 1;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
   font-variant-numeric: tabular-nums;
 }
+.healthstats span { font-size: var(--sc-text-xs); color: var(--sc-ink-300); line-height: 1.35; }
 
 /* ------------------------------------------------- FLAGS ON THE CARD */
 .rosterflags {
@@ -1540,8 +1637,13 @@ textarea.field { resize: vertical; }
 .planrow-posted .axis-name { margin: 0; }
 .planrow-posted a { color: var(--sc-ember-deep); }
 
+@media (max-width: 1120px) {
+  .sweep-board { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 720px) {
-  .score { grid-template-columns: 1fr 1fr; padding: var(--sc-space-4); }
+  .score { grid-template-columns: 1fr 1fr; }
+  .sweepchecks { flex-direction: column; }
 }
 
 /* --------------------------------------------------- HER INTAKE FORM
@@ -1692,6 +1794,11 @@ textarea.field { resize: vertical; }
  * target sits under it, and the judgement is a word rather than a colour
  * alone — so it still reads without relying on seeing the difference between
  * ember and positive.
+ *
+ * It used to share `.score` with the sweep's scoreboard. Both files are in
+ * one sheet, so whichever block came last won every property the other set —
+ * and the sweep's four-up grid collapsed into one column per metric card. It
+ * is its own class now; the two never meet again.
  */
 .score-row {
   display: grid;
@@ -1700,29 +1807,20 @@ textarea.field { resize: vertical; }
   margin-bottom: var(--sc-space-3);
 }
 
-.score {
+.scorecard {
   display: grid;
-  /* The scoreboard's `.score` block above sets `repeat(4, minmax(0, 1fr))`,
-     and this block never reset it — so every metric card was laying its name,
-     value, target and verdict out as four columns, which at card width is a
-     name wrapped one word per line beside a floating number. State the track
-     list here, and state the margin too: the scoreboard's `margin-bottom`
-     leaked the same way. */
   grid-template-columns: 1fr;
   margin-bottom: 0;
   gap: 2px;
   padding: var(--sc-space-3);
-  /* `1px solid var(--sc-rule-hair)` is `1px solid 1px solid …` after
-     substitution — invalid, so the whole border was dropped and the verdict
-     edge never painted. The token already carries the width and the style. */
   border: var(--sc-rule-hair);
   border-radius: var(--sc-radius);
   border-left-width: 3px;
   background: var(--sc-paper);
 }
-.score[data-state='yes']     { border-left-color: var(--sc-positive); }
-.score[data-state='no']      { border-left-color: var(--sc-ember); }
-.score[data-state='unknown'] { border-left-color: var(--sc-ink-300); }
+.scorecard[data-state='yes']     { border-left-color: var(--sc-positive); }
+.scorecard[data-state='no']      { border-left-color: var(--sc-ember); }
+.scorecard[data-state='unknown'] { border-left-color: var(--sc-ink-300); }
 
 .score-name {
   font: var(--sc-text-xs)/1 var(--sc-font-text);
@@ -1742,9 +1840,9 @@ textarea.field { resize: vertical; }
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
 }
-.score[data-state='yes'] .score-verdict     { color: var(--sc-positive); }
-.score[data-state='no'] .score-verdict      { color: var(--sc-ember); }
-.score[data-state='unknown'] .score-verdict { color: var(--sc-ink-300); }
+.scorecard[data-state='yes'] .score-verdict     { color: var(--sc-positive); }
+.scorecard[data-state='no'] .score-verdict      { color: var(--sc-ember); }
+.scorecard[data-state='unknown'] .score-verdict { color: var(--sc-ink-300); }
 
 /* ------------------------------------------------------------ WHY IT WORKED
    Reasons are evidence, not tags a person chose, so they read as static
@@ -1860,24 +1958,13 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
 .wk-pat-meter { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--sc-ink-150); overflow: hidden; }
 .wk-pat-meter i { display: block; height: 100%; border-radius: 999px; background: var(--sc-ember); }
 
-/* Top 10, as a leaderboard: coloured rank, the reel's frame, the words, the
-   figure. No cards — the list is the thing. */
-.wk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
-.wk-row {
-  display: grid;
-  grid-template-columns: 2rem 56px minmax(0, 1fr) auto;
-  gap: var(--sc-space-4);
-  align-items: center;
-  padding: var(--sc-space-3) var(--sc-space-4);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r-sm, 8px);
-  background: var(--sc-bone);
-  text-decoration: none;
-  color: inherit;
-  transition: border-color var(--sc-dur-fast) var(--sc-ease);
-}
-a.wk-row:hover { border-color: var(--sc-ink-300); }
-a.wk-row:hover .wk-who { color: var(--sc-ember-deep); }
+/* Top 10 (2026-10-07) — the week's reels wear the platform feeds' card,
+   exactly (`platform.css` .pl-*): framed thumbnail, chips on the frame, the
+   handle on the floor, the ember score for the multiple that earned the
+   spot, plays/likes/comments as the stat pills. Only the rack wrapper is
+   ours; the order is the rank, so the card carries no numeral. Thumbnails
+   are 420x525, so the frame is 4:5 rather than the feeds' 9:16. */
+/* The sounds leaderboard's rank numeral (sounds/page.tsx) still wears this. */
 .wk-n {
   font-family: var(--sc-font-display);
   font-weight: 800;
@@ -1887,67 +1974,14 @@ a.wk-row:hover .wk-who { color: var(--sc-ember-deep); }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-/* The podium, in the one palette: ember for first, amber for second, moss
-   for third, ink for the rest. */
-[data-rank='1'] .wk-n { color: var(--sc-ember); }
-[data-rank='2'] .wk-n { color: #E8A33D; }
-[data-rank='3'] .wk-n { color: var(--sc-positive); }
-.wk-thumb {
-  position: relative;
-  width: 56px;
-  height: 70px;
-  border-radius: var(--r-sm, 8px);
-  overflow: hidden;
-  background: #0A0A0A;
-  display: block;
-}
-.wk-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wk-rack { list-style: none; margin: 0; padding: 0; }
+.wk-rack li { min-width: 0; }
+.wk-rack .pl-frame { aspect-ratio: 4 / 5; }
+/* The feeds reserve room on the top line for four tools; the week cards
+   wear two, so the reason tag gets the width it needs instead of an
+   ellipsis at "Heat run · 2 hi". */
+.wk-rack .pl-topline { max-width: calc(100% - 1rem); }
 .wk-blank { position: absolute; inset: 0; background: linear-gradient(160deg, #2B2926, #0A0A0A); }
-.wk-main { display: grid; gap: var(--sc-space-1); min-width: 0; }
-.wk-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sc-space-2); min-width: 0; }
-.wk-who {
-  font-family: var(--sc-font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--sc-track-tight);
-  font-size: var(--sc-text-base);
-  color: var(--sc-ink-900);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.wk-date {
-  flex: none;
-  font-family: var(--sc-font-text);
-  font-weight: 600;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  color: var(--sc-ink-300);
-}
-.wk-line {
-  font-family: var(--sc-font-text);
-  font-size: var(--sc-text-sm);
-  color: var(--sc-ink-300);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.wk-fig {
-  font-family: var(--sc-font-display);
-  font-weight: 800;
-  font-size: var(--sc-text-xl);
-  letter-spacing: var(--sc-track-tight);
-  color: var(--sc-ink-900);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-[data-rank='1'] .wk-fig { color: var(--sc-ember); }
-@media (max-width: 640px) {
-  .wk-row { grid-template-columns: 1.5rem 44px minmax(0, 1fr); }
-  .wk-fig { grid-column: 3; justify-self: start; }
-}
 
 /* ------------------------------------------------------------ HER ACCOUNTS
    One scorecard per Instagram she runs. Kept apart on purpose: a combined

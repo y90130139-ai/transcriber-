@@ -1,66 +1,292 @@
 /* ============================================================
-   TRENDS — the Discovery tab (2026-10-06).
+   TRENDS — the Discovery page, round four (2026-10-08), flat.
 
-   Console-side only, so it speaks the dashboard's voice: bone-light
-   panels under hairlines, mono kickers, display figures. The ask box
-   sits on ink because it is the one thing here that talks back.
+   One ground, no panels, no card borders, no graph behind the hero
+   (Geno's same-day pass): type, search, rows. Google Trends' shape in
+   the console's clothes — mono kickers, display figures, ember spent
+   once. Console-side only.
    ============================================================ */
 
-.trends { display: grid; gap: var(--sc-space-4); padding-bottom: var(--sc-space-16); }
+.trends { display: grid; gap: var(--sc-space-8); padding-bottom: var(--sc-space-16); }
 
-.trends-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sc-space-4);
-}
 .trends-kicker {
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
   color: var(--sc-ink-300);
-  margin: 0 0 var(--sc-space-2);
+  margin: 0 0 var(--sc-space-4);
 }
-.trends-title {
+.trends-error { margin: 0; color: var(--sc-critical); font-size: var(--sc-text-sm); }
+.trends-empty { color: var(--sc-ink-300); font-size: var(--sc-text-sm); margin: 0; }
+.trends-foot { margin: var(--sc-space-3) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+
+/* ------------------------------------------------- the hero
+
+   Type on the page's own ground — no band, no tint, nothing behind it. */
+.trends-hero {
+  display: flex;
+  align-items: center;
+  min-height: clamp(260px, 42vh, 460px);
+  padding: var(--sc-space-8) 0;
+}
+.trends-hero-inner { width: 100%; max-width: 860px; }
+
+.trends-hero-title {
+  margin: 0 0 var(--sc-space-6);
+  max-width: 19ch;
   font-family: var(--sc-font-display);
-  font-size: var(--sc-text-3xl);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 1.1rem + 3.6vw, 4rem);
   letter-spacing: var(--sc-track-wide);
-  line-height: var(--sc-leading-tight);
+  line-height: 1.04;
   color: var(--sc-ink-900);
-  margin: 0;
 }
-.trends-sub { margin: var(--sc-space-1) 0 0; color: var(--sc-ink-300); font-size: var(--sc-text-sm); }
+.trends-place {
+  background: var(--sc-ember);
+  color: var(--sc-bone);
+  padding: 0 0.18em;
+  border-radius: 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.trends-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  max-width: 680px;
+  padding: 0.35rem 0.35rem 0.35rem var(--sc-space-5);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  box-shadow: var(--sc-lift-1);
+  transition: border-color var(--sc-dur) var(--sc-ease);
+}
+.trends-search:focus-within { border-color: var(--sc-ember); }
+.trends-search-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--sc-ember);
+}
+.trends-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sc-ink-900);
+  font: inherit;
+  font-size: var(--sc-text-base);
+  padding: var(--sc-space-2) 0;
+}
+.trends-search input::placeholder { color: var(--sc-ink-300); }
+.trends-search input:focus { outline: none; }
+.trends-search button {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  color: var(--sc-bone);
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-3) var(--sc-space-6);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.trends-search button:hover:not(:disabled) { background: var(--sc-ember-light); }
+.trends-search button:disabled { opacity: 0.5; cursor: default; }
+
+.trends-hero-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-5);
+}
+.trends-hint-note {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.trends-hint {
+  border: 0;
+  background: none;
+  color: var(--sc-ink-700);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  padding: 0;
+  cursor: pointer;
+  transition: color var(--sc-dur-fast) var(--sc-ease);
+}
+.trends-hint:hover { color: var(--sc-ember-deep); }
+
+/* ------------------------------------------------- the graph */
+
+.trends-chart { scroll-margin-top: calc(3.25rem + var(--sc-space-4)); }
+.trends-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-4);
+}
+.trends-chart-titles { display: grid; gap: var(--sc-space-2); min-width: 0; }
+.trends-chart-head .trends-panel-kicker { margin: 0; }
+
+.trends-legend { display: flex; flex-wrap: wrap; gap: var(--sc-space-2) var(--sc-space-4); }
+.trends-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+.trends-legend-item i { width: 9px; height: 9px; flex: none; border-radius: 999px; }
+.trends-legend-item b {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 24ch;
+}
+.trends-legend-avg { font-size: var(--sc-text-xs); color: var(--sc-ink-300); font-variant-numeric: tabular-nums; }
+.trends-legend-drop {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  color: var(--sc-ink-300);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+.trends-legend-drop:hover { color: var(--sc-critical); }
+
+.trends-chart-box { position: relative; min-height: 340px; }
+.trends-chart-box svg { display: block; }
+.trends-grid-line {
+  stroke: color-mix(in oklab, var(--sc-ink-150) 70%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.trends-axis {
+  fill: var(--sc-ink-300);
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.trends-area { fill-opacity: 0.08; }
+.trends-line { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.trends-cursor { stroke: var(--sc-ink-300); stroke-width: 1; stroke-dasharray: 3 3; }
+.trends-cursor-dot { stroke: var(--sc-bone-light); stroke-width: 1.5; }
+
+.trends-tip {
+  position: absolute;
+  top: var(--sc-space-3);
+  min-width: 172px;
+  max-width: 250px;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  box-shadow: var(--sc-lift-2);
+  pointer-events: none;
+  z-index: 2;
+}
+.trends-tip-when {
+  margin: 0 0 var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.trends-tip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-700);
+}
+.trends-tip-row i { width: 8px; height: 8px; flex: none; border-radius: 999px; }
+.trends-tip-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trends-tip-row b { font-weight: 600; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; }
+
+.trends-chart-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--sc-space-3);
+  margin: 0;
+  padding: var(--sc-space-4);
+  text-align: center;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+  background: color-mix(in oklab, var(--sc-bone) 85%, transparent);
+  z-index: 1;
+}
+.trends-chart-veil button {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-2) var(--sc-space-4);
+  cursor: pointer;
+}
+.trends-chart-veil button:hover { border-color: var(--sc-ember); }
+
+.trends-chart-foot { margin: var(--sc-space-3) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+
+/* ------------------------------------------------- shared controls */
 
 .trends-head-tools { display: grid; justify-items: end; gap: var(--sc-space-2); }
 
-/* The window picker — the dashboard's period pills, same bones. */
 .trends-ranges {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: var(--sc-space-1);
-  padding: var(--sc-space-1);
-  background: var(--sc-bone-light);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r, 8px);
 }
 .trends-range {
   border: 0;
-  border-radius: calc(var(--r, 8px) - 3px);
+  border-radius: 999px;
   background: transparent;
   padding: var(--sc-space-1) var(--sc-space-3);
   font: inherit;
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-300);
   cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
 }
 .trends-range:hover { color: var(--sc-ink-900); }
 .trends-range[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); }
 
+.trends-selects { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: center; }
+/* In line with Export CSV beside it: one control language in the row. */
+.trends-selects .msel-trigger {
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+  padding: var(--sc-space-2) var(--sc-space-4);
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-900);
+}
 .trends-pull {
   border: var(--sc-rule-hair);
-  border-radius: var(--r, 8px);
-  background: var(--sc-bone-light);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
   padding: var(--sc-space-2) var(--sc-space-4);
   font: inherit;
   font-size: var(--sc-text-sm);
@@ -70,168 +296,13 @@
 .trends-pull:hover { border-color: var(--sc-ink-300); }
 .trends-pull:disabled { opacity: 0.6; cursor: default; }
 
-.trends-error { margin: 0; color: var(--sc-critical); font-size: var(--sc-text-sm); }
-.trends-empty { color: var(--sc-ink-300); font-size: var(--sc-text-sm); margin: 0; }
-.trends-foot { margin: var(--sc-space-3) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
-
-/* ------------------------------------------------- the ask box */
-.trends-ask {
-  background: var(--sc-ink-900);
-  border-radius: var(--r, 12px);
-  padding: var(--sc-space-5);
-  box-shadow: var(--sc-lift-1);
-}
-.trends-ask .trends-panel-kicker { color: var(--sc-ember-light, var(--sc-ember)); }
-.trends-ask .trends-foot { color: var(--sc-ink-150); }
-.trends-ask .trends-error { margin-top: var(--sc-space-2); }
-
-.trends-examples { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); margin: var(--sc-space-2) 0; }
-.trends-example {
-  border: 1px solid color-mix(in oklab, var(--sc-bone) 25%, transparent);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--sc-bone);
-  font: inherit;
-  font-size: var(--sc-text-sm);
-  padding: var(--sc-space-2) var(--sc-space-3);
-  cursor: pointer;
-}
-.trends-example:hover { border-color: var(--sc-bone); }
-
-.trends-thread { display: grid; gap: var(--sc-space-3); margin: var(--sc-space-3) 0; max-height: 50vh; overflow-y: auto; }
-.trends-q {
-  margin: 0;
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  letter-spacing: var(--sc-track-label);
-  text-transform: uppercase;
-  color: var(--sc-ink-150);
-}
-.trends-a {
-  margin: var(--sc-space-1) 0 0;
-  color: var(--sc-bone);
-  font-size: var(--sc-text-sm);
-  line-height: var(--sc-leading-body);
-  white-space: pre-wrap;
-}
-.trends-waiting { color: var(--sc-ink-150); font-style: italic; }
-
-.trends-form { display: flex; gap: var(--sc-space-2); margin-top: var(--sc-space-3); }
-.trends-form input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid color-mix(in oklab, var(--sc-bone) 25%, transparent);
-  border-radius: var(--r, 8px);
-  background: transparent;
-  color: var(--sc-bone);
-  font: inherit;
-  font-size: var(--sc-text-sm);
-  padding: var(--sc-space-2) var(--sc-space-3);
-}
-.trends-form input::placeholder { color: var(--sc-ink-150); }
-.trends-form input:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 1px; }
-.trends-form button {
-  border: 0;
-  border-radius: var(--r, 8px);
-  background: var(--sc-ember);
-  color: var(--sc-bone);
-  font: inherit;
-  font-size: var(--sc-text-sm);
-  padding: var(--sc-space-2) var(--sc-space-4);
-  cursor: pointer;
-}
-.trends-form button:disabled { opacity: 0.5; cursor: default; }
-
 /* ------------------------------------------------- the evidence */
-.trends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sc-space-4); align-items: start; }
+
+.trends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sc-space-8); align-items: start; }
 .trends-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .trends-grid, .trends-grid-two { grid-template-columns: 1fr; } }
 
-.trends-selects { display: flex; gap: var(--sc-space-2); align-items: center; }
-.trends-selects select {
-  border: var(--sc-rule-hair);
-  border-radius: var(--r, 8px);
-  background: var(--sc-bone-light);
-  padding: var(--sc-space-2) var(--sc-space-3);
-  font: inherit;
-  font-size: var(--sc-text-sm);
-  color: var(--sc-ink-900);
-}
-
-/* ------------------------------------------------- the live list
-
-   Google's Trending now, as a readable ledger: the term, its figures,
-   and the breakdown chips that say what it is about without a click. */
-.trends-live { list-style: none; margin: 0; padding: 0; }
-.trends-live-row {
-  display: grid;
-  gap: var(--sc-space-1);
-  padding: var(--sc-space-3) 0;
-  border-top: var(--sc-rule-hair);
-  min-width: 0;
-}
-.trends-live-row:first-child { border-top: 0; padding-top: 0; }
-.trends-live-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sc-space-3);
-  min-width: 0;
-}
-.trends-live-term {
-  color: var(--sc-ink-900);
-  font-size: var(--sc-text-base);
-  font-weight: 500;
-  text-decoration: none;
-}
-.trends-live-term:hover { color: var(--sc-ember-deep); }
-.trends-live-figures {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-  font-size: var(--sc-text-xs);
-  color: var(--sc-ink-300);
-  font-variant-numeric: tabular-nums;
-}
-.trends-live-figures b { color: var(--sc-ink-900); font-weight: 500; }
-.trends-live-figures em { font-style: normal; color: var(--sc-ember-deep); }
-.trends-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sc-space-1);
-  min-width: 0;
-}
-.trends-breakdown-chip {
-  border: var(--sc-rule-hair);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: var(--sc-text-xs);
-  color: var(--sc-ink-700, var(--sc-ink-900));
-  white-space: nowrap;
-  max-width: 24ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.trends-breakdown-more { font-size: var(--sc-text-xs); color: var(--sc-ink-300); white-space: nowrap; }
-.trends-more {
-  margin-top: var(--sc-space-3);
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: var(--sc-text-sm);
-  color: var(--sc-ember-deep);
-  cursor: pointer;
-}
-
-.trends-panel {
-  background: var(--sc-bone-light);
-  border: var(--sc-rule-hair);
-  border-radius: var(--r, 12px);
-  padding: var(--sc-space-5);
-  min-width: 0;
-}
+.trends-panel { min-width: 0; }
 .trends-panel-kicker {
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
@@ -241,7 +312,134 @@
   margin: 0 0 var(--sc-space-3);
 }
 
-.trends-terms, .trends-reels, .trends-sounds {
+/* ------------------------------------------------- the trending list
+
+   Google's Trending now as the console's table — the dashboard's clothes:
+   one bordered frame, hairline rows, a mono head, the jump in ember. The
+   whole row draws its graph; the arrow opens the search on Google. */
+.trends-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
+}
+.trends-sec-head .trends-panel-kicker {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+/* The heartbeat: this board is live right now, and a dot that pulses says
+   so without a word. Reduced motion is handled globally (motion.css), the
+   same as the worker beacon. */
+.trends-live-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  animation: trends-pulse 2.4s var(--sc-ease) infinite;
+}
+@keyframes trends-pulse { 50% { opacity: 0.25; } }
+.trends-sec-title {
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+/* The count is the headline, not the sentence. */
+.trends-sec-count {
+  font-size: var(--sc-text-2xl);
+  letter-spacing: var(--sc-track-display);
+  font-variant-numeric: tabular-nums;
+  margin-right: var(--sc-space-1);
+}
+
+.trends-table-frame {
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  background: var(--sc-bone-light);
+  overflow: hidden;
+}
+.trends-table-scroll { overflow-x: auto; }
+.trends-table { min-width: 780px; }
+/* The frame carries the last hairline — a row border on top of it would
+   draw a double line along the bottom edge. */
+.trends-table tbody tr:last-child th,
+.trends-table tbody tr:last-child td { border-bottom: 0; }
+.trends-table .num { text-align: right; }
+.trends-table-rank {
+  width: 3rem;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+}
+.trends-table-term { font-weight: 600; color: var(--sc-ink-900); }
+.trends-table-related { color: var(--sc-ink-300); }
+/* One line, ellipsised — the breakdown is a hint, not a paragraph, and the
+   column must stay a column at 30 rows. */
+.trends-table-related span {
+  display: inline-block;
+  max-width: 36ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.trends-table-none { color: var(--sc-ink-150); }
+.trends-table-volume { font-weight: 600; color: var(--sc-ink-900); }
+.trends-table-jump { color: var(--sc-ember-deep); font-weight: 600; }
+.trends-table-when { color: var(--sc-ink-300); }
+.trends-table-open { width: 2.5rem; text-align: center; }
+.trends-table-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.trends-trend-out {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: var(--sc-ink-300);
+  transition: color var(--sc-dur-fast) var(--sc-ease), background var(--sc-dur-fast) var(--sc-ease);
+}
+.trends-trend-out:hover { color: var(--sc-ember-deep); background: var(--sc-ember-tint); }
+
+.trends-more {
+  /* Centred under the table (Geno, 2026-10-08). */
+  display: flex;
+  width: fit-content;
+  margin: var(--sc-space-5) auto 0;
+  align-items: center;
+  gap: var(--sc-space-2);
+  border: 1px solid color-mix(in oklab, var(--sc-ember) 55%, transparent);
+  border-radius: 999px;
+  background: none;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ember-deep);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.trends-more:hover { background: color-mix(in oklab, var(--sc-ember) 12%, transparent); }
+
+/* ------------------------------------------------- the daily archive */
+
+.trends-terms, .trends-sounds {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -265,9 +463,6 @@
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
   color: var(--sc-ember-deep);
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 0 6px;
 }
 .trends-term-meta {
   display: flex;
@@ -287,20 +482,8 @@
 }
 .trends-term-meta a:hover { color: var(--sc-ember-deep); }
 
-.trends-reels li { display: grid; gap: 2px; min-width: 0; }
-.trends-reel-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sc-space-2); }
-.trends-reel-top a, .trends-reel-top b:first-child { color: var(--sc-ink-900); font-weight: 500; }
-.trends-mult { color: var(--sc-ember-deep); font-weight: 500; font-variant-numeric: tabular-nums; }
 .trends-plays { font-size: var(--sc-text-xs); color: var(--sc-ink-300); font-variant-numeric: tabular-nums; }
-.trends-reel-caption {
-  font-size: var(--sc-text-sm);
-  color: var(--sc-ink-300);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.trends-reel-sound, .trends-sound-name { font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
+.trends-sound-name { font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
 .trends-handles { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ------------------------------------------------- direction + sparks */
@@ -328,46 +511,11 @@
 
 /* ------------------------------------------------- breakout cards
 
-   The Brand tab's picture-card idea: the reel's stored cover, rounded,
-   with the multiple stamped on it — the number that made it a breakout. */
-.trends-cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sc-space-3);
-}
-.trends-card { display: grid; gap: var(--sc-space-2); min-width: 0; }
-.trends-card-visual {
-  position: relative;
-  display: block;
-  aspect-ratio: 9 / 16;
-  border-radius: var(--r, 10px);
-  overflow: hidden;
-  background: var(--sc-ink-900);
-}
-.trends-card-visual img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.trends-card-blank {
-  display: grid;
-  place-items: center;
-  background: color-mix(in oklab, var(--sc-ink-900) 8%, var(--sc-bone-light));
-}
-.trends-card-mult {
-  position: absolute;
-  top: var(--sc-space-2);
-  left: var(--sc-space-2);
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--sc-ember);
-  color: var(--sc-bone);
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-xs);
-  font-variant-numeric: tabular-nums;
-}
-.trends-card-blank .trends-card-mult { position: static; }
-.trends-card-body { display: grid; gap: 2px; min-width: 0; }
-.trends-card-handle { color: var(--sc-ink-900); font-weight: 500; font-size: var(--sc-text-sm); }
+   The /instagram feed's card, worn by the library's breakouts (Geno,
+   2026-10-08): the 9:16 frame, the handle and audio over the floor, the
+   multiple where the score pill sits, plays in the stats stack. The grid
+   is tighter than the platform pages' — the panel is half a page wide. */
+.trends-panel .pl-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
 /* ------------------------------------------------- sound actions */
 .trends-sound-acts {
@@ -379,24 +527,59 @@
   color: var(--sc-ink-300);
 }
 .trends-sound-act {
-  border: var(--sc-rule-hair);
-  border-radius: 999px;
-  padding: 2px 10px;
-  color: var(--sc-ink-900);
+  border: 0;
+  padding: 0;
+  color: var(--sc-ember-deep);
   text-decoration: none;
   white-space: nowrap;
 }
-.trends-sound-act:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.trends-sound-act:hover { color: var(--sc-ember); }
 
-/* ------------------------------------------------- ask box extras */
-.trends-web {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-2);
-  margin-top: var(--sc-space-2);
-  font-size: var(--sc-text-xs);
-  color: var(--sc-ink-150);
-  cursor: pointer;
+/* ------------------------------------------------- the answers
+
+   The ask is the hero search; the answer lands under it (Geno, 2026-10-08:
+   "integrate Trends AI into the search bar"). A card per question: the ask
+   as a mono kicker, the answer as prose, and the whole thing bounded to the
+   search's own width so the hero keeps its edge. */
+.trends-answers {
+  display: grid;
+  gap: var(--sc-space-3);
+  max-width: 680px;
+  margin-top: var(--sc-space-6);
 }
-.trends-web input { accent-color: var(--sc-ember); }
-.trends-note { margin: var(--sc-space-1) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-150); font-style: italic; }
+.trends-answer {
+  padding: var(--sc-space-4) var(--sc-space-5);
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-left: 3px solid var(--sc-ember);
+  border-radius: var(--r-sm, 8px);
+}
+.trends-answer-q {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.trends-answer-a {
+  margin: 0;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  white-space: pre-wrap;
+}
+.trends-answer-waiting { color: var(--sc-ink-300); font-style: italic; }
+.trends-answer-error { color: var(--sc-critical); }
+
+/* ------------------------------------------------- small screens */
+@media (max-width: 720px) {
+  .trends-hero {
+    padding: var(--sc-space-8) 0;
+    min-height: 0;
+  }
+  .trends-search { padding-left: var(--sc-space-4); }
+  .trends-search button { padding: var(--sc-space-3) var(--sc-space-4); }
+  .trends-head-tools { justify-items: start; }
+  .trends-sec-head { align-items: flex-start; }
+}

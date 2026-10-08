@@ -140,7 +140,8 @@ def to_sighting(item: dict, handle: str) -> dict | None:
         "handle": handle,
         "via": "burner",
         "posted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(taken)) if taken else None,
-        # The same figure the Apify reader prefers — Instagram-only plays.
+        # Instagram-only plays when available; fall back through the variants
+        # the signed-in web client has returned.
         "plays": item.get("ig_play_count") or item.get("play_count") or item.get("view_count"),
         "likes": item.get("like_count"),
         "comments": item.get("comment_count"),
@@ -154,8 +155,7 @@ def to_sighting(item: dict, handle: str) -> dict | None:
         "tagged": _names((item.get("usertags") or {}).get("in")),
         # A pinned reel carries the ids of the profiles it is pinned on.
         "pinned": bool(item.get("timeline_pinned_user_ids")),
-        # Same shortcut the Apify reader stores, read off the feed's own
-        # version lists: highest-bitrate video, and the image as poster.
+        # Read media URLs from the feed's own version lists.
         "video_url": (item.get("video_versions") or [{}])[0].get("url"),
         "poster_url": ((item.get("image_versions2") or {}).get("candidates") or [{}])[0].get("url"),
     }

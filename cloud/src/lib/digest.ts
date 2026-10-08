@@ -22,6 +22,7 @@
 import { sql } from './db'
 import { addDays } from './dates'
 import { SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from './hot'
+import { SIGNALS_JOIN } from './appeal'
 import { preview } from './sql'
 import { labelOf, type Axis } from './taxonomy'
 import { REASON_NAME, type Reason, type Why } from './reasons'
@@ -52,6 +53,12 @@ export type DigestItem = {
   outperformance: number | null
   /** The library's own flame, which carries the 3-post guard. */
   is_hot: boolean
+  /** The sweep's numbers, when it has seen the post — plays from the
+   *  sightings table; likes/comments fall back to the library's own. Null
+   *  on anything the sweep never measured (most of the old library). */
+  plays: number | null
+  likes: number | null
+  comments: number | null
   why: Why | null
 }
 
@@ -89,10 +96,14 @@ export async function digestFor(weekOf: string): Promise<Digest> {
             -- Already YYYY-MM-DD text; the plain column is the day.
             t.upload_date as upload_day,
             (t.thumbnail is not null) as has_thumb,
+            sg.plays as plays,
+            coalesce(sg.likes, t.like_count) as likes,
+            coalesce(sg.comments, t.comment_count) as comments,
             ${preview('t.plain', 140, 't.on_screen_text')} as preview,
             ${SCORING_COLUMNS}
        from transcriber.transcripts t
        ${SCORING_JOIN}
+       ${SIGNALS_JOIN}
       where t.upload_date >= $1 and t.upload_date < $2`,
     [weekOf, until],
   )
@@ -109,6 +120,9 @@ export async function digestFor(weekOf: string): Promise<Digest> {
       preview: row.preview ? String(row.preview) : null,
       outperformance: row.outperformance === null ? null : Number(row.outperformance),
       is_hot: Boolean(row.is_hot),
+      plays: count(row.plays),
+      likes: count(row.likes),
+      comments: count(row.comments),
       why: why.get(String(row.id)) ?? null,
     }))
     .filter(isWinner)
@@ -184,8 +198,14 @@ export async function digestFor(weekOf: string): Promise<Digest> {
   }
 }
 
-function isWinner(item: DigestItem): boolean {
-  const multiple = item.why?.multiple ?? null
+/** pg numerics arrive as strings; anything unparseable is "no number". */
+function count(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function isWinner(item: DigestItem): boolean {  const multiple = item.why?.multiple ?? null
   if (multiple !== null) return multiple >= WORKED_MIN_MULTIPLE
   // `is_hot`, not a fresh `outperformance >= HOT_THRESHOLD`: the flame also
   // requires MIN_POSTS_FOR_HOT posts behind the median, and a two-post

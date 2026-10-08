@@ -4,6 +4,7 @@ import {
   PLATFORMS, labelOfPlatform, platformOfUrl, readSocial,
   type Platform, type Social,
 } from '@/lib/socials'
+import DropSelect from '../../dashboard/DropSelect'
 
 /**
  * Her accounts, as rows.
@@ -51,23 +52,19 @@ export default function SocialEditor({
             const parsed = readSocial(row.platform, row.url)
             return (
             <li className="socialrow" key={index}>
-              <select
-                className="field"
-                aria-label="Which platform"
+              <DropSelect
+                label="Which platform"
                 value={row.platform}
-                onChange={(event) => {
-                  const platform = event.target.value as Platform
+                onChange={(next) => {
+                  const platform = next as Platform
                   // Re-read what is already typed against the new platform, so
                   // a bare handle picks up the right profile route. A pasted
                   // URL keeps its own host — see `readSocial`.
                   setRow(index, readSocial(platform, row.url)
                     ?? { platform, handle: '', url: row.url })
                 }}
-              >
-                {PLATFORMS.map((platform) => (
-                  <option key={platform} value={platform}>{labelOfPlatform(platform)}</option>
-                ))}
-              </select>
+                options={PLATFORMS.map((platform) => ({ value: platform, label: labelOfPlatform(platform) }))}
+              />
 
               {/* Held exactly as typed until the field is left. Normalising on
                   every keystroke rewrites the box under the cursor — one

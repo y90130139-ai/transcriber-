@@ -1,47 +1,35 @@
 /**
- * The "Trends AI" box: a question in plain English, answered only from the
- * board's own data — Google's terms, the library's breakouts, the sounds.
+ * The Trends ask: a question in plain English, answered only from the board's
+ * own data — Google's terms, the library's breakouts, the sounds.
  *
- * Two engines, strongest available first:
- *   anthropic   when ANTHROPIC_API_KEY is set (the same key decision as the
- *               OPS /q assistant — not on Vercel yet as of 2026-10-06)
- *   workers     gpt-oss-120b on Workers AI, already live for captions. On
- *               demand and single-shot, so a day of questions costs a sliver
- *               of the shared free allowance, never a sweep.
+ * Engines, strongest available first:
+ *   azure     Azure AI Foundry (the invoice app's deployment; Geno,
+ *             2026-10-08) when AZURE_AI_FOUNDRY_* is configured
+ *   workers   gpt-oss-120b on Workers AI, already live for captions, as the
+ *             fallback so the box keeps answering if the key is absent
  *
  * One round, no tools: the grounding rides in the prompt, because everything
- * the answer may use is already on the board. What the data cannot answer,
+ * the answer may use is already on the board. The answer must show its work —
+ * the exact figures each claim is built on — and what the data cannot answer,
  * the model is told to say it cannot answer.
  */
-import Anthropic from '@anthropic-ai/sdk'
+import { azureChat, azureReady } from './azure-ai'
 import { aiReady, askText, STRONG_WRITER_MODEL } from './ai'
 import { startedLabel, volumeLabel, type TrendsBoard } from './trends-feed'
 
 /** Enough of the live list to answer with; 2,000 rows would drown it. */
 const LIVE_GROUNDING_ROWS = 40
 
-const ANTHROPIC_MODEL = 'claude-sonnet-5-5'
 const MAX_ANSWER_TOKENS = 700
-/** A web-backed answer gets room to search and still land under Vercel's
- *  function clock; three lookups answer any reasonable trends question. */
-const MAX_WEB_SEARCHES = 3
 export const MAX_QUESTION_CHARS = 500
 
 export const TRENDS_PROMPT = `You are the Trends panel of a content console for an agency whose creators make short-form Instagram reels. Answer the team's question using ONLY the data below. Rules:
+- Show the data: quote the exact figures each claim is built on (the term and its volume or +%, the reel's plays and multiple, the sound's creator count).
 - Every claim must trace to a line in the data. No outside knowledge about what is trending; if the data cannot answer, say so plainly.
 - When you name a trend, say which list it came from (Google search, library breakout, or sound).
 - Useful answers connect lists: a Google term that matches a breakout's caption or a spreading sound is worth pointing out.
 - Suggest at most 2–3 concrete video angles only when asked for ideas, each tied to a named data point.
 - Plain text, short lines, no markdown headers or tables. Lead with the answer.`
-
-/** The board-only rule, relaxed: the web is allowed in, as long as every
- *  sentence still says where it came from. */
-export const TRENDS_WEB_PROMPT = TRENDS_PROMPT.replace(
-  'using ONLY the data below. Rules:\n- Every claim must trace to a line in the data. No outside knowledge about what is trending; if the data cannot answer, say so plainly.',
-  `using the data below, plus the web_search tool for anything the data cannot answer. Rules:
-- Say where each claim came from: the board's data (which list) or a web search (name the source).
-- Search the web when the question reaches past the board — context on a term, platform-wide trends, anything not stored here. Never let a web result contradict the board's own numbers; the board is the house's measured truth.`,
-)
 
 /** The board as the model sees it. Pure, so tests can pin what leaks in —
  *  handles and captions from the library are fine; nothing else rides along. */
@@ -98,40 +86,21 @@ export function groundingText(board: TrendsBoard): string {
 
 export type TrendsAnswer = {
   answer: string
-  engine: 'anthropic' | 'workers'
-  /** Whether the answer was allowed to search the web. False on the Workers
-   *  fallback even when asked — the UI says why rather than pretending. */
-  web: boolean
+  engine: 'azure' | 'workers'
 }
 
-export async function answerTrends(
-  question: string,
-  board: TrendsBoard,
-  options: { web?: boolean } = {},
-): Promise<TrendsAnswer> {
-  if (process.env.ANTHROPIC_API_KEY) {
-    const web = Boolean(options.web)
-    const system = web ? TRENDS_WEB_PROMPT : TRENDS_PROMPT
-    const client = new Anthropic({ timeout: 120_000, maxRetries: 1 })
-    const response = await client.messages.create({
-      model: ANTHROPIC_MODEL,
-      max_tokens: MAX_ANSWER_TOKENS,
-      system,
-      tools: web ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }] : undefined,
-      messages: [{ role: 'user', content: `=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}` }],
-    })
-    const answer = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
-      .trim()
+export async function answerTrends(question: string, board: TrendsBoard): Promise<TrendsAnswer> {
+  const data = `=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}`
+
+  if (azureReady()) {
+    const answer = await azureChat(TRENDS_PROMPT, data)
     if (!answer) throw new Error('the model answered with no text')
-    return { answer, engine: 'anthropic', web }
+    return { answer, engine: 'azure' }
   }
 
-  if (!aiReady()) throw new Error('no AI is configured — set ANTHROPIC_API_KEY or the Cloudflare AI token')
-  const prompt = `${TRENDS_PROMPT}\n\n=== DATA ===\n${groundingText(board)}\n\n=== QUESTION ===\n${question}`
+  if (!aiReady()) throw new Error('no AI is configured — set the Azure AI Foundry keys or the Cloudflare AI token')
+  const prompt = `${TRENDS_PROMPT}\n\n${data}`
   const answer = await askText(prompt, { model: STRONG_WRITER_MODEL, maxTokens: MAX_ANSWER_TOKENS, temperature: 0.3 })
   if (!answer) throw new Error('the model answered with no text')
-  return { answer, engine: 'workers', web: false }
+  return { answer, engine: 'workers' }
 }

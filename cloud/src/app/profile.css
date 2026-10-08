@@ -42,7 +42,14 @@
   background: var(--sc-bone-light);
   border: var(--sc-rule-lock);
   animation: rise var(--sc-dur) var(--sc-ease);
+  /* The panel scrolls, the bar does not show. On Windows the native scrollbar
+     drew arrows and a track down the one surface in the app that floats above
+     everything — furniture on top of the design. Scrolling itself, wheel,
+     trackpad and drag, is untouched; the strip simply is not drawn. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.sheet::-webkit-scrollbar { display: none; }
 @keyframes rise {
   from { transform: translate(-50%, calc(-50% + 18px)); opacity: 0; }
 }
@@ -933,6 +940,16 @@
   padding: var(--sc-space-2) var(--sc-space-3);
   font: inherit;
   font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+.customcard .msel-trigger {
+  border-radius: var(--r, 8px);
+  background: var(--sc-paper, var(--sc-bone));
+  padding: var(--sc-space-2) var(--sc-space-3);
+  font-size: var(--sc-text-sm);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--sc-ink-900);
 }
 .customcard textarea { resize: vertical; }

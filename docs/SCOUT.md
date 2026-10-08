@@ -1,5 +1,12 @@
 # Scout — the weekly watchlist sweep
 
+> **Current deployment:** this document's original Mac/Apify split is historical.
+> Apify is removed from the active code. Railway owns the queue trigger and
+> two-hour freshness watchdog; Instagram scraping stays disabled there until a
+> single burner session is validated on Railway egress. See
+> [RAILWAY-MIGRATION.md](RAILWAY-MIGRATION.md) and
+> [SCOUT-SETUP.md](SCOUT-SETUP.md) for current setup and cookie requirements.
+
 Built 2026-09-19 on branch `feat/scout`. This is stage 1 of the loop in
 `docs/GAME-PLAN.md` — **ingest** — the one piece that was still manual: every
 one of the 465 library items to date was a hand-pasted Instagram link, 208 of

@@ -32,6 +32,8 @@ export default function PersonaProposals() {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  /** Once a hand touches the header, the panel stops opening itself. */
+  const [touched, setTouched] = useState(false)
 
   const load = useCallback(async () => {
     const response = await fetch('/api/creators/profile')
@@ -41,6 +43,12 @@ export default function PersonaProposals() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  // Work waiting on a human should not hide behind a collapsed row: the first
+  // time reads arrive, the panel opens itself.
+  useEffect(() => {
+    if (!touched && proposals.length > 0) setOpen(true)
+  }, [proposals.length, touched])
 
   const findMore = useCallback(async () => {
     setBusy(true)
@@ -75,105 +83,129 @@ export default function PersonaProposals() {
   }
 
   return (
-    <section className="proposals">
-      <button className="watchlist-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>Who these creators are</span>
-        <span className="watchlist-counts">
+    <section className="proposals" data-open={open || undefined}>
+      <button
+        className="proposals-head"
+        onClick={() => { setTouched(true); setOpen(!open) }}
+        aria-expanded={open}
+      >
+        <span className="proposals-heading">
+          <span className="proposals-title">Who these creators are</span>
+          <span className="proposals-sub">
+            Read from their frames, captions and bio — tap a chip to correct it, then take it.
+          </span>
+        </span>
+        <span className="proposals-count" data-waiting={proposals.length > 0 || undefined}>
           {proposals.length > 0 ? `${proposals.length} waiting on you` : 'nothing waiting'}
         </span>
-        <span aria-hidden>{open ? '−' : '+'}</span>
+        <span className="proposals-chevron" aria-hidden>{open ? '−' : '+'}</span>
       </button>
 
       {open && (
         <div className="proposals-body">
-          <p className="watchlist-note">
-            Read from their frames, captions and bio. Tap a chip to change it.
-          </p>
-          <div className="watchlist-actions">
+          <div className="proposals-bar">
             <button className="pill" disabled={busy} onClick={() => void findMore()}>
               Profile the next three
             </button>
-            {note && <span className="watchlist-said">{note}</span>}
+            {note && <span className="proposals-said">{note}</span>}
           </div>
 
-          <ul className="proposals-list">
-            {proposals.map((one) => {
-              const chosen = edits[one.handle] ?? one.tags
-              return (
-                <li key={one.handle}>
-                  {one.poster && !broken[one.handle] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={one.poster}
-                      alt=""
-                      width={64}
-                      height={80}
-                      onError={() => setBroken((all) => ({ ...all, [one.handle]: true }))}
-                    />
-                  ) : (
-                    <span className="proposals-blank" />
-                  )}
-                  <div className="proposals-who">
-                    <a href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
-                      @{one.handle}
-                    </a>
-                    <span>{Number(one.followers ?? 0).toLocaleString()} followers · {one.reels} reels seen</span>
-                    {one.why && <em>{one.why}</em>}
-                  </div>
-                  {/* What was read off her, first and on its own line. The
-                      other thirty-one are the correction, and a correction
-                      nobody is making should not be the loudest thing in the
-                      row — thirty-two identical chips per creator, three
-                      creators at a time, is a wall to read past rather than a
-                      decision to take. */}
-                  <div className="proposals-tags">
-                    {chosen.length === 0 && <span className="hint">Nothing read — pick what fits them.</span>}
-                    {chosen.map((tag) => (
-                      <button
-                        key={tag}
-                        className="chip"
-                        data-on
-                        data-tone={toneOf('persona', tag)}
-                        title="Tap to remove"
-                        onClick={() => toggle(one.handle, tag, chosen)}
-                      >
-                        {labelFor(tag)}
-                      </button>
-                    ))}
-                    <button
-                      className="chip proposals-more"
-                      onClick={() => setOpenTags((all) => ({ ...all, [one.handle]: !all[one.handle] }))}
-                    >
-                      {openTags[one.handle] ? 'Close' : 'Change'}
-                    </button>
-                  </div>
-                  {openTags[one.handle] && (
-                    <div className="proposals-tags proposals-tags-all">
-                      {PERSONA.filter((tag) => !chosen.includes(tag.id)).map((tag) => (
-                        <button
-                          key={tag.id}
-                          className="chip"
-                          data-tone={toneOf('persona', tag.id)}
-                          onClick={() => toggle(one.handle, tag.id, chosen)}
-                        >
-                          {labelFor(tag.id)}
-                        </button>
-                      ))}
+          {proposals.length === 0 ? (
+            <p className="proposals-empty">
+              Nothing waiting — every creator the profiler has read has been settled.
+            </p>
+          ) : (
+            <ul className="proposals-list">
+              {proposals.map((one) => {
+                const chosen = edits[one.handle] ?? one.tags
+                return (
+                  <li key={one.handle} className="proposals-card">
+                    <div className="proposals-face">
+                      {one.poster && !broken[one.handle] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={one.poster}
+                          alt=""
+                          width={72}
+                          height={90}
+                          onError={() => setBroken((all) => ({ ...all, [one.handle]: true }))}
+                        />
+                      ) : (
+                        <span className="proposals-blank" aria-hidden />
+                      )}
                     </div>
-                  )}
-                  <div className="proposals-actions">
-                    <button className="pill" disabled={busy || chosen.length === 0}
-                            onClick={() => void settle(one.handle, chosen)}>
-                      Take {chosen.length > 0 && `(${chosen.length})`}
-                    </button>
-                    <button className="pill" disabled={busy} onClick={() => void settle(one.handle, null)}>
-                      None of these
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+
+                    <div className="proposals-content">
+                      <div className="proposals-who">
+                        <a href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
+                          @{one.handle}
+                        </a>
+                        <span>{Number(one.followers ?? 0).toLocaleString()} followers · {one.reels} reels seen</span>
+                        {one.why && <em>{one.why}</em>}
+                      </div>
+
+                      {/* What was read off her, first and on its own line. The
+                          other thirty-one are the correction, and a correction
+                          nobody is making should not be the loudest thing in
+                          the card — thirty-two identical chips per creator,
+                          three creators at a time, is a wall to read past
+                          rather than a decision to take. */}
+                      <div className="proposals-tags">
+                        {chosen.length === 0 && <span className="hint">Nothing read — pick what fits them.</span>}
+                        {chosen.map((tag) => (
+                          <button
+                            key={tag}
+                            className="chip"
+                            data-on
+                            data-tone={toneOf('persona', tag)}
+                            title="Tap to remove"
+                            onClick={() => toggle(one.handle, tag, chosen)}
+                          >
+                            {labelFor(tag)}
+                          </button>
+                        ))}
+                        <button
+                          className="chip proposals-more"
+                          onClick={() => setOpenTags((all) => ({ ...all, [one.handle]: !all[one.handle] }))}
+                        >
+                          {openTags[one.handle] ? 'Close' : 'Change'}
+                        </button>
+                      </div>
+
+                      {openTags[one.handle] && (
+                        <div className="proposals-tags proposals-tags-all">
+                          {PERSONA.filter((tag) => !chosen.includes(tag.id)).map((tag) => (
+                            <button
+                              key={tag.id}
+                              className="chip"
+                              data-tone={toneOf('persona', tag.id)}
+                              onClick={() => toggle(one.handle, tag.id, chosen)}
+                            >
+                              {labelFor(tag.id)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="proposals-actions">
+                        <button
+                          className="pill"
+                          data-primary={chosen.length > 0 || undefined}
+                          disabled={busy || chosen.length === 0}
+                          onClick={() => void settle(one.handle, chosen)}
+                        >
+                          Take {chosen.length > 0 && `(${chosen.length})`}
+                        </button>
+                        <button className="pill" disabled={busy} onClick={() => void settle(one.handle, null)}>
+                          None of these
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
       )}
     </section>

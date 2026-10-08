@@ -616,7 +616,7 @@ const statements = [
   // Where the media actually sits, as the sweep saw it. Instagram's CDN links
   // are signed and expire in about 33 hours (read off the `oe` parameter), so
   // these are a short-lived shortcut, not storage: the cloud fallback can
-  // fetch a reel with no Mac and no second Apify call while they are fresh,
+   // fetch a reel with no Mac and no second scrape while they are fresh,
   // and re-fetches once they are not.
   `alter table transcriber.sightings
      add column if not exists audio_url   text,
@@ -1233,6 +1233,45 @@ const statements = [
      generated_at  timestamptz not null,
      topics        jsonb not null,
      received_at   timestamptz not null default now()
+   )`,
+
+  // Her own posts are matched on the handle, case-insensitively — the reads on
+  // her sheet and the roster's post count both say `lower(t.author) = lower(...)`.
+  // The plain author index cannot serve a match wrapped in `lower()`, so the
+  // bigger the library got the more of it every one of those reads touched.
+  // This is the index the queries can actually use.
+  `create index if not exists transcripts_author_lower_idx
+     on transcriber.transcripts (lower(author))`,
+
+  // Trends (2026-10-06, tables created by hand in Neon then; folded into the
+  // migration 2026-10-08 so a fresh environment is whole). The daily Google
+  // RSS archive, the live Trending Now cache per (geo, hours), and the
+  // interest-over-time cache per (terms, geo, range) behind the search graph.
+  `create table if not exists transcriber.trends_terms (
+     term        text not null,
+     geo         text not null,
+     captured_on date not null,
+     rank        integer,
+     traffic     text,
+     picture     text,
+     news        jsonb,
+     primary key (term, geo, captured_on)
+   )`,
+  `create index if not exists trends_terms_window on transcriber.trends_terms (geo, captured_on)`,
+  `create table if not exists transcriber.trends_live_cache (
+     geo        text not null,
+     hours      integer not null,
+     fetched_at timestamptz not null default now(),
+     rows       jsonb not null,
+     primary key (geo, hours)
+   )`,
+  `create table if not exists transcriber.trends_interest_cache (
+     terms_key  text not null,
+     geo        text not null,
+     range_id   text not null,
+     fetched_at timestamptz not null default now(),
+     points     jsonb not null,
+     primary key (terms_key, geo, range_id)
    )`,
 ]
 

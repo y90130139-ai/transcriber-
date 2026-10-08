@@ -28,10 +28,14 @@ import {
   DAYS_TO_HOURS,
   directionOf,
   foldTermDays,
+  parseInterestExplore,
+  parseInterestTimeline,
   parseTrendingNow,
   parseTrendsRss,
   windowDays,
   type Breakout,
+  type InterestPoint,
+  type InterestRange,
   type LiveTrend,
   type TermDayRow,
   type TrendRange,
@@ -103,6 +107,118 @@ export async function liveTrends(geo: string, days: TrendRange): Promise<LiveTre
     return parsed
   }
   return Array.isArray(cached?.rows) ? (cached.rows as LiveTrend[]) : []
+}
+
+/* ------------------------------------------------- interest over time
+
+   The graph behind a search (Geno, 2026-10-08). Google's explore endpoint
+   mints a TIMESERIES token for up to five terms; the multiline endpoint
+   spends it on the 0–100 interest series. Both are the keyless endpoints
+   trends.google.com/trends/explore itself calls — unofficial, so answers
+   are cached per (terms, geo, range) and a stale cache serves when Google
+   sulks. Explore refuses plain fetches with a 429 until it has seen an NID
+   cookie; the explore page hands one out even when it is itself throttled,
+   so one warm-up serves every call for a while. */
+
+const EXPLORE_URL = 'https://trends.google.com/trends/api/explore'
+const MULTILINE_URL = 'https://trends.google.com/trends/api/widgetdata/multiline'
+const INTEREST_TTL_MIN = 15
+const COOKIE_TTL_MS = 30 * 60_000
+
+let exploreCookie: { value: string; at: number } | null = null
+
+async function trendsCookie(): Promise<string | null> {
+  if (exploreCookie && Date.now() - exploreCookie.at < COOKIE_TTL_MS) return exploreCookie.value
+  try {
+    const response = await fetch('https://trends.google.com/trends/explore?geo=US', {
+      headers: { 'User-Agent': RSS_UA, Accept: 'text/html' },
+    })
+    const lines = typeof response.headers.getSetCookie === 'function'
+      ? response.headers.getSetCookie()
+      : [response.headers.get('set-cookie') ?? '']
+    await response.text().catch(() => '')
+    const value = lines
+      .map((line) => line.split(';')[0])
+      .filter((pair) => pair.includes('='))
+      .join('; ')
+    if (!value) return null
+    exploreCookie = { value, at: Date.now() }
+    return value
+  } catch {
+    return null
+  }
+}
+
+async function fetchInterest(terms: string[], geo: string, range: InterestRange): Promise<InterestPoint[]> {
+  const cookie = await trendsCookie()
+  const headers: Record<string, string> = {
+    'User-Agent': RSS_UA,
+    Accept: 'application/json, text/plain, */*',
+    Referer: 'https://trends.google.com/trends/explore',
+  }
+  if (cookie) headers.Cookie = cookie
+
+  const request = {
+    comparisonItem: terms.map((keyword) => ({ keyword, geo, time: range })),
+    category: 0,
+    property: '',
+  }
+  const explore = await fetch(
+    `${EXPLORE_URL}?hl=en-US&tz=0&req=${encodeURIComponent(JSON.stringify(request))}`,
+    { headers },
+  )
+  if (!explore.ok) throw new Error(`explore answered ${explore.status}`)
+  const widget = parseInterestExplore(await explore.text())
+  if (!widget) throw new Error('explore had no timeseries widget')
+
+  const multiline = await fetch(
+    `${MULTILINE_URL}?hl=en-US&tz=0&req=${encodeURIComponent(JSON.stringify(widget.request))}&token=${encodeURIComponent(widget.token)}`,
+    { headers },
+  )
+  if (!multiline.ok) throw new Error(`multiline answered ${multiline.status}`)
+  return parseInterestTimeline(await multiline.text())
+}
+
+/**
+ * The interest series for 1–5 terms in a place and window. Fresh cache
+ * first; otherwise Google, then the cache. A stale cache still serves when
+ * Google will not answer — a thinner graph beats a broken one — but when
+ * there is nothing cached at all, the throw reaches the route so the tab
+ * can say Google is not answering instead of drawing an empty lie.
+ */
+export async function interestOverTime(terms: string[], geo: string, range: InterestRange): Promise<InterestPoint[]> {
+  const key = terms.join('|').toLowerCase()
+  let cached: InterestPoint[] | null = null
+  try {
+    const [row] = await sql.query(
+      `select points, fetched_at > now() - interval '${INTEREST_TTL_MIN} minutes' as fresh
+         from transcriber.trends_interest_cache
+        where terms_key = $1 and geo = $2 and range_id = $3`,
+      [key, geo, range],
+    )
+    if (row && Array.isArray(row.points)) {
+      if (row.fresh) return row.points as InterestPoint[]
+      cached = row.points as InterestPoint[]
+    }
+  } catch {
+    // No cache table yet — the graph still answers, just without a net.
+  }
+
+  try {
+    const points = await fetchInterest(terms, geo, range)
+    if (points.length > 0) {
+      await sql.query(
+        `insert into transcriber.trends_interest_cache (terms_key, geo, range_id, fetched_at, points)
+         values ($1, $2, $3, now(), $4::jsonb)
+         on conflict (terms_key, geo, range_id) do update set fetched_at = now(), points = excluded.points`,
+        [key, geo, range, JSON.stringify(points)],
+      ).catch(() => undefined)
+    }
+    return points
+  } catch (error) {
+    if (cached) return cached
+    throw error
+  }
 }
 
 /** Pull today's feed and store it under today's date (the feed is "now"; the

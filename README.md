@@ -97,6 +97,13 @@ free tier. R2 is optional; without it the plan falls back to the Instagram link.
 
 Full account: **[docs/MODEL-PORTAL.md](docs/MODEL-PORTAL.md)**.
 
+### Railway worker and Instagram monitoring
+
+The Railway deployment and two-hour Instagram freshness watchdog are described
+in **[docs/RAILWAY-MIGRATION.md](docs/RAILWAY-MIGRATION.md)**. Apify is no longer
+used by Scout. Authenticated Instagram scraping remains off by default on
+Railway until its outbound network is validated with a burner session.
+
 ### Does anyone talk in this?
 
 **Everything gets listened to.** There is no checkbox — a whisper pass costs

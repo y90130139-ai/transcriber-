@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 import { DAY_SHORT } from '@/lib/dates'
+import { put, useLive } from '@/lib/live'
 import type { IntakeFields, IntakeProposal, Mapped } from '@/lib/intake'
 
 /** What the operator ticked, on its way back into the sheet's own form state. */
@@ -77,15 +78,17 @@ export default function IntakeDrop({
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
 
+  // Cached: the roster warms this on hover. Settling with no form counts — an
+  // "None on file" that never resolves is the same placeholder by another name.
+  const url = modelId ? `/api/models/${modelId}/intake` : null
+  const intake = useLive<{ intake: Stored | null }>(url)
+
   useEffect(() => {
-    if (!modelId) return
-    fetch(`/api/models/${modelId}/intake`)
-      .then((response) => (response.ok ? response.json() : { intake: null }))
-      .then((body) => take(body.intake ?? null))
-      .catch(() => setStored(null))
+    if (intake.data === null) return
+    take(intake.data.intake ?? null)
     // `take` is stable for one mount and re-running on it would clear the pick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelId])
+  }, [intake.data])
 
   /** Hold a proposal and pre-tick everything it is sure of. */
   function take(intake: Stored | null) {
@@ -127,7 +130,8 @@ export default function IntakeDrop({
       if (body.readable === false) setPasting(true)
       return
     }
-    take(body.intake)
+    // The read lands in the cache; the effect above fills the picks from it.
+    if (url) put(url, { intake: body.intake ?? null })
     setPaste('')
     setPasting(false)
     const read = body.intake?.parsed?.answers ?? 0

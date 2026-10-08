@@ -1,3 +1,60 @@
+# 2026-10-08: Trends, round four — the Google Trends shape
+
+**Same-day flatten pass (Geno): "one bg, no hue, no cards or borders."**
+The hero graph that had been drawn behind the type is gone (component and
+all its CSS deleted), the "Reading the board…" text is gone from both the
+page load and the AI thread, and every surface sits on the console's one
+ground: hero band + ember glow gone, chart/panels/ask box de-carded, the
+trending list is now plain rows (rank · term · breakdown as muted text ·
+figures right), range pickers and chips are borderless pills/text,
+"Use on Instagram" is a plain ember link. Controls (search pill, selects,
+buttons) keep their hairlines. Verified by screenshot at 1440 and 390,
+graph re-checked after the pass; 143 tests + build green.
+
+Geno: "like Google Trends, in our own colours." The /trends page is now
+hero → graph → live list → ask box → library panels.
+
+- **Hero** (`TrendsTab.tsx`): full-bleed band under the topbar — "Explore
+  what **the United States** is searching for right now" with the place
+  name in an ember block (Google's yellow highlight, our accent), a pill
+  search with an ember dot and an Explore button, and the top three live
+  terms as hint chips. The trending window/place/sort/CSV controls moved
+  into the list's section header.
+- **Interest over time** — the parked BigQuery curves, built without GCP:
+  Google's own keyless explore + multiline pair (the endpoints
+  trends.google.com/trends/explore calls). `lib/trends.ts`
+  `interestOverTime(terms, geo, range)` warms an NID cookie (explore 429s
+  without one; the page hands it out even when throttled), mints the
+  TIMESERIES token, spends it on the multiline series, caches per
+  (terms, geo, range) 15 min in `transcriber.trends_interest_cache`, and
+  serves a stale cache when Google sulks. Pure parsers
+  (`parseInterestExplore`, `parseInterestTimeline`, `parseInterestQuery`,
+  `cleanInterestRange`, `interestStamp/Tick`) in `trends-feed.ts`, tested.
+  New route `/api/trends/interest` (`term` repeated, up to 5).
+- **The graph** (`TrendsChart.tsx`, hand-drawn SVG, no dependency): one
+  area + line per term (ember, green, gold, rose, grey — apart on the
+  ink ground), 0–100 grid, UTC axis ticks, hover crosshair + tooltip
+  reading every series, legend with averages and an × per term. Its own
+  range picker is Google's: 24 h / 7 days / 30 days / 12 months / 5 years.
+  Search parses "a vs b" and commas; trending cards are buttons that draw
+  their own graph. Empty state draws a ghost spike; Google refusing the
+  explore call shows a Try-again veil (seen live during verification —
+  rate limiting is real; the cache is the mitigation).
+- **Trending now as cards**: rank, volume, spike %, started, breakdown
+  chips, click-to-graph, small Google-search link on hover. Archive
+  fallback unchanged. Trends AI box moved below the list (the graph is
+  the feature now); library breakouts/sounds unchanged.
+- **Schema**: `scripts/migrate.mjs` now carries all three trends tables
+  (`trends_terms` and `trends_live_cache` were only ever created by hand
+  in Neon; `trends_interest_cache` is new). Migrate run against Neon —
+  cache verified end-to-end (169 points written, second call served
+  from the row).
+- **Verified**: 143 tests green (5 new), `npx next build` clean, desktop
+  (1440) + mobile (390) screenshots via the Windows port of
+  `docs/rollback/cdpshot.mjs`, graph checked on 7 d and 24 h, comparison
+  "namibia vs usa" through the form. **Not deployed — Geno runs the
+  Vercel deploy.**
+
 # 2026-10-07: Geno's eight asks (through `918fc45`) + the ASAS restructure
 
 **The ASAS commit** (`60a9ca6`, author `y90130139-ai`, +0530): console went

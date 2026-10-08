@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 /**
- * The watchlist, as a thing you can add to.
+ * The watchlist, as a page you can run.
  *
  * Until now the watched accounts were whatever had been pasted into the queue
  * at some point — the list grew by accident. Two deliberate ways in:
@@ -14,23 +14,40 @@ import { useCallback, useEffect, useState } from 'react'
  *                between niches far better than the subject does.
  *   suggested  — accounts that collaborated on a reel the sweep picked. They
  *                sit here, costing nothing, until someone says watch.
+ *
+ * The redesign (2026-10-07): counts as stat cards, suggestions as a panel of
+ * rows with real buttons and a search, the add box in a side rail, and the
+ * watched accounts finally visible below — the page used to be one flat wall
+ * of seventy-five handles with no way to see what was actually being read.
  */
 type Suggested = { handle: string; found_via: string | null; seen: number }
+type Watching = { handle: string; access: string | null; updated_at: string | null }
 type Counts = { watching: number; suggested: number; gated: number }
 
-export default function WatchlistPanel({ bare = false }: { bare?: boolean } = {}) {
+const dateOf = (value: string | null) => {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export default function WatchlistPanel() {
   const [suggested, setSuggested] = useState<Suggested[]>([])
+  const [watching, setWatching] = useState<Watching[]>([])
   const [counts, setCounts] = useState<Counts | null>(null)
   const [paste, setPaste] = useState('')
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
+  const [find, setFind] = useState('')
+  const [findWatched, setFindWatched] = useState('')
 
   const load = useCallback(async () => {
     const response = await fetch('/api/creators/watchlist')
     if (!response.ok) return
     const body = await response.json()
     setSuggested(body.suggested ?? [])
+    setWatching(body.watching ?? [])
     setCounts(body.counts ?? null)
   }, [])
 
@@ -55,76 +72,194 @@ export default function WatchlistPanel({ bare = false }: { bare?: boolean } = {}
     [load],
   )
 
-  return (
-    <section className="watchlist" data-bare={bare || undefined}>
-      {!bare && (
-        <button className="watchlist-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-          <span>Watchlist</span>
-          {counts && (
-            <span className="watchlist-counts">
-              {counts.watching} watched · {counts.gated} need the burner
-              {counts.suggested > 0 && ` · ${counts.suggested} suggested`}
-            </span>
-          )}
-          <span aria-hidden>{open ? '−' : '+'}</span>
-        </button>
-      )}
+  const shownSuggested = useMemo(() => {
+    const needle = find.trim().toLowerCase()
+    if (!needle) return suggested
+    return suggested.filter((one) =>
+      one.handle.toLowerCase().includes(needle) || (one.found_via ?? '').toLowerCase().includes(needle))
+  }, [suggested, find])
 
-      {(open || bare) && (
-        <div className="watchlist-body">
-          {bare && counts && (
-            <p className="watchlist-counts watchlist-counts-bare">
-              {counts.watching} watched · {counts.gated} need the burner
-              {counts.suggested > 0 && ` · ${counts.suggested} suggested`}
-            </p>
-          )}
-          <label className="watchlist-add">
-            <span>Add accounts — handles or profile links, any separator</span>
-            <textarea
-              value={paste}
-              onChange={(event) => setPaste(event.target.value)}
-              placeholder="@comedian.page  instagram.com/chef_mike  cleaning.tok"
-              rows={3}
-            />
-          </label>
-          <div className="watchlist-actions">
+  const shownWatching = useMemo(() => {
+    const needle = findWatched.trim().toLowerCase()
+    if (!needle) return watching
+    return watching.filter((one) => one.handle.toLowerCase().includes(needle))
+  }, [watching, findWatched])
+
+  const watchAllShown = () => {
+    if (shownSuggested.length > 10 &&
+        !confirm(`Watch all ${shownSuggested.length} accounts shown? The sweep will read every one of them.`)) return
+    void send({ add: shownSuggested.map((one) => one.handle).join('\n') })
+  }
+
+  const suggestedTotal = counts?.suggested ?? suggested.length
+  const watchingTotal = counts?.watching ?? watching.length
+
+  return (
+    <>
+      <section className="dash-stats watch-stats" aria-label="Watchlist at a glance">
+        <article className="dash-stat">
+          <h3>Watching</h3>
+          <p className="dash-stat-value">{counts?.watching ?? '–'}</p>
+          <p className="dash-stat-note">read by the sweep every week</p>
+        </article>
+        <article className="dash-stat" data-warn={counts && counts.gated > 0 ? 'true' : undefined}>
+          <h3>Need the burner</h3>
+          <p className="dash-stat-value">{counts?.gated ?? '–'}</p>
+          <p className="dash-stat-note">gated accounts the sweep cannot read yet</p>
+        </article>
+        <article className="dash-stat">
+          <h3>Suggested</h3>
+          <p className="dash-stat-value">{counts?.suggested ?? '–'}</p>
+          <p className="dash-stat-note">picked up from reels — say watch or no</p>
+        </article>
+      </section>
+
+      <div className="watch-grid">
+        <section className="watch-panel" aria-label="Suggested accounts">
+          <header className="watch-head">
+            <div className="watch-heading">
+              <h3 className="watch-title">From reels the sweep picked</h3>
+              <p className="watch-sub">Accounts that collaborated on a winner. They cost nothing until you say watch.</p>
+            </div>
+            <span className="watch-count">
+              {suggested.length === suggestedTotal ? `${suggestedTotal} waiting` : `${suggested.length} of ${suggestedTotal}`}
+            </span>
+          </header>
+
+          <div className="watch-toolbar">
+            <label className="watch-search">
+              <input
+                value={find}
+                onChange={(event) => setFind(event.target.value)}
+                placeholder="Find a handle"
+                aria-label="Find a suggested account"
+              />
+            </label>
             <button
               className="pill"
+              disabled={busy || shownSuggested.length === 0}
+              onClick={watchAllShown}
+            >
+              Watch all shown {shownSuggested.length > 0 && `(${shownSuggested.length})`}
+            </button>
+          </div>
+
+          {suggested.length === 0 ? (
+            <p className="watch-empty">
+              Nothing suggested right now — collaborators on a winner land here.
+            </p>
+          ) : shownSuggested.length === 0 ? (
+            <p className="watch-empty">No handle matches that.</p>
+          ) : (
+            <ul className="watch-list">
+              {shownSuggested.map((one) => (
+                <li key={one.handle} className="watch-row">
+                  <div className="watch-who">
+                    <a className="watch-handle" href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
+                      @{one.handle}
+                    </a>
+                    <span className="watch-meta">
+                      {one.found_via && <>with @{one.found_via} · </>}
+                      {one.seen} sighting{one.seen === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="watch-actions">
+                    <button className="pill" disabled={busy} onClick={() => void send({ add: one.handle })}>
+                      Watch
+                    </button>
+                    <button className="pill" disabled={busy} onClick={() => void send({ dismiss: [one.handle] })}>
+                      Not for us
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <aside className="watch-panel" aria-label="Add accounts">
+          <header className="watch-head">
+            <div className="watch-heading">
+              <h3 className="watch-title">Add accounts</h3>
+              <p className="watch-sub">Handles or profile links, any separator.</p>
+            </div>
+          </header>
+          <div className="watch-add-body">
+            <label className="watch-field">
+              <span className="watch-field-label">Handles or profile links</span>
+              <textarea
+                value={paste}
+                onChange={(event) => setPaste(event.target.value)}
+                placeholder={'@comedian.page\ninstagram.com/chef_mike\ncleaning.tok'}
+                rows={5}
+              />
+            </label>
+            <button
+              className="pill"
+              data-primary={paste.trim().length > 0 || undefined}
               disabled={busy || paste.trim().length === 0}
               onClick={() => void send({ add: paste })}
             >
               Watch these
             </button>
-            {said && <span className="watchlist-said">{said}</span>}
+            {said && <p className="watch-said" role="status">{said}</p>}
           </div>
+        </aside>
+      </div>
 
-          {suggested.length > 0 && (
-            <>
-              <p className="watchlist-note">From reels the sweep picked.</p>
-              <ul className="watchlist-suggested">
-                {suggested.map((one) => (
-                  <li key={one.handle}>
-                    <a href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
-                      @{one.handle}
-                    </a>
-                    {one.found_via && <span>with @{one.found_via}</span>}
-                    <button className="pill" disabled={busy} onClick={() => void send({ add: one.handle })}>
-                      Watch
-                    </button>
-                    <button
-                      className="pill"
-                      disabled={busy}
-                      onClick={() => void send({ dismiss: [one.handle] })}
-                    >
-                      Not for us
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+      <section className="watch-panel watch-watching" aria-label="Watched accounts">
+        <header className="watch-head">
+          <div className="watch-heading">
+            <h3 className="watch-title">Watching</h3>
+            <p className="watch-sub">Every account the weekly sweep reads.</p>
+          </div>
+          <span className="watch-count">
+            {findWatched.trim() ? `${shownWatching.length} of ${watching.length}` : `${watchingTotal} accounts`}
+          </span>
+        </header>
+
+        <div className="watch-toolbar">
+          <label className="watch-search">
+            <input
+              value={findWatched}
+              onChange={(event) => setFindWatched(event.target.value)}
+              placeholder="Find a watched handle"
+              aria-label="Find a watched account"
+            />
+          </label>
         </div>
-      )}
-    </section>
+
+        {watching.length === 0 ? (
+          <p className="watch-empty">Nothing watched yet — paste handles above or take a suggestion.</p>
+        ) : shownWatching.length === 0 ? (
+          <p className="watch-empty">No watched handle matches that.</p>
+        ) : (
+          <ul className="watch-list watch-list-watching">
+            {shownWatching.map((one) => (
+              <li key={one.handle} className="watch-row">
+                <div className="watch-who">
+                  <a className="watch-handle" href={`https://instagram.com/${one.handle}`} target="_blank" rel="noreferrer">
+                    @{one.handle}
+                  </a>
+                  <span className="watch-meta" data-gated={one.access === 'gated' || undefined}>
+                    {one.access === 'gated' ? 'needs the burner' : 'open'}
+                    {dateOf(one.updated_at) && <> · added {dateOf(one.updated_at)}</>}
+                  </span>
+                </div>
+                <div className="watch-actions">
+                  <button className="pill" disabled={busy} onClick={() => void send({ dismiss: [one.handle] })}>
+                    Stop watching
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {!findWatched.trim() && watching.length < watchingTotal && (
+          <p className="watch-empty">Showing the {watching.length} most recently added.</p>
+        )}
+      </section>
+    </>
   )
 }

@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useLive } from '@/lib/live'
+import DropSelect from '../../dashboard/DropSelect'
 
 type Group = {
   chat_id: string
@@ -19,16 +21,14 @@ type Group = {
  * so, not quietly unlinked.
  */
 export default function TelegramLink({ modelId, initial }: { modelId: string; initial: string | null }) {
-  const [groups, setGroups] = useState<Group[] | null>(null)
+  // The bot's group list changes slowly and serves every model, so it is read
+  // through the cache: the first sheet warms it, the rest open with it. Settled
+  // without a list still counts as read, or a failed fetch reads as "Loading…"
+  // forever.
+  const groupsLive = useLive<{ groups: Group[] }>('/api/bot/groups')
+  const groups = groupsLive.ready ? (groupsLive.data?.groups ?? []) : null
   const [chatId, setChatId] = useState(initial)
   const [note, setNote] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/bot/groups')
-      .then((response) => (response.ok ? response.json() : { groups: [] }))
-      .then((body) => setGroups(body.groups ?? []))
-      .catch(() => setGroups([]))
-  }, [])
 
   async function link(next: string) {
     const value = next || null
@@ -52,27 +52,26 @@ export default function TelegramLink({ modelId, initial }: { modelId: string; in
   return (
     <div className="form-row">
       <label className="axis-name" htmlFor="model-telegram">Telegram group — where the bot posts their plan</label>
-      <select
+      <DropSelect
         id="model-telegram"
-        className="field"
+        label="Telegram group"
         value={current ? chatId ?? '' : ''}
         disabled={!groups}
-        onChange={(event) => void link(event.target.value)}
-      >
-        <option value="">{groups ? 'Not linked' : 'Loading the bot’s groups…'}</option>
-        {(groups ?? []).map((group) => {
-          const others = (group.linked_to ?? []).filter(Boolean)
-          const taken = others.length > 0 && group.chat_id !== chatId
-          return (
-            <option key={group.chat_id} value={group.chat_id}>
-              {group.title}
-              {group.creator_name ? ` · ${group.creator_name}` : ''}
-              {group.skip_campaigns ? ' · marketing off' : ''}
-              {taken ? ` · linked to ${others.join(', ')}` : ''}
-            </option>
-          )
-        })}
-      </select>
+        onChange={(next) => void link(next)}
+        options={[
+          { value: '', label: groups ? 'Not linked' : 'Loading the bot’s groups…' },
+          ...(groups ?? []).map((group) => {
+            const others = (group.linked_to ?? []).filter(Boolean)
+            const taken = others.length > 0 && group.chat_id !== chatId
+            return {
+              value: group.chat_id,
+              label: `${group.title}${group.creator_name ? ` · ${group.creator_name}` : ''}` +
+                `${group.skip_campaigns ? ' · marketing off' : ''}` +
+                `${taken ? ` · linked to ${others.join(', ')}` : ''}`,
+            }
+          }),
+        ]}
+      />
       <span className="hint" role="status">
         {note ??
           (gone

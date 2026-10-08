@@ -135,7 +135,7 @@ function Metric({
 }) {
   const { label, state } = verdict(met)
   return (
-    <div className="score" data-state={state}>
+    <div className="scorecard" data-state={state}>
       <span className="score-name">{name}</span>
       <b className="score-value">{value === null ? '—' : whole ? value : value.toFixed(1)}</b>
       <span className="score-target">{target}</span>

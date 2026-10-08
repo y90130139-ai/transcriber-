@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
-import { thumbUrl } from '@/lib/format'
+import { ago, compact, thumbUrl } from '@/lib/format'
+import { reasonChip } from '@/lib/reasons'
 import type { Count, Digest } from '@/lib/digest'
+import { Icon } from '@/components/console/ConsoleIcons'
+import {
+  CommentGlyph, DownloadGlyph, HeartGlyph, OpenGlyph, PlayGlyph,
+} from '@/components/platform/glyphs'
 import LineChart from './dashboard/LineChart'
-import WhyChips from './WhyChips'
 
 const PATTERNS: { key: keyof Digest['common']; name: string }[] = [
   { key: 'reasons', name: 'What carried them' },
@@ -122,33 +126,68 @@ export default function DigestTab({ onFilterTo }: { onFilterTo: (handle: string)
               <div className="section-head">
                 <h2>Top {digest.top.length}</h2>
               </div>
-              <ol className="wk-list">
-                {digest.top.map((item, index) => {
-                  const rank = index + 1
-                  const body = (
-                    <>
-                      <span className="wk-n">{rank}</span>
-                      <span className="wk-thumb">
-                        {item.has_thumb
-                          ? <img src={thumbUrl(item.id)} alt="" width={120} height={150} loading="lazy" />
-                          : <span className="wk-blank" aria-hidden />}
-                      </span>
-                      <span className="wk-main">
-                        <span className="wk-top">
-                          <span className="wk-who">{item.author ? `@${item.author}` : 'Unknown'}</span>
-                          {item.upload_date && <span className="wk-date">{item.upload_date}</span>}
-                        </span>
-                        {item.preview && <span className="wk-line">{item.preview}</span>}
-                        <WhyChips why={item.why} />
-                      </span>
-                      <span className="wk-fig">{times(item.why?.multiple ?? item.outperformance)}</span>
-                    </>
-                  )
+              {/* The week's reels wear the platform feeds' card, exactly
+                  (2026-10-07): age and the lead reason as the top chips, the
+                  handle and date on the floor, plays/likes/comments as the
+                  stat pills. No numeral on the card — the order is the rank,
+                  and the ember score is the multiple that earned it. */}
+              <ol className="pl-grid wk-rack">
+                {digest.top.map((item) => {
+                  const multiple = item.why?.multiple ?? item.outperformance
+                  const lead = item.why?.reasons[0] ?? null
+                  const href = item.webpage_url ?? '#'
                   return (
-                    <li key={item.id} data-rank={rank <= 3 ? rank : undefined}>
-                      {item.webpage_url
-                        ? <a className="wk-row" href={item.webpage_url} target="_blank" rel="noreferrer">{body}</a>
-                        : <span className="wk-row">{body}</span>}
+                    <li key={item.id}>
+                      <article className="pl-card">
+                        <div className="pl-frame">
+                          {item.has_thumb
+                            ? <img className="pl-poster" src={thumbUrl(item.id)} alt="" width={420} height={525}
+                                loading="lazy" decoding="async" />
+                            : <span className="wk-blank" aria-hidden />}
+                          <span className="pl-scrim" aria-hidden />
+                          <a className="pl-open" href={href} target="_blank" rel="noreferrer"
+                            aria-label={item.author ? `Open @${item.author}'s reel` : 'Open the reel'}
+                            title={item.preview ?? undefined} />
+                          <span className="pl-topline">
+                            <span className="pl-when">
+                              <Icon name="calendar" size={12} />
+                              {ago(item.upload_date)}
+                            </span>
+                            {lead && <span className="pl-tag">{reasonChip(lead)}</span>}
+                          </span>
+                          <span className="pl-tools">
+                            <a className="pl-tool" href={thumbUrl(item.id)} target="_blank" rel="noreferrer"
+                              title="Open the thumbnail">
+                              <DownloadGlyph />
+                            </a>
+                            <a className="pl-tool" href={href} target="_blank" rel="noreferrer" title="Open the reel">
+                              <OpenGlyph />
+                            </a>
+                          </span>
+                          <span className="pl-foot">
+                            <span className="pl-user">{item.author ? `@${item.author}` : 'Unknown'}</span>
+                            {item.upload_date && <span className="pl-subline">{shortDate(item.upload_date)}</span>}
+                            {multiple != null && <span className="pl-score">{times(multiple)}</span>}
+                          </span>
+                          <span className="pl-stats">
+                            {item.plays !== null && (
+                              <span className="pl-stat" title={`${item.plays.toLocaleString()} plays`}>
+                                <PlayGlyph />{compact(item.plays)}
+                              </span>
+                            )}
+                            {item.likes !== null && (
+                              <span className="pl-stat" title={`${item.likes.toLocaleString()} likes`}>
+                                <HeartGlyph />{compact(item.likes)}
+                              </span>
+                            )}
+                            {item.comments !== null && (
+                              <span className="pl-stat" title={`${item.comments.toLocaleString()} comments`}>
+                                <CommentGlyph />{compact(item.comments)}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </article>
                     </li>
                   )
                 })}
@@ -165,6 +204,13 @@ export default function DigestTab({ onFilterTo }: { onFilterTo: (handle: string)
 function times(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
   return `${value >= 10 ? Math.round(value) : value.toFixed(1)}×`
+}
+
+/** 2026-09-29 → "29 Sep" — the week's line under the handle. */
+function shortDate(iso: string): string {
+  const at = new Date(`${iso}T00:00:00Z`)
+  if (Number.isNaN(at.getTime())) return iso
+  return at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 /** One axis of the winners' common ground, ranked: label, count, then a

@@ -1,0 +1,460 @@
+/* ============================================================
+   THE SHELL — 2026-10-07. The console's app frame, wearing the
+   ai-invoice workspace's clothes (Geno's ask): a 52px top bar on
+   a hairline with an ember underglow, a left rail separated by a
+   single border, bordered pill controls, and the page itself
+   flush — NO card frame around the content.
+
+   Only ConsoleShell renders `.shell`, so every rule here is
+   console-only by construction. The ground is the invoice app's
+   #171717 with #1E1E1E raised (globals.css dark block), and the
+   line and fill system below uses its exact `--sb-*` values.
+
+   LAYOUT
+     .shell ── flex: [ sidebar ] [ main column ]
+     .shell-main ── [ top bar, sticky ] over [ .page, flush ]
+   ============================================================ */
+
+.shell {
+  --side-w: 15rem;         /* 240px — the rail                     */
+  --topbar-h: 3.25rem;     /* 52px  — matches the invoice app      */
+  --shell-max: 1560px;     /* matches .page's cap in globals.css   */
+  --shell-gutter: var(--sc-space-8);
+
+  /* The line/fill system, one rung per job — the invoice app's numbers. */
+  --sb-line: rgba(255, 255, 255, 0.08);
+  --sb-fill: rgba(23, 23, 23, 0.45);
+  --sb-surface: rgba(255, 255, 255, 0.05);
+  --sb-surface-hover: rgba(255, 255, 255, 0.08);
+  --sb-ember-line: rgba(232, 102, 58, 0.45);
+  --sb-accent-soft: rgba(232, 102, 58, 0.14);
+  --sb-inset: rgba(255, 255, 255, 0.03);
+
+  display: flex;
+  align-items: flex-start;
+  min-height: 100dvh;
+}
+
+/* Chrome links never wear the browser's underline — the reference has none,
+   and the global `a` rule leaves the UA default in place. */
+.shell a { text-decoration: none; }
+
+/* The page is a flex item in the column below, and globals gives it
+   `margin: 0 auto` — auto margins on the cross axis cancel flex's default
+   stretch, so the page would size to its content instead of the workspace.
+   Caught 2026-10-07: switching to a tab whose data was still loading showed
+   the page shrunk to the header's width, mid-screen. Claim the width first;
+   the auto margins then only centre what is left. */
+.shell .page { width: 100%; }
+
+/* ============================================================
+   THE RAIL
+   ============================================================ */
+
+/* The clip box: it owns the width the layout gives the rail and the
+   transition that takes it away. The inner keeps the rail's real width so
+   collapsing never reflows the nav while it slides. */
+.side {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: var(--side-w);
+  height: 100dvh;
+  overflow: hidden;
+  transition: width var(--sc-dur) var(--sc-ease);
+}
+
+.side-inner {
+  display: flex;
+  flex-direction: column;
+  width: var(--side-w);
+  height: 100%;
+  background: var(--sc-bone);
+  border-right: 1px solid var(--sb-line);
+  box-shadow: inset -1px 0 0 var(--sb-inset);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.side-brand {
+  display: flex;
+  align-items: center;
+  padding: 1.05rem 0.9rem 0.55rem;
+}
+.side-brand img { height: 1.75rem; width: auto; display: block; }
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.1rem 0.7rem 0.4rem;
+}
+
+/* One row, two shapes: a link (Home, sub-items) and a group's disclosure
+   button. Both wear this — the invoice app's nav item: radius 11, bright
+   label, muted icon, fills at 5/8%. */
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.38rem 0.45rem;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  font-family: var(--sc-font-text);
+  font-weight: 500;
+  font-size: 0.84rem;
+  color: var(--sc-ink-900);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.nav-row:hover { background: var(--sb-surface-hover); color: var(--sc-ink-900); }
+
+.nav-icon {
+  display: inline-flex;
+  justify-content: center;
+  width: 1.125rem;
+  flex: none;
+  color: var(--sc-ink-300);
+  transition: color 0.16s ease;
+}
+.nav-row:hover .nav-icon { color: var(--sc-ink-900); }
+
+.nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-chev {
+  display: inline-flex;
+  flex: none;
+  color: var(--sc-ink-300);
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+
+/* Where you are: the fill at 8% with its own inset hairline. */
+.nav-row[data-on='true'] {
+  background: var(--sb-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--sb-surface-hover);
+  color: var(--sc-ink-900);
+}
+.nav-row[data-on='true'] .nav-icon { color: var(--sc-ink-900); }
+
+/* The group is a disclosure, not a card: closed or open it is the same
+   rows; open only turns the chevron and shows the sub-list. */
+.nav-group[data-open='true'] .nav-chev { transform: rotate(180deg); }
+
+/* Children hang off a rounded tree line (Geno's reference, 2026-10-07): one
+   trunk down from the parent, and a curved elbow turning into each child. */
+.nav-sub {
+  --sub-row-h: 2rem;
+  --sb-tree: rgba(255, 255, 255, 0.16);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0.12rem 0 0.35rem calc(0.45rem + 14px);
+  padding-left: 0.7rem;
+  animation: nav-in var(--sc-dur-fast) var(--sc-ease);
+}
+/* The trunk runs from the parent's foot to the last child's elbow — never
+   past it, the way a tree closes off. */
+.nav-sub::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -0.12rem;
+  bottom: calc(var(--sub-row-h) / 2);
+  width: 1px;
+  background: var(--sb-tree);
+}
+@keyframes nav-in { from { opacity: 0; transform: translateY(-3px); } }
+
+.nav-sub-row {
+  position: relative;
+  min-height: var(--sub-row-h);
+  padding: 0.32rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: var(--sc-ink-300);
+}
+/* The elbow: down the trunk, then a rounded turn into the row. */
+.nav-sub-row::before {
+  content: '';
+  position: absolute;
+  left: -0.7rem;
+  top: 0;
+  bottom: 50%;
+  width: 0.7rem;
+  border-left: 1px solid var(--sb-tree);
+  border-bottom: 1px solid var(--sb-tree);
+  border-bottom-left-radius: 9px;
+  pointer-events: none;
+}
+.nav-sub-row .nav-icon { color: inherit; }
+.nav-sub-row:hover { color: var(--sc-ink-900); background: var(--sb-surface); }
+/* Where you are, as a soft rounded seat — no hairline ring at this depth. */
+.nav-sub-row[data-on='true'] {
+  color: var(--sc-ink-900);
+  background: var(--sb-surface-hover);
+  box-shadow: none;
+}
+
+/* The count, the invoice app's badge: a soft ember wash with ember type. */
+.nav-badge {
+  flex: none;
+  margin-left: auto;
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--sb-accent-soft);
+  color: var(--sc-ember-light);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------ FOOT */
+.side-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem 0.75rem 0.9rem;
+  border-top: 1px solid var(--sb-line);
+}
+/* The user chip — avatar, name, role — the invoice app's user row. */
+.side-user {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.5rem;
+  border-radius: 14px;
+  background: var(--sb-surface);
+  border: 1px solid var(--sb-surface-hover);
+  min-width: 0;
+}
+.side-user-avatar {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #262626 0%, #1E1E1E 100%);
+  color: var(--sc-ink-900);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.side-user-copy { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.side-user-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.side-user-role { font-size: 0.68rem; color: var(--sc-ink-300); line-height: 1.1; }
+
+/* The way out: a bordered quiet row that turns red on approach. */
+.side-signout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 11px;
+  background: var(--sb-inset);
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.side-signout:hover {
+  background: rgba(127, 29, 29, 0.22);
+  border-color: rgba(248, 113, 113, 0.32);
+  color: #fca5a5;
+}
+
+/* ============================================================
+   THE TOP BAR — 52px, one hairline, one ember underglow.
+   ============================================================ */
+
+.shell-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--sc-bone);
+  border-bottom: 1px solid var(--sb-line);
+  box-shadow: inset 0 -1px 0 rgba(232, 102, 58, 0.06);
+}
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: var(--topbar-h);
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  padding: 0 var(--shell-gutter);
+}
+
+.topbar-menu,
+.topbar-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--sb-line);
+  border-radius: 8px;
+  background: var(--sb-fill);
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.topbar-menu:hover,
+.topbar-bell:hover {
+  background: var(--sb-surface);
+  border-color: var(--sb-ember-line);
+  color: var(--sc-ember-deep);
+}
+
+/* Where you are, said once. */
+.topbar-crumb {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  text-decoration: none;
+  padding: 0 0.35rem;
+  transition: color 0.15s ease;
+}
+.topbar-crumb:hover { color: var(--sc-ember-deep); }
+
+/* The tally, one bordered pill a number: held · queue · waiting · needs you. */
+.topbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+.topbar-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--sb-line);
+  border-radius: 999px;
+  background: var(--sb-fill);
+  color: var(--sc-ink-900);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.topbar-stat svg { color: var(--sc-ink-300); }
+.topbar-stat b { font-weight: 600; }
+/* The number is the fact; the word after it is the legend. */
+.topbar-stat-word { color: var(--sc-ink-300); }
+.topbar-stat:hover {
+  background: var(--sb-surface);
+  border-color: var(--sb-ember-line);
+  color: var(--sc-ink-900);
+}
+.topbar-stat[data-tone='waiting'] b { color: var(--sc-caution); }
+.topbar-stat[data-tone='alert'] b { color: var(--sc-critical); }
+
+.topbar-bell-count {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  color: #171717;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The account mark — the invoice app's avatar, gradient and all. */
+.topbar-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  margin-left: 0.15rem;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(232, 102, 58, 0.55) 0%, rgba(38, 38, 38, 0.85) 100%);
+  border: 1px solid rgba(240, 132, 96, 0.35);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   SMALL SCREENS — the rail becomes a drawer. The page is flush
+   at every width now; there is no frame to un-round.
+   ============================================================ */
+
+@media (max-width: 1023px) {
+  .side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    height: 100dvh;
+    transform: translateX(-102%);
+    transition: transform var(--sc-dur) var(--sc-ease);
+    box-shadow: var(--sc-lift-3);
+  }
+  .shell[data-mnav='true'] .side { transform: none; }
+
+  .side-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.60);
+    cursor: pointer;
+    animation: fade var(--sc-dur-fast) var(--sc-ease);
+  }
+}
+
+@media (max-width: 720px) {
+  .shell { --shell-gutter: var(--sc-space-4); }
+  .topbar-stat[data-wide] { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .side-scrim { display: none; }
+  /* The hamburger collapses the rail; everything else takes the width. */
+  .shell[data-nav='false'] .side { width: 0; }
+}

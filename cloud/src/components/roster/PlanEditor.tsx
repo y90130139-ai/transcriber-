@@ -9,6 +9,7 @@ import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
 import { labelOf } from '@/lib/taxonomy'
 import CustomCard from './CustomCard'
+import DropSelect from '../dashboard/DropSelect'
 import { EditorAssign, EditorsPanel, useEditors } from './Editors'
 import {
   UPLOAD_LABEL, uploadStateOf,
@@ -589,16 +590,16 @@ export default function PlanEditor({
                   <button className="btn" onClick={() => patchPlan({ status: 'draft' })}>Unsend</button>
                 ) : (
                   <>
-                    <select
-                      className="field field-inline"
+                    <DropSelect
+                      label="Telegram wording"
                       value={variant}
-                      aria-label="Telegram wording"
-                      onChange={(event) => setVariant(event.target.value as typeof variant)}
-                    >
-                      <option value="weekly">Weekly wording</option>
-                      <option value="weekend">Weekend wording</option>
-                      <option value="short">Short wording</option>
-                    </select>
+                      onChange={(next) => setVariant(next as typeof variant)}
+                      options={[
+                        { value: 'weekly', label: 'Weekly wording' },
+                        { value: 'weekend', label: 'Weekend wording' },
+                        { value: 'short', label: 'Short wording' },
+                      ]}
+                    />
                     <button
                       className="btn"
                       disabled={!plan.telegram_title || Boolean(plan.telegram_skips)}
@@ -688,20 +689,16 @@ export default function PlanEditor({
                           <span className="planrow-tools">
                             <button className="chip" onClick={() => move(index, -1)} aria-label="Move up">↑</button>
                             <button className="chip" onClick={() => move(index, 1)} aria-label="Move down">↓</button>
-                            <select
-                              className="chip"
+                            <DropSelect
+                              label="Move to another week"
+                              placeholder="Week →"
                               value=""
-                              aria-label="Move to another week"
-                              title="Move this card to another week"
-                              onChange={(event) => void moveToWeek(item.id, event.target.value)}
-                            >
-                              <option value="">Week →</option>
-                              {moveTargets.map((week) => (
-                                <option key={week} value={week}>
-                                  {formatDate(week)}{knownWeeks.has(week) ? '' : ' (new)'}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(next) => void moveToWeek(item.id, next)}
+                              options={moveTargets.map((week) => ({
+                                value: week,
+                                label: `${formatDate(week)}${knownWeeks.has(week) ? '' : ' (new)'}`,
+                              }))}
+                            />
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
                         </div>

@@ -7,7 +7,6 @@ import DropSelect from './dashboard/DropSelect'
 import { SORTS, WINDOWS, type Filters } from './FilterBar'
 import { AXES, taxonomy } from '@/lib/taxonomy'
 import LibraryGrid from './LibraryGrid'
-import SoundsPanel from './SoundsPanel'
 import type { LibraryItem } from '@/lib/format'
 
 export default function LibraryTab({
@@ -158,8 +157,6 @@ export default function LibraryTab({
           <button type="button" className="minput-clear" onClick={() => onQuery('')} aria-label="Clear search">×</button>
         )}
       </div>
-
-      <SoundsPanel />
 
       {items.length > 0 ? (
         <>

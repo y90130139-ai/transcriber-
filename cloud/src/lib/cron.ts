@@ -14,7 +14,7 @@ export function secretMatches(presented: string | null | undefined, expected: st
  *
  * A cron invocation carries `Authorization: Bearer $CRON_SECRET` when that
  * variable is set. The guard matters here because these routes spend money —
- * an open path that starts an Apify run is an open path to a bill.
+ * scheduler-only routes can start paid or scheduled work.
  */
 export function isScheduler(request: Request): boolean {
   const header = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')

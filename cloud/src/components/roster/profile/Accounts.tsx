@@ -19,7 +19,7 @@ export default function Accounts({ handle, socials }: { handle: string; socials:
   if (accounts.length === 0) {
     return (
       <div className="form-row">
-        <span className="axis-name">Their accounts</span>
+        <span className="axis-name">How each account is doing</span>
         <span className="hint">
           No Instagram yet. Add their handle above, or a link below, and the roster pass
           will start measuring them.
@@ -31,7 +31,7 @@ export default function Accounts({ handle, socials }: { handle: string; socials:
   return (
     <div className="accounts">
       <div className="form-row">
-        <span className="axis-name">Their accounts</span>
+        <span className="axis-name">How each account is doing</span>
         <span className="hint">
           {accounts.length === 1
             ? 'One Instagram. Every account listed below gets read and scored on its own.'

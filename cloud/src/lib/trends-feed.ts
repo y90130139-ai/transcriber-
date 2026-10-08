@@ -226,6 +226,123 @@ export function startedLabel(started: number | null, now = Date.now()): string |
   return `${dayCount} day${dayCount === 1 ? '' : 's'} ago`
 }
 
+/* ------------------------------------------------- interest over time
+
+   Google Trends' own explore + multiline pair — the keyless endpoints
+   trends.google.com/trends/explore itself calls (Geno, 2026-10-08: search
+   a term, get the graph). One explore call mints a TIMESERIES widget
+   token; one multiline call spends it. Values are Google's relative
+   interest, 0–100 against the window's own peak, one value per term.
+   Unofficial, so every field is optional and garbage always parses to
+   null or [], never a throw. */
+
+/** The windows the graph offers — Google's own range ids. */
+export const INTEREST_RANGES = [
+  { id: 'now 1-d', label: '24 h' },
+  { id: 'now 7-d', label: '7 days' },
+  { id: 'today 1-m', label: '30 days' },
+  { id: 'today 12-m', label: '12 months' },
+  { id: 'today 5-y', label: '5 years' },
+] as const
+export type InterestRange = (typeof INTEREST_RANGES)[number]['id']
+
+export function cleanInterestRange(raw: unknown): InterestRange {
+  return INTEREST_RANGES.some((range) => range.id === raw) ? (raw as InterestRange) : 'now 7-d'
+}
+
+/** Google's own cap is five. "a vs b" and "a, b" both mean a comparison. */
+export const MAX_INTEREST_TERMS = 5
+const MAX_TERM_CHARS = 80
+
+export function parseInterestQuery(raw: string): string[] {
+  const seen = new Set<string>()
+  const terms: string[] = []
+  for (const piece of raw.split(/\s+vs\.?\s+|,/i)) {
+    const term = piece.replace(/\s+/g, ' ').trim().slice(0, MAX_TERM_CHARS)
+    if (!term || seen.has(term.toLowerCase())) continue
+    seen.add(term.toLowerCase())
+    terms.push(term)
+    if (terms.length >= MAX_INTEREST_TERMS) break
+  }
+  return terms
+}
+
+/** One point of the multiline timeline: epoch seconds, one value per term. */
+export type InterestPoint = { t: number; v: number[] }
+
+/** The TIMESERIES widget from an explore answer — the token, and the request
+ *  body the multiline call has to echo back. */
+export type InterestWidget = { token: string; request: Record<string, unknown> }
+
+/** Explore answers arrive behind a `)]}'` guard line; find the first `{` and
+ *  take the TIMESERIES widget out. Garbage in, null out. */
+export function parseInterestExplore(raw: string): InterestWidget | null {
+  try {
+    const start = raw.indexOf('{')
+    if (start < 0) return null
+    const json = JSON.parse(raw.slice(start)) as { widgets?: unknown }
+    if (!Array.isArray(json.widgets)) return null
+    const widget = json.widgets.find((w) => (w as { id?: unknown } | null)?.id === 'TIMESERIES') as
+      | { token?: unknown; request?: unknown }
+      | undefined
+    if (!widget || typeof widget.token !== 'string' || typeof widget.request !== 'object' || widget.request === null) {
+      return null
+    }
+    return { token: widget.token, request: widget.request as Record<string, unknown> }
+  } catch {
+    return null
+  }
+}
+
+/** Multiline answers, same guard line, `default.timelineData` underneath.
+ *  A point needs a finite time and a finite value per series; a broken row
+ *  is dropped, not fatal. */
+export function parseInterestTimeline(raw: string): InterestPoint[] {
+  try {
+    const start = raw.indexOf('{')
+    if (start < 0) return []
+    const json = JSON.parse(raw.slice(start)) as { default?: { timelineData?: unknown } }
+    const rows = json.default?.timelineData
+    if (!Array.isArray(rows)) return []
+    const points: InterestPoint[] = []
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue
+      const { time, value } = row as { time?: unknown; value?: unknown }
+      const t = Number(time)
+      if (!Number.isFinite(t)) continue
+      const v = Array.isArray(value) ? value.map(Number) : []
+      if (v.length === 0 || v.some((n) => !Number.isFinite(n))) continue
+      points.push({ t, v })
+    }
+    return points
+  } catch {
+    return []
+  }
+}
+
+/** A point's time, written for the tooltip. UTC on purpose — the request
+ *  pins tz=0, so the labels agree with the axis the server drew. */
+export function interestStamp(t: number, range: InterestRange): string {
+  const d = new Date(t * 1000)
+  if (range === 'now 1-d') {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(d)
+  }
+  if (range === 'today 5-y') return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', year: 'numeric' }).format(d)
+  if (range === 'today 12-m') return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' }).format(d)
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(d)
+}
+
+/** The short form for the x axis. */
+export function interestTick(t: number, range: InterestRange): string {
+  const d = new Date(t * 1000)
+  if (range === 'now 1-d') return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric' }).format(d)
+  if (range === 'today 5-y') return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', year: 'numeric' }).format(d)
+  if (range === 'today 12-m') return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short' }).format(d)
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }).format(d)
+}
+
 /* ------------------------------------------------- series math */
 
 /** Which way a daily series points. The last day against the mean of what

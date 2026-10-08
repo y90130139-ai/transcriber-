@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Insights } from '@/lib/insights'
 import type { Niche } from '@/lib/niches'
 import { labelOf } from '@/lib/taxonomy'
+import { useLive } from '@/lib/live'
 import CreatorFace, { type Face } from '../../dashboard/CreatorFace'
 
 type Faces = { handles: Record<string, Face>; formats: Record<string, { thumb: string; author: string | null }> }
@@ -55,44 +56,35 @@ function NicheRow({ niche, faces }: { niche: Niche; faces: Faces | null }) {
  * derived values may drive planning, but only accepted ones are hers.
  */
 export default function BrandTab({ modelId }: { modelId: string }) {
-  const [data, setData] = useState<Payload | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  const [faces, setFaces] = useState<Faces | null>(null)
 
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/insights`)
-    if (!response.ok) return setFailed(true)
-    setData(await response.json())
-  }, [modelId])
+  // Cached: the roster warms this on hover, so the tab is drawn, not loaded.
+  const url = `/api/models/${modelId}/insights`
+  const insights = useLive<Payload>(url)
+  const data = insights.data
 
-  useEffect(() => { void load() }, [load])
-
-  // Pictures for every creator and vertical named, fetched once the brand is in.
-  useEffect(() => {
-    if (!data) return
-    const handles = [
-      ...data.similar.map((c) => c.handle),
-      ...[...data.niches.hers, ...data.niches.strongest].flatMap((n) => n.top.map((c) => c.handle)),
-    ]
-    const formats = data.verticals.map((v) => v.format)
-    fetch(`/api/creators/faces?handles=${encodeURIComponent(handles.join(','))}&formats=${encodeURIComponent(formats.join(','))}`)
-      .then((r) => (r.ok ? r.json() : null)).then((body) => body && setFaces(body)).catch(() => null)
-  }, [data])
+  // Pictures for every creator and vertical named, read once the brand is in —
+  // cached too, because the same names come back run after run.
+  const facesUrl = data ? `/api/creators/faces?handles=${encodeURIComponent([
+    ...data.similar.map((c) => c.handle),
+    ...[...data.niches.hers, ...data.niches.strongest].flatMap((n) => n.top.map((c) => c.handle)),
+  ].join(','))}&formats=${encodeURIComponent(data.verticals.map((v) => v.format).join(','))}` : null
+  const faces = useLive<Faces>(facesUrl).data
 
   async function accept(action: string, body: Record<string, unknown>) {
     setBusy(action)
-    const response = await fetch(`/api/models/${modelId}/insights`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, ...body }),
     })
     setBusy(null)
-    if (response.ok) void load()
+    if (response.ok) insights.reload()
     else setFailed(true)
   }
 
-  if (failed) return <p className="hint" data-tone="bad">Their brand did not load. Try again in a moment.</p>
+  if (failed || (insights.error && !data)) return <p className="hint" data-tone="bad">Their brand did not load. Try again in a moment.</p>
   if (!data) return <p className="hint">Working them out from their accounts…</p>
 
   const accepted = data.accepted

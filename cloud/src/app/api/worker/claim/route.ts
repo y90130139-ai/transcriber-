@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   //
   // yt-dlp resolves an Instagram page through the private /api/v1 endpoints,
   // and those are retired — which is why every one of the 24 failed jobs on
-  // 2026-09-20 came from the burner reader and none from Apify. But the sweep
+  // 2026-09-20 came from the burner reader. But the sweep
   // that found the reel already saw `video_versions[0].url` and stored it, so
   // the Mac does not need to resolve anything: it can fetch the file. These
   // links expire, hence `media_until`.

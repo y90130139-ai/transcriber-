@@ -45,7 +45,7 @@ export function useConsole(): ConsoleState {
 }
 
 /** Everything the console's pages share: the library list and its polling,
- *  the counts the masthead wears, and the open reader. The layout holds this,
+ *  the counts the top bar wears, and the open reader. The layout holds this,
  *  so switching pages never loses a search or restarts a poll. */
 export function ConsoleProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<LibraryItem[]>([])

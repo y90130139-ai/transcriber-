@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react'
 import { taxonomy } from '@/lib/taxonomy'
+import DropSelect from '../dashboard/DropSelect'
 
 type Template = { id: string; label: string; format: string | null; body: string | null }
 
@@ -90,18 +91,24 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   return (
     <div className="customcard" role="group" aria-label="Add a custom card">
       <div className="customcard-row">
-        <select value={picked} onChange={(event) => pick(event.target.value)} aria-label="Start from a template">
-          <option value="">Blank template…</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>{template.label}</option>
-          ))}
-        </select>
-        <select value={format} onChange={(event) => setFormat(event.target.value)} aria-label="Format">
-          <option value="">Format…</option>
-          {FORMATS.map((tag) => (
-            <option key={tag.id} value={tag.id}>{tag.label}</option>
-          ))}
-        </select>
+        <DropSelect
+          label="Start from a template"
+          value={picked}
+          onChange={pick}
+          options={[
+            { value: '', label: 'Blank template…' },
+            ...templates.map((template) => ({ value: template.id, label: template.label })),
+          ]}
+        />
+        <DropSelect
+          label="Format"
+          value={format}
+          onChange={setFormat}
+          options={[
+            { value: '', label: 'Format…' },
+            ...FORMATS.map((tag) => ({ value: tag.id, label: tag.label })),
+          ]}
+        />
       </div>
       <input
         type="text"

@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import type { Attribution } from '@/lib/attribution'
 import type { EditorQueue } from '@/lib/editor'
 import type { QualityCheck } from '@/lib/quality'
 import type { Grade, Review, ReviewedPost } from '@/lib/review'
+import { put, useLive } from '@/lib/live'
 import VideoStrip, { useReelMedia, type StripItem } from '../../dashboard/VideoStrip'
 import { useRepurpose } from './useRepurpose'
 import { SentWeeks } from './StandingTab'
@@ -30,33 +31,20 @@ const ROWS: { title: string; note: string; grades: Grade[]; tone: NonNullable<St
 export default function ReelsTab({ modelId, name, photo }: { modelId: string; name: string; photo: string | null }) {
   const thisWeek = currentWeekOf()
   const [week, setWeek] = useState(thisWeek)
-  const [review, setReview] = useState<Payload | null>(null)
-  const [queue, setQueue] = useState<EditorQueue | null>(null)
   const [showDone, setShowDone] = useState(false)
-  const [checks, setChecks] = useState<QualityCheck[] | null>(null)
   const [scanning, setScanning] = useState(false)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const repurpose = useRepurpose(modelId)
 
-  useEffect(() => {
-    let live = true
-    setReview(null)
-    fetch(`/api/models/${modelId}/review?week=${week}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => { if (live) setReview(body) })
-      .catch(() => null)
-    return () => { live = false }
-  }, [modelId, week])
-
-  const loadQueue = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/editor`)
-    if (response.ok) setQueue(await response.json())
-  }, [modelId])
-  useEffect(() => { void loadQueue() }, [loadQueue])
-
-  useEffect(() => {
-    fetch(`/api/models/${modelId}/quality`).then((r) => (r.ok ? r.json() : null)).then((b) => b && setChecks(b.checks)).catch(() => null)
-  }, [modelId])
+  // Cached reads: the roster warms these on hover, so the rows are drawn, not
+  // loaded. A week picked by hand reads on its own first visit, then is kept.
+  const reviewLive = useLive<Payload>(`/api/models/${modelId}/review?week=${week}`)
+  const queueLive = useLive<EditorQueue>(`/api/models/${modelId}/editor`)
+  const checksLive = useLive<{ checks: QualityCheck[] }>(`/api/models/${modelId}/quality`)
+  const review = reviewLive.data
+  const queue = queueLive.data
+  const checks = checksLive.data?.checks ?? null
+  const loadQueue = queueLive.reload
 
   const reels = (review?.posts ?? []).filter((post) => post.kind === 'reel')
   const tasks = (queue?.tasks ?? []).filter((task) => showDone || !task.done)
@@ -72,20 +60,21 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'done', task_id, done }),
       }).catch(() => null)))
-    await loadQueue()
+    loadQueue()
   }
 
   async function editor(body: Record<string, unknown>) {
     await fetch(`/api/models/${modelId}/editor`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
-    void loadQueue()
+    loadQueue()
   }
 
   async function scan() {
     setScanning(true)
     const response = await fetch(`/api/models/${modelId}/quality`, { method: 'POST' })
-    if (response.ok) setChecks((await response.json()).checks)
+    const body = await response.json().catch(() => ({}))
+    if (response.ok) put(`/api/models/${modelId}/quality`, { checks: body.checks ?? [] })
     setScanning(false)
   }
 

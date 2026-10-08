@@ -1,0 +1,11 @@
+.git
+.venv
+vendor
+out
+inbox
+secrets
+config.json
+.env
+.env.*
+__pycache__
+*.pyc

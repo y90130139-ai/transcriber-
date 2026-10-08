@@ -2,6 +2,7 @@
 
 import { DAY_SHORT } from '@/lib/dates'
 import { REGIONS, isKnownZone, timeIn, zoneForPlace } from '@/lib/timezones'
+import DropSelect from '../../dashboard/DropSelect'
 import type { ProfileForm, SetField } from './form'
 
 const TIERS = [
@@ -64,34 +65,27 @@ export default function WeekTab({
               option carrying its value — so keying on the zone snapped every
               Eastern state back to Connecticut and every Central one back to
               Alabama. The zone is derived from the choice below. */}
-          <select
+          <DropSelect
             id="model-tz"
-            className="field"
+            label="Where they are"
             value={form.place ?? ''}
-            onChange={(event) => {
-              const label = event.target.value
-              const zone = zoneForPlace(label)
+            onChange={(next) => {
+              const zone = zoneForPlace(next)
               // The escape hatch below has no place, only a zone. Picking it
               // again must leave her exactly where she was.
               if (!zone) { setForm((prev) => ({ ...prev, place: null })); return }
-              setForm((prev) => ({ ...prev, place: label, timezone: zone }))
+              setForm((prev) => ({ ...prev, place: next, timezone: zone }))
             }}
-          >
-            {/* A zone set before this picker existed, or by hand, stays
-                selectable — saving must not quietly move her a state over. */}
-            {!isKnownZone(form.timezone) && (
-              <option value="">{form.timezone} (already set)</option>
-            )}
-            {REGIONS.map((region) => (
-              <optgroup key={region.region} label={region.region}>
-                {region.places.map((place) => (
-                  <option key={`${region.region}:${place.label}`} value={place.label}>
-                    {place.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            options={[
+              // A zone set before this picker existed, or by hand, stays
+              // selectable — saving must not quietly move her a state over.
+              ...(!isKnownZone(form.timezone)
+                ? [{ value: '', label: `${form.timezone} (already set)` }]
+                : []),
+              ...REGIONS.flatMap((region) =>
+                region.places.map((place) => ({ value: place.label, label: place.label }))),
+            ]}
+          />
           {/* The clock is the check: it proves the place picked is the one meant. */}
           <span className="hint">
             {timeIn(form.timezone)

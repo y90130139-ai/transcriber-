@@ -13,43 +13,48 @@ export async function GET(_request: Request, { params }: Params) {
   if (!(await isSignedIn())) return unauthorized()
   const { id } = await params
 
-  const [model] = await sql.query(
-    `select ${MODEL_COLUMNS}, ${linkedOnlyfans('models')} from transcriber.models where id = $1`,
-    [id],
-  )
+  // Three independent reads in one wave. Sequentially they were three round
+  // trips to the database for a panel that opens on a tap, and the sheet's
+  // face cannot draw until its slowest read lands.
+  const [rows, plans, declines] = await Promise.all([
+    sql.query(
+      `select ${MODEL_COLUMNS}, ${linkedOnlyfans('models')} from transcriber.models where id = $1`,
+      [id],
+    ),
+    sql.query(
+      `select p.id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
+              to_char(p.due_date, 'YYYY-MM-DD') as due_date,
+              p.title, p.status, p.sent_at,
+              count(i.id)::int as items,
+              count(i.id) filter (where i.filmed_at is not null)::int as filmed,
+              count(i.id) filter (where i.uploaded_at is null and i.r2_purged_at is null)::int as waiting,
+              count(i.id) filter (where i.model_note is not null and i.seen_at is null)::int as unread
+         from transcriber.plans p
+         left join transcriber.plan_items i on i.plan_id = p.id
+        where p.model_id = $1
+        group by p.id
+        order by p.week_of desc`,
+      [id],
+    ),
+    // What she has actually turned down, counted. A decline has always carried
+    // her reason in prose, which cannot be added up — so three "nowhere to film"
+    // in a row read as three bad weeks rather than as one fact about her house.
+    // Across every week of hers, not just this one: a constraint is not a mood,
+    // and the whole point is to see it accumulate.
+    sql.query(
+      `select i.decline_code as code, count(*)::int as n,
+              max(i.declined_at) as last_at
+         from transcriber.plan_items i
+         join transcriber.plans p on p.id = i.plan_id
+        where p.model_id = $1 and i.declined_at is not null
+        group by i.decline_code
+        order by count(*) desc, i.decline_code`,
+      [id],
+    ),
+  ])
+
+  const [model] = rows
   if (!model) return notFound()
-
-  const plans = await sql.query(
-    `select p.id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
-            to_char(p.due_date, 'YYYY-MM-DD') as due_date,
-            p.title, p.status, p.sent_at,
-            count(i.id)::int as items,
-            count(i.id) filter (where i.filmed_at is not null)::int as filmed,
-            count(i.id) filter (where i.uploaded_at is null and i.r2_purged_at is null)::int as waiting,
-            count(i.id) filter (where i.model_note is not null and i.seen_at is null)::int as unread
-       from transcriber.plans p
-       left join transcriber.plan_items i on i.plan_id = p.id
-      where p.model_id = $1
-      group by p.id
-      order by p.week_of desc`,
-    [id],
-  )
-
-  // What she has actually turned down, counted. A decline has always carried
-  // her reason in prose, which cannot be added up — so three "nowhere to film"
-  // in a row read as three bad weeks rather than as one fact about her house.
-  // Across every week of hers, not just this one: a constraint is not a mood,
-  // and the whole point is to see it accumulate.
-  const declines = await sql.query(
-    `select i.decline_code as code, count(*)::int as n,
-            max(i.declined_at) as last_at
-       from transcriber.plan_items i
-       join transcriber.plans p on p.id = i.plan_id
-      where p.model_id = $1 and i.declined_at is not null
-      group by i.decline_code
-      order by count(*) desc, i.decline_code`,
-    [id],
-  )
 
   return NextResponse.json({ model, plans, declines })
 }

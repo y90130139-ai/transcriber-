@@ -7,7 +7,9 @@ import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
-import { labelOf } from '@/lib/taxonomy'
+import { CARD_SOURCES, SOURCE_TEXT, isSource, sourceOf } from '@/lib/source'
+import { PLAN_TEMPLATES, TEMPLATE_TEXT, WINNING_MIN, isTemplate, type PlanTemplate } from '@/lib/template'
+import { labelOf, taxonomy } from '@/lib/taxonomy'
 import CustomCard from './CustomCard'
 import { EditorAssign, EditorsPanel, useEditors } from './Editors'
 import {
@@ -61,6 +63,18 @@ export default function PlanEditor({
   const [showPreview, setShowPreview] = useState(true)
   /** Progress of the caption-and-DM writer, or null when idle. */
   const [writing, setWriting] = useState<string | null>(null)
+  /** Removed cards, newest last — the Undo button walks this back. The whole
+   *  row rides along, because the restore re-inserts it as it was. */
+  const [undone, setUndone] = useState<{ label: string; row: Record<string, unknown> }[]>([])
+  /** The format chips over the suggestions rail. Empty = everything. */
+  const [formatFilter, setFormatFilter] = useState<string[]>([])
+  /** Her winning verticals and the template the ladder suggests. */
+  const [winning, setWinning] = useState<{
+    winners_count: number
+    verticals: { format: string; posts: number; best_multiple: number | null }[]
+    suggested: PlanTemplate
+    template: PlanTemplate | null
+  } | null>(null)
 
   async function writeCopy(id: string) {
     setWriting('Writing…')
@@ -108,8 +122,14 @@ export default function PlanEditor({
   }, [planId])
 
   const loadSuggested = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/suggestions`)
+    const narrowed = formatFilter.length > 0 ? `?formats=${formatFilter.join(',')}` : ''
+    const response = await fetch(`/api/models/${modelId}/suggestions${narrowed}`)
     if (response.ok) setSuggested((await response.json()).items ?? [])
+  }, [modelId, formatFilter])
+
+  const loadWinning = useCallback(async () => {
+    const response = await fetch(`/api/models/${modelId}/verticals`)
+    if (response.ok) setWinning(await response.json())
   }, [modelId])
 
   const loadPosts = useCallback(async () => {
@@ -118,6 +138,7 @@ export default function PlanEditor({
   }, [modelId])
 
   useEffect(() => { void loadPosts() }, [loadPosts])
+  useEffect(() => { void loadWinning() }, [loadWinning])
   useEffect(() => { void loadWeeks() }, [loadWeeks])
   useEffect(() => { void loadPlan() }, [loadPlan])
   useEffect(() => { void loadSuggested() }, [loadSuggested])
@@ -334,9 +355,50 @@ export default function PlanEditor({
   }
 
   async function removeItem(id: string) {
+    const gone = items.find((item) => item.id === id)
     setItems((current) => current.filter((item) => item.id !== id))
-    await fetch(`/api/plans/${planId}/items?item=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const response = await fetch(`/api/plans/${planId}/items?item=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const body = await response.json().catch(() => ({}))
+    // The whole row comes back so Undo can put it back exactly as it was —
+    // the one thing a misclicked × used to cost was everything on the card.
+    if (response.ok && body.removed) {
+      const label = gone?.card_no ? `V-${gone.card_no}` : gone?.item_title ?? gone?.title ?? 'Card'
+      setUndone((current) => [...current.slice(-19), { label, row: body.removed }])
+    }
     void loadWeeks()
+  }
+
+  /** Put the last removed card back. The thread did not survive the delete;
+   *  everything else on the card did. */
+  async function undoRemove() {
+    const last = undone[undone.length - 1]
+    if (!last || !planId) return
+    setUndone((current) => current.slice(0, -1))
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restore: last.row }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      setCarryNote({ planId, text: body.error === 'already back on the week'
+        ? `${last.label} is already back on the week.`
+        : `${last.label} could not be restored.` })
+      return
+    }
+    await loadPlan()
+    void loadWeeks()
+  }
+
+  /** Set which template drives their autodraft. Lives on the model, so next
+   *  Sunday's draft inherits it without anyone re-picking. */
+  async function setTemplate(template: PlanTemplate | null) {
+    const response = await fetch(`/api/models/${modelId}/template`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template }),
+    })
+    if (response.ok) setWinning((current) => (current ? { ...current, template } : current))
   }
 
   /** One card to another week. It leaves this list; the week it went to
@@ -534,6 +596,51 @@ export default function PlanEditor({
                   with the counted contents of the plan instead of a written
                   paragraph. plans.intro stays in the database untouched. */}
 
+              {/* Which template drives their autodraft (2026-10-08). On the
+                  model, not the week — next Sunday inherits it. Auto follows
+                  the ladder; the line under the select says where they are. */}
+              {winning && (
+                <div className="form-row">
+                  <label className="axis-name" htmlFor="plan-template">Template</label>
+                  <select
+                    id="plan-template"
+                    className="field"
+                    value={winning.template ?? ''}
+                    onChange={(event) => void setTemplate(isTemplate(event.target.value) ? event.target.value : null)}
+                  >
+                    <option value="">Auto — follows their winners ({TEMPLATE_TEXT[winning.suggested].label} now)</option>
+                    {PLAN_TEMPLATES.map((template) => (
+                      <option key={template} value={template} disabled={template === 'winning' && winning.winners_count < WINNING_MIN}>
+                        {TEMPLATE_TEXT[template].label}
+                        {template === 'winning' && winning.winners_count < WINNING_MIN
+                          ? ` — needs ${WINNING_MIN} winners (they have ${winning.winners_count})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">
+                    {TEMPLATE_TEXT[winning.template ?? winning.suggested].line}
+                    {winning.verticals.length > 0 && (
+                      <> {' '}Their winning verticals:{' '}
+                      {winning.verticals.map((vertical) =>
+                        `${labelOf('format', vertical.format)} (${vertical.posts})`).join(' · ')}.</>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* The nudge, only when the ladder and the setting disagree. */}
+              {winning && winning.winners_count >= WINNING_MIN && winning.template !== 'winning' && winning.template !== 'custom' && (
+                <div className="planstate planstate-short">
+                  <span>
+                    They have {winning.winners_count} winning reels — the Winning Verticals
+                    template would build their week around what already works for them.
+                  </span>
+                  <button className="btn btn-small" onClick={() => void setTemplate('winning')}>
+                    Switch
+                  </button>
+                </div>
+              )}
+
               <div className="planstate" data-ready={waiting === 0 && missing === 0}>
                 {waiting === 0 && missing === 0 ? (
                   <span>Every video is on R2. Safe to send.</span>
@@ -704,6 +811,46 @@ export default function PlanEditor({
                             </select>
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
+                        </div>
+
+                        {/* Where the card came from (2026-10-08) and, for a
+                            twist, the one line that changes it. AI drafts and
+                            blanks stay off her page until someone resolves
+                            them — the select is how they get resolved. */}
+                        <div className="form-pair">
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`source-${item.id}`}>
+                              Source — what her card calls it
+                            </label>
+                            <select
+                              id={`source-${item.id}`}
+                              className="field"
+                              value={sourceOf(item.source, item.bucket ?? null)}
+                              onChange={(event) => {
+                                if (isSource(event.target.value)) void patchItem(item.id, { source: event.target.value })
+                              }}
+                            >
+                              {CARD_SOURCES.map((source) => (
+                                <option key={source} value={source}>
+                                  {SOURCE_TEXT[source].console}
+                                  {SOURCE_TEXT[source].chip ? ` — “${SOURCE_TEXT[source].chip}”` : ' — hidden from them'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`twist-${item.id}`}>
+                              The twist — what changes from the reference
+                            </label>
+                            <input
+                              id={`twist-${item.id}`}
+                              className="field"
+                              key={`twist-${item.twist ?? ''}`}
+                              defaultValue={item.twist ?? ''}
+                              placeholder="Same video — but the third pass is the members'-dinner fit"
+                              onBlur={(event) => patchItem(item.id, { twist: event.target.value })}
+                            />
+                          </div>
                         </div>
 
                         {item.declined_at && (
@@ -901,6 +1048,19 @@ export default function PlanEditor({
                 </ol>
               )}
 
+              {/* A misclicked × costs nothing now: the last removed cards sit
+                  here until the editor closes. The thread on a card does not
+                  survive, everything else does. */}
+              {undone.length > 0 && (
+                <div className="planstate planstate-short" role="status">
+                  <span>
+                    {undone[undone.length - 1].label} removed
+                    {undone.length > 1 ? ` · ${undone.length} in the undo pile` : ''}.
+                  </span>
+                  <button className="btn btn-small" onClick={() => void undoRemove()}>Undo</button>
+                </div>
+              )}
+
               {/* Phase 5. Her own posts. The strip is here rather than on each
                   card so the week's delivery can be seen in one look; binding
                   happens per card, under "Link one of her posts". */}
@@ -1009,10 +1169,39 @@ export default function PlanEditor({
                 </span>
               </div>
 
+              {/* Narrow the rail to the formats wanted on this week. A format
+                  on their won't-do list is shown struck and cannot be picked —
+                  the matcher would refuse it anyway; better said than silent. */}
+              <div className="weekrail" role="group" aria-label="Formats">
+                {taxonomy.format.tags.map((tag) => {
+                  const refused = (plan.wont_do ?? []).includes(tag.id)
+                  return (
+                    <button
+                      key={tag.id}
+                      className="pill"
+                      disabled={refused}
+                      data-on={formatFilter.includes(tag.id) || undefined}
+                      style={refused ? { textDecoration: 'line-through', opacity: 0.5 } : undefined}
+                      title={refused ? `On their won't-do list` : undefined}
+                      onClick={() => setFormatFilter((current) =>
+                        current.includes(tag.id)
+                          ? current.filter((id) => id !== tag.id)
+                          : [...current, tag.id])}
+                    >
+                      {tag.label}
+                    </button>
+                  )
+                })}
+                {formatFilter.length > 0 && (
+                  <button className="pill" onClick={() => setFormatFilter([])}>Clear</button>
+                )}
+              </div>
+
               {suggested.length === 0 ? (
                 <p className="hint">
-                  Nothing scores yet. Tick the formats they do in their profile — an
-                  untagged model matches nothing rather than everything.
+                  {formatFilter.length > 0
+                    ? 'Nothing scores on those formats. Clear the chips or tag more references.'
+                    : 'Nothing scores yet. Tick the formats they do in their profile — an untagged model matches nothing rather than everything.'}
                 </p>
               ) : (
                 <ul className="suggestlist">

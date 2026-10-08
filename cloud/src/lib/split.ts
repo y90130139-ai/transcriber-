@@ -32,6 +32,7 @@ import { sql } from './db'
 import { unfetchable } from './hers'
 import { TARGET_MIX } from './mix'
 import { schedule, scheduleSummary, type Scheduled } from './schedule'
+import { isTemplate } from './template'
 import { RELATABLE } from './taxonomy'
 import { STARTER_VERTICALS, effectiveFormats, levelFor, topicsFor, verticalsFor, type Level } from './insights'
 
@@ -114,12 +115,18 @@ export type Week = {
 export async function weekFor(modelId: string): Promise<Week | null> {
   const [model] = await sql.query(
     `select m.id, m.name, coalesce(m.weekly_target, 21) as target, m.persona, m.formats, m.topics,
+            m.plan_template,
             (select count(*)::int from transcriber.plans p
               where p.model_id = m.id and p.status = 'sent') as sent
        from transcriber.models m where m.id = $1`,
     [modelId],
   )
   if (!model) return null
+
+  // The template set on the model (lib/template.ts). Null is auto, which is
+  // everything below exactly as it always ran. 'custom' weeks are skipped by
+  // the draft path before this is ever called.
+  const template = isTemplate(model.plan_template) ? model.plan_template : null
 
   const bank = await bankFor(modelId)
   const notes: string[] = []
@@ -131,7 +138,25 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   const persona = (model.persona as string[]) ?? []
   const verticals = bank ? await verticalsFor(modelId, bank, persona) : []
   const matchedOn = effectiveFormats((model.formats as string[]) ?? [], verticals)
-  const override = matchedOn.basis === 'her-profile' ? undefined : matchedOn.formats
+  let override = matchedOn.basis === 'her-profile' ? undefined : matchedOn.formats
+
+  // Winning Verticals: the week is matched on the formats her own winners
+  // prove out — her typed profile included or not, that is the template's
+  // whole point. With nothing proven it falls through to the Mix and says so.
+  const provenFormats = verticals
+    .filter((vertical) => vertical.source === 'her-winners')
+    .map((vertical) => vertical.format)
+  if (template === 'winning') {
+    if (provenFormats.length > 0) {
+      override = provenFormats
+      notes.push(
+        `Winning Verticals template: matched on ${provenFormats.join(', ')} — ` +
+        'the formats their own winners prove out.',
+      )
+    } else {
+      notes.push('Winning Verticals template is set, but nothing of theirs has won yet — ran as the Mix.')
+    }
+  }
 
   // The testing round, for a creator who reads as new and has not had two
   // weeks sent yet. Everything in it is a new test on the starter verticals:
@@ -147,9 +172,21 @@ export async function weekFor(modelId: string): Promise<Week | null> {
   // account that already has winners has done its testing on Instagram's dime —
   // Faye, at 9k followers with three reels past 10x, is the case that showed it.
   const hasWinners = (bank?.winners.length ?? 0) > 0
-  const testingRound = level === 'new' && !hasWinners && sent < TESTING_ROUNDS.length ? sent + 1 : null
+  // The 30-Day Sprint is the testing round's shape at her full weekly target:
+  // references only, zero writing — so an explicit sprint replaces the 6/15
+  // sizing rather than stacking under it.
+  const sprint = template === 'sprint'
+  const testingRound = !sprint && level === 'new' && !hasWinners && sent < TESTING_ROUNDS.length ? sent + 1 : null
   const target = testingRound ? TESTING_ROUNDS[testingRound - 1] : Number(model.target) || 21
-  const counts: Counts = testingRound ? { reskin: 0, iteration: 0, test: target } : countsFor(target)
+  const counts: Counts = sprint || testingRound
+    ? { reskin: 0, iteration: 0, test: target }
+    : countsFor(target)
+  if (sprint) {
+    notes.push(
+      '30-Day Sprint template: the whole week is library references — copy-paste ' +
+      'volume, nothing written by hand.',
+    )
+  }
   if (testingRound === 1) {
     notes.push(
       'Testing round 1 of 2: six reels across the three starter verticals, then ' +

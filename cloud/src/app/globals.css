@@ -158,6 +158,22 @@ body {
 .queue-input:focus { outline: none; }
 .queue-input::placeholder { color: var(--sc-ink-150); }
 
+/* The three columns (2026-10-08): format · which kind · the paste itself.
+   The paste keeps the room; the two pickers sit beside it and stack on a
+   phone. Both are optional — an unlabeled paste works as it always did. */
+.queue-composer-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(200px, 250px) 1fr;
+  gap: var(--sc-space-4);
+  align-items: start;
+}
+.queue-composer-col { display: grid; gap: var(--sc-space-1); min-width: 0; }
+.queue-composer-col .field { width: 100%; }
+.queue-newformat { display: flex; gap: var(--sc-space-1); align-items: center; flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .queue-composer-grid { grid-template-columns: 1fr; }
+}
+
 .queue-composer-foot {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: var(--sc-space-2) var(--sc-space-4); margin-top: var(--sc-space-2);

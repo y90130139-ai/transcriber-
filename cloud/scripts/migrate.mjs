@@ -1250,6 +1250,15 @@ const statements = [
   // How many reels THIS week wants (2026-10-08) — the editor's dots fill
   // toward it. Null falls back to the model's weekly_target, as before.
   `alter table transcriber.plans add column if not exists target int`,
+
+  // Formats the team makes up on the spot (2026-10-08) — the queue's "+ make
+  // a new format". They live beside the taxonomy's, never inside it: the
+  // taxonomy stays the curated list, these are the working vocabulary.
+  `create table if not exists transcriber.custom_formats (
+     id          text primary key,
+     label       text not null,
+     created_at  timestamptz not null default now()
+   )`,
 ]
 
 for (const statement of statements) {

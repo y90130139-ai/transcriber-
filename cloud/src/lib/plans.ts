@@ -113,6 +113,10 @@ export type PlanItem = {
   source: CardSource
   /** A reskin's one line: what changes from the reference. */
   twist: string | null
+  /** Per-card switches: the filming directions, and the automated captions,
+   *  each hideable before the week goes out. */
+  hide_film: boolean
+  hide_captions: boolean
   /** Repurpose cards: when the refreshed file went back to her. */
   repurposed_at: string | null
   axis: string | null
@@ -254,7 +258,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
-            i.source, i.twist,
+            i.source, i.twist, i.hide_film, i.hide_captions,
             i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url, t.shots,
             snd.audio_title as sound_title, snd.original_audio,
             -- Her own accounts only: the plan's model, and nobody else's posts.
@@ -340,6 +344,8 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     source_post: (row.source_post as string | null) ?? null,
     source: sourceOf(row.source, typeof row.bucket === 'string' ? row.bucket : null),
     twist: (row.twist as string | null) ?? null,
+    hide_film: Boolean(row.hide_film),
+    hide_captions: Boolean(row.hide_captions),
     repurposed_at: row.repurposed_at ? String(row.repurposed_at) : null,
     axis: (row.axis as string | null) ?? null,
     hold: (row.hold as string | null) ?? null,

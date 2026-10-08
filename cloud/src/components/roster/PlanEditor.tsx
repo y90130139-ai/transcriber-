@@ -1050,6 +1050,45 @@ export default function PlanEditor({
                           </div>
                         </div>
 
+                        {/* The per-card switches (2026-10-08): the filming
+                            directions and the automated captions, each off-able
+                            before the week goes out — a written card may be all
+                            direction already, and without a video there is
+                            nothing honest to auto-caption. Off opens the
+                            hand-written fallback. */}
+                        <div className="copybar" style={{ position: 'static' }}>
+                          <button
+                            className="chip"
+                            data-on={!item.hide_film || undefined}
+                            title={item.hide_film
+                              ? 'Her card skips Before you film / Film it / What to say — the Direction box above is what she reads'
+                              : 'Her card shows the filming directions'}
+                            onClick={() => void patchItem(item.id, { hide_film: !item.hide_film })}
+                          >
+                            Film it: {item.hide_film ? 'off' : 'on'}
+                          </button>
+                          <button
+                            className="chip"
+                            data-on={!item.hide_captions || undefined}
+                            title={item.hide_captions
+                              ? 'The automated captions stay off this card'
+                              : 'Her card shows the automated captions'}
+                            onClick={() => void patchItem(item.id, { hide_captions: !item.hide_captions })}
+                          >
+                            Captions: {item.hide_captions ? 'off' : 'on'}
+                          </button>
+                          {item.hide_captions && (
+                            <input
+                              className="field field-inline"
+                              style={{ flex: 1, minWidth: '220px' }}
+                              key={`cap-${item.caption ?? ''}`}
+                              defaultValue={item.caption ?? ''}
+                              placeholder="+ Add a caption yourself — the one line her card shows"
+                              onBlur={(event) => patchItem(item.id, { caption: event.target.value })}
+                            />
+                          )}
+                        </div>
+
                         {item.declined_at && (
                           <div className="planrow-declined">
                             <p className="axis-name">They turned this one down</p>

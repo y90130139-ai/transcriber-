@@ -136,6 +136,10 @@ export type PlanItemRow = {
   source?: string | null
   /** A reskin's one line: what changes from the reference. */
   twist?: string | null
+  /** Per-card switches: filming directions and automated captions, each
+   *  hideable from her card before the week goes out. */
+  hide_film?: boolean | null
+  hide_captions?: boolean | null
   /** Repurpose cards: null while it still needs repurposing. */
   repurposed_at?: string | null
   /** Her thumbs on the reference: 1 up, -1 down, null not answered. */

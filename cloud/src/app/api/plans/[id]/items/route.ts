@@ -381,11 +381,15 @@ export async function PUT(request: Request, { params }: Params) {
             -- The mixed-source tag and a reskin's twist (2026-10-08). The tag
             -- only ever lands validated; clearing it falls back to the bucket.
             source        = case when $29::bool then $30::text else source end,
-            twist         = case when $31::bool then $32::text else twist end
+            twist         = case when $31::bool then $32::text else twist end,
+            -- The per-card switches (2026-10-08): filming directions and
+            -- automated captions, each hideable before the week goes out.
+            hide_film     = case when $33::bool then $34::bool else hide_film end,
+            hide_captions = case when $35::bool then $36::bool else hide_captions end
       where id = $1 and plan_id = $2
       returning id, notes, editing_notes, post_url, posted_at, filmed_at, seen_at,
                 wardrobe, camera, takes, sound, hook, caption,
-                card_no, title as item_title, location, source, twist`,
+                card_no, title as item_title, location, source, twist, hide_film, hide_captions`,
     [
       itemId, id,
       'notes' in body, text(body.notes),
@@ -404,6 +408,8 @@ export async function PUT(request: Request, { params }: Params) {
       isPostedOn(body.posted_on) ? body.posted_on : null,
       'source' in body, isSource(body.source) ? body.source : null,
       'twist' in body, text(body.twist),
+      'hide_film' in body, body.hide_film === true,
+      'hide_captions' in body, body.hide_captions === true,
     ],
   )
   if (!item) return notFound()

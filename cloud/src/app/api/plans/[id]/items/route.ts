@@ -104,23 +104,27 @@ export async function POST(request: Request, { params }: Params) {
     // names itself. The original becomes Version 1 and each copy counts on,
     // so V-6..V-9 read as one idea in four outfits.
     const versions = body.versions === true
-    const [base] = versions
-      ? await sql.query(
-          `select title from transcriber.plan_items where id = $1 and plan_id = $2`,
-          [body.duplicate, id],
-        )
-      : [null]
-    const stem = base
-      ? String(base.title ?? '').replace(/\s*·?\s*version\s*\d+\s*$/i, '').trim()
-      : ''
+    const [base] = await sql.query(
+      `select title, position from transcriber.plan_items where id = $1 and plan_id = $2`,
+      [body.duplicate, id],
+    )
+    if (!base) return notFound()
+    const stem = String(base.title ?? '').replace(/\s*·?\s*version\s*\d+\s*$/i, '').trim()
     const versionTitle = (n: number) => (stem ? `${stem} · Version ${n}` : `Version ${n}`)
     if (versions) {
-      if (!base) return notFound()
       await sql.query(
         `update transcriber.plan_items set title = $3 where id = $1 and plan_id = $2`,
         [body.duplicate, id, versionTitle(1)],
       )
     }
+    // Copies belong WITH their original, not at the foot of the week — open a
+    // gap right behind it and lay them in order (Geno, 2026-10-08).
+    const anchor = Number(base.position ?? 0)
+    await sql.query(
+      `update transcriber.plan_items set position = position + $3
+        where plan_id = $1 and position > $2`,
+      [id, anchor, copies],
+    )
     const ids: string[] = []
     for (let copy = 0; copy < copies; copy += 1) {
       const [row] = await sql.query(
@@ -130,8 +134,7 @@ export async function POST(request: Request, { params }: Params) {
             wardrobe, camera, takes, sound, hook, caption, brief_short, source, twist)
          select $1, i.plan_id,
                 case when i.source_post is not null then i.job_id else null end,
-                (select coalesce(max(after.position), -1) + 1
-                   from transcriber.plan_items after where after.plan_id = i.plan_id),
+                $4::int,
                 i.notes, i.editing_notes, i.title, i.location,
                 (select coalesce(max(prior.card_no), 0) + 1
                    from transcriber.plan_items prior
@@ -146,7 +149,7 @@ export async function POST(request: Request, { params }: Params) {
            join transcriber.plans pl on pl.id = i.plan_id
           where i.id = $2 and i.plan_id = $3
          returning id`,
-        [newId(), body.duplicate, id],
+        [newId(), body.duplicate, id, anchor + 1 + copy],
       )
       if (!row) return ids.length > 0
         ? NextResponse.json({ added: ids.length, item_ids: ids })

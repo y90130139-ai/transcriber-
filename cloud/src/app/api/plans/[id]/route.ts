@@ -24,6 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
             p.title, p.intro, p.status, p.sent_at,
             m.name as model_name, m.access_token, m.token_revoked_at,
             m.weekly_target, m.timezone, m.filming_days, m.standing_rules,
+            m.wont_do, m.plan_template,
             p.telegram_state, p.telegram_variant, p.telegram_done_at, p.telegram_error,
             m.telegram_chat_id, g.title as telegram_title, g.skip_campaigns as telegram_skips
        from transcriber.plans p
@@ -40,6 +41,7 @@ export async function GET(_request: Request, { params }: Params) {
             -- t.title below is the reference's own title on Instagram, so the
             -- card's own name has to arrive under a different one.
             i.card_no, i.title as item_title, i.location, i.bucket, i.source_post, i.repurposed_at, i.rating, i.made_at, i.made_url,
+            i.source, i.twist,
             i.filmed_at, i.posted_at, i.post_url,
             i.model_note, i.model_note_at, i.seen_at,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,

@@ -1234,6 +1234,18 @@ const statements = [
      topics        jsonb not null,
      received_at   timestamptz not null default now()
    )`,
+
+  // The mixed-source plan (2026-10-08). Every card says where it came from —
+  // reference / reskin / original / ai_draft / blank — and a reskin carries
+  // the one line that changes it. Null `source` derives from `bucket`
+  // (lib/source.ts), so nothing is backfilled.
+  `alter table transcriber.plan_items add column if not exists source text`,
+  `alter table transcriber.plan_items add column if not exists twist text`,
+
+  // Which plan template drives their autodraft: sprint / mix / winning /
+  // custom. Null means auto — the ladder in lib/template.ts suggests one but
+  // behaviour only changes when a human sets it.
+  `alter table transcriber.models add column if not exists plan_template text`,
 ]
 
 for (const statement of statements) {

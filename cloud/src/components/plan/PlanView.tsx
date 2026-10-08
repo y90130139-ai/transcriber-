@@ -13,6 +13,7 @@ import { cleanStyle } from '@/lib/portal-style'
 import { bucketOf, type PlanBucket } from '@/lib/plan-buckets'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { contentLines } from '@/lib/plan-contents'
+import { sourceLine } from '@/lib/source'
 import { filmingDaysLabel, formatDate, isOverdue } from '@/lib/dates'
 import type { Plan, PlanItem, PlanModel, Verdict } from '@/lib/plans'
 import type { DeclineCode } from '@/lib/decline'
@@ -446,6 +447,12 @@ export default function PlanView({
               </li>
               <li className="plan-contents-extra"><b>{STORY_PROMPTS.length}×</b> Stories — one a day</li>
             </ol>
+            {/* Where the week came from (2026-10-08): copies, twists, and
+                the ones written just for her. Nothing when there is nothing
+                worth saying. */}
+            {sourceLine(ideas) && (
+              <p className="plan-contents-sources">{sourceLine(ideas)}</p>
+            )}
           </section>
         )}
 

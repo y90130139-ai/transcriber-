@@ -11,6 +11,7 @@ import MadeAlready from './MadeAlready'
 import ShotListView from './ShotListView'
 import { buildShotList } from '@/lib/shotlist'
 import { effortFor } from '@/lib/effort'
+import { SOURCE_TEXT } from '@/lib/source'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -356,6 +357,14 @@ export default function PlanItemCard({
             hover exists; the chip alone has to carry phones. */}
         {filming && <span className="plan-effort" data-tier={effort.tier} title={effort.why || undefined}>{effort.label}</span>}
         {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
+        {/* Where the card came from, in her words (2026-10-08): a reference
+            to copy, a twist on one, or something written for her. Only on
+            cards she films — a repurpose is posted, not sourced. */}
+        {filming && SOURCE_TEXT[item.source].chip && (
+          <span className="plan-source" data-source={item.source}>
+            {SOURCE_TEXT[item.source].chip}
+          </span>
+        )}
       </div>
 
       {/* When it goes out, and what kind of card it is — in her words. Only on
@@ -365,6 +374,15 @@ export default function PlanItemCard({
         <b>{KIND_TEXT[kind].label}</b>
         <span>{kind === 'repurpose' && item.repurposed_at ? REPURPOSE_READY : KIND_TEXT[kind].line}</span>
       </div>
+
+      {/* A reskin's one line: what changes from the reference. Its own block
+          rather than a line in the direction, because it is the whole card. */}
+      {filming && item.twist && (
+        <div className="plan-twist">
+          <b>The twist</b>
+          <span>{item.twist}</span>
+        </div>
+      )}
 
       {item.slot_time && item.slot_day !== null && (
         <p className="plan-when">

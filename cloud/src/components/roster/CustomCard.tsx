@@ -116,6 +116,14 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
         placeholder="Directions — what to film, what to say, anything she needs"
         rows={3}
       />
+      {/* The mixed-source rule (2026-10-08): directions make it a card of
+          ours; none make it a blank, parked off their page until written. */}
+      {!body.trim() && (
+        <p className="customcard-note">
+          No directions yet, so this lands as a <b>blank</b> — on the week for the
+          team, hidden from them until someone writes it (the Source select on the card).
+        </p>
+      )}
       <div className="customcard-row">
         <label className="customcard-save">
           <input type="checkbox" checked={saveAs} onChange={(event) => setSaveAs(event.target.checked)} />

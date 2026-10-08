@@ -202,6 +202,18 @@
   color: var(--sc-ember);
 }
 .plan-contents-extra { color: var(--sc-ink-500); font-size: var(--sc-text-sm); }
+/* Where the week came from, under the counts: "6 to copy · 4 with a twist ·
+   3 made for you". Same quiet mono voice as the labels. */
+.plan-contents-sources {
+  margin: var(--sc-space-2) 0 0;
+  padding-top: var(--sc-space-2);
+  border-top: var(--sc-rule-hair);
+  font-family: var(--sc-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
 
 .plan-label {
   display: block;
@@ -1035,6 +1047,48 @@
 }
 .plan-effort[data-tier='quick'] { color: var(--sc-positive); }
 .plan-effort[data-tier='big'] { color: var(--sc-ember); }
+
+/* Where the card came from (2026-10-08): Copy this one / Your twist on it /
+   Made for you. Same chip voice as the effort beside it; a filled chip for
+   the written card, because that one asks her to trust words with no video. */
+.plan-source {
+  flex: 0 0 auto;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--sc-ink-700);
+}
+.plan-source[data-source='reskin'] { color: var(--sc-ember-deep); }
+.plan-source[data-source='original'] {
+  border-color: var(--sc-ember);
+  background: var(--sc-ember);
+  color: var(--sc-bone);
+}
+
+/* A reskin's one line: what changes from the reference. The same block voice
+   as the card kind above it, quieter — it is an instruction, not a headline. */
+.plan .plan-twist {
+  display: grid;
+  gap: 0.15rem;
+  margin: var(--sc-space-3) 0;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-left: 3px solid var(--sc-ember);
+  background: var(--sc-ember-tint);
+  border-radius: 0 10px 10px 0;
+}
+.plan .plan-twist b {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.plan .plan-twist span { font-size: var(--sc-text-base); color: var(--sc-ink-900); }
 
 /* Named before it is watched. "Car GRWM" reads as a job; "Video 3" reads as a
    row number, which is what the badge beside it already is. */

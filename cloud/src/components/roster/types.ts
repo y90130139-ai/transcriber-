@@ -92,6 +92,10 @@ export type PlanHead = {
   timezone: string
   filming_days: number[]
   standing_rules: string | null
+  /** Their won't-do formats, for the editor's chips — struck, never silent. */
+  wont_do?: string[] | null
+  /** Which template drives their autodraft (lib/template.ts). Null = auto. */
+  plan_template?: string | null
   /** Telegram, through the Gosian bot. `queued`/`manual` wait for the bot;
    *  `posted`/`recorded`/`failed` are its answer. */
   telegram_state: 'queued' | 'manual' | 'posted' | 'recorded' | 'failed' | null
@@ -123,8 +127,13 @@ export type PlanMessageRow = {
 
 export type PlanItemRow = {
   /** What kind of job it is on her card — see cardKind in lib/card.ts. */
-  bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
+  bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
   source_post?: string | null
+  /** Where the card came from — the mixed-source tag (lib/source.ts). Null
+   *  derives from the bucket, so render through `sourceOf`. */
+  source?: string | null
+  /** A reskin's one line: what changes from the reference. */
+  twist?: string | null
   /** Repurpose cards: null while it still needs repurposing. */
   repurposed_at?: string | null
   /** Her thumbs on the reference: 1 up, -1 down, null not answered. */

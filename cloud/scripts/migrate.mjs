@@ -1259,6 +1259,18 @@ const statements = [
      label       text not null,
      created_at  timestamptz not null default now()
    )`,
+
+  // "What it is" entries the team adds in the queue's second column
+  // (2026-10-08) — per-format kinds, saved once and offered forever, the
+  // same way the German playbook's entries are offered for german.
+  `create table if not exists transcriber.format_kinds (
+     id          text primary key,
+     format      text not null,
+     label       text not null,
+     created_at  timestamptz not null default now()
+   )`,
+  `create unique index if not exists format_kinds_one
+     on transcriber.format_kinds (format, lower(label))`,
 ]
 
 for (const statement of statements) {

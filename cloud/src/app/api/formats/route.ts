@@ -16,7 +16,12 @@ export async function GET() {
   const rows = await sql.query(
     `select id, label from transcriber.custom_formats order by lower(label)`,
   )
-  return NextResponse.json({ formats: rows })
+  // The per-format "what it is" entries ride along — one fetch arms both
+  // columns of the queue's composer.
+  const kinds = await sql.query(
+    `select id, format, label from transcriber.format_kinds order by lower(label)`,
+  )
+  return NextResponse.json({ formats: rows, kinds })
 }
 
 export async function POST(request: Request) {

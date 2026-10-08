@@ -27,18 +27,32 @@ export default function QueueTab({
   /** The three-column composer (Geno, 2026-10-08): what it is, which kind,
    *  then the links or files — so everything arrives already identified. */
   const [format, setFormat] = useState('')
-  const [germanNo, setGermanNo] = useState('')
-  const [name, setName] = useState('')
+  /** The picked "what it is": a German playbook number, or `k:<id>` for a
+   *  saved kind. Resolved to variant/name at submit. */
+  const [kind, setKind] = useState('')
   const [customFormats, setCustomFormats] = useState<{ id: string; label: string }[]>([])
+  const [kinds, setKinds] = useState<{ id: string; format: string; label: string }[]>([])
   const [newFormat, setNewFormat] = useState<string | null>(null)
+  const [newKind, setNewKind] = useState<string | null>(null)
   const dragDepth = useRef(0)
 
   useEffect(() => {
     fetch('/api/formats')
-      .then((response) => (response.ok ? response.json() : { formats: [] }))
-      .then((body) => setCustomFormats(body.formats ?? []))
-      .catch(() => setCustomFormats([]))
+      .then((response) => (response.ok ? response.json() : { formats: [], kinds: [] }))
+      .then((body) => { setCustomFormats(body.formats ?? []); setKinds(body.kinds ?? []) })
+      .catch(() => { setCustomFormats([]); setKinds([]) })
   }, [])
+
+  /** What the current pick means for the API: a German playbook number, or
+   *  a saved kind's label that names every row. */
+  const picked = (() => {
+    if (!kind) return { variant: undefined as string | undefined, name: undefined as string | undefined }
+    if (kind.startsWith('k:')) {
+      const entry = kinds.find((row) => `k:${row.id}` === kind)
+      return { variant: undefined, name: entry?.label }
+    }
+    return { variant: kind, name: undefined }
+  })()
 
   /** "+ Make a new format": saved once, offered forever, tagged like any. */
   async function saveFormat() {
@@ -61,6 +75,28 @@ export default function QueueTab({
     setFormat(String(body.format.id))
     setNewFormat(null)
   }
+
+  /** "+ Add what it is": saved per format, offered forever, picked now. */
+  async function saveKind() {
+    const label = (newKind ?? '').trim()
+    if (!label || !format) return
+    const response = await fetch('/api/formats/kinds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format, label }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setNote({ text: body.error ?? 'Could not save that.', bad: true })
+      return
+    }
+    setKinds((current) => {
+      const rest = current.filter((entry) => entry.id !== body.kind.id)
+      return [...rest, body.kind].sort((a, b) => a.label.localeCompare(b.label))
+    })
+    setKind(`k:${body.kind.id}`)
+    setNewKind(null)
+  }
   const inFlight = pending.filter((item) => queueState(item) === 'flight')
   const waiting = pending.filter((item) => queueState(item) === 'viewer')
   const stuck = pending.filter((item) => queueState(item) === 'stuck')
@@ -75,8 +111,8 @@ export default function QueueTab({
       body: JSON.stringify({
         text: paste,
         format: format || undefined,
-        variant: germanNo || undefined,
-        name: name || undefined,
+        variant: picked.variant,
+        name: picked.name,
       }),
     })
     const body = await response.json().catch(() => ({}))
@@ -85,8 +121,8 @@ export default function QueueTab({
     } else {
       setPaste('')
       const skipped = body.skipped ? `, ${body.skipped} already in the library` : ''
-      const as = germanNo && findGerman(germanNo)
-        ? ` as German #${germanNo}` : name ? ` as “${name}”` : ''
+      const as = picked.variant && findGerman(picked.variant)
+        ? ` as German #${picked.variant}` : picked.name ? ` as “${picked.name}”` : ''
       setNote({ text: `Added ${body.added}${as}${skipped}.` })
       onChanged()
     }
@@ -108,8 +144,8 @@ export default function QueueTab({
           handleUploadUrl: '/api/uploads',
           clientPayload: JSON.stringify({
             format: format || undefined,
-            variant: germanNo || undefined,
-            name: name || undefined,
+            variant: picked.variant,
+            name: picked.name,
           }),
         })
       }
@@ -167,10 +203,11 @@ export default function QueueTab({
               className="field"
               value={format}
               onChange={(event) => {
-                const picked = event.target.value
-                if (picked === '__new') { setNewFormat(''); return }
-                setFormat(picked)
-                if (picked !== GERMAN_FORMAT_TAG) setGermanNo('')
+                const chosen = event.target.value
+                if (chosen === '__new') { setNewFormat(''); return }
+                setFormat(chosen)
+                setKind('')
+                setNewKind(null)
               }}
             >
               <option value="">No format — label later</option>
@@ -204,30 +241,48 @@ export default function QueueTab({
 
           <div className="queue-composer-col">
             <label className="axis-name" htmlFor="queue-kind">What it is</label>
-            {format === GERMAN_FORMAT_TAG ? (
-              <select
-                id="queue-kind"
-                className="field"
-                value={germanNo}
-                onChange={(event) => setGermanNo(event.target.value)}
-              >
-                <option value="">Which German format?</option>
-                {GERMAN_TYPES.map((type) => (
-                  <optgroup key={type.id} label={type.label}>
-                    {type.formats.map((entry) => (
-                      <option key={entry.no} value={entry.no}>#{entry.no} · {entry.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            ) : (
-              <input
-                id="queue-kind"
-                className="field"
-                value={name}
-                placeholder="Optional — names every row in this paste"
-                onChange={(event) => setName(event.target.value)}
-              />
+            <select
+              id="queue-kind"
+              className="field"
+              value={kind}
+              disabled={!format}
+              title={format ? undefined : 'Pick a format first'}
+              onChange={(event) => {
+                const chosen = event.target.value
+                if (chosen === '__new') { setNewKind(''); return }
+                setKind(chosen)
+              }}
+            >
+              <option value="">{format ? 'Optional — names every row' : 'Pick a format first'}</option>
+              {format === GERMAN_FORMAT_TAG && GERMAN_TYPES.map((type) => (
+                <optgroup key={type.id} label={type.label}>
+                  {type.formats.map((entry) => (
+                    <option key={entry.no} value={entry.no}>#{entry.no} · {entry.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+              {kinds.some((entry) => entry.format === format) && (
+                <optgroup label="Our own">
+                  {kinds.filter((entry) => entry.format === format).map((entry) => (
+                    <option key={entry.id} value={`k:${entry.id}`}>{entry.label}</option>
+                  ))}
+                </optgroup>
+              )}
+              {format && <option value="__new">+ Add what it is…</option>}
+            </select>
+            {newKind !== null && (
+              <span className="queue-newformat">
+                <input
+                  className="field"
+                  value={newKind}
+                  autoFocus
+                  placeholder="Name it — saved for next time"
+                  onChange={(event) => setNewKind(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') void saveKind() }}
+                />
+                <button className="pill" onClick={() => void saveKind()}>Save</button>
+                <button className="pill" onClick={() => setNewKind(null)}>Cancel</button>
+              </span>
             )}
           </div>
 

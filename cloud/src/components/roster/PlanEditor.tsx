@@ -919,7 +919,7 @@ export default function PlanEditor({
                           <span className="planrow-no">
                             {item.card_no ? `V-${item.card_no}` : index + 1}
                           </span>
-                          {item.has_thumb && (
+                          {item.has_thumb && item.job_id && (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={thumbUrl(item.job_id)} alt="" width={56} height={70} loading="lazy" />
                           )}

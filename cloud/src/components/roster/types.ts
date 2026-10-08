@@ -145,7 +145,9 @@ export type PlanItemRow = {
   /** Their post of it, if they pasted the link. */
   made_url?: string | null
   id: string
-  job_id: string
+  /** Null on a written card — custom, original, blank — which has no library
+   *  video behind it, on purpose. */
+  job_id: string | null
   position: number
   /** Phase 4. The card's own id, its name, and where it gets filmed.
    *  `item_title` rather than `title` because `title` further down is the
@@ -194,11 +196,15 @@ export type PlanItemRow = {
   preview: string | null
 }
 
-export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purged'
+export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purged' | 'written'
 
 /** Whether this item is actually available on her phone, which is the one thing
  *  worth knowing before a link is sent. */
 export function uploadStateOf(item: PlanItemRow): UploadState {
+  // A written card — custom, original, blank — has no video on purpose: the
+  // directions ARE the card. Counting it as "no video on disk" made three
+  // perfectly healthy cards read as broken (Geno, 2026-10-08).
+  if (!item.job_id) return 'written'
   if (item.uploaded_at) return 'ready'
   if (item.r2_purged_at) return 'purged'
   if (!item.folder) {
@@ -215,6 +221,7 @@ export const UPLOAD_LABEL: Record<UploadState, string> = {
   fetching: 'Downloading — shows up here by itself',
   'no-video': 'No video on disk',
   purged: 'Reclaimed',
+  written: 'Written card — nothing to watch',
 }
 
 /** One of her own posts, ingested metadata-only, for the tap-to-link strip.

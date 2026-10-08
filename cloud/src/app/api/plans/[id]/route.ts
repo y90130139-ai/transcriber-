@@ -47,6 +47,9 @@ export async function GET(_request: Request, { params }: Params) {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.r2_bytes, i.uploaded_at, i.r2_purged_at,
             t.author, t.title, t.webpage_url, t.duration_sec, t.folder,
+            -- A card pasted a minute ago has no transcript row yet; the job's
+            -- own status is what tells "still downloading" from "no video".
+            j.status as job_status,
             (t.thumbnail is not null) as has_thumb,
             ${preview('t.plain', 160, 't.on_screen_text')} as preview,
             -- Who else is carrying this same reel. The editor flags it rather
@@ -58,6 +61,7 @@ export async function GET(_request: Request, { params }: Params) {
        from transcriber.plan_items i
        join transcriber.plans pl on pl.id = i.plan_id
        left join transcriber.transcripts t on t.job_id = i.job_id
+       left join transcriber.jobs j on j.id = i.job_id
        left join lateral (
          select json_agg(json_build_object(
                   'id',     n.id,

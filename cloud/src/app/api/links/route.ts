@@ -50,6 +50,9 @@ export async function POST(request: Request) {
   // thin until the Mac fetches — her page says the video is not ready yet —
   // and every appendItems guard (declines, solo, one-card-per-reel) applies.
   let attached = 0
+  // The cards the paste became, so the editor can point at them — "landed as
+  // V-121, V-122" beats a count when the week is forty rows long.
+  let cards: { id: string; card_no: number | null }[] = []
   if (typeof payload.plan_id === 'string' && /^[A-Za-z0-9_-]{6,32}$/.test(payload.plan_id)) {
     const [plan] = await sql.query(
       `select id, model_id from transcriber.plans where id = $1`,
@@ -60,16 +63,27 @@ export async function POST(request: Request) {
       `select id from transcriber.jobs where source_key = any($1::text[])`,
       [links],
     )
-    attached = await appendItems(
-      String(plan.id), String(plan.model_id),
-      held.map((job) => String(job.id)),
-    )
+    const jobIds = held.map((job) => String(job.id))
+    attached = await appendItems(String(plan.id), String(plan.model_id), jobIds)
+    if (attached > 0) {
+      const landed = await sql.query(
+        `select id, card_no from transcriber.plan_items
+          where plan_id = $1 and job_id = any($2::text[])
+          order by position`,
+        [String(plan.id), jobIds],
+      )
+      cards = landed.map((row) => ({
+        id: String(row.id),
+        card_no: row.card_no === null || row.card_no === undefined ? null : Number(row.card_no),
+      }))
+    }
   }
 
   return NextResponse.json({
     added: rows.length,
     skipped: links.length - rows.length,
     attached,
+    cards,
     jobs: rows,
   })
 }

@@ -20,6 +20,8 @@ import {
 
 const COPY_RESET_MS = 1600
 const BOT_CHECK_MS = 15_000
+/** How often to look again while a pasted video is still downloading. */
+const FETCH_CHECK_MS = 12_000
 
 /** One week of one model's plan: what is on it, in what order, with what
  *  direction — and whether every video is actually reachable from her phone. */
@@ -61,6 +63,9 @@ export default function PlanEditor({
   const [intake, setIntake] = useState('')
   const [intakeBusy, setIntakeBusy] = useState(false)
   const [intakeNote, setIntakeNote] = useState<string | null>(null)
+  /** Cards a paste just landed — highlighted and scrolled to, so nobody has
+   *  to hunt the week for where the video went. */
+  const [justLanded, setJustLanded] = useState<Set<string>>(new Set())
   /** Her winning verticals and the template the ladder suggests. */
   const [winning, setWinning] = useState<{
     winners_count: number
@@ -145,6 +150,15 @@ export default function PlanEditor({
     const timer = setInterval(() => { void loadPlan() }, BOT_CHECK_MS)
     return () => clearInterval(timer)
   }, [waitingOnBot, loadPlan])
+
+  // While anything is still downloading, keep looking: the card should gain
+  // its thumb and player on its own, not after a hand reload.
+  const anyFetching = items.some((item) => uploadStateOf(item) === 'fetching')
+  useEffect(() => {
+    if (!anyFetching) return
+    const timer = setInterval(() => { void loadPlan() }, FETCH_CHECK_MS)
+    return () => clearInterval(timer)
+  }, [anyFetching, loadPlan])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -402,13 +416,24 @@ export default function PlanEditor({
     }
     setIntake('')
     const attached = Number(body.attached ?? 0)
+    const cards: { id: string; card_no: number | null }[] = Array.isArray(body.cards) ? body.cards : []
+    const names = cards.map((card) => (card.card_no ? `V-${card.card_no}` : 'new card')).join(' · ')
     setIntakeNote(
       attached > 0
-        ? `${attached} on the week${body.added ? ` (${body.added} new to the library)` : ''}. The Mac fetches the videos next.`
+        ? `On the week as ${names || `${attached} card${attached === 1 ? '' : 's'}`} — downloading now, the video appears on the card by itself.`
         : 'Nothing landed — already on this week, declined by them, or not theirs to film.',
     )
     await loadPlan()
     void loadWeeks()
+    if (cards.length > 0) {
+      const ids = new Set(cards.map((card) => card.id))
+      setJustLanded(ids)
+      // The list just re-rendered; point the screen at where they went.
+      setTimeout(() => {
+        document.getElementById(`planrow-${cards[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 150)
+      setTimeout(() => setJustLanded(new Set()), 8000)
+    }
   }
 
   /** Drop the files: browser → Blob, and the completion callback lays each
@@ -527,6 +552,7 @@ export default function PlanEditor({
   const unassignedEdits = items.filter((item) => item.editing_notes && !item.editor_id).length
   const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
   const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
+  const fetching = items.filter((item) => uploadStateOf(item) === 'fetching').length
   const filmed = items.filter((item) => item.filmed_at).length
   const shareUrl =
     plan && !plan.token_revoked_at && typeof window !== 'undefined'
@@ -729,11 +755,12 @@ export default function PlanEditor({
                 </div>
               )}
 
-              <div className="planstate" data-ready={waiting === 0 && missing === 0}>
-                {waiting === 0 && missing === 0 ? (
+              <div className="planstate" data-ready={waiting === 0 && missing === 0 && fetching === 0}>
+                {waiting === 0 && missing === 0 && fetching === 0 ? (
                   <span>Every video is on R2. Safe to send.</span>
                 ) : (
                   <span>
+                    {fetching > 0 && `${fetching} still downloading — the video lands on its card by itself, nothing to do. `}
                     {waiting > 0 && `${waiting} still uploading — the Mac has to be awake. `}
                     {missing > 0 && `${missing} have no video on disk and will show the Instagram link only.`}
                   </span>
@@ -879,7 +906,13 @@ export default function PlanEditor({
                   {items.map((item, index) => {
                     const state = uploadStateOf(item)
                     return (
-                      <li key={item.id} className="planrow" data-state={state}>
+                      <li
+                        key={item.id}
+                        id={`planrow-${item.id}`}
+                        className="planrow"
+                        data-state={state}
+                        data-new={justLanded.has(item.id) || undefined}
+                      >
                         <div className="planrow-top">
                           {/* Its own id, not its position. Reordering the week
                               used to rename every card under the one moved. */}

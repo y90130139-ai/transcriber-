@@ -817,6 +817,17 @@ textarea.field { resize: vertical; }
 }
 .planrow[data-state='waiting'] { border-top-color: var(--sc-caution); }
 .planrow[data-state='no-video'] { border-top-color: var(--sc-critical); }
+/* Still downloading: expected, not alarming — caution tone, not critical. */
+.planrow[data-state='fetching'] { border-top-color: var(--sc-caution); }
+/* A card a paste just landed — lit for a few seconds so the eye finds it
+   where it fell, then back to normal. */
+.planrow[data-new] {
+  background: var(--sc-ember-tint);
+  outline: 2px solid var(--sc-ember);
+  outline-offset: 4px;
+  border-radius: 4px;
+  transition: background 0.6s ease, outline-color 0.6s ease;
+}
 
 .planrow-top {
   display: grid;

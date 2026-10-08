@@ -187,24 +187,32 @@ export type PlanItemRow = {
   webpage_url: string | null
   duration_sec: number | null
   folder: string | null
+  /** The library job's own status — what tells a card still downloading
+   *  ("queued"/"running") apart from one with genuinely no video. */
+  job_status?: string | null
   has_thumb: boolean
   preview: string | null
 }
 
-export type UploadState = 'ready' | 'waiting' | 'no-video' | 'purged'
+export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purged'
 
 /** Whether this item is actually available on her phone, which is the one thing
  *  worth knowing before a link is sent. */
 export function uploadStateOf(item: PlanItemRow): UploadState {
   if (item.uploaded_at) return 'ready'
   if (item.r2_purged_at) return 'purged'
-  if (!item.folder) return 'no-video'
+  if (!item.folder) {
+    // Just pasted: the Mac has not fetched it yet. Saying "no video on disk"
+    // here is what sent everyone scrolling for a card that was simply loading.
+    return item.job_status === 'queued' || item.job_status === 'running' ? 'fetching' : 'no-video'
+  }
   return 'waiting'
 }
 
 export const UPLOAD_LABEL: Record<UploadState, string> = {
   ready: 'On R2',
   waiting: 'Waiting on the Mac',
+  fetching: 'Downloading — shows up here by itself',
   'no-video': 'No video on disk',
   purged: 'Reclaimed',
 }

@@ -206,6 +206,15 @@ def _source_for(job: dict) -> tuple[str, Path | None]:
     if job.get("kind") != "file":
         return job["source"], None
     name = Path(job.get("label") or "clip.mp4").name
+    # The label used to be the filename, so it always carried an extension.
+    # Now it can be a human name — "#100 - Halloween" — and a landing file
+    # with no media suffix cascades: `adopt_local` copies it to a bare
+    # `source`, nothing makes a poster, and the tunnel has nothing to serve.
+    # The blob URL still ends in the real extension; take it from there.
+    if Path(name).suffix.lower() not in media.MEDIA_SUFFIXES:
+        from urllib.parse import urlparse
+        suffix = Path(urlparse(job["source"]).path).suffix.lower()
+        name += suffix if suffix in media.MEDIA_SUFFIXES else ".mp4"
     landing = config.INBOX_DIR / f"cloud-{job['id']}-{name}"
     return str(_download(job["source"], landing)), landing
 

@@ -20,19 +20,6 @@ import {
 const COPY_RESET_MS = 1600
 const BOT_CHECK_MS = 15_000
 
-/** Phase 3. The brief as discrete fields, in the order her card renders them.
- *  `notes` stays the prose direction above these and is not in this list. */
-const BRIEF_FIELDS: { key: BriefKey; label: string; placeholder: string }[] = [
-  { key: 'wardrobe', label: 'Wardrobe', placeholder: 'What they put on' },
-  { key: 'camera', label: 'Camera', placeholder: 'How the phone is held' },
-  { key: 'takes', label: 'Takes', placeholder: 'How many goes' },
-  { key: 'sound', label: 'Sound', placeholder: 'Where the audio comes from' },
-  { key: 'hook', label: 'Hook', placeholder: 'The opening line, quoted on their card' },
-  { key: 'caption', label: 'Caption', placeholder: 'What they post under it' },
-]
-
-type BriefKey = 'wardrobe' | 'camera' | 'takes' | 'sound' | 'hook' | 'caption'
-
 /** One week of one model's plan: what is on it, in what order, with what
  *  direction — and whether every video is actually reachable from her phone. */
 export default function PlanEditor({
@@ -223,21 +210,6 @@ export default function PlanEditor({
     if (!response.ok) return
     await loadPlan()
     void loadWeeks()
-  }
-
-  /** Fill whichever brief fields this item does not have yet, from the same
-   *  rules that draft them on assignment. Never overwrites one that is set, so
-   *  it is safe on an item that has already been edited by hand. */
-  async function draftFields(id: string) {
-    if (!planId) return
-    const response = await fetch(`/api/plans/${planId}/items`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, draft: true }),
-    })
-    if (!response.ok) return
-    const body = await response.json()
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...body.item } : item)))
   }
 
   /** Bind one of her posts to a card. This is the only thing that ever marks a
@@ -945,42 +917,13 @@ export default function PlanEditor({
                           </div>
                         </div>
 
-                        {/* Phase 3. The same brief as fields, which is what her
-                            card renders as a label/value grid, a quoted hook and
-                            a caption with a copy button. Empty ones simply do
-                            not render on her side. */}
-                        <div className="briefhead">
-                          <span className="axis-name">The brief, as fields</span>
-                          <button
-                            className="chip"
-                            onClick={() => draftFields(item.id)}
-                            title="Fills only the ones that are empty"
-                          >
-                            Draft the empty ones
-                          </button>
-                        </div>
-                        <div className="briefgrid">
-                          {BRIEF_FIELDS.map((field) => (
-                            <div key={field.key} className="form-row">
-                              <label className="axis-name" htmlFor={`${field.key}-${item.id}`}>
-                                {field.label}
-                              </label>
-                              <textarea
-                                id={`${field.key}-${item.id}`}
-                                className="field"
-                                // Three, because at two the last words of a
-                                // camera note sit below the fold of the box.
-                                rows={3}
-                                // Keyed on the value so a draft that arrives from
-                                // the server lands in a box she is not typing in.
-                                key={`${field.key}-${item[field.key] ?? ''}`}
-                                defaultValue={item[field.key] ?? ''}
-                                placeholder={field.placeholder}
-                                onBlur={(event) => patchItem(item.id, { [field.key]: event.target.value })}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        {/* The brief-as-fields grid (Wardrobe/Camera/Takes/
+                            Sound/Hook/Caption) is gone (Geno, 2026-10-08:
+                            "irrelevant"). The measured shot list carries the
+                            filming directions, the caption engine writes the
+                            captions, and the columns stay in the database —
+                            cards drafted with them render on her page as
+                            they always did. */}
 
                         <label className="axis-name" htmlFor={`editing-${item.id}`}>Editing notes</label>
                         <textarea

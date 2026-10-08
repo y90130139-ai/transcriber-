@@ -291,6 +291,11 @@
     "desc": "Random video-chat reactions — Omegle/OmeTV/Monkey-style split screen, meeting strangers on camera"
    },
    {
+    "id": "german",
+    "label": "German format",
+    "desc": "The German flash-trend playbook — 57 numbered reel formats in six types (bounce, outfit switch, clip bait, shower, facial acting, skit); see lib/german.ts"
+   },
+   {
     "id": "rage-bait",
     "label": "Rage bait",
     "desc": "Engineered to provoke argument in comments"

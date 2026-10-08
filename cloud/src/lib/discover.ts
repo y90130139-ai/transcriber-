@@ -17,6 +17,7 @@
  * the deck sharpens as she uses it.
  */
 import { sql } from './db'
+import { linksFor, mediaBase } from './media'
 import { suggestionsFor } from './match'
 import { appendItems } from './models'
 import { recreateTarget } from './week-target'
@@ -33,6 +34,11 @@ export type DiscoverCard = {
   url: string | null
   formats: string[]
   has_thumb: boolean
+  /** Signed link to the file on the Mac, while the Mac is awake — inline
+   *  playback in the deck (Geno, 2026-10-07: watch it on the spot, sound
+   *  and all, like the library). Null when the Mac sleeps; the card falls
+   *  back to the Instagram link exactly as before. */
+  video: string | null
   /** Only on starred rows: the plan item her star became, if she added it. */
   item_id?: string | null
   week_of?: string | null
@@ -41,13 +47,14 @@ export type DiscoverCard = {
 async function detailsFor(jobIds: string[]): Promise<Map<string, DiscoverCard>> {
   if (jobIds.length === 0) return new Map()
   const rows = await sql.query(
-    `select t.job_id, t.webpage_url, t.duration_sec, (t.thumbnail is not null) as has_thumb,
+    `select t.job_id, t.folder, t.webpage_url, t.duration_sec, (t.thumbnail is not null) as has_thumb,
             left(coalesce(nullif(t.on_screen_text, ''), t.plain), 160) as preview,
             coalesce((select array_agg(g.tag) from transcriber.tags g
                        where g.job_id = t.job_id and g.axis = 'format'), '{}') as formats
        from transcriber.transcripts t where t.job_id = any($1::text[])`,
     [jobIds],
   )
+  const base = rows.some((row) => row.folder) ? await mediaBase() : null
   return new Map(rows.map((row) => [String(row.job_id), {
     job_id: String(row.job_id),
     preview: (row.preview as string | null)?.trim() || null,
@@ -55,6 +62,7 @@ async function detailsFor(jobIds: string[]): Promise<Map<string, DiscoverCard>> 
     url: (row.webpage_url as string | null) ?? null,
     formats: Array.isArray(row.formats) ? (row.formats as string[]) : [],
     has_thumb: Boolean(row.has_thumb),
+    video: base && row.folder ? linksFor(base, String(row.folder)).video : null,
   }]))
 }
 

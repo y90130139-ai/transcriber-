@@ -1235,6 +1235,7 @@ const statements = [
      received_at   timestamptz not null default now()
    )`,
 
+<<<<<<< HEAD
   // Her own posts are matched on the handle, case-insensitively — the reads on
   // her sheet and the roster's post count both say `lower(t.author) = lower(...)`.
   // The plain author index cannot serve a match wrapped in `lower()`, so the
@@ -1273,6 +1274,50 @@ const statements = [
      points     jsonb not null,
      primary key (terms_key, geo, range_id)
    )`,
+=======
+  // The mixed-source plan (2026-10-08). Every card says where it came from —
+  // reference / reskin / original / ai_draft / blank — and a reskin carries
+  // the one line that changes it. Null `source` derives from `bucket`
+  // (lib/source.ts), so nothing is backfilled.
+  `alter table transcriber.plan_items add column if not exists source text`,
+  `alter table transcriber.plan_items add column if not exists twist text`,
+
+  // Which plan template drives their autodraft: sprint / mix / winning /
+  // custom. Null means auto — the ladder in lib/template.ts suggests one but
+  // behaviour only changes when a human sets it.
+  `alter table transcriber.models add column if not exists plan_template text`,
+
+  // How many reels THIS week wants (2026-10-08) — the editor's dots fill
+  // toward it. Null falls back to the model's weekly_target, as before.
+  `alter table transcriber.plans add column if not exists target int`,
+
+  // Formats the team makes up on the spot (2026-10-08) — the queue's "+ make
+  // a new format". They live beside the taxonomy's, never inside it: the
+  // taxonomy stays the curated list, these are the working vocabulary.
+  `create table if not exists transcriber.custom_formats (
+     id          text primary key,
+     label       text not null,
+     created_at  timestamptz not null default now()
+   )`,
+
+  // "What it is" entries the team adds in the queue's second column
+  // (2026-10-08) — per-format kinds, saved once and offered forever, the
+  // same way the German playbook's entries are offered for german.
+  `create table if not exists transcriber.format_kinds (
+     id          text primary key,
+     format      text not null,
+     label       text not null,
+     created_at  timestamptz not null default now()
+   )`,
+  `create unique index if not exists format_kinds_one
+     on transcriber.format_kinds (format, lower(label))`,
+
+  // Per-card switches (2026-10-08): hide the filming directions, hide the
+  // automated captions — a written card without a video captions nothing.
+  // Null/false = shown, exactly as every card behaved before.
+  `alter table transcriber.plan_items add column if not exists hide_film boolean`,
+  `alter table transcriber.plan_items add column if not exists hide_captions boolean`,
+>>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
 ]
 
 for (const statement of statements) {

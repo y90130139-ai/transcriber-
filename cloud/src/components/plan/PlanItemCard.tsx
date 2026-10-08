@@ -11,6 +11,7 @@ import MadeAlready from './MadeAlready'
 import ShotListView from './ShotListView'
 import { buildShotList } from '@/lib/shotlist'
 import { effortFor } from '@/lib/effort'
+import { SOURCE_TEXT } from '@/lib/source'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -294,6 +295,9 @@ export default function PlanItemCard({
   // A repurpose is posted as it is, and one of her own reels is hers to
   // repost or not — neither gets filming directions.
   const filming = kind !== 'repurpose' && kind !== 'yours'
+  // The per-card switch: the team can turn the filming directions off before
+  // the week goes out — a written card may be all direction already.
+  const film = filming && !item.hide_film
   const expression = expressionFor(item.formats)
   // Written from the reference's measured picture when the Mac has looked;
   // until then the card keeps its old directions.
@@ -356,6 +360,14 @@ export default function PlanItemCard({
             hover exists; the chip alone has to carry phones. */}
         {filming && <span className="plan-effort" data-tier={effort.tier} title={effort.why || undefined}>{effort.label}</span>}
         {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
+        {/* Where the card came from, in her words (2026-10-08): a reference
+            to copy, a twist on one, or something written for her. Only on
+            cards she films — a repurpose is posted, not sourced. */}
+        {filming && SOURCE_TEXT[item.source].chip && (
+          <span className="plan-source" data-source={item.source}>
+            {SOURCE_TEXT[item.source].chip}
+          </span>
+        )}
       </div>
 
       {/* When it goes out, and what kind of card it is — in her words. Only on
@@ -365,6 +377,15 @@ export default function PlanItemCard({
         <b>{KIND_TEXT[kind].label}</b>
         <span>{kind === 'repurpose' && item.repurposed_at ? REPURPOSE_READY : KIND_TEXT[kind].line}</span>
       </div>
+
+      {/* A reskin's one line: what changes from the reference. Its own block
+          rather than a line in the direction, because it is the whole card. */}
+      {filming && item.twist && (
+        <div className="plan-twist">
+          <b>The twist</b>
+          <span>{item.twist}</span>
+        </div>
+      )}
 
       {item.slot_time && item.slot_day !== null && (
         <p className="plan-when">
@@ -452,7 +473,7 @@ export default function PlanItemCard({
           2026-10-06: "so many words") — the same eight lines on every card
           read as wallpaper by card three; a button she opens when she wants
           them keeps the card short and the list useful. */}
-      {filming && (
+      {film && (
         <Step no={++step} title="Before you film">
           <details className="plan-transcript plan-film-fold">
             <summary><span aria-hidden>&#128161;</span> Things you should know</summary>
@@ -463,7 +484,7 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {filming && shotList && (
+      {film && shotList && (
         <Step no={++step} title="Film it">
           {/* A planner card on her own winner still says what must not
               change — that is the whole test. A new idea says it once, at
@@ -490,7 +511,7 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {filming && !shotList && (
+      {film && !shotList && (
         <Step no={++step} title="Film it">
           {/* What she keeps exactly and what she changes. */}
           <div className="plan-rule">
@@ -528,7 +549,7 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {filming && !shotList && (
+      {film && !shotList && (
         <Step no={++step} title="What to say">
           {/* The reference's opening, only when it can be read — the screen
               reader's misreads ("Bal al") are filtered out on load. */}
@@ -565,7 +586,7 @@ export default function PlanItemCard({
         </Step>
       )}
 
-      {(captions.length > 0 || item.caption) && (
+      {((!item.hide_captions && captions.length > 0) || item.caption) && (
         <Step no={++step} title="What to write">
           <p className="plan-quiet">Pick one, tap Copy, and paste it under your video on Instagram.</p>
           <ul className="plan-options">
@@ -577,7 +598,7 @@ export default function PlanItemCard({
                 </button>
               </li>
             )}
-            {captions.map((option, index) => (
+            {!item.hide_captions && captions.map((option, index) => (
               <li key={index} className="plan-option">
                 <p>{option.caption}</p>
                 <button type="button" className="plan-copy" onClick={() => void copyOption(index, option.caption)}>

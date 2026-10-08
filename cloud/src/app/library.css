@@ -718,6 +718,18 @@ textarea.field { resize: vertical; }
 
 /* Before a link goes out, the one thing worth knowing is whether every video is
    actually reachable from her phone. */
+/* The week's dots (2026-10-08): one per video, filling toward the week's own
+   target — the same reading as the dashes on her page, for the editor. */
+.plandots-row { display: flex; align-items: center; gap: var(--sc-space-3); flex-wrap: wrap; }
+.plandots { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; max-width: 100%; }
+.plandots i {
+  width: 12px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sc-ink-150);
+}
+.plandots i[data-filled] { background: var(--sc-ember); }
+
 .planstate {
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
@@ -755,6 +767,17 @@ textarea.field { resize: vertical; }
 }
 .planrow[data-state='waiting'] { border-top-color: var(--sc-caution); }
 .planrow[data-state='no-video'] { border-top-color: var(--sc-critical); }
+/* Still downloading: expected, not alarming — caution tone, not critical. */
+.planrow[data-state='fetching'] { border-top-color: var(--sc-caution); }
+/* A card a paste just landed — lit for a few seconds so the eye finds it
+   where it fell, then back to normal. */
+.planrow[data-new] {
+  background: var(--sc-ember-tint);
+  outline: 2px solid var(--sc-ember);
+  outline-offset: 4px;
+  border-radius: 4px;
+  transition: background 0.6s ease, outline-color 0.6s ease;
+}
 
 .planrow-top {
   display: grid;

@@ -12,6 +12,7 @@
  * so a later template edit never rewrites cards already sent.
  */
 import { useEffect, useState } from 'react'
+import { GERMAN_FORMAT_TAG, GERMAN_TYPES, findGerman, germanBrief } from '@/lib/german'
 import { taxonomy } from '@/lib/taxonomy'
 import DropSelect from '../dashboard/DropSelect'
 
@@ -25,8 +26,12 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   const [picked, setPicked] = useState('')
   const [label, setLabel] = useState('')
   const [format, setFormat] = useState('')
+  /** Which numbered German format, when `format` is the German tag. */
+  const [germanNo, setGermanNo] = useState('')
   const [body, setBody] = useState('')
   const [saveAs, setSaveAs] = useState(true)
+  /** "We need 7 of the same template" — one ask, N numbered cards. */
+  const [count, setCount] = useState(1)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
@@ -54,7 +59,7 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
     const response = await fetch(`/api/plans/${planId}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ custom: { label, format: format || undefined, body } }),
+      body: JSON.stringify({ custom: { label, format: format || undefined, body, count } }),
     }).catch(() => null)
     if (!response?.ok) {
       setNote('The card did not land — try again.')
@@ -73,10 +78,12 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
     }
     setLabel('')
     setFormat('')
+    setGermanNo('')
     setBody('')
     setPicked('')
     setBusy(false)
-    setNote('On the week.')
+    setNote(count > 1 ? `${count} on the week.` : 'On the week.')
+    setCount(1)
     onAdded()
   }
 
@@ -91,6 +98,7 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   return (
     <div className="customcard" role="group" aria-label="Add a custom card">
       <div className="customcard-row">
+<<<<<<< HEAD
         <DropSelect
           label="Start from a template"
           value={picked}
@@ -109,7 +117,52 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
             ...FORMATS.map((tag) => ({ value: tag.id, label: tag.label })),
           ]}
         />
+=======
+        <select value={picked} onChange={(event) => pick(event.target.value)} aria-label="Start from a template">
+          <option value="">Blank template…</option>
+          {templates.map((template) => (
+            <option key={template.id} value={template.id}>{template.label}</option>
+          ))}
+        </select>
+        <select
+          value={format}
+          onChange={(event) => { setFormat(event.target.value); setGermanNo('') }}
+          aria-label="Format"
+        >
+          <option value="">Format…</option>
+          {FORMATS.map((tag) => (
+            <option key={tag.id} value={tag.id}>{tag.label}</option>
+          ))}
+        </select>
+>>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
       </div>
+
+      {/* The German playbook (2026-10-08): one format tag, 57 numbered
+          variations. Picking one writes the doc's own row — direction,
+          versions, caption — into the card, and the label if it is empty. */}
+      {format === GERMAN_FORMAT_TAG && (
+        <select
+          value={germanNo}
+          aria-label="What kind of German format?"
+          onChange={(event) => {
+            const no = event.target.value
+            setGermanNo(no)
+            const picked = findGerman(no)
+            if (!picked) return
+            setLabel((current) => current.trim() ? current : `German #${picked.no} · ${picked.name}`)
+            setBody((current) => current.trim() ? `${current.trim()}\n\n${germanBrief(picked)}` : germanBrief(picked))
+          }}
+        >
+          <option value="">What kind of German format?</option>
+          {GERMAN_TYPES.map((type) => (
+            <optgroup key={type.id} label={`${type.label} — ${type.blurb}`}>
+              {type.formats.map((entry) => (
+                <option key={entry.no} value={entry.no}>#{entry.no} · {entry.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
       <input
         type="text"
         value={label}
@@ -123,13 +176,32 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
         placeholder="Directions — what to film, what to say, anything she needs"
         rows={3}
       />
+      {/* The mixed-source rule (2026-10-08): directions make it a card of
+          ours; none make it a blank, parked off their page until written. */}
+      {!body.trim() && (
+        <p className="customcard-note">
+          No directions yet, so this lands as a <b>blank</b> — on the week for the
+          team, hidden from them until someone writes it (the Source select on the card).
+        </p>
+      )}
       <div className="customcard-row">
         <label className="customcard-save">
           <input type="checkbox" checked={saveAs} onChange={(event) => setSaveAs(event.target.checked)} />
           {picked ? 'Update the template too' : 'Keep as a template'}
         </label>
+        <label className="customcard-save" title="How many cards of this — each gets its own number">
+          ×
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={count}
+            style={{ width: '4ch' }}
+            onChange={(event) => setCount(Math.max(1, Math.min(30, Number(event.target.value) || 1)))}
+          />
+        </label>
         <button type="button" className="btn btn-small" disabled={busy || !label.trim()} onClick={() => void add()}>
-          {busy ? 'Adding…' : 'Add to the week'}
+          {busy ? 'Adding…' : count > 1 ? `Add ${count} to the week` : 'Add to the week'}
         </button>
         <button type="button" className="btn btn-small btn-quiet" onClick={() => setOpen(false)}>Close</button>
       </div>

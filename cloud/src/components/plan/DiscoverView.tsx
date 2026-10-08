@@ -23,6 +23,8 @@ type Card = {
   url: string | null
   formats: string[]
   has_thumb: boolean
+  /** Signed Mac link while it is awake — inline playback. */
+  video?: string | null
   item_id?: string | null
 }
 
@@ -32,6 +34,10 @@ export default function DiscoverView({ token }: { token: string }) {
   const [deck, setDeck] = useState<Card[] | null>(null)
   const [starred, setStarred] = useState<Card[]>([])
   const [drag, setDrag] = useState(0)
+  /** Sound for the top card (Geno, 2026-10-07): the video plays muted in
+   *  the frame; one tap hears it. Resets per card — autoplay with sound
+   *  on a fresh card is how a deck gets closed in a quiet room. */
+  const [sound, setSound] = useState(false)
   const [leaving, setLeaving] = useState<'star' | 'pass' | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const start = useRef<number | null>(null)
@@ -61,6 +67,7 @@ export default function DiscoverView({ token }: { token: string }) {
     }).catch(() => null)
     setTimeout(() => {
       setDeck((cards) => (cards ? cards.slice(1) : cards))
+      setSound(false) // the next card starts quiet
       if (action === 'star') setStarred((shelf) => [{ ...top, item_id: null }, ...shelf])
       setDrag(0)
       setLeaving(null)
@@ -127,11 +134,36 @@ export default function DiscoverView({ token }: { token: string }) {
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
             >
-              {top.has_thumb ? (
+              {top.video ? (
+                /* The file itself, straight off the Mac while it is awake —
+                   watch it on the spot instead of a trip to Instagram. */
+                <video
+                  key={top.job_id}
+                  className="disc-frame"
+                  src={top.video}
+                  poster={top.has_thumb ? `/api/plan/${token}/discover/thumb/${top.job_id}` : undefined}
+                  muted={!sound}
+                  loop
+                  playsInline
+                  autoPlay
+                  preload="metadata"
+                />
+              ) : top.has_thumb ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img className="disc-frame" src={`/api/plan/${token}/discover/thumb/${top.job_id}`} alt="" draggable={false} />
               ) : (
                 <div className="disc-frame disc-blank" />
+              )}
+              {top.video && (
+                <button
+                  type="button"
+                  className="disc-sound"
+                  aria-pressed={sound}
+                  onClick={(event) => { event.stopPropagation(); setSound((on) => !on) }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  {sound ? '\u{1F50A}' : '\u{1F507}'}
+                </button>
               )}
               <div className="disc-meta">
                 {top.preview && <p className="disc-preview">{top.preview}</p>}
@@ -141,7 +173,7 @@ export default function DiscoverView({ token }: { token: string }) {
                 </p>
                 {top.url && (
                   <a className="disc-watch" href={top.url} target="_blank" rel="noreferrer">
-                    Watch it on Instagram &#8599;
+                    {top.video ? 'Open on Instagram \u2197' : 'Watch it on Instagram \u2197'}
                   </a>
                 )}
               </div>

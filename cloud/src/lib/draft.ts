@@ -124,6 +124,12 @@ export async function draftWeek(modelId: string, weekOf: string): Promise<DraftR
   // her that nobody reviewed — Blair's and Ria's weeks of 2026-09-21 were one
   // button away from that.
   if (await alreadySent(modelId, weekOf)) return null
+  // Custom template (2026-10-08): the team builds this model's weeks by hand,
+  // and a drafted card landing under theirs is exactly what they opted out of.
+  const [who] = await sql.query(
+    `select plan_template from transcriber.models where id = $1`, [modelId],
+  )
+  if (who?.plan_template === 'custom') return null
   const week = await weekFor(modelId)
   if (!week) return null
 

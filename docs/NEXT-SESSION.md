@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 2026-10-08: Trends, round four — the Google Trends shape
 
 **Same-day flatten pass (Geno): "one bg, no hue, no cards or borders."**
@@ -54,6 +55,55 @@ hero → graph → live list → ask box → library panels.
   `docs/rollback/cdpshot.mjs`, graph checked on 7 d and 24 h, comparison
   "namibia vs usa" through the form. **Not deployed — Geno runs the
   Vercel deploy.**
+=======
+# 2026-10-07 (later): polish round + Discover playback — read this first
+
+Everything through `ec96ed4` is on GitHub `main`, 138 tests green, build
+clean. **Deploys are Geno's** (`! cd ~/projects/social-transcriber/cloud &&
+npx vercel deploy --prod --yes`); the last deploy this session VERIFIED was
+before the eight-asks batch — assume everything from `fa9d36d` on is
+undeployed unless Geno says otherwise.
+
+Shipped after the eight asks:
+- **Brand & niche un-flattened** (`4c94b06`): the ASAS console's masthead
+  logo claimed `.brand` (flex) and crushed the merged section into slivers;
+  renamed ours to `.brandtab`. Verified by logging into the LOCAL app with
+  Playwright (APP_PASSWORD from cloud/.env.local, posted to /api/auth —
+  works; keep the password out of chat). "What she says yes to" also stops
+  counting tag `unknown`.
+- **She can change her photo any day** (`4c94b06`): Make-it-yours gained
+  the photo picker; posts `{data_url}` to /api/plan/<token>/photo → same
+  models.photo_url the console reads; header img swapped in place.
+- **Reels-tab polish** (`9b760df`): Blueprint tab REMOVED, Sunday call
+  REMOVED, the 5 trial cuts fold to ONE card ("Trial · 5 cuts", Done closes
+  the batch — groupTrials() in ReelsTab), strip cards flex + pin action
+  rows (fixes editor strip AND Analytics most-viewed lopsidedness).
+- **Quality check rebuilt** (`9b760df`): the old prompt hardcoded
+  "outdoors high / bedrooms low" over ONE poster frame — the source of
+  every "change the background to an outdoor setting" note. Now: lateral
+  join by shortcode pulls transcript/on-screen text/measured shots when the
+  reel is ingested (pacing = measured, else dropped), neutral judge-it-for-
+  what-it-IS rubric, frame-only reels say so honestly, Claude vision
+  (sonnet) once ANTHROPIC_API_KEY lands else Workers vision. All old
+  quality_checks rows DELETED so everything re-scans. NOTE: most of a
+  model's own posts are frame-only (not ingested) — the rich path needs
+  her reels in the library.
+- **Discover plays inline** (`ec96ed4`): deck cards carry a signed Mac
+  tunnel link (same linksFor/mediaBase as the console library) — top card
+  autoplays muted, 🔇 corner button unmutes, resets quiet per card. Mac
+  asleep → poster + Instagram link as before. The R2 pipeline for
+  always-on playback stays parked.
+
+Still waiting on Geno:
+- **ANTHROPIC_API_KEY on Vercel** — now gates FOUR things: OPS /q, Trends
+  AI web search, Strategy reports (opus), quality-check vision judge.
+- **RESEND_API_KEY + RESEND_FROM** — editor email notifications (the
+  copy-link path works without them).
+- **D-tier 30-day sprint programme** — saved task, Geno will spec it.
+- First Strategy report run on a real model; verify a live portal week's
+  two piles; watch the first Scout 19:00 pass on the ASAS-rewritten
+  login files; Wed 16:00 ET plan reminders (first window was 2026-10-07).
+>>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
 
 # 2026-10-07: Geno's eight asks (through `918fc45`) + the ASAS restructure
 

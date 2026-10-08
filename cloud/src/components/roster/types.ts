@@ -101,6 +101,8 @@ export type PlanHead = {
   intro: string | null
   status: 'draft' | 'sent'
   sent_at: string | null
+  /** How many reels THIS week wants; null falls back to `weekly_target`. */
+  target?: number | null
   model_name: string
   access_token: string
   token_revoked_at: string | null
@@ -108,6 +110,10 @@ export type PlanHead = {
   timezone: string
   filming_days: number[]
   standing_rules: string | null
+  /** Their won't-do formats, for the editor's chips — struck, never silent. */
+  wont_do?: string[] | null
+  /** Which template drives their autodraft (lib/template.ts). Null = auto. */
+  plan_template?: string | null
   /** Telegram, through the Gosian bot. `queued`/`manual` wait for the bot;
    *  `posted`/`recorded`/`failed` are its answer. */
   telegram_state: 'queued' | 'manual' | 'posted' | 'recorded' | 'failed' | null
@@ -139,8 +145,17 @@ export type PlanMessageRow = {
 
 export type PlanItemRow = {
   /** What kind of job it is on her card — see cardKind in lib/card.ts. */
-  bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | null
+  bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
   source_post?: string | null
+  /** Where the card came from — the mixed-source tag (lib/source.ts). Null
+   *  derives from the bucket, so render through `sourceOf`. */
+  source?: string | null
+  /** A reskin's one line: what changes from the reference. */
+  twist?: string | null
+  /** Per-card switches: filming directions and automated captions, each
+   *  hideable from her card before the week goes out. */
+  hide_film?: boolean | null
+  hide_captions?: boolean | null
   /** Repurpose cards: null while it still needs repurposing. */
   repurposed_at?: string | null
   /** Her thumbs on the reference: 1 up, -1 down, null not answered. */
@@ -150,7 +165,9 @@ export type PlanItemRow = {
   /** Their post of it, if they pasted the link. */
   made_url?: string | null
   id: string
-  job_id: string
+  /** Null on a written card — custom, original, blank — which has no library
+   *  video behind it, on purpose. */
+  job_id: string | null
   position: number
   /** Phase 4. The card's own id, its name, and where it gets filmed.
    *  `item_title` rather than `title` because `title` further down is the
@@ -192,26 +209,39 @@ export type PlanItemRow = {
   webpage_url: string | null
   duration_sec: number | null
   folder: string | null
+  /** The library job's own status — what tells a card still downloading
+   *  ("queued"/"running") apart from one with genuinely no video. */
+  job_status?: string | null
   has_thumb: boolean
   preview: string | null
 }
 
-export type UploadState = 'ready' | 'waiting' | 'no-video' | 'purged'
+export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purged' | 'written'
 
 /** Whether this item is actually available on her phone, which is the one thing
  *  worth knowing before a link is sent. */
 export function uploadStateOf(item: PlanItemRow): UploadState {
+  // A written card — custom, original, blank — has no video on purpose: the
+  // directions ARE the card. Counting it as "no video on disk" made three
+  // perfectly healthy cards read as broken (Geno, 2026-10-08).
+  if (!item.job_id) return 'written'
   if (item.uploaded_at) return 'ready'
   if (item.r2_purged_at) return 'purged'
-  if (!item.folder) return 'no-video'
+  if (!item.folder) {
+    // Just pasted: the Mac has not fetched it yet. Saying "no video on disk"
+    // here is what sent everyone scrolling for a card that was simply loading.
+    return item.job_status === 'queued' || item.job_status === 'running' ? 'fetching' : 'no-video'
+  }
   return 'waiting'
 }
 
 export const UPLOAD_LABEL: Record<UploadState, string> = {
   ready: 'On R2',
   waiting: 'Waiting on the Mac',
+  fetching: 'Downloading — shows up here by itself',
   'no-video': 'No video on disk',
   purged: 'Reclaimed',
+  written: 'Written card — nothing to watch',
 }
 
 /** One of her own posts, ingested metadata-only, for the tap-to-link strip.

@@ -1,13 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { upload } from '@vercel/blob/client'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
 import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, thumbUrl } from '@/lib/format'
-import { labelOf } from '@/lib/taxonomy'
+import { CARD_SOURCES, SOURCE_TEXT, isSource, sourceOf } from '@/lib/source'
+import { PLAN_TEMPLATES, TEMPLATE_TEXT, WINNING_MIN, isTemplate, type PlanTemplate } from '@/lib/template'
+import { labelOf, taxonomy } from '@/lib/taxonomy'
 import CustomCard from './CustomCard'
 import DropSelect from '../dashboard/DropSelect'
 import { EditorAssign, EditorsPanel, useEditors } from './Editors'
@@ -18,19 +21,8 @@ import {
 
 const COPY_RESET_MS = 1600
 const BOT_CHECK_MS = 15_000
-
-/** Phase 3. The brief as discrete fields, in the order her card renders them.
- *  `notes` stays the prose direction above these and is not in this list. */
-const BRIEF_FIELDS: { key: BriefKey; label: string; placeholder: string }[] = [
-  { key: 'wardrobe', label: 'Wardrobe', placeholder: 'What they put on' },
-  { key: 'camera', label: 'Camera', placeholder: 'How the phone is held' },
-  { key: 'takes', label: 'Takes', placeholder: 'How many goes' },
-  { key: 'sound', label: 'Sound', placeholder: 'Where the audio comes from' },
-  { key: 'hook', label: 'Hook', placeholder: 'The opening line, quoted on their card' },
-  { key: 'caption', label: 'Caption', placeholder: 'What they post under it' },
-]
-
-type BriefKey = 'wardrobe' | 'camera' | 'takes' | 'sound' | 'hook' | 'caption'
+/** How often to look again while a pasted video is still downloading. */
+const FETCH_CHECK_MS = 12_000
 
 /** One week of one model's plan: what is on it, in what order, with what
  *  direction — and whether every video is actually reachable from her phone. */
@@ -62,6 +54,26 @@ export default function PlanEditor({
   const [showPreview, setShowPreview] = useState(true)
   /** Progress of the caption-and-DM writer, or null when idle. */
   const [writing, setWriting] = useState<string | null>(null)
+  /** Removed cards, newest last — the Undo button walks this back. The whole
+   *  row rides along, because the restore re-inserts it as it was. */
+  const [undone, setUndone] = useState<{ label: string; row: Record<string, unknown> }[]>([])
+  /** The format chips over the suggestions rail. Empty = everything. */
+  const [formatFilter, setFormatFilter] = useState<string[]>([])
+  /** The week's own intake: pasted links or dropped files, straight onto
+   *  this plan. */
+  const [intake, setIntake] = useState('')
+  const [intakeBusy, setIntakeBusy] = useState(false)
+  const [intakeNote, setIntakeNote] = useState<string | null>(null)
+  /** Cards a paste just landed — highlighted and scrolled to, so nobody has
+   *  to hunt the week for where the video went. */
+  const [justLanded, setJustLanded] = useState<Set<string>>(new Set())
+  /** Her winning verticals and the template the ladder suggests. */
+  const [winning, setWinning] = useState<{
+    winners_count: number
+    verticals: { format: string; posts: number; best_multiple: number | null }[]
+    suggested: PlanTemplate
+    template: PlanTemplate | null
+  } | null>(null)
 
   async function writeCopy(id: string) {
     setWriting('Writing…')
@@ -109,8 +121,14 @@ export default function PlanEditor({
   }, [planId])
 
   const loadSuggested = useCallback(async () => {
-    const response = await fetch(`/api/models/${modelId}/suggestions`)
+    const narrowed = formatFilter.length > 0 ? `?formats=${formatFilter.join(',')}` : ''
+    const response = await fetch(`/api/models/${modelId}/suggestions${narrowed}`)
     if (response.ok) setSuggested((await response.json()).items ?? [])
+  }, [modelId, formatFilter])
+
+  const loadWinning = useCallback(async () => {
+    const response = await fetch(`/api/models/${modelId}/verticals`)
+    if (response.ok) setWinning(await response.json())
   }, [modelId])
 
   const loadPosts = useCallback(async () => {
@@ -119,6 +137,7 @@ export default function PlanEditor({
   }, [modelId])
 
   useEffect(() => { void loadPosts() }, [loadPosts])
+  useEffect(() => { void loadWinning() }, [loadWinning])
   useEffect(() => { void loadWeeks() }, [loadWeeks])
   useEffect(() => { void loadPlan() }, [loadPlan])
   useEffect(() => { void loadSuggested() }, [loadSuggested])
@@ -132,6 +151,15 @@ export default function PlanEditor({
     const timer = setInterval(() => { void loadPlan() }, BOT_CHECK_MS)
     return () => clearInterval(timer)
   }, [waitingOnBot, loadPlan])
+
+  // While anything is still downloading, keep looking: the card should gain
+  // its thumb and player on its own, not after a hand reload.
+  const anyFetching = items.some((item) => uploadStateOf(item) === 'fetching')
+  useEffect(() => {
+    if (!anyFetching) return
+    const timer = setInterval(() => { void loadPlan() }, FETCH_CHECK_MS)
+    return () => clearInterval(timer)
+  }, [anyFetching, loadPlan])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -203,21 +231,6 @@ export default function PlanEditor({
     if (!response.ok) return
     await loadPlan()
     void loadWeeks()
-  }
-
-  /** Fill whichever brief fields this item does not have yet, from the same
-   *  rules that draft them on assignment. Never overwrites one that is set, so
-   *  it is safe on an item that has already been edited by hand. */
-  async function draftFields(id: string) {
-    if (!planId) return
-    const response = await fetch(`/api/plans/${planId}/items`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, draft: true }),
-    })
-    if (!response.ok) return
-    const body = await response.json()
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...body.item } : item)))
   }
 
   /** Bind one of her posts to a card. This is the only thing that ever marks a
@@ -334,10 +347,148 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
-  async function removeItem(id: string) {
-    setItems((current) => current.filter((item) => item.id !== id))
-    await fetch(`/api/plans/${planId}/items?item=${encodeURIComponent(id)}`, { method: 'DELETE' })
+  /** Lay a copy of a card at the end of the week — press it again for the
+   *  next variation. A library-backed card's copy becomes a written card;
+   *  the original keeps the video. */
+  async function duplicateItem(id: string) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duplicate: id }),
+    })
+    if (!response.ok) return
+    await loadPlan()
     void loadWeeks()
+  }
+
+  /** One concept in N outfits: the card becomes Version 1 and gets numbered
+   *  siblings — V-6..V-9 of the same idea, each its own card to film. */
+  async function makeVersions(id: string, total: number) {
+    if (!planId || total < 2) return
+    await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duplicate: id, count: total - 1, versions: true }),
+    })
+    await loadPlan()
+    void loadWeeks()
+  }
+
+  async function removeItem(id: string) {
+    const gone = items.find((item) => item.id === id)
+    setItems((current) => current.filter((item) => item.id !== id))
+    const response = await fetch(`/api/plans/${planId}/items?item=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const body = await response.json().catch(() => ({}))
+    // The whole row comes back so Undo can put it back exactly as it was —
+    // the one thing a misclicked × used to cost was everything on the card.
+    if (response.ok && body.removed) {
+      const label = gone?.card_no ? `V-${gone.card_no}` : gone?.item_title ?? gone?.title ?? 'Card'
+      setUndone((current) => [...current.slice(-19), { label, row: body.removed }])
+    }
+    void loadWeeks()
+  }
+
+  /** Put the last removed card back. The thread did not survive the delete;
+   *  everything else on the card did. */
+  async function undoRemove() {
+    const last = undone[undone.length - 1]
+    if (!last || !planId) return
+    setUndone((current) => current.slice(0, -1))
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restore: last.row }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      setCarryNote({ planId, text: body.error === 'already back on the week'
+        ? `${last.label} is already back on the week.`
+        : `${last.label} could not be restored.` })
+      return
+    }
+    await loadPlan()
+    void loadWeeks()
+  }
+
+  /** Paste links straight onto this week: they join the queue AND land here
+   *  as cards in one move, thin until the Mac fetches the videos. */
+  async function addLinks() {
+    if (!planId || !intake.trim()) return
+    setIntakeBusy(true)
+    setIntakeNote(null)
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: intake, plan_id: planId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    setIntakeBusy(false)
+    if (!response.ok) {
+      setIntakeNote(body.error ?? 'That did not go in.')
+      return
+    }
+    setIntake('')
+    const attached = Number(body.attached ?? 0)
+    const cards: { id: string; card_no: number | null }[] = Array.isArray(body.cards) ? body.cards : []
+    const names = cards.map((card) => (card.card_no ? `V-${card.card_no}` : 'new card')).join(' · ')
+    setIntakeNote(
+      attached > 0
+        ? `On the week as ${names || `${attached} card${attached === 1 ? '' : 's'}`} — downloading now, the video appears on the card by itself.`
+        : 'Nothing landed — already on this week, declined by them, or not theirs to film.',
+    )
+    await loadPlan()
+    void loadWeeks()
+    if (cards.length > 0) {
+      const ids = new Set(cards.map((card) => card.id))
+      setJustLanded(ids)
+      // The list just re-rendered; point the screen at where they went.
+      setTimeout(() => {
+        document.getElementById(`planrow-${cards[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 150)
+      setTimeout(() => setJustLanded(new Set()), 8000)
+    }
+  }
+
+  /** Drop the files: browser → Blob, and the completion callback lays each
+   *  one on this week. The attach is Blob's callback, so give it a beat. */
+  async function takeFiles(files: FileList | null) {
+    if (!files || files.length === 0 || !planId) return
+    setIntakeBusy(true)
+    let done = 0
+    for (const file of Array.from(files)) {
+      setIntakeNote(`Uploading ${file.name}…`)
+      try {
+        await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/uploads',
+          clientPayload: JSON.stringify({ plan_id: planId }),
+        })
+        done += 1
+      } catch (error) {
+        setIntakeNote(error instanceof Error ? error.message : 'Upload failed.')
+      }
+    }
+    setIntakeBusy(false)
+    if (done > 0) {
+      setIntakeNote(`${done} uploaded — attaching to the week…`)
+      setTimeout(() => {
+        void loadPlan()
+        void loadWeeks()
+        setIntakeNote(`${done} uploaded.`)
+      }, 2500)
+    }
+  }
+
+  /** Set which template drives their autodraft. Lives on the model, so next
+   *  Sunday's draft inherits it without anyone re-picking. */
+  async function setTemplate(template: PlanTemplate | null) {
+    const response = await fetch(`/api/models/${modelId}/template`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template }),
+    })
+    if (response.ok) setWinning((current) => (current ? { ...current, template } : current))
   }
 
   /** One card to another week. It leaves this list; the week it went to
@@ -415,6 +566,7 @@ export default function PlanEditor({
   const unassignedEdits = items.filter((item) => item.editing_notes && !item.editor_id).length
   const waiting = items.filter((item) => uploadStateOf(item) === 'waiting').length
   const missing = items.filter((item) => uploadStateOf(item) === 'no-video').length
+  const fetching = items.filter((item) => uploadStateOf(item) === 'fetching').length
   const filmed = items.filter((item) => item.filmed_at).length
   const shareUrl =
     plan && !plan.token_revoked_at && typeof window !== 'undefined'
@@ -535,15 +687,139 @@ export default function PlanEditor({
                   with the counted contents of the plan instead of a written
                   paragraph. plans.intro stays in the database untouched. */}
 
-              <div className="planstate" data-ready={waiting === 0 && missing === 0}>
-                {waiting === 0 && missing === 0 ? (
+              {/* How many reels THIS week wants, and the dots filling toward
+                  it (Geno, 2026-10-08) — every added video lights one more.
+                  Blank falls back to their weekly target. */}
+              <div className="form-row">
+                <label className="axis-name" htmlFor="plan-target">
+                  Videos wanted this week
+                </label>
+                <div className="plandots-row">
+                  <input
+                    id="plan-target"
+                    className="field field-inline"
+                    type="number"
+                    min={0}
+                    max={200}
+                    style={{ width: '7ch' }}
+                    key={`target-${plan.target ?? ''}`}
+                    defaultValue={plan.target ?? ''}
+                    placeholder={String(plan.weekly_target || 21)}
+                    onBlur={(event) => patchPlan({ target: event.target.value === '' ? 0 : Number(event.target.value) })}
+                  />
+                  {(() => {
+                    const want = plan.target ?? plan.weekly_target ?? 0
+                    const dots = Math.min(Math.max(want, items.length), 60)
+                    return (
+                      <>
+                        <span className="plandots" aria-label={`${items.length} of ${want} videos on the plan`}>
+                          {Array.from({ length: dots }).map((_, at) => (
+                            <i key={at} data-filled={at < items.length || undefined} />
+                          ))}
+                        </span>
+                        <span className="hint">{items.length} / {want}</span>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {/* Which template drives their autodraft (2026-10-08). On the
+                  model, not the week — next Sunday inherits it. Auto follows
+                  the ladder; the line under the select says where they are. */}
+              {winning && (
+                <div className="form-row">
+                  <label className="axis-name" htmlFor="plan-template">Template</label>
+                  <select
+                    id="plan-template"
+                    className="field"
+                    value={winning.template ?? ''}
+                    onChange={(event) => void setTemplate(isTemplate(event.target.value) ? event.target.value : null)}
+                  >
+                    <option value="">Auto — follows their winners ({TEMPLATE_TEXT[winning.suggested].label} now)</option>
+                    {PLAN_TEMPLATES.map((template) => (
+                      <option key={template} value={template} disabled={template === 'winning' && winning.winners_count < WINNING_MIN}>
+                        {TEMPLATE_TEXT[template].label}
+                        {template === 'winning' && winning.winners_count < WINNING_MIN
+                          ? ` — needs ${WINNING_MIN} winners (they have ${winning.winners_count})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">
+                    {TEMPLATE_TEXT[winning.template ?? winning.suggested].line}
+                    {winning.verticals.length > 0 && (
+                      <> {' '}Their winning verticals:{' '}
+                      {winning.verticals.map((vertical) =>
+                        `${labelOf('format', vertical.format)} (${vertical.posts})`).join(' · ')}.</>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* The nudge, only when the ladder and the setting disagree. */}
+              {winning && winning.winners_count >= WINNING_MIN && winning.template !== 'winning' && winning.template !== 'custom' && (
+                <div className="planstate planstate-short">
+                  <span>
+                    They have {winning.winners_count} winning reels — the Winning Verticals
+                    template would build their week around what already works for them.
+                  </span>
+                  <button className="btn btn-small" onClick={() => void setTemplate('winning')}>
+                    Switch
+                  </button>
+                </div>
+              )}
+
+              <div className="planstate" data-ready={waiting === 0 && missing === 0 && fetching === 0}>
+                {waiting === 0 && missing === 0 && fetching === 0 ? (
                   <span>Every video is on R2. Safe to send.</span>
                 ) : (
                   <span>
+                    {fetching > 0 && `${fetching} still downloading — the video lands on its card by itself, nothing to do. `}
                     {waiting > 0 && `${waiting} still uploading — the Mac has to be awake. `}
                     {missing > 0 && `${missing} have no video on disk and will show the Instagram link only.`}
                   </span>
                 )}
+              </div>
+
+              {/* The queue, on the week (Geno, 2026-10-08): paste Instagram,
+                  TikTok or YouTube links, or drop the files, and they land on
+                  THIS plan as cards — thin until the Mac fetches the videos. */}
+              <div
+                className="form-row"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  void takeFiles(event.dataTransfer.files)
+                }}
+              >
+                <label className="axis-name" htmlFor="plan-intake">
+                  Add videos to this week — paste links (Instagram · TikTok · YouTube) or drop files here
+                </label>
+                <textarea
+                  id="plan-intake"
+                  className="field"
+                  rows={2}
+                  value={intake}
+                  placeholder="https://instagram.com/reel/…  https://tiktok.com/@…/video/…"
+                  onChange={(event) => { setIntake(event.target.value); setIntakeNote(null) }}
+                />
+                <div className="copybar" style={{ position: 'static' }}>
+                  <button className="btn btn-small" disabled={intakeBusy || !intake.trim()} onClick={() => void addLinks()}>
+                    Add to the week
+                  </button>
+                  <label className="btn btn-small btn-quiet" style={{ display: 'inline-block', cursor: 'pointer' }}>
+                    Upload files…
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept="video/*,audio/*"
+                      disabled={intakeBusy}
+                      onChange={(event) => { void takeFiles(event.target.files); event.target.value = '' }}
+                    />
+                  </label>
+                  {intakeNote && <span className="hint" role="status">{intakeNote}</span>}
+                </div>
               </div>
 
               {/* A card of the team's own — label, format, directions, no
@@ -575,11 +851,11 @@ export default function PlanEditor({
                   scoreboard. Warned, never blocked: sending a short week on
                   purpose is a normal thing to do and the operator is allowed
                   to do it without arguing with a dialog. */}
-              {plan.weekly_target > 0 && items.length < plan.weekly_target && (
+              {(plan.target ?? plan.weekly_target) > 0 && items.length < (plan.target ?? plan.weekly_target) && (
                 <div className="planstate planstate-short">
                   <span>
-                    {items.length} on this week · their target is {plan.weekly_target}
-                    {' — '}{plan.weekly_target - items.length} short.
+                    {items.length} on this week · the target is {plan.target ?? plan.weekly_target}
+                    {' — '}{(plan.target ?? plan.weekly_target) - items.length} short.
                     {' '}Send it anyway if that is deliberate.
                   </span>
                 </div>
@@ -644,14 +920,20 @@ export default function PlanEditor({
                   {items.map((item, index) => {
                     const state = uploadStateOf(item)
                     return (
-                      <li key={item.id} className="planrow" data-state={state}>
+                      <li
+                        key={item.id}
+                        id={`planrow-${item.id}`}
+                        className="planrow"
+                        data-state={state}
+                        data-new={justLanded.has(item.id) || undefined}
+                      >
                         <div className="planrow-top">
                           {/* Its own id, not its position. Reordering the week
                               used to rename every card under the one moved. */}
                           <span className="planrow-no">
                             {item.card_no ? `V-${item.card_no}` : index + 1}
                           </span>
-                          {item.has_thumb && (
+                          {item.has_thumb && item.job_id && (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={thumbUrl(item.job_id)} alt="" width={56} height={70} loading="lazy" />
                           )}
@@ -693,14 +975,129 @@ export default function PlanEditor({
                               label="Move to another week"
                               placeholder="Week →"
                               value=""
+<<<<<<< HEAD
                               onChange={(next) => void moveToWeek(item.id, next)}
                               options={moveTargets.map((week) => ({
                                 value: week,
                                 label: `${formatDate(week)}${knownWeeks.has(week) ? '' : ' (new)'}`,
                               }))}
                             />
+=======
+                              aria-label="Move to another week"
+                              title="Move this card to another week"
+                              onChange={(event) => void moveToWeek(item.id, event.target.value)}
+                            >
+                              <option value="">Week →</option>
+                              {moveTargets.map((week) => (
+                                <option key={week} value={week}>
+                                  {formatDate(week)}{knownWeeks.has(week) ? '' : ' (new)'}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="chip"
+                              value=""
+                              aria-label="Make versions of this card"
+                              title="Same concept, different outfits — Version 1, 2, 3…"
+                              onChange={(event) => {
+                                const total = Number(event.target.value)
+                                event.target.value = ''
+                                if (total >= 2) void makeVersions(item.id, total)
+                              }}
+                            >
+                              <option value="">①②③</option>
+                              {[2, 3, 4, 5, 6, 7, 8].map((total) => (
+                                <option key={total} value={total}>{total} versions</option>
+                              ))}
+                            </select>
+                            <button
+                              className="chip"
+                              onClick={() => void duplicateItem(item.id)}
+                              aria-label="Duplicate"
+                              title="Duplicate this card — press again for each variation"
+                            >⧉</button>
+>>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
+                        </div>
+
+                        {/* Where the card came from (2026-10-08) and, for a
+                            twist, the one line that changes it. AI drafts and
+                            blanks stay off her page until someone resolves
+                            them — the select is how they get resolved. */}
+                        <div className="form-pair">
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`source-${item.id}`}>
+                              Source — what her card calls it
+                            </label>
+                            <select
+                              id={`source-${item.id}`}
+                              className="field"
+                              value={sourceOf(item.source, item.bucket ?? null)}
+                              onChange={(event) => {
+                                if (isSource(event.target.value)) void patchItem(item.id, { source: event.target.value })
+                              }}
+                            >
+                              {CARD_SOURCES.map((source) => (
+                                <option key={source} value={source}>
+                                  {SOURCE_TEXT[source].console}
+                                  {SOURCE_TEXT[source].chip ? ` — “${SOURCE_TEXT[source].chip}”` : ' — hidden from them'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-row">
+                            <label className="axis-name" htmlFor={`twist-${item.id}`}>
+                              The twist — what changes from the reference
+                            </label>
+                            <input
+                              id={`twist-${item.id}`}
+                              className="field"
+                              key={`twist-${item.twist ?? ''}`}
+                              defaultValue={item.twist ?? ''}
+                              placeholder="Same video — but the third pass is the members'-dinner fit"
+                              onBlur={(event) => patchItem(item.id, { twist: event.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        {/* The per-card switches (2026-10-08): the filming
+                            directions and the automated captions, each off-able
+                            before the week goes out — a written card may be all
+                            direction already, and without a video there is
+                            nothing honest to auto-caption. Off opens the
+                            hand-written fallback. */}
+                        <div className="copybar" style={{ position: 'static' }}>
+                          <button
+                            className="chip"
+                            data-on={!item.hide_film || undefined}
+                            title={item.hide_film
+                              ? 'Her card skips Before you film / Film it / What to say — the Direction box above is what she reads'
+                              : 'Her card shows the filming directions'}
+                            onClick={() => void patchItem(item.id, { hide_film: !item.hide_film })}
+                          >
+                            Film it: {item.hide_film ? 'off' : 'on'}
+                          </button>
+                          <button
+                            className="chip"
+                            data-on={!item.hide_captions || undefined}
+                            title={item.hide_captions
+                              ? 'The automated captions stay off this card'
+                              : 'Her card shows the automated captions'}
+                            onClick={() => void patchItem(item.id, { hide_captions: !item.hide_captions })}
+                          >
+                            Captions: {item.hide_captions ? 'off' : 'on'}
+                          </button>
+                          {item.hide_captions && (
+                            <input
+                              className="field field-inline"
+                              style={{ flex: 1, minWidth: '220px' }}
+                              key={`cap-${item.caption ?? ''}`}
+                              defaultValue={item.caption ?? ''}
+                              placeholder="+ Add a caption yourself — the one line her card shows"
+                              onBlur={(event) => patchItem(item.id, { caption: event.target.value })}
+                            />
+                          )}
                         </div>
 
                         {item.declined_at && (
@@ -795,42 +1192,13 @@ export default function PlanEditor({
                           </div>
                         </div>
 
-                        {/* Phase 3. The same brief as fields, which is what her
-                            card renders as a label/value grid, a quoted hook and
-                            a caption with a copy button. Empty ones simply do
-                            not render on her side. */}
-                        <div className="briefhead">
-                          <span className="axis-name">The brief, as fields</span>
-                          <button
-                            className="chip"
-                            onClick={() => draftFields(item.id)}
-                            title="Fills only the ones that are empty"
-                          >
-                            Draft the empty ones
-                          </button>
-                        </div>
-                        <div className="briefgrid">
-                          {BRIEF_FIELDS.map((field) => (
-                            <div key={field.key} className="form-row">
-                              <label className="axis-name" htmlFor={`${field.key}-${item.id}`}>
-                                {field.label}
-                              </label>
-                              <textarea
-                                id={`${field.key}-${item.id}`}
-                                className="field"
-                                // Three, because at two the last words of a
-                                // camera note sit below the fold of the box.
-                                rows={3}
-                                // Keyed on the value so a draft that arrives from
-                                // the server lands in a box she is not typing in.
-                                key={`${field.key}-${item[field.key] ?? ''}`}
-                                defaultValue={item[field.key] ?? ''}
-                                placeholder={field.placeholder}
-                                onBlur={(event) => patchItem(item.id, { [field.key]: event.target.value })}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        {/* The brief-as-fields grid (Wardrobe/Camera/Takes/
+                            Sound/Hook/Caption) is gone (Geno, 2026-10-08:
+                            "irrelevant"). The measured shot list carries the
+                            filming directions, the caption engine writes the
+                            captions, and the columns stay in the database —
+                            cards drafted with them render on her page as
+                            they always did. */}
 
                         <label className="axis-name" htmlFor={`editing-${item.id}`}>Editing notes</label>
                         <textarea
@@ -896,6 +1264,19 @@ export default function PlanEditor({
                     )
                   })}
                 </ol>
+              )}
+
+              {/* A misclicked × costs nothing now: the last removed cards sit
+                  here until the editor closes. The thread on a card does not
+                  survive, everything else does. */}
+              {undone.length > 0 && (
+                <div className="planstate planstate-short" role="status">
+                  <span>
+                    {undone[undone.length - 1].label} removed
+                    {undone.length > 1 ? ` · ${undone.length} in the undo pile` : ''}.
+                  </span>
+                  <button className="btn btn-small" onClick={() => void undoRemove()}>Undo</button>
+                </div>
               )}
 
               {/* Phase 5. Her own posts. The strip is here rather than on each
@@ -1006,10 +1387,39 @@ export default function PlanEditor({
                 </span>
               </div>
 
+              {/* Narrow the rail to the formats wanted on this week. A format
+                  on their won't-do list is shown struck and cannot be picked —
+                  the matcher would refuse it anyway; better said than silent. */}
+              <div className="weekrail" role="group" aria-label="Formats">
+                {taxonomy.format.tags.map((tag) => {
+                  const refused = (plan.wont_do ?? []).includes(tag.id)
+                  return (
+                    <button
+                      key={tag.id}
+                      className="pill"
+                      disabled={refused}
+                      data-on={formatFilter.includes(tag.id) || undefined}
+                      style={refused ? { textDecoration: 'line-through', opacity: 0.5 } : undefined}
+                      title={refused ? `On their won't-do list` : undefined}
+                      onClick={() => setFormatFilter((current) =>
+                        current.includes(tag.id)
+                          ? current.filter((id) => id !== tag.id)
+                          : [...current, tag.id])}
+                    >
+                      {tag.label}
+                    </button>
+                  )
+                })}
+                {formatFilter.length > 0 && (
+                  <button className="pill" onClick={() => setFormatFilter([])}>Clear</button>
+                )}
+              </div>
+
               {suggested.length === 0 ? (
                 <p className="hint">
-                  Nothing scores yet. Tick the formats they do in their profile — an
-                  untagged model matches nothing rather than everything.
+                  {formatFilter.length > 0
+                    ? 'Nothing scores on those formats. Clear the chips or tag more references.'
+                    : 'Nothing scores yet. Tick the formats they do in their profile — an untagged model matches nothing rather than everything.'}
                 </p>
               ) : (
                 <ul className="suggestlist">

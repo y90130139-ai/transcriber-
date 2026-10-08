@@ -2,6 +2,7 @@ import { headlineFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from './appea
 import { sql } from './db'
 import { currentWeekOf } from './dates'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
+import { hiddenFromModel, sourceOf, type CardSource } from './source'
 import { spoken } from './sql'
 import { shapeRows } from './week-load'
 import type { Measured } from './shotlist'
@@ -106,6 +107,16 @@ export type PlanItem = {
   bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
   /** Her own reel's shortcode when the card is one of her videos. */
   source_post: string | null
+  /** Where the card came from — the mixed-source tag (lib/source.ts). Derived
+   *  from `bucket` when nobody set one, so it is never null. Cards whose
+   *  source is hidden from her (ai_draft, blank) never get this far. */
+  source: CardSource
+  /** A reskin's one line: what changes from the reference. */
+  twist: string | null
+  /** Per-card switches: the filming directions, and the automated captions,
+   *  each hideable before the week goes out. */
+  hide_film: boolean
+  hide_captions: boolean
   /** Repurpose cards: when the refreshed file went back to her. */
   repurposed_at: string | null
   axis: string | null
@@ -247,6 +258,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
             i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
+            i.source, i.twist, i.hide_film, i.hide_captions,
             i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url, t.shots,
             snd.audio_title as sound_title, snd.original_audio,
             -- Her own accounts only: the plan's model, and nobody else's posts.
@@ -330,6 +342,10 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     media: mediaFor(row),
     bucket: isBucket(row.bucket) ? row.bucket : null,
     source_post: (row.source_post as string | null) ?? null,
+    source: sourceOf(row.source, typeof row.bucket === 'string' ? row.bucket : null),
+    twist: (row.twist as string | null) ?? null,
+    hide_film: Boolean(row.hide_film),
+    hide_captions: Boolean(row.hide_captions),
     repurposed_at: row.repurposed_at ? String(row.repurposed_at) : null,
     axis: (row.axis as string | null) ?? null,
     hold: (row.hold as string | null) ?? null,
@@ -376,7 +392,9 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
 
   return items.flatMap((item, index) => {
     const { drop, ...tidy } = shaped[index]
-    return drop ? [] : [{ ...item, ...tidy }]
+    // An AI draft nobody approved and a blank nobody filled stay off her
+    // page — and off the preview, because the preview IS her page.
+    return drop || hiddenFromModel(item.source) ? [] : [{ ...item, ...tidy }]
   })
 }
 

@@ -89,6 +89,52 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ restored: 1, item_id: String(row.id) })
   }
 
+  // Duplicate a card (Geno, 2026-10-08): "duplicate it, change some words up,
+  // keep going until you have your variations." The copy keeps everything a
+  // variation wants — direction, title, source, twist, the brief — and gets
+  // its own number. A library-backed card's copy drops the video and becomes
+  // a written card (one card per reel stands; the original keeps the Watch
+  // step); her own reels (source_post) are allowed to repeat, so those copy
+  // whole. `count` lays several in one ask.
+  if (typeof body.duplicate === 'string' && body.duplicate) {
+    const copies = typeof body.count === 'number' && Number.isFinite(body.count)
+      ? Math.max(1, Math.min(MAX_COPIES, Math.round(body.count)))
+      : 1
+    const ids: string[] = []
+    for (let copy = 0; copy < copies; copy += 1) {
+      const [row] = await sql.query(
+        `insert into transcriber.plan_items
+           (id, plan_id, job_id, position, notes, editing_notes, title, location, card_no,
+            bucket, axis, source_post, source_url, hold, slot_day, slot_time,
+            wardrobe, camera, takes, sound, hook, caption, brief_short, source, twist)
+         select $1, i.plan_id,
+                case when i.source_post is not null then i.job_id else null end,
+                (select coalesce(max(after.position), -1) + 1
+                   from transcriber.plan_items after where after.plan_id = i.plan_id),
+                i.notes, i.editing_notes, i.title, i.location,
+                (select coalesce(max(prior.card_no), 0) + 1
+                   from transcriber.plan_items prior
+                   join transcriber.plans pp on pp.id = prior.plan_id
+                  where pp.model_id = pl.model_id),
+                case when i.source_post is null and i.job_id is not null then 'custom' else i.bucket end,
+                i.axis, i.source_post, i.source_url, i.hold, i.slot_day, i.slot_time,
+                i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption, i.brief_short,
+                case when i.source_post is null and i.job_id is not null then 'original' else i.source end,
+                i.twist
+           from transcriber.plan_items i
+           join transcriber.plans pl on pl.id = i.plan_id
+          where i.id = $2 and i.plan_id = $3
+         returning id`,
+        [newId(), body.duplicate, id],
+      )
+      if (!row) return ids.length > 0
+        ? NextResponse.json({ added: ids.length, item_ids: ids })
+        : notFound()
+      ids.push(String(row.id))
+    }
+    return NextResponse.json({ added: ids.length, item_ids: ids })
+  }
+
   // A custom card (Geno, 2026-10-07): no library video behind it — a blank
   // template the team labels, formats and writes themselves. It lands as a
   // normal card; her page simply has no "Watch it" step for it.

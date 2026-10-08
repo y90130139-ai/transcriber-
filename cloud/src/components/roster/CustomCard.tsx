@@ -12,6 +12,7 @@
  * so a later template edit never rewrites cards already sent.
  */
 import { useEffect, useState } from 'react'
+import { GERMAN_FORMAT_TAG, GERMAN_TYPES, findGerman, germanBrief } from '@/lib/german'
 import { taxonomy } from '@/lib/taxonomy'
 
 type Template = { id: string; label: string; format: string | null; body: string | null }
@@ -24,6 +25,8 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   const [picked, setPicked] = useState('')
   const [label, setLabel] = useState('')
   const [format, setFormat] = useState('')
+  /** Which numbered German format, when `format` is the German tag. */
+  const [germanNo, setGermanNo] = useState('')
   const [body, setBody] = useState('')
   const [saveAs, setSaveAs] = useState(true)
   /** "We need 7 of the same template" — one ask, N numbered cards. */
@@ -74,6 +77,7 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
     }
     setLabel('')
     setFormat('')
+    setGermanNo('')
     setBody('')
     setPicked('')
     setBusy(false)
@@ -99,13 +103,44 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
             <option key={template.id} value={template.id}>{template.label}</option>
           ))}
         </select>
-        <select value={format} onChange={(event) => setFormat(event.target.value)} aria-label="Format">
+        <select
+          value={format}
+          onChange={(event) => { setFormat(event.target.value); setGermanNo('') }}
+          aria-label="Format"
+        >
           <option value="">Format…</option>
           {FORMATS.map((tag) => (
             <option key={tag.id} value={tag.id}>{tag.label}</option>
           ))}
         </select>
       </div>
+
+      {/* The German playbook (2026-10-08): one format tag, 57 numbered
+          variations. Picking one writes the doc's own row — direction,
+          versions, caption — into the card, and the label if it is empty. */}
+      {format === GERMAN_FORMAT_TAG && (
+        <select
+          value={germanNo}
+          aria-label="What kind of German format?"
+          onChange={(event) => {
+            const no = event.target.value
+            setGermanNo(no)
+            const picked = findGerman(no)
+            if (!picked) return
+            setLabel((current) => current.trim() ? current : `German #${picked.no} · ${picked.name}`)
+            setBody((current) => current.trim() ? `${current.trim()}\n\n${germanBrief(picked)}` : germanBrief(picked))
+          }}
+        >
+          <option value="">What kind of German format?</option>
+          {GERMAN_TYPES.map((type) => (
+            <optgroup key={type.id} label={`${type.label} — ${type.blurb}`}>
+              {type.formats.map((entry) => (
+                <option key={entry.no} value={entry.no}>#{entry.no} · {entry.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
       <input
         type="text"
         value={label}

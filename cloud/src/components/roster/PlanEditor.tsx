@@ -332,6 +332,21 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  /** Lay a copy of a card at the end of the week — press it again for the
+   *  next variation. A library-backed card's copy becomes a written card;
+   *  the original keeps the video. */
+  async function duplicateItem(id: string) {
+    if (!planId) return
+    const response = await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duplicate: id }),
+    })
+    if (!response.ok) return
+    await loadPlan()
+    void loadWeeks()
+  }
+
   async function removeItem(id: string) {
     const gone = items.find((item) => item.id === id)
     setItems((current) => current.filter((item) => item.id !== id))
@@ -923,6 +938,12 @@ export default function PlanEditor({
                                 </option>
                               ))}
                             </select>
+                            <button
+                              className="chip"
+                              onClick={() => void duplicateItem(item.id)}
+                              aria-label="Duplicate"
+                              title="Duplicate this card — press again for each variation"
+                            >⧉</button>
                             <button className="chip" onClick={() => removeItem(item.id)} aria-label="Remove">×</button>
                           </span>
                         </div>

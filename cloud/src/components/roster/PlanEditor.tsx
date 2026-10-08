@@ -361,6 +361,19 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  /** One concept in N outfits: the card becomes Version 1 and gets numbered
+   *  siblings — V-6..V-9 of the same idea, each its own card to film. */
+  async function makeVersions(id: string, total: number) {
+    if (!planId || total < 2) return
+    await fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duplicate: id, count: total - 1, versions: true }),
+    })
+    await loadPlan()
+    void loadWeeks()
+  }
+
   async function removeItem(id: string) {
     const gone = items.find((item) => item.id === id)
     setItems((current) => current.filter((item) => item.id !== id))
@@ -969,6 +982,22 @@ export default function PlanEditor({
                                 <option key={week} value={week}>
                                   {formatDate(week)}{knownWeeks.has(week) ? '' : ' (new)'}
                                 </option>
+                              ))}
+                            </select>
+                            <select
+                              className="chip"
+                              value=""
+                              aria-label="Make versions of this card"
+                              title="Same concept, different outfits — Version 1, 2, 3…"
+                              onChange={(event) => {
+                                const total = Number(event.target.value)
+                                event.target.value = ''
+                                if (total >= 2) void makeVersions(item.id, total)
+                              }}
+                            >
+                              <option value="">①②③</option>
+                              {[2, 3, 4, 5, 6, 7, 8].map((total) => (
+                                <option key={total} value={total}>{total} versions</option>
                               ))}
                             </select>
                             <button

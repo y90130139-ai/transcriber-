@@ -100,6 +100,27 @@ export async function POST(request: Request, { params }: Params) {
     const copies = typeof body.count === 'number' && Number.isFinite(body.count)
       ? Math.max(1, Math.min(MAX_COPIES, Math.round(body.count)))
       : 1
+    // Versions (Geno, 2026-10-08): same concept, different costume — the set
+    // names itself. The original becomes Version 1 and each copy counts on,
+    // so V-6..V-9 read as one idea in four outfits.
+    const versions = body.versions === true
+    const [base] = versions
+      ? await sql.query(
+          `select title from transcriber.plan_items where id = $1 and plan_id = $2`,
+          [body.duplicate, id],
+        )
+      : [null]
+    const stem = base
+      ? String(base.title ?? '').replace(/\s*·?\s*version\s*\d+\s*$/i, '').trim()
+      : ''
+    const versionTitle = (n: number) => (stem ? `${stem} · Version ${n}` : `Version ${n}`)
+    if (versions) {
+      if (!base) return notFound()
+      await sql.query(
+        `update transcriber.plan_items set title = $3 where id = $1 and plan_id = $2`,
+        [body.duplicate, id, versionTitle(1)],
+      )
+    }
     const ids: string[] = []
     for (let copy = 0; copy < copies; copy += 1) {
       const [row] = await sql.query(
@@ -131,6 +152,12 @@ export async function POST(request: Request, { params }: Params) {
         ? NextResponse.json({ added: ids.length, item_ids: ids })
         : notFound()
       ids.push(String(row.id))
+      if (versions) {
+        await sql.query(
+          `update transcriber.plan_items set title = $3 where id = $1 and plan_id = $2`,
+          [String(row.id), id, versionTitle(copy + 2)],
+        )
+      }
     }
     return NextResponse.json({ added: ids.length, item_ids: ids })
   }

@@ -16,11 +16,11 @@ export async function POST(request: Request) {
   const format = typeof body.format === 'string' ? body.format.trim().slice(0, 40) : ''
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 120) : ''
   if (!label) return NextResponse.json({ error: 'name it first' }, { status: 400 })
-  const known = format && (
-    isValidTag('format', format) ||
+  // No format is fine — the kind is then general, offered whatever is picked.
+  // A format that IS named has to be a real one, taxonomy or the team's own.
+  const known = !format || isValidTag('format', format) ||
     (await sql.query(`select 1 from transcriber.custom_formats where id = $1`, [format])).length > 0
-  )
-  if (!known) return NextResponse.json({ error: 'pick a format first' }, { status: 400 })
+  if (!known) return NextResponse.json({ error: 'not a format' }, { status: 400 })
 
   const [row] = await sql.query(
     `insert into transcriber.format_kinds (id, format, label)

@@ -76,14 +76,15 @@ export default function QueueTab({
     setNewFormat(null)
   }
 
-  /** "+ Add what it is": saved per format, offered forever, picked now. */
+  /** "+ Add what it is": saved under the picked format — or as a general
+   *  kind when none is picked — offered forever, picked now. */
   async function saveKind() {
     const label = (newKind ?? '').trim()
-    if (!label || !format) return
+    if (!label) return
     const response = await fetch('/api/formats/kinds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ format, label }),
+      body: JSON.stringify({ format: format || '', label }),
     })
     const body = await response.json().catch(() => ({}))
     if (!response.ok) {
@@ -245,15 +246,13 @@ export default function QueueTab({
               id="queue-kind"
               className="field"
               value={kind}
-              disabled={!format}
-              title={format ? undefined : 'Pick a format first'}
               onChange={(event) => {
                 const chosen = event.target.value
                 if (chosen === '__new') { setNewKind(''); return }
                 setKind(chosen)
               }}
             >
-              <option value="">{format ? 'Optional — names every row' : 'Pick a format first'}</option>
+              <option value="">Optional — names every row</option>
               {format === GERMAN_FORMAT_TAG && GERMAN_TYPES.map((type) => (
                 <optgroup key={type.id} label={type.label}>
                   {type.formats.map((entry) => (
@@ -261,14 +260,19 @@ export default function QueueTab({
                   ))}
                 </optgroup>
               ))}
-              {kinds.some((entry) => entry.format === format) && (
+              {/* The picked format's own kinds, and the general ones that
+                  belong to no format — both always offered, so this box is
+                  never locked behind the one beside it. */}
+              {kinds.some((entry) => entry.format === format || entry.format === '') && (
                 <optgroup label="Our own">
-                  {kinds.filter((entry) => entry.format === format).map((entry) => (
-                    <option key={entry.id} value={`k:${entry.id}`}>{entry.label}</option>
-                  ))}
+                  {kinds
+                    .filter((entry) => entry.format === format || entry.format === '')
+                    .map((entry) => (
+                      <option key={entry.id} value={`k:${entry.id}`}>{entry.label}</option>
+                    ))}
                 </optgroup>
               )}
-              {format && <option value="__new">+ Add what it is…</option>}
+              <option value="__new">+ Add what it is…</option>
             </select>
             {newKind !== null && (
               <span className="queue-newformat">

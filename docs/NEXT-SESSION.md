@@ -1,4 +1,86 @@
-<<<<<<< HEAD
+# 2026-10-08 (overnight): V4 plan system shipped end to end — read this first
+
+Prod = `787e3f4`, deployed READY (deploys by Claude are allowed when Geno
+asks explicitly; `npx vercel deploy --prod --yes` from cloud/). All
+migrations are RUN against Neon. 164 tests green. Memory file
+`transcriber-next-up.md` has the fuller trail.
+
+## Shipped tonight (one night, ~20 commits)
+
+- **Mixed-source cards (V4, Geno's pick from the mockup canvas
+  https://claude.ai/artifact/Ln3pjrZrE3wioDHvQgsX73):**
+  `plan_items.source` (reference/reskin/original/ai_draft/blank) +
+  `twist`; her chips say "Copy this one / Your twist on it / Made for
+  you"; ai_draft+blank never reach her page or preview; lib/source.ts.
+- **Templates on the model** (`models.plan_template`,
+  sprint/mix/winning/custom, null=auto): lib/template.ts ladder
+  (0 winners→Sprint, 3+→Winning), split.ts honours sprint (all-test at
+  full target) and winning (match on her proven formats), draft skips
+  custom. /api/models/[id]/verticals + /template.
+- **Editor:** per-card Source select + twist; remove-Undo (DELETE
+  returns the row, POST {restore} re-inserts — thread dies, rest
+  survives); format chips filter suggestionsFor (won't-do struck);
+  template picker + winners nudge; plan intake box (paste IG/TikTok/YT
+  links or drop files → cards on THAT plan, named "V-121 · V-122",
+  scrolled-to + lit, 'fetching' state off jobs.status + 12s re-poll);
+  plans.target + dots; brief-as-fields grid REMOVED (Geno:
+  "irrelevant"); Film it / Captions per-card toggles (hide_film /
+  hide_captions) with "+ add a caption yourself" when off; ①②③
+  versions picker (original→Version 1, siblings numbered, grouped
+  right behind the original — plain ⧉ too); written cards (job_id
+  null) have state 'written', never "no video on disk".
+- **Queue:** three-column composer — Format (+ make a new one →
+  transcriber.custom_formats) · What it is (German playbook when
+  german; saved per-format kinds in transcriber.format_kinds, "+ Add
+  what it is…", never disabled) · links/files. Labels + origin-human
+  format tags ride /api/links AND /api/uploads (clientPayload).
+  Stuck rows: Retry + Dismiss (item DELETE), phone-safe grid.
+- **German playbook:** lib/german.ts — 57 formats / 6 reel types from
+  German_Flash_Trends_by_Reel_Type.docx; conduct cuts tested (#1/#2
+  absent, #52/#64 cleared captions only). All 65 reference videos
+  ingested from the doc's Drive links (batch german-2026-10-08, all
+  done, labeled "German #N · Name", tagged format=german origin
+  human). scripts/german-refs.mjs + german-videos.json rerun the batch.
+- **Worker fix:** a file upload labeled with a human name lost its
+  extension on the Mac → bare `source`, no poster, nothing to serve;
+  _source_for now takes the extension from the blob URL. Worker
+  restarted; the one broken job repaired by hand.
+
+## The ASAS pull (26a09ff + b1cbbab) — handle with care
+
+- It committed RAW conflict markers in migrate.mjs / CustomCard /
+  PlanEditor (resolved in 6587c04 keeping both sides) and a migration
+  of Scout toward Railway: Apify DELETED, railway_worker/watchdog.py
+  added, docs/RAILWAY-MIGRATION.md, console instagram/tiktok/twitter
+  pages, DropSelect, trends-ask lost its Anthropic engine (Workers
+  only now — quiet reversal of a pending key decision; other four
+  Anthropic features intact).
+- **Apify sweep RESTORED (787e3f4)**: the deletion left one burner on
+  one Mac as the whole intake with Railway scraping shipped OFF. Same
+  3-day scout_runs stand-down, so no double pay.
+- **Railway gated intake still needs Geno:** two services
+  (railway.json / railway.watchdog.json), CLOUD_URL + WORKER_SECRET,
+  /data volume, rotated DISCORD_WEBHOOK, and ENABLE_INSTAGRAM_SCRAPING
+  only after a residential-proxy burner probe passes. Datacenter IP =
+  the thing Instagram flags; the doc itself says validate first.
+
+## Watch next
+
+1. **Friday 2026-10-09 ~19:00 pass** — first run of the new
+   single-burner-reader scout.py covering all ~196 accounts alone
+   (`~/Library/Logs/social-transcriber-daily.log`). Sightings are at
+   2026-10-03; if Friday fails, Saturday's restored Apify sweep covers
+   the open half.
+2. Leah (Cassie)'s week: 7 cards verified intact and grouped
+   (Halloween Versions 1-4 on top) after the hide_film outage — a
+   missing-column 500 that rendered as "No week open"; data was never
+   touched.
+3. Still waiting on Geno: ANTHROPIC_API_KEY on Vercel (now gates
+   /q, Strategy, quality vision — trends dropped by ASAS), RESEND
+   keys, D-tier sprint spec, first Strategy report run.
+
+---
+
 # 2026-10-08: Trends, round four — the Google Trends shape
 
 **Same-day flatten pass (Geno): "one bg, no hue, no cards or borders."**
@@ -55,7 +137,7 @@ hero → graph → live list → ask box → library panels.
   `docs/rollback/cdpshot.mjs`, graph checked on 7 d and 24 h, comparison
   "namibia vs usa" through the form. **Not deployed — Geno runs the
   Vercel deploy.**
-=======
+---
 # 2026-10-07 (later): polish round + Discover playback — read this first
 
 Everything through `ec96ed4` is on GitHub `main`, 138 tests green, build
@@ -103,7 +185,6 @@ Still waiting on Geno:
 - First Strategy report run on a real model; verify a live portal week's
   two piles; watch the first Scout 19:00 pass on the ASAS-rewritten
   login files; Wed 16:00 ET plan reminders (first window was 2026-10-07).
->>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
 
 # 2026-10-07: Geno's eight asks (through `918fc45`) + the ASAS restructure
 

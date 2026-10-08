@@ -63,6 +63,23 @@ export function StuckList({
     }
   }
 
+  /** The way out (Geno, 2026-10-08): a reel that is deleted or private will
+   *  fail every retry forever — the row needs a door, not just a Retry. */
+  async function dismiss(item: LibraryItem) {
+    if (!confirm(`Drop “${item.label}”?\n\nIt leaves the library; if it sits on anyone's week, that card goes with it.`)) return
+    setBusy(item.id)
+    setError(null)
+    try {
+      const response = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      onChanged()
+    } catch {
+      setError('Could not drop that one. Try again in a moment.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <section className="dash-panel" aria-label="Needs you">
       <header className="dash-panel-head">
@@ -76,9 +93,19 @@ export function StuckList({
             <span className="queue-mark" aria-hidden>×</span>
             <button className="queue-label" onClick={() => onOpen(item)}>{item.label}</button>
             <span className="queue-stage">{stuckReason(item)}</span>
-            <button className="pill queue-retry" disabled={busy === item.id} onClick={() => void retry(item)}>
-              {busy === item.id ? 'Queuing…' : 'Retry'}
-            </button>
+            <span className="queue-acts">
+              <button className="pill" disabled={busy === item.id} onClick={() => void retry(item)}>
+                {busy === item.id ? 'Queuing…' : 'Retry'}
+              </button>
+              <button
+                className="pill"
+                disabled={busy === item.id}
+                title="Drop it — leaves the library"
+                onClick={() => void dismiss(item)}
+              >
+                Dismiss
+              </button>
+            </span>
           </div>
         ))}
       </section>

@@ -299,12 +299,42 @@ body {
 /* Held rows (lib/queue-state.ts): no speech chip, and the reason may wrap —
    a long one used to run off the right edge. */
 .queue-row-held { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(0, auto); }
-.queue-row-held[data-state='stuck'] { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(0, auto) auto; }
 .queue-row-held .queue-stage { white-space: normal; text-align: right; }
 .queue-row-held[data-state='viewer'] .queue-mark { color: var(--sc-ink-300); }
+/* Stuck rows (2026-10-08): named areas, because the old four-column grid
+   collapsed on a phone — the reason wrapped wide and Retry landed overlapping
+   the row's border. Name on top, reason under it, both buttons together on
+   the right; under 640px the buttons drop to their own line, full width. */
+.queue-row-held[data-state='stuck'] {
+  grid-template-columns: 1.2rem minmax(0, 1fr) auto;
+  grid-template-areas:
+    'mark label actions'
+    'mark stage actions';
+  align-items: center;
+  row-gap: 0.2rem;
+}
+.queue-row-held[data-state='stuck'] .queue-mark { grid-area: mark; align-self: start; }
+.queue-row-held[data-state='stuck'] .queue-label { grid-area: label; }
+.queue-row-held[data-state='stuck'] .queue-stage { grid-area: stage; text-align: left; }
+.queue-row-held[data-state='stuck'] .queue-acts {
+  grid-area: actions;
+  display: inline-flex;
+  gap: var(--sc-space-2);
+  align-self: center;
+  white-space: nowrap;
+}
 .queue-row-held[data-state='stuck'] .queue-mark,
 .queue-row-held[data-state='stuck'] .queue-stage { color: var(--sc-critical); font-style: normal; }
-.queue-retry { align-self: center; }
+@media (max-width: 640px) {
+  .queue-row-held[data-state='stuck'] {
+    grid-template-columns: 1.2rem minmax(0, 1fr);
+    grid-template-areas:
+      'mark label'
+      'mark stage'
+      'mark actions';
+  }
+  .queue-row-held[data-state='stuck'] .queue-acts { margin-top: var(--sc-space-2); }
+}
 
 .queue-fold {
   background: var(--sc-bone-light);

@@ -20,8 +20,11 @@ export const maxDuration = 60
  * Both were launchd jobs on the Mac. They are the parts that must not miss a
  * week if the Mac is asleep or gone; the draft is pure database work.
  *
- * Instagram scraping is owned by the Railway worker. This cron never starts
- * an Instagram scrape; the Railway watchdog checks freshness every two hours.
+ * Signed-in Instagram reading belongs to the Railway worker (and the Mac
+ * while it lasts); the Railway watchdog checks freshness every two hours.
+ * The OPEN half of the sweep is Apify's again (restored 2026-10-08): the
+ * ASAS migration deleted it before Railway scraping was validated, which
+ * left one burner on one Mac as the entire intake with no fallback.
  */
 export async function GET(request: Request) {
   if (!isScheduler(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -29,6 +32,10 @@ export async function GET(request: Request) {
   const force = new URL(request.url).searchParams.get('job')
   const day = weekdayIn()
   const did: Record<string, unknown> = { weekday: day }
+
+  if (force === 'sweep' || (!force && day === 6)) {
+    did.sweep = await startSweep(request)
+  }
 
   if (force === 'autodraft' || (!force && day === 0)) {
     did.autodraft = await draftNextWeek()
@@ -55,6 +62,25 @@ export async function GET(request: Request) {
   did.fallback = await callSelf(request, '/api/worker/cloud')
 
   return NextResponse.json(did)
+}
+
+/**
+ * The paid sweep, a *fallback* rather than the weekly habit. Any reader —
+ * the Mac's Friday chain, or Railway once its scraping is validated — that
+ * wrote `scout_runs` in the last 3 days stands it down; otherwise Apify
+ * fetches the open accounts so plays data never silently ages out.
+ */
+async function startSweep(request: Request) {
+  const [recent] = await sql.query(
+    `select max(started_at) as at
+       from transcriber.scout_runs
+      where started_at > now() - interval '3 days'
+        and notes->>'kind' is distinct from 'autodraft'`,
+  )
+  if (recent?.at) {
+    return { skipped: 'a reader already swept', last_sweep: recent.at }
+  }
+  return callSelf(request, '/api/scout/apify')
 }
 
 /** Call one of our own routes, carrying the scheduler's credential. */

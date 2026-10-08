@@ -1246,6 +1246,10 @@ const statements = [
   // custom. Null means auto — the ladder in lib/template.ts suggests one but
   // behaviour only changes when a human sets it.
   `alter table transcriber.models add column if not exists plan_template text`,
+
+  // How many reels THIS week wants (2026-10-08) — the editor's dots fill
+  // toward it. Null falls back to the model's weekly_target, as before.
+  `alter table transcriber.plans add column if not exists target int`,
 ]
 
 for (const statement of statements) {

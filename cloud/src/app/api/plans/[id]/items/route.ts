@@ -11,6 +11,8 @@ const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 const MAX_TEXT = 4000
 const MAX_BATCH = 60
+/** The most copies one custom-card ask can lay — a week, not a wall. */
+const MAX_COPIES = 30
 
 /** `upload_date` on a transcript is a plain `YYYY-MM-DD` string and is allowed
  *  to be anything the platform returned, so it is checked before it is cast. */
@@ -91,7 +93,9 @@ export async function POST(request: Request, { params }: Params) {
   // template the team labels, formats and writes themselves. It lands as a
   // normal card; her page simply has no "Watch it" step for it.
   if (body.custom && typeof body.custom === 'object') {
-    const custom = body.custom as { label?: unknown; format?: unknown; body?: unknown; source?: unknown }
+    const custom = body.custom as {
+      label?: unknown; format?: unknown; body?: unknown; source?: unknown; count?: unknown
+    }
     const label = typeof custom.label === 'string' ? custom.label.trim().slice(0, 120) : ''
     if (!label) return NextResponse.json({ error: 'give the card a label' }, { status: 400 })
     const format = typeof custom.format === 'string' && isValidTag('format', custom.format) ? custom.format : null
@@ -99,20 +103,29 @@ export async function POST(request: Request, { params }: Params) {
     // A custom card with directions was written by the team; one without is a
     // blank to fill in — which her page hides until somebody fills it.
     const source = isSource(custom.source) ? custom.source : text ? 'original' : 'blank'
-    const [item] = await sql.query(
-      `insert into transcriber.plan_items (id, plan_id, job_id, position, notes, title, bucket, source, card_no)
-       select $1, $2, null,
-              coalesce(max(i.position), -1) + 1,
-              $3, $4, 'custom', $6,
-              (select coalesce(max(prior.card_no), 0) + 1
-                 from transcriber.plan_items prior
-                 join transcriber.plans pp on pp.id = prior.plan_id
-                where pp.model_id = $5)
-         from transcriber.plan_items i where i.plan_id = $2
-       returning id`,
-      [newId(), id, [format ? `Format: ${format}` : null, text].filter(Boolean).join('\n\n') || null, label, modelId, source],
-    )
-    return NextResponse.json({ added: 1, item_id: String(item.id) })
+    // "We need 7 of the same template" (Geno, 2026-10-08): one ask, N cards,
+    // each with its own number so each is filmed, answered and threaded alone.
+    const count = typeof custom.count === 'number' && Number.isFinite(custom.count)
+      ? Math.max(1, Math.min(MAX_COPIES, Math.round(custom.count)))
+      : 1
+    const ids: string[] = []
+    for (let copy = 0; copy < count; copy += 1) {
+      const [item] = await sql.query(
+        `insert into transcriber.plan_items (id, plan_id, job_id, position, notes, title, bucket, source, card_no)
+         select $1, $2, null,
+                coalesce(max(i.position), -1) + 1,
+                $3, $4, 'custom', $6,
+                (select coalesce(max(prior.card_no), 0) + 1
+                   from transcriber.plan_items prior
+                   join transcriber.plans pp on pp.id = prior.plan_id
+                  where pp.model_id = $5)
+           from transcriber.plan_items i where i.plan_id = $2
+         returning id`,
+        [newId(), id, [format ? `Format: ${format}` : null, text].filter(Boolean).join('\n\n') || null, label, modelId, source],
+      )
+      ids.push(String(item.id))
+    }
+    return NextResponse.json({ added: ids.length, item_id: ids[0], item_ids: ids })
   }
 
   const offered = Array.isArray(body.job_ids)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { upload } from '@vercel/blob/client'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
 import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
@@ -55,6 +56,11 @@ export default function PlanEditor({
   const [undone, setUndone] = useState<{ label: string; row: Record<string, unknown> }[]>([])
   /** The format chips over the suggestions rail. Empty = everything. */
   const [formatFilter, setFormatFilter] = useState<string[]>([])
+  /** The week's own intake: pasted links or dropped files, straight onto
+   *  this plan. */
+  const [intake, setIntake] = useState('')
+  const [intakeBusy, setIntakeBusy] = useState(false)
+  const [intakeNote, setIntakeNote] = useState<string | null>(null)
   /** Her winning verticals and the template the ladder suggests. */
   const [winning, setWinning] = useState<{
     winners_count: number
@@ -362,6 +368,64 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
+  /** Paste links straight onto this week: they join the queue AND land here
+   *  as cards in one move, thin until the Mac fetches the videos. */
+  async function addLinks() {
+    if (!planId || !intake.trim()) return
+    setIntakeBusy(true)
+    setIntakeNote(null)
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: intake, plan_id: planId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    setIntakeBusy(false)
+    if (!response.ok) {
+      setIntakeNote(body.error ?? 'That did not go in.')
+      return
+    }
+    setIntake('')
+    const attached = Number(body.attached ?? 0)
+    setIntakeNote(
+      attached > 0
+        ? `${attached} on the week${body.added ? ` (${body.added} new to the library)` : ''}. The Mac fetches the videos next.`
+        : 'Nothing landed — already on this week, declined by them, or not theirs to film.',
+    )
+    await loadPlan()
+    void loadWeeks()
+  }
+
+  /** Drop the files: browser → Blob, and the completion callback lays each
+   *  one on this week. The attach is Blob's callback, so give it a beat. */
+  async function takeFiles(files: FileList | null) {
+    if (!files || files.length === 0 || !planId) return
+    setIntakeBusy(true)
+    let done = 0
+    for (const file of Array.from(files)) {
+      setIntakeNote(`Uploading ${file.name}…`)
+      try {
+        await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/uploads',
+          clientPayload: JSON.stringify({ plan_id: planId }),
+        })
+        done += 1
+      } catch (error) {
+        setIntakeNote(error instanceof Error ? error.message : 'Upload failed.')
+      }
+    }
+    setIntakeBusy(false)
+    if (done > 0) {
+      setIntakeNote(`${done} uploaded — attaching to the week…`)
+      setTimeout(() => {
+        void loadPlan()
+        void loadWeeks()
+        setIntakeNote(`${done} uploaded.`)
+      }, 2500)
+    }
+  }
+
   /** Set which template drives their autodraft. Lives on the model, so next
    *  Sunday's draft inherits it without anyone re-picking. */
   async function setTemplate(template: PlanTemplate | null) {
@@ -568,6 +632,43 @@ export default function PlanEditor({
                   with the counted contents of the plan instead of a written
                   paragraph. plans.intro stays in the database untouched. */}
 
+              {/* How many reels THIS week wants, and the dots filling toward
+                  it (Geno, 2026-10-08) — every added video lights one more.
+                  Blank falls back to their weekly target. */}
+              <div className="form-row">
+                <label className="axis-name" htmlFor="plan-target">
+                  Videos wanted this week
+                </label>
+                <div className="plandots-row">
+                  <input
+                    id="plan-target"
+                    className="field field-inline"
+                    type="number"
+                    min={0}
+                    max={200}
+                    style={{ width: '7ch' }}
+                    key={`target-${plan.target ?? ''}`}
+                    defaultValue={plan.target ?? ''}
+                    placeholder={String(plan.weekly_target || 21)}
+                    onBlur={(event) => patchPlan({ target: event.target.value === '' ? 0 : Number(event.target.value) })}
+                  />
+                  {(() => {
+                    const want = plan.target ?? plan.weekly_target ?? 0
+                    const dots = Math.min(Math.max(want, items.length), 60)
+                    return (
+                      <>
+                        <span className="plandots" aria-label={`${items.length} of ${want} videos on the plan`}>
+                          {Array.from({ length: dots }).map((_, at) => (
+                            <i key={at} data-filled={at < items.length || undefined} />
+                          ))}
+                        </span>
+                        <span className="hint">{items.length} / {want}</span>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
               {/* Which template drives their autodraft (2026-10-08). On the
                   model, not the week — next Sunday inherits it. Auto follows
                   the ladder; the line under the select says where they are. */}
@@ -624,6 +725,47 @@ export default function PlanEditor({
                 )}
               </div>
 
+              {/* The queue, on the week (Geno, 2026-10-08): paste Instagram,
+                  TikTok or YouTube links, or drop the files, and they land on
+                  THIS plan as cards — thin until the Mac fetches the videos. */}
+              <div
+                className="form-row"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  void takeFiles(event.dataTransfer.files)
+                }}
+              >
+                <label className="axis-name" htmlFor="plan-intake">
+                  Add videos to this week — paste links (Instagram · TikTok · YouTube) or drop files here
+                </label>
+                <textarea
+                  id="plan-intake"
+                  className="field"
+                  rows={2}
+                  value={intake}
+                  placeholder="https://instagram.com/reel/…  https://tiktok.com/@…/video/…"
+                  onChange={(event) => { setIntake(event.target.value); setIntakeNote(null) }}
+                />
+                <div className="copybar" style={{ position: 'static' }}>
+                  <button className="btn btn-small" disabled={intakeBusy || !intake.trim()} onClick={() => void addLinks()}>
+                    Add to the week
+                  </button>
+                  <label className="btn btn-small btn-quiet" style={{ display: 'inline-block', cursor: 'pointer' }}>
+                    Upload files…
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept="video/*,audio/*"
+                      disabled={intakeBusy}
+                      onChange={(event) => { void takeFiles(event.target.files); event.target.value = '' }}
+                    />
+                  </label>
+                  {intakeNote && <span className="hint" role="status">{intakeNote}</span>}
+                </div>
+              </div>
+
               {/* A card of the team's own — label, format, directions, no
                   library video behind it. Templates keep the good ones. */}
               {planId && <CustomCard planId={planId} onAdded={() => void loadPlan()} />}
@@ -653,11 +795,11 @@ export default function PlanEditor({
                   scoreboard. Warned, never blocked: sending a short week on
                   purpose is a normal thing to do and the operator is allowed
                   to do it without arguing with a dialog. */}
-              {plan.weekly_target > 0 && items.length < plan.weekly_target && (
+              {(plan.target ?? plan.weekly_target) > 0 && items.length < (plan.target ?? plan.weekly_target) && (
                 <div className="planstate planstate-short">
                   <span>
-                    {items.length} on this week · their target is {plan.weekly_target}
-                    {' — '}{plan.weekly_target - items.length} short.
+                    {items.length} on this week · the target is {plan.target ?? plan.weekly_target}
+                    {' — '}{(plan.target ?? plan.weekly_target) - items.length} short.
                     {' '}Send it anyway if that is deliberate.
                   </span>
                 </div>

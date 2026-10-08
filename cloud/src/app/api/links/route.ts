@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { extractLinks, labelFor } from '@/lib/links'
+import { appendItems } from '@/lib/models'
 
 export async function POST(request: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -44,9 +45,31 @@ export async function POST(request: Request) {
     ],
   )
 
+  // Straight onto a week (2026-10-08): a paste in the plan editor lands its
+  // videos on that plan as cards, new and already-held alike. The cards are
+  // thin until the Mac fetches — her page says the video is not ready yet —
+  // and every appendItems guard (declines, solo, one-card-per-reel) applies.
+  let attached = 0
+  if (typeof payload.plan_id === 'string' && /^[A-Za-z0-9_-]{6,32}$/.test(payload.plan_id)) {
+    const [plan] = await sql.query(
+      `select id, model_id from transcriber.plans where id = $1`,
+      [payload.plan_id],
+    )
+    if (!plan) return NextResponse.json({ error: 'no such plan' }, { status: 404 })
+    const held = await sql.query(
+      `select id from transcriber.jobs where source_key = any($1::text[])`,
+      [links],
+    )
+    attached = await appendItems(
+      String(plan.id), String(plan.model_id),
+      held.map((job) => String(job.id)),
+    )
+  }
+
   return NextResponse.json({
     added: rows.length,
     skipped: links.length - rows.length,
+    attached,
     jobs: rows,
   })
 }

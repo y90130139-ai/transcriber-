@@ -85,6 +85,8 @@ export type PlanHead = {
   intro: string | null
   status: 'draft' | 'sent'
   sent_at: string | null
+  /** How many reels THIS week wants; null falls back to `weekly_target`. */
+  target?: number | null
   model_name: string
   access_token: string
   token_revoked_at: string | null

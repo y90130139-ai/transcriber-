@@ -26,6 +26,8 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
   const [format, setFormat] = useState('')
   const [body, setBody] = useState('')
   const [saveAs, setSaveAs] = useState(true)
+  /** "We need 7 of the same template" — one ask, N numbered cards. */
+  const [count, setCount] = useState(1)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
@@ -53,7 +55,7 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
     const response = await fetch(`/api/plans/${planId}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ custom: { label, format: format || undefined, body } }),
+      body: JSON.stringify({ custom: { label, format: format || undefined, body, count } }),
     }).catch(() => null)
     if (!response?.ok) {
       setNote('The card did not land — try again.')
@@ -75,7 +77,8 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
     setBody('')
     setPicked('')
     setBusy(false)
-    setNote('On the week.')
+    setNote(count > 1 ? `${count} on the week.` : 'On the week.')
+    setCount(1)
     onAdded()
   }
 
@@ -129,8 +132,19 @@ export default function CustomCard({ planId, onAdded }: { planId: string; onAdde
           <input type="checkbox" checked={saveAs} onChange={(event) => setSaveAs(event.target.checked)} />
           {picked ? 'Update the template too' : 'Keep as a template'}
         </label>
+        <label className="customcard-save" title="How many cards of this — each gets its own number">
+          ×
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={count}
+            style={{ width: '4ch' }}
+            onChange={(event) => setCount(Math.max(1, Math.min(30, Number(event.target.value) || 1)))}
+          />
+        </label>
         <button type="button" className="btn btn-small" disabled={busy || !label.trim()} onClick={() => void add()}>
-          {busy ? 'Adding…' : 'Add to the week'}
+          {busy ? 'Adding…' : count > 1 ? `Add ${count} to the week` : 'Add to the week'}
         </button>
         <button type="button" className="btn btn-small btn-quiet" onClick={() => setOpen(false)}>Close</button>
       </div>

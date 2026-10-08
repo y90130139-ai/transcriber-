@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: Params) {
   const [plan] = await sql.query(
     `select p.id, p.model_id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
             to_char(p.due_date, 'YYYY-MM-DD') as due_date,
-            p.title, p.intro, p.status, p.sent_at,
+            p.title, p.intro, p.status, p.sent_at, p.target,
             m.name as model_name, m.access_token, m.token_revoked_at,
             m.weekly_target, m.timezone, m.filming_days, m.standing_rules,
             m.wont_do, m.plan_template,
@@ -90,11 +90,18 @@ export async function PUT(request: Request, { params }: Params) {
     typeof value === 'string' && value.trim() ? value.trim().slice(0, MAX_TEXT) : null
   const status = body.status === 'sent' ? 'sent' : body.status === 'draft' ? 'draft' : null
 
+  // How many reels this week wants. 0 or blank clears it back to the model's
+  // weekly target; anything else lands clamped to something a human meant.
+  const target = typeof body.target === 'number' && Number.isFinite(body.target)
+    ? Math.max(0, Math.min(200, Math.round(body.target))) || null
+    : null
+
   const [plan] = await sql.query(
     `update transcriber.plans
         set title    = case when $2::bool then $3::text else title end,
             intro    = case when $4::bool then $5::text else intro end,
             due_date = case when $6::bool then $7::date else due_date end,
+            target   = case when $9::bool then $10::int else target end,
             status   = coalesce($8::text, status),
             -- Stamped the first time it is sent and kept thereafter, so a later
             -- edit does not rewrite when she was actually given the week.
@@ -105,13 +112,14 @@ export async function PUT(request: Request, { params }: Params) {
       where id = $1
       returning id, to_char(week_of, 'YYYY-MM-DD') as week_of,
                 to_char(due_date, 'YYYY-MM-DD') as due_date,
-                title, intro, status, sent_at`,
+                title, intro, status, sent_at, target`,
     [
       id,
       'title' in body, text(body.title),
       'intro' in body, text(body.intro),
       'due_date' in body, isDateString(body.due_date) ? body.due_date : null,
       status,
+      'target' in body, target,
     ],
   )
   if (!plan) return notFound()

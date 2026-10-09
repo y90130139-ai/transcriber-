@@ -68,8 +68,21 @@ console.log('setCookie result:', JSON.stringify(cookieResult.result))
 const cookies = await send('Network.getAllCookies', {}, session)
 console.log('cookies:', cookies.result?.cookies?.map((c) => `${c.name}@${c.domain}${c.path}`).join(', '))
 await send('Page.enable', {}, session)
+// Follow every worker target so its exceptions and logs are visible.
+await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }, session)
 await send('Page.navigate', { url: `http://localhost:${PORT}/video-batcher` }, session)
-await sleep(9000)
+await sleep(12000)
+
+// Enable logging on any worker target that appeared.
+for (const event of events) {
+  if (event.method === 'Target.attachedToTarget') {
+    const childSession = event.params.sessionId
+    await send('Runtime.enable', {}, childSession)
+    await send('Log.enable', {}, childSession)
+    await send('Runtime.runIfWaitingForDebugger', {}, childSession)
+  }
+}
+await sleep(1000)
 
 const dump = async (expression) => {
   const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, session)
@@ -83,9 +96,50 @@ console.log('has console shell:', await dump(`Boolean(document.querySelector('.c
 console.log('has gold gate:', await dump(`Boolean(document.querySelector('.gate'))`))
 console.log('has vb:', await dump(`Boolean(document.querySelector('.vb'))`))
 console.log('engine global:', await dump('typeof window.__vbEngine'))
+console.log(
+  'engine state:',
+  await dump(`(() => { const s = window.__vbEngine.store.getSnapshot(); return JSON.stringify({ engine: s.engine, detail: s.engineDetail, loadMs: s.engineLoadMs }) })()`),
+)
+console.log(
+  'fetch worker:',
+  await dump(`(async () => {
+    try {
+      const r = await fetch('/vb/vb-worker.js')
+      return JSON.stringify({ status: r.status, corp: r.headers.get('cross-origin-resource-policy'), type: r.type, isolated: self.crossOriginIsolated })
+    } catch (error) { return 'fetch failed: ' + error }
+  })()`),
+)
+console.log(
+  'probe Worker:',
+  await dump(`(async () => {
+    return await new Promise((resolve) => {
+      try {
+        const w = new Worker('/vb/vb-worker.js')
+        const timer = setTimeout(() => resolve('timeout-no-event'), 5000)
+        w.onerror = (e) => { clearTimeout(timer); resolve('worker error: ' + (e.message || '(no message)') + ' | filename=' + e.filename) }
+        w.onmessage = () => { clearTimeout(timer); resolve('worker message (loaded ok)') }
+      } catch (error) { resolve('construct threw: ' + error) }
+    })
+  })()`),
+)
 console.log('body head:', await dump('(document.body ? document.body.innerText : "no body").slice(0, 400)'))
 
 console.log('--- console events ---')
+const requestUrls = new Map()
+for (const event of events) {
+  if (event.method === 'Network.requestWillBeSent') {
+    requestUrls.set(event.params.requestId, event.params.request.url)
+  }
+  if (event.method === 'Network.loadingFailed') {
+    console.log(
+      'net-fail:',
+      event.params.type,
+      event.params.errorText,
+      event.params.blockedReason ?? '',
+      requestUrls.get(event.params.requestId)?.slice(0, 140) ?? '?',
+    )
+  }
+}
 for (const event of events) {
   if (event.method === 'Runtime.consoleAPICalled') {
     console.log('console:', event.params.type, event.params.args.map((a) => a.value ?? a.description).join(' ').slice(0, 300))
@@ -94,10 +148,7 @@ for (const event of events) {
     console.log('EXCEPTION:', event.params.exceptionDetails?.exception?.description?.slice(0, 900) ?? event.params.exceptionDetails?.text)
   }
   if (event.method === 'Log.entryAdded') {
-    console.log('log:', event.params.entry.level, event.params.entry.text?.slice(0, 300))
-  }
-  if (event.method === 'Network.loadingFailed') {
-    console.log('net-fail:', event.params.type, event.params.errorText, event.params.blockedReason ?? '')
+    console.log('log:', event.params.entry.level, event.params.entry.text?.slice(0, 300), event.params.entry.url?.slice(0, 120) ?? '')
   }
 }
 

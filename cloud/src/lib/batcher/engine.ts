@@ -433,12 +433,18 @@ class VideoBatcherEngineImpl {
 
       worker.onerror = () => {
         if (settled) return
-        settled = true
-        window.clearTimeout(watchdog)
-        slot!.status = 'dead'
-        slot!.worker = null
-        worker.terminate()
-        fail('The processing engine crashed while loading. It will be retried.')
+        // The worker reports the precise reason with an init-error message.
+        // A bare onerror can arrive in the same turn, so give the detailed
+        // message a beat to land before falling back to the generic text.
+        window.setTimeout(() => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(watchdog)
+          slot!.status = 'dead'
+          slot!.worker = null
+          worker.terminate()
+          fail('The processing engine crashed while loading. It will be retried.')
+        }, 500)
       }
 
       worker.postMessage({
@@ -457,14 +463,24 @@ class VideoBatcherEngineImpl {
   private onSlotFailed(message: string, index = 0): void {
     const anyAlive = this.slots.some((slot) => slot.status === 'ready' || slot.status === 'initializing' || slot.status === 'busy')
     if (this.multithreaded && !this.hasHadReadySlot()) {
-      // Automatic multithreading fallback (§9).
+      // Automatic multithreading fallback (§9). The single-threaded core is a
+      // different binary: its failure budget starts fresh.
       this.multithreaded = false
       this.requeueBusyJobs()
+      this.slots = this.slots.map((slot) => ({ ...slot, failures: 0 }))
       this.pushNotice('warn', 'Multithreaded processing unavailable', 'Falling back to single-threaded processing automatically.')
       void this.ensureSlot(0)
       return
     }
     if (!anyAlive) {
+      const failedSlot = this.slots[index]
+      if ((failedSlot?.failures ?? 0) < 2) {
+        // One silent retry before telling the user; network blips happen.
+        this.statusDetail = message
+        this.bump()
+        window.setTimeout(() => void this.ensureSlot(index), 900)
+        return
+      }
       const batchRunning = this.batch?.status === 'running' || this.batch?.status === 'paused'
       this.status = 'error'
       this.statusDetail = message

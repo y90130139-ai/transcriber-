@@ -32,6 +32,28 @@ function post(message) {
   self.postMessage(message)
 }
 
+// Last line of defence: if anything throws before init completes — a syntax
+// error in a dynamically loaded core, an OOM in instantiate — the main thread
+// gets the actual message instead of a bare worker.onerror.
+self.onerror = (event) => {
+  try {
+    post({ t: 'init-error', kind: coreKind, message: `worker crash: ${event && event.message ? event.message : event}` })
+  } catch {
+    /* nothing left to do */
+  }
+}
+self.addEventListener('unhandledrejection', (event) => {
+  try {
+    post({
+      t: 'init-error',
+      kind: coreKind,
+      message: `worker rejection: ${(event.reason && (event.reason.stack || event.reason.message)) || event.reason}`,
+    })
+  } catch {
+    /* nothing left to do */
+  }
+})
+
 async function boot(config) {
   const started = performance.now()
   const coreURL = config.coreURL

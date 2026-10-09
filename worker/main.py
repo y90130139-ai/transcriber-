@@ -48,6 +48,7 @@ from datetime import date, datetime, timedelta
 
 import ig
 import r2
+from alert import alert
 from ofmpro import WorkerStopped, ensure_session, fetch_medias, open_browser
 
 CLOUD = os.environ.get("CLOUD_URL", "").rstrip("/")
@@ -180,7 +181,8 @@ def pass_once() -> None:
                     failed += 1
                 time.sleep(random.uniform(2, 6))
         else:
-            print("no R2 credentials — rows stored, mirrors skipped")
+            alert("R2 credentials missing — videos are not being mirrored",
+                  "rows are stored, but every preview keeps streaming from a signed CDN link with days left on it")
 
         cloud_post("/api/worker/ofmpro/run", {
             "action": "close", "id": run, "status": "done",
@@ -213,7 +215,8 @@ def ig_pass() -> None:
         return
     burners = ig.jars()
     if not burners:
-        print("ig: skipped — no cookies (set IG_COOKIES_B64 / IG_COOKIES_BACKUP_B64)")
+        alert("Instagram sweep is configured but has no cookies",
+              f"IG_SWEEP={mode} but neither IG_COOKIES_B64 nor IG_COOKIES_BACKUP_B64 holds a jar")
         return
 
     targets = cloud_post("/api/scout/targets", {})
@@ -320,23 +323,21 @@ def main() -> None:
         try:
             pass_once()
         except WorkerStopped as stop:
-            print(f"stopped: {stop}")
-            # A wall is not a crash loop's problem — wait an hour and retry a
-            # fresh session rather than hammering whatever asked for a human.
+            alert("OFM Pro scrape stopped — a human is needed", str(stop))
             time.sleep(3600)
             continue
         except Exception as error:
-            print(f"pass failed: {error}")
+            alert("OFM Pro scrape failed", f"{type(error).__name__}: {error}")
             time.sleep(900)
             continue
         try:
             ig_pass()
         except WorkerStopped as stop:
-            print(f"ig stopped: {stop}")
+            alert("Instagram sweep stopped — a human is needed", str(stop))
             time.sleep(1800)
             continue
         except Exception as error:
-            print(f"ig pass failed: {error}")
+            alert("Instagram sweep failed", f"{type(error).__name__}: {error}")
         time.sleep(LOOP_SEC + random.uniform(0, 600))
 
 

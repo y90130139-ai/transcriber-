@@ -23,10 +23,14 @@ const config: NextConfig = {
       {
         // The FFmpeg cores are version-pinned by the vendored package, so they
         // can cache forever. The worker itself is ours and must revalidate.
+        // Both carry COEP + CORP because a cross-origin isolated document
+        // (the batcher page) requires embedded workers and scripts to declare
+        // an embedder policy of their own.
         source: '/vb/ffmpeg/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
           { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
         ],
       },
       {
@@ -34,6 +38,7 @@ const config: NextConfig = {
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
           { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
         ],
       },
     ]

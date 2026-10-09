@@ -51,7 +51,7 @@ const COLUMN_HELP: Partial<Record<SortKey | 'sources', string>> = {
   posts_per_day: 'New posts per day, extrapolated from the sampled listing window',
   sources: 'The posts this estimate rests on — lowest-karma survivors and AutoMod-filtered samples',
   confidence: 'How much data backs these numbers, and whether the bounds held across passes',
-  bot_bouncer: 'Whether u/bot-bouncer appears in the community moderator list',
+  bot_bouncer: 'Whether the Bot Bouncer moderation app is installed on the community',
 }
 
 /** Subreddits Requirements — the posting-gate board. Every figure is read
@@ -575,8 +575,8 @@ function RequirementsRowFragment({
         <td>
           <i className="rt-status" data-tone={row.bot_bouncer === 'yes' ? 'bad' : row.bot_bouncer === 'no' ? 'ok' : 'idle'}
             title={row.bot_bouncer === 'unknown'
-              ? 'Not checked yet — connect a Reddit account so moderator lists can be read'
-              : row.bot_bouncer_source === 'modlist' ? 'Read from the community moderator list' : 'Manually recorded'}>
+              ? 'Not checked yet — connect a Reddit account so installed apps can be read from moderator lists'
+              : row.bot_bouncer_source === 'modlist' ? 'Detected via the moderator list, where installed apps appear' : 'Manually recorded'}>
             {BOT_BOUNCER_LABEL[row.bot_bouncer]}
           </i>
         </td>

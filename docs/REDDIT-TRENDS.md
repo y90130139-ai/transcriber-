@@ -190,13 +190,16 @@ three or more passes (within 25%) earns *Verified*; 30+ survivors is
 to the exact posts the bounds rest on — lowest-karma survivors first, any
 AutoMod-filtered ones after — each linking to the real post.
 
-**Bot Bouncer.** The app account (`u/bot-bouncer`) appears in a subreddit's
-moderator list when installed — but Reddit refuses `/about/moderators` to
-app-only tokens (403 even with `*` scope, verified live), and scraping is
-off the table. The honest path is the optional **Connect Reddit account**
-flow (authorization code, `read` scope, `permanent` for a refresh token;
-stored server-side in `reddit.oauth_account`): the requirements pass then
-reads each due community's mod list, up to 10 per pass, TTL 7 days, writing
+**Bot Bouncer.** Bot Bouncer is a mod tool — a Reddit Dev Platform app that
+bans bot-like accounts from the communities where it is installed. Reddit
+exposes no install list; the only public signal is the app's own account in
+the community's moderator list, so that is what the check reads. Reddit
+refuses `/about/moderators` to app-only tokens (403 even with `*` scope,
+verified live), and scraping is off the table. The honest path is the
+optional **Connect Reddit account** flow (authorization code, `read` scope,
+`permanent` for a refresh token; stored server-side in
+`reddit.oauth_account`): the requirements pass then reads each due
+community's mod list, up to 10 per pass, TTL 7 days, writing
 `bot_bouncer = yes|no` with its source. No account connected → **Unknown**,
 and the "With / Without Bot Bouncer" filters exclude unknowns — they never
 guess. The consent URL lives in `client.ts` with the other endpoints, so the

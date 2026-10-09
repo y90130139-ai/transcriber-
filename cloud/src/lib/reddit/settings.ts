@@ -65,6 +65,13 @@ export const DEFAULT_SETTINGS: RedditSettings = {
   requirements_budget_per_run: 60,
   requirements_sample_size: 25,
   requirements_profile_batch: 20,
+  // The daily hunt for new NSFW communities: up to 1,000 requests a day,
+  // every one of them a subreddit search page, paced by the shared client
+  // and counted against the same daily cap as everything else.
+  discovery_enabled: true,
+  discovery_daily_cap: 1000,
+  discovery_per_pass: 25,
+  discovery_min_subscribers: 500,
 }
 
 export const DEFAULT_PREFERENCES: RedditPreferences = {

@@ -18,10 +18,6 @@ import {
   createRedditClient,
   classifyAboutFailure,
   redditConfigured,
-  redditUserOAuthConfigured,
-  userAccessToken,
-  fetchModeratorNames,
-  BOT_BOUNCER_ACCOUNT,
   RedditAuthError,
   RedditBudgetError,
   RedditCapError,
@@ -34,32 +30,33 @@ import { topicsForTitle, recurringBigrams } from './keywords'
 import { alertCollector, computeTopicMetrics, detectSubredditSpikes } from './engine'
 import { getSettings, saveSettings } from './settings'
 import { estimateRequirements, postsPerDay, JUDGE_AFTER_HOURS, type SamplePoint } from './requirements'
+import { acceptCandidate, nextKeywords } from './discovery'
 import {
   applySampleOutcomes,
   authorsMissingProfiles,
   claimRequirementJobs,
+  countDiscoveryRequestsToday,
   enqueueDueRequirementJobs,
   existingSampleIds,
   fillSampleProfiles,
   finishRequirementJob,
-  getOAuthAccount,
+  getDiscoveryState,
   getProfile,
   getProfiles,
   getRequirementSubreddit,
+  insertDiscoveredSubreddits,
   markRequirementAbout,
   markRequirementCollected,
   markRequirementFailure,
   recordRequirementSamples,
   recordRequirementUsage,
   recoverStaleRequirementWork,
-  requirementBotBouncerDue,
   requeueRequirementJob,
   samplesAwaitingJudgement,
   samplesForEstimate,
+  saveDiscoveryRun,
   saveProfile,
   seedRequirementSubreddits,
-  setBotBouncerStatus,
-  touchOAuthAccount,
   type SampleInsert,
 } from './requirementStore'
 import {
@@ -646,7 +643,6 @@ export type RequirementRunSummary = {
   samples_new: number
   profiles_fetched: number
   judged: number
-  bot_bouncer_checked: number
   errors: number
   remaining: number | null
 }
@@ -656,18 +652,13 @@ const REQUIREMENT_RESERVE = 1
 const REQUIREMENT_ABOUT_REFRESH_DAYS = 14
 const REQUIREMENT_PROFILE_TTL_DAYS = 45
 const REQUIREMENT_JUDGE_LIMIT = 25
-/** Survivors sampled per judging call (one /api/info covers 25 ids). */
-const BOT_BOUNCER_SWEEP_LIMIT = 10
-const BOT_BOUNCER_TTL_DAYS = 7
-
-const sleepMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export async function collectRequirements(
   opts: { trigger?: 'cron' | 'manual'; budget?: number } = {},
 ): Promise<RequirementRunSummary> {
   const empty: RequirementRunSummary = {
     run_id: null, state: 'skipped', subreddits: 0, requests: 0, samples_new: 0,
-    profiles_fetched: 0, judged: 0, bot_bouncer_checked: 0, errors: 0, remaining: null,
+    profiles_fetched: 0, judged: 0, errors: 0, remaining: null,
   }
 
   if (!redditConfigured()) return { ...empty, reason: 'not-configured' }
@@ -755,12 +746,6 @@ export async function collectRequirements(
         await finishRequirementJob(job.id, 'failed', message).catch(() => null)
       }
     }
-
-    // The one user-context job: Bot Bouncer status, when an account is
-    // connected. Never fails the run; the board stays honest either way.
-    try {
-      state.bot_bouncer_checked = await checkBotBouncerSweep(settings, state)
-    } catch { /* a failed sweep leaves statuses exactly as they were */ }
   } catch (error) {
     if (error instanceof RedditCircuitError) {
       state.state = 'stopped'
@@ -798,7 +783,6 @@ export async function collectRequirements(
       samples_new: state.samples_new,
       profiles_fetched: state.profiles_fetched,
       judged: state.judged,
-      bot_bouncer_checked: state.bot_bouncer_checked,
     },
   })
   return state
@@ -960,64 +944,162 @@ async function sampleNewPosts(
   return { inserted: inserted.length, postsPerDay: perDay }
 }
 
-/** The Bot Bouncer check: one mod-list read per community, only while a
- *  Reddit account is connected. User-token requests are not part of the
- *  governed client (they are not the app's requests), so this function
- *  reads the daily counter itself before each one and writes the same
- *  api_usage rows — the cap stays honest across both token kinds. */
-async function checkBotBouncerSweep(
-  settings: Awaited<ReturnType<typeof getSettings>>,
-  state: RequirementRunSummary,
-): Promise<number> {
-  if (!redditUserOAuthConfigured()) return 0
-  const account = await getOAuthAccount()
-  if (!account) return 0
-  let accessToken: string
-  try {
-    ({ accessToken } = await userAccessToken(account.refresh_token))
-  } catch (error) {
-    await touchOAuthAccount(false, error instanceof Error ? error.message : String(error)).catch(() => null)
-    return 0
+/* ------------------------------------------------------ NSFW discovery */
+
+type SubredditChild = {
+  kind: string
+  data?: {
+    display_name?: string
+    subscribers?: number
+    over18?: boolean
+    public_description?: string
+  }
+}
+
+export type DiscoveryRunSummary = {
+  run_id: string | null
+  state: 'done' | 'partial' | 'failed' | 'stopped' | 'skipped'
+  reason?: string
+  keywords: number
+  candidates: number
+  added: number
+  requests: number
+  remaining: number | null
+}
+
+/**
+ * The daily sweep that hunts for new NSFW communities: `/subreddits/search`
+ * pages over a rotating keyword list, filtered down to adult-facing
+ * communities big enough to matter. It has its own allowance
+ * (`discovery_daily_cap`, default 1,000 requests a day) — counted from the
+ * usage log, so a restart cannot reset it — and every request still passes
+ * the shared client's pacing and the global daily cap.
+ */
+export async function collectDiscovery(
+  opts: { trigger?: 'cron' | 'manual'; budget?: number } = {},
+): Promise<DiscoveryRunSummary> {
+  const empty: DiscoveryRunSummary = {
+    run_id: null, state: 'skipped', keywords: 0, candidates: 0, added: 0, requests: 0, remaining: null,
   }
 
-  const due = await requirementBotBouncerDue(BOT_BOUNCER_SWEEP_LIMIT, BOT_BOUNCER_TTL_DAYS)
-  let checked = 0
-  let blocked = 0
-  for (const subreddit of due) {
-    // Fail closed: an unreadable counter means no request.
-    const used = await usageToday().catch(() => null)
-    if (used === null || used >= settings.daily_cap) break
-    const started = Date.now()
-    try {
-      const names = await fetchModeratorNames(accessToken, subreddit)
-      await setBotBouncerStatus(subreddit, names.includes(BOT_BOUNCER_ACCOUNT) ? 'yes' : 'no', 'modlist')
-      await recordRequirementUsage(state.run_id, {
-        endpoint: `/r/${subreddit}/about/moderators`, method: 'GET', status: 200,
-        remaining: null, used: null, resetSeconds: null, durationMs: Date.now() - started,
-      }).catch(() => null)
-      checked += 1
-      blocked = 0
-    } catch (error) {
-      const status = error instanceof RedditHttpError ? error.status : 500
-      await recordRequirementUsage(state.run_id, {
-        endpoint: `/r/${subreddit}/about/moderators`, method: 'GET', status,
-        remaining: null, used: null, resetSeconds: null, durationMs: Date.now() - started,
-      }).catch(() => null)
-      if (status === 403) {
-        blocked += 1
-        if (blocked >= 2) {
-          await touchOAuthAccount(false, 'Reddit refused the moderator list (403) for the connected account').catch(() => null)
-          break
-        }
-      } else if (status === 401) {
-        await touchOAuthAccount(false, 'The connected Reddit account token was rejected').catch(() => null)
-        break
-      }
+  if (!redditConfigured()) return { ...empty, reason: 'not-configured' }
+  const settings = await getSettings()
+  if (settings.emergency_stop) return { ...empty, reason: 'emergency-stop' }
+  if (settings.paused) return { ...empty, reason: 'paused' }
+  if (!settings.discovery_enabled) return { ...empty, reason: 'discovery-disabled' }
+
+  // Budget guards — fail closed. The discovery allowance shrinks with what
+  // the day has already spent, and the global caps still sit on top.
+  let budget = 0
+  let seeded: Awaited<ReturnType<typeof latestRateState>> = null
+  try {
+    if (settings.rate_cooldown_until && Date.parse(settings.rate_cooldown_until) > Date.now()) {
+      return { ...empty, reason: 'rate-cooldown' }
     }
-    await sleepMs(Math.max(1500, settings.min_interval_ms))
+    const [hourUsage, usedToday, discoveryUsed] = await Promise.all([
+      usageSummary(1),
+      usageToday(),
+      countDiscoveryRequestsToday(),
+    ])
+    if (usedToday >= settings.daily_cap) return { ...empty, reason: 'daily-cap' }
+    if (hourUsage.requests >= settings.hourly_cap) return { ...empty, reason: 'hourly-cap' }
+    const allowance = settings.discovery_daily_cap - discoveryUsed
+    if (allowance <= 0) return { ...empty, reason: 'discovery-cap' }
+    const headroom = Math.max(1, Math.min(
+      settings.hourly_cap - hourUsage.requests,
+      settings.daily_cap - usedToday,
+    ))
+    budget = Math.max(1, Math.min(opts.budget ?? settings.discovery_per_pass, allowance, headroom))
+    seeded = await latestRateState()
+  } catch {
+    return { ...empty, reason: 'guard-failed' }
   }
-  if (checked > 0) await touchOAuthAccount(true).catch(() => null)
-  return checked
+
+  const runId = `d_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
+  await startRun(runId, 'discovery', budget)
+
+  const state: DiscoveryRunSummary = { ...empty, run_id: runId, state: 'done' }
+  const client = createRedditClient({
+    budget,
+    minIntervalMs: settings.min_interval_ms,
+    maxRequestsPerMinute: settings.requests_per_minute,
+    safetyRatio: settings.safety_ratio,
+    initialState: seeded,
+    onUsage: (usage) => recordRequirementUsage(runId, usage),
+    guard: async () => {
+      const used = await usageToday()
+      if (used >= settings.daily_cap) throw new RedditCapError(used, settings.daily_cap)
+    },
+  })
+
+  let cursor = (await getDiscoveryState()).keyword_index
+  try {
+    while (client.stats().requests < budget) {
+      const { keywords, nextCursor } = nextKeywords(cursor, 1)
+      const keyword = keywords[0]
+      cursor = nextCursor
+
+      const payload = await client.get<{ data: { children: SubredditChild[] } }>(
+        '/subreddits/search',
+        { q: keyword, include_over_18: 'on', limit: LISTING_LIMIT, raw_json: 1 },
+      )
+      state.keywords += 1
+
+      const found: { name: string; subscribers: number | null; over18: boolean; via: string }[] = []
+      for (const child of payload.data?.children ?? []) {
+        if (child.kind !== 't5' || !child.data?.display_name) continue
+        const candidate = {
+          name: child.data.display_name,
+          subscribers: typeof child.data.subscribers === 'number' ? child.data.subscribers : null,
+          over18: Boolean(child.data.over18),
+          description: typeof child.data.public_description === 'string' ? child.data.public_description : null,
+        }
+        if (!acceptCandidate(candidate, settings.discovery_min_subscribers)) continue
+        found.push({ name: candidate.name, subscribers: candidate.subscribers, over18: candidate.over18, via: keyword })
+      }
+      state.candidates += found.length
+      if (found.length) state.added += (await insertDiscoveredSubreddits(found.slice(0, 200))).length
+    }
+  } catch (error) {
+    if (error instanceof RedditCircuitError) {
+      state.state = 'stopped'
+      state.reason = 'circuit-breaker'
+      await saveSettings({ rate_cooldown_until: new Date(Date.now() + 15 * 60_000).toISOString() }).catch(() => null)
+    } else if (error instanceof RedditCapError) {
+      state.state = 'stopped'
+      state.reason = 'daily-cap'
+    } else if (error instanceof RedditQuotaError) {
+      state.state = 'stopped'
+      state.reason = 'quota-low'
+    } else if (error instanceof RedditBudgetError) {
+      state.state = 'done'
+    } else if (error instanceof RedditAuthError) {
+      state.state = 'failed'
+      state.reason = error.message
+    } else {
+      state.state = 'failed'
+      state.reason = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  state.requests = client.stats().requests
+  state.remaining = client.stats().remaining
+  await saveDiscoveryRun({
+    keywordIndex: cursor,
+    checked: state.requests,
+    added: state.added,
+    note: state.reason ?? null,
+  }).catch(() => null)
+  await finishRun(runId, {
+    state: state.state === 'skipped' ? 'done' : state.state,
+    requests: state.requests,
+    mentions: 0,
+    errors: state.state === 'failed' ? 1 : 0,
+    remaining: state.remaining,
+    note: state.reason ?? null,
+    detail: { budget, keywords: state.keywords, candidates: state.candidates, added: state.added },
+  })
+  return state
 }
 
 /* ------------------------------------------------------ profile lookup */

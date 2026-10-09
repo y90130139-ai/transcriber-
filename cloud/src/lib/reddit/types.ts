@@ -174,6 +174,12 @@ export type RedditSettings = {
   requirements_sample_size: number
   /** Account-stat reads per community per pass (the expensive request). */
   requirements_profile_batch: number
+  /** The daily NSFW discovery sweep: its own request allowance, spent on
+   *  /subreddits/search pages to find new communities for the board. */
+  discovery_enabled: boolean
+  discovery_daily_cap: number
+  discovery_per_pass: number
+  discovery_min_subscribers: number
 }
 
 export type RedditPreferences = {
@@ -227,7 +233,8 @@ export type RequirementRow = {
   next_due_at: string | null
   last_error: string | null
   consecutive_failures: number
-  source: 'seed' | 'manual'
+  source: 'seed' | 'manual' | 'discovered'
+  discovered_via: string | null
   /** The posts that evidence the current bounds, newest first. */
   sources?: RequirementSource[]
 }
@@ -263,13 +270,12 @@ export type SubredditList = {
   items: string[]
 }
 
-export type OAuthAccountStatus = {
-  connected: boolean
-  configured: boolean
-  username: string | null
-  scope: string | null
-  connected_at: string | null
-  last_ok_at: string | null
-  last_error: string | null
-  redirect_uri: string | null
+export type DiscoveryStatus = {
+  enabled: boolean
+  daily_cap: number
+  requests_today: number
+  added_today: number
+  checked_today: number
+  last_run_at: string | null
+  min_subscribers: number
 }

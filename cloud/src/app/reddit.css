@@ -1047,23 +1047,7 @@ a.rt-list-row:hover .rt-list-main b { color: var(--sc-ember-deep); }
    verdict chips. */
 
 .rt-reqabout { display: grid; gap: 0.35rem; padding: var(--sc-space-4) 0 0; }
-.rt-reqmeta { font-size: 0.72rem; }
-.rt-reqfoot { margin: var(--sc-space-3) 0 0; font-size: 0.68rem; max-width: 90ch; }
-
-.rt-reqconnect {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-4);
-  flex-wrap: wrap;
-  margin-top: var(--sc-space-3);
-  padding: 0.7rem 0.9rem;
-  border: 1px solid var(--rt-ember-line);
-  border-radius: var(--rt-r);
-  background: var(--rt-ember-soft);
-  font-size: 0.76rem;
-  color: var(--sc-ink-700);
-}
-.rt-reqconnect span { flex: 1 1 340px; line-height: 1.5; }
+.rt-reqmeta { font-size: 0.72rem; color: var(--sc-ink-300); margin: 0; }
 
 .rt-reqcontrols { align-items: flex-end; justify-content: space-between; gap: var(--sc-space-4); }
 .rt-reqgroup {
@@ -1138,6 +1122,26 @@ a.rt-list-row:hover .rt-list-main b { color: var(--sc-ember-deep); }
 .rt-reqverdict[data-verdict='fits'] { color: var(--sc-positive); border-color: rgba(78, 158, 118, 0.4); }
 .rt-reqverdict[data-verdict='under'] { color: var(--sc-critical); border-color: rgba(224, 104, 94, 0.4); }
 .rt-reqverdict[data-verdict='unknown'] { color: var(--sc-ink-300); }
+
+/* The Bot Bouncer badge — a status chip that is also the setter. */
+.rt-reqbadge {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--rt-line);
+  border-radius: 999px;
+  background: none;
+  font-family: var(--sc-font-text);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rt-reqbadge:hover:not(:disabled) { border-color: var(--rt-line-strong); color: var(--sc-ink-900); }
+.rt-reqbadge[data-value='yes'] { color: var(--sc-critical); border-color: rgba(224, 104, 94, 0.4); }
+.rt-reqbadge[data-value='no'] { color: var(--sc-positive); border-color: rgba(78, 158, 118, 0.4); }
+.rt-reqbadge:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 900px) {
   .rt-reqcontrols { flex-direction: column; align-items: stretch; }

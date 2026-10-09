@@ -5,21 +5,19 @@ import { isAdultCategory, parseSubredditInput, REGISTRY_CATEGORIES } from '@/lib
 import {
   addRequirementSubreddit,
   createSubredditList,
+  discoveryStatus,
   listSubredditLists,
-  oauthStatus,
   removeRequirementSubreddit,
+  setBotBouncerStatus,
   setRequirementDueNow,
   updateRequirementSubreddit,
 } from '@/lib/reddit/requirementStore'
-import { redditRedirectUri, redditUserOAuthConfigured } from '@/lib/reddit/client'
 import { getSettings } from '@/lib/reddit/settings'
 
 /**
  * The Subreddits Requirements board: rows, board meta, saved lists and the
- * connection status — everything the page renders in one read. Every figure
- * comes from samples the collector already wrote; this route never talks to
- * Reddit. Adding a community is safe by construction: it lands as pending
- * and the next requirements pass proves whether it exists.
+ * discovery sweep's tallies in one read. Every figure comes from samples the
+ * collector already wrote; this route never talks to Reddit.
  */
 
 export async function GET(request: Request) {
@@ -46,13 +44,14 @@ export async function GET(request: Request) {
       rows,
       meta,
       lists,
-      oauth: await oauthStatus(redditUserOAuthConfigured(), redditRedirectUri()),
+      discovery: await discoveryStatus(
+        settings.discovery_enabled,
+        settings.discovery_daily_cap,
+        settings.discovery_min_subscribers,
+      ),
       settings: {
         requirements_enabled: settings.requirements_enabled,
         requirements_interval_minutes: settings.requirements_interval_minutes,
-        requirements_budget_per_run: settings.requirements_budget_per_run,
-        requirements_sample_size: settings.requirements_sample_size,
-        requirements_profile_batch: settings.requirements_profile_batch,
       },
       categories: REGISTRY_CATEGORIES,
     })
@@ -95,7 +94,8 @@ export async function POST(request: Request) {
 }
 
 /** Row-level actions: category, priority, enable/pause, bring the scan
- *  forward, or save the current result set as a new list. */
+ *  forward, set the Bot Bouncer badge, or save the current result set as a
+ *  new list. */
 export async function PATCH(request: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   try {
@@ -112,6 +112,11 @@ export async function PATCH(request: Request) {
     if (action === 'due') {
       await setRequirementDueNow(id.key)
       return NextResponse.json({ ok: true })
+    }
+    if (action === 'botbouncer') {
+      const status = ['yes', 'no', 'unknown'].includes(body.status) ? body.status : 'unknown'
+      await setBotBouncerStatus(id.key, status)
+      return NextResponse.json({ ok: true, bot_bouncer: status })
     }
     await updateRequirementSubreddit(id.key, {
       category: typeof body.category === 'string' ? body.category : undefined,

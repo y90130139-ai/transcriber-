@@ -111,6 +111,16 @@ export async function PUT(request: Request) {
     if (body.requirements_profile_batch !== undefined) {
       patch.requirements_profile_batch = clamp(Number(body.requirements_profile_batch), 0, 60, DEFAULT_SETTINGS.requirements_profile_batch)
     }
+    if (body.discovery_enabled !== undefined) patch.discovery_enabled = Boolean(body.discovery_enabled)
+    if (body.discovery_daily_cap !== undefined) {
+      patch.discovery_daily_cap = clamp(Number(body.discovery_daily_cap), 1, 5000, DEFAULT_SETTINGS.discovery_daily_cap)
+    }
+    if (body.discovery_per_pass !== undefined) {
+      patch.discovery_per_pass = clamp(Number(body.discovery_per_pass), 1, 500, DEFAULT_SETTINGS.discovery_per_pass)
+    }
+    if (body.discovery_min_subscribers !== undefined) {
+      patch.discovery_min_subscribers = clamp(Number(body.discovery_min_subscribers), 0, 1_000_000, DEFAULT_SETTINGS.discovery_min_subscribers)
+    }
     if (body.rate_cooldown_until !== undefined) {
       const value = body.rate_cooldown_until
       patch.rate_cooldown_until = typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null

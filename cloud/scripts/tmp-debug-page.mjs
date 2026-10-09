@@ -124,6 +124,61 @@ console.log(
 )
 console.log('body head:', await dump('(document.body ? document.body.innerText : "no body").slice(0, 400)'))
 
+// Full flow with visible state.
+console.log(
+  'add file + generate:',
+  await dump(`(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 320
+    canvas.height = 240
+    const ctx = canvas.getContext('2d')
+    const stream = canvas.captureStream(30)
+    const mimeType = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp8'].find((t) => MediaRecorder.isTypeSupported(t))
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 400_000 })
+    const chunks = []
+    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
+    const stopped = new Promise((resolve) => { recorder.onstop = resolve })
+    recorder.start(100)
+    const start = performance.now()
+    await new Promise((resolve) => {
+      function frame() {
+        const t = (performance.now() - start) / 1000
+        ctx.fillStyle = 'hsl(' + ((t * 80) % 360) + ' 70% 45%)'
+        ctx.fillRect(0, 0, 320, 240)
+        if (t < 2) requestAnimationFrame(frame)
+        else resolve()
+      }
+      frame()
+    })
+    recorder.stop()
+    await stopped
+    const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
+    window.__vbEngine.addFiles([new File([new Blob(chunks, { type: 'video/' + ext })], 'debug.' + ext, { type: 'video/' + ext })])
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    window.__vbEngine.setRender({ variations: 2, workers: 1 })
+    window.__vbEngine.generate()
+    const s = window.__vbEngine.store.getSnapshot()
+    return JSON.stringify({ batch: s.batch && s.batch.status, jobs: s.jobs.length, notices: s.notices.map((n) => n.title + ': ' + (n.message || '')) })
+  })()`),
+)
+
+for (let i = 0; i < 12; i += 1) {
+  await sleep(5000)
+  const state = await dump(`(() => {
+    const s = window.__vbEngine.store.getSnapshot()
+    return JSON.stringify({
+      batch: s.batch ? s.batch.status : null,
+      jobs: s.jobs.map((j) => j.status + (j.error ? ':' + j.error.slice(0, 60) : '')),
+      outputs: s.outputs.length,
+      progress: Object.values(s.progress).map((p) => Math.round((p.ratio || 0) * 100)),
+      notices: s.notices.map((n) => n.title),
+      engine: s.engineDetail,
+    })
+  })()`)
+  console.log(`t+${(i + 1) * 5}s:`, state)
+  if (state && state.includes('"batch":"completed"')) break
+}
+
 console.log('--- console events ---')
 const requestUrls = new Map()
 for (const event of events) {

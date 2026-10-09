@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type {
-  OAuthAccountStatus,
+  DiscoveryStatus,
   RequirementProfileStats,
   RequirementRow,
   RequirementSource,
@@ -23,7 +23,7 @@ type BoardPayload = {
   rows: RequirementRow[]
   meta: RequirementBoardMeta
   lists: SubredditList[]
-  oauth: OAuthAccountStatus
+  discovery: DiscoveryStatus
   settings: { requirements_interval_minutes: number; requirements_enabled: boolean }
   categories: readonly string[]
 }
@@ -40,18 +40,21 @@ const BOT_BOUNCER_LABEL: Record<string, string> = {
   yes: 'Installed', no: 'No', unknown: 'Unknown',
 }
 
-/** How the board explains each column in its header tooltip. Kept next to
- *  the columns so copy and data cannot drift. */
+/** The next value in the badge's cycle: unknown → installed → no → unknown. */
+const BOT_BOUNCER_NEXT: Record<string, 'yes' | 'no' | 'unknown'> = {
+  unknown: 'yes', yes: 'no', no: 'unknown',
+}
+
 const COLUMN_HELP: Partial<Record<SortKey | 'sources', string>> = {
-  subscribers: 'Subscribers as Reddit reports them on the community card',
-  min_post_karma: 'Lowest post karma seen among recently surviving posts — the gate must be at or below it',
-  min_comment_karma: 'Lowest comment karma seen among recently surviving posts',
-  min_age_days: 'Shortest account age (at posting) seen among recently surviving posts',
-  avg_total_karma: 'Average combined karma of the sampled surviving posters',
-  posts_per_day: 'New posts per day, extrapolated from the sampled listing window',
-  sources: 'The posts this estimate rests on — lowest-karma survivors and AutoMod-filtered samples',
-  confidence: 'How much data backs these numbers, and whether the bounds held across passes',
-  bot_bouncer: 'Whether the Bot Bouncer moderation app is installed on the community',
+  subscribers: 'Subscribers, as Reddit reports them',
+  min_post_karma: 'Lowest post karma seen among surviving posts',
+  min_comment_karma: 'Lowest comment karma seen among surviving posts',
+  min_age_days: 'Shortest account age at posting, among surviving posts',
+  avg_total_karma: 'Average combined karma of sampled survivors',
+  posts_per_day: 'New posts per day, from the sampled listings',
+  sources: 'The posts this estimate rests on',
+  confidence: 'How much data backs these numbers',
+  bot_bouncer: 'Bot Bouncer installed on the community',
 }
 
 /** Subreddits Requirements — the posting-gate board. Every figure is read
@@ -83,21 +86,6 @@ export default function RedditRequirements() {
   if (listId) params.set('list', listId)
   const url = `/api/reddit/requirements?${params.toString()}`
   const { data, error, loading, reload } = useJson<BoardPayload>(url)
-
-  // The OAuth callback returns here with its verdict in the query string.
-  useEffect(() => {
-    const incoming = new URLSearchParams(window.location.search)
-    if (incoming.get('connected')) {
-      setNotice('Reddit account connected — Bot Bouncer checks will run on the next pass')
-      window.history.replaceState(null, '', window.location.pathname)
-    } else if (incoming.get('connect_error')) {
-      const reason = incoming.get('connect_error')
-      setNotice(reason === 'state-mismatch'
-        ? 'Connection failed: the consent response did not match this browser session'
-        : `Connection failed: ${reason}`)
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [])
 
   const activeList = data?.lists.find((list) => list.id === listId) ?? null
 
@@ -176,7 +164,7 @@ export default function RedditRequirements() {
     setAdding(true)
     try {
       await call('/api/reddit/requirements', 'POST', { input: name })
-      setNotice(`r/${name} added — the next collection pass will prove it exists and start sampling`)
+      setNotice(`r/${name} added`)
       setSearch('')
       reload()
     } catch { /* notice set */ } finally {
@@ -189,8 +177,19 @@ export default function RedditRequirements() {
       const body = await call('/api/reddit/requirements/collect', 'POST')
       const result = body?.result as { subreddits?: number; samples_new?: number; judged?: number; reason?: string } | undefined
       setNotice(result
-        ? `Requirements pass: ${result.subreddits ?? 0} communities, ${result.samples_new ?? 0} new samples, ${result.judged ?? 0} judged${result.reason ? ` (${result.reason})` : ''}`
-        : 'Requirements pass finished')
+        ? `Collected ${result.subreddits ?? 0} communities · ${result.samples_new ?? 0} new samples · ${result.judged ?? 0} judged${result.reason ? ` (${result.reason})` : ''}`
+        : 'Collection finished')
+      reload()
+    } catch { /* notice set */ }
+  }
+
+  async function findNew() {
+    try {
+      const body = await call('/api/reddit/requirements/discover', 'POST')
+      const result = body?.result as { keywords?: number; candidates?: number; added?: number; reason?: string } | undefined
+      setNotice(result
+        ? `Discovery: ${result.keywords ?? 0} searches · ${result.candidates ?? 0} candidates · ${result.added ?? 0} new communities${result.reason ? ` (${result.reason})` : ''}`
+        : 'Discovery finished')
       reload()
     } catch { /* notice set */ }
   }
@@ -238,7 +237,7 @@ export default function RedditRequirements() {
 
   async function removeList() {
     if (!activeList) return
-    if (!window.confirm(`Delete the list "${activeList.name}"? The communities themselves stay on the board.`)) return
+    if (!window.confirm(`Delete the list "${activeList.name}"?`)) return
     try {
       await fetch(`/api/reddit/lists?id=${encodeURIComponent(activeList.id)}`, { method: 'DELETE' })
       setListId('')
@@ -272,53 +271,23 @@ export default function RedditRequirements() {
   }
 
   const meta = data?.meta
+  const discovery = data?.discovery
   const filtersActive = Boolean(search || category || botBouncer !== 'all' || !nsfw || listId)
 
   return (
     <div className="rt-page">
       <section className="rt-reqabout">
         <h2 className="rt-section-label">Requirements for posting in subreddits</h2>
-        <p className="rt-desc">
-          Observed, not published: these figures are measured from the accounts of users who actually posted —
-          their post and comment karma and their account age at posting time — through Reddit&apos;s API.
-          Reddit does not expose the gates themselves, so each minimum is the lowest reading seen survive; a
-          filtered author is evidence the gate sits above theirs. <b>No data</b> means not enough samples yet, never zero.
-        </p>
-        <p className="rt-dim rt-reqmeta">
+        <p className="rt-reqmeta">
           {meta ? `${meta.total} communities · ${meta.with_bot_bouncer} with Bot Bouncer · ${meta.without_bot_bouncer} without · ${meta.unknown_bot_bouncer} unknown` : 'loading…'}
-          {meta?.last_updated ? ` · last collected ${timeAgo(meta.last_updated)}` : ''}
+          {meta?.last_updated ? ` · collected ${timeAgo(meta.last_updated)}` : ''}
           {meta?.next_due_at ? ` · next scan ${untilLabel(meta.next_due_at)}` : ''}
+          {discovery?.enabled ? ` · found ${discovery.added_today} today (${discovery.requests_today}/${discovery.daily_cap} requests)` : ''}
         </p>
       </section>
 
       {notice && <p className="rt-notice">{notice}</p>}
-      {error && <div className="rt-error"><b>Could not load the requirements board</b><p>{error}</p></div>}
-
-      {data && !data.oauth.connected && data.meta.unknown_bot_bouncer > 0 && (
-        <div className="rt-reqconnect">
-          <span>
-            Bot Bouncer status is unknown for {data.meta.unknown_bot_bouncer} communities. Reddit refuses moderator
-            lists to app-only tokens, so connect a Reddit account (read scope only) and the collector will fill the column.
-          </span>
-          <a className="rt-btn" href="/api/reddit/oauth?action=start">Connect Reddit account</a>
-        </div>
-      )}
-      {data?.oauth.connected && (
-        <p className="rt-dim rt-reqmeta">
-          Bot Bouncer checks run as u/{data.oauth.username}
-          {data.oauth.last_ok_at ? ` · last check ${timeAgo(data.oauth.last_ok_at)}` : ''}
-          {data.oauth.last_error ? ` · last error: ${data.oauth.last_error}` : ''}
-          {' · '}
-          <button type="button" className="rt-link" style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
-            onClick={async () => {
-              await fetch('/api/reddit/oauth', { method: 'DELETE' })
-              setNotice('Reddit account disconnected — existing statuses stay as last observed')
-              reload()
-            }}>
-            disconnect
-          </button>
-        </p>
-      )}
+      {error && <div className="rt-error"><b>Could not load the board</b><p>{error}</p></div>}
 
       <div className="rt-toolbar rt-reqcontrols">
         <div className="rt-reqgroup">
@@ -343,7 +312,7 @@ export default function RedditRequirements() {
           </form>
 
           <DropSelect className="rt-dd" label="Filter by tag" value={category} onChange={setCategory}
-            options={[{ value: '', label: 'Search by tags — all' },
+            options={[{ value: '', label: 'All tags' },
               ...(data?.meta.categories ?? []).map((option) => ({ value: option, label: option }))]} />
         </div>
 
@@ -362,8 +331,9 @@ export default function RedditRequirements() {
           )}
           <button type="button" className="rt-btn" onClick={() => setListOpen((open) => !open)}>+ New List</button>
           <button type="button" className="rt-btn rt-btn-quiet" onClick={showAll} disabled={!filtersActive && !profile}>Show All</button>
+          <button type="button" className="rt-btn rt-btn-quiet" onClick={findNew} disabled={busy}>Find new</button>
           <button type="button" className="rt-btn" onClick={collectNow} disabled={busy}>
-            {busy ? 'Collecting…' : 'Collect now'}
+            {busy ? 'Working…' : 'Collect now'}
           </button>
         </div>
       </div>
@@ -382,15 +352,11 @@ export default function RedditRequirements() {
             <input className="rt-input rt-input-wide" autoFocus value={listName}
               onChange={(event) => setListName(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter' && listName.trim().length >= 2) void createList() }}
-              placeholder="List name — e.g. Warm-up accounts week 1" aria-label="List name" />
+              placeholder="List name" aria-label="List name" />
             <button type="button" className="rt-btn" disabled={busy || listName.trim().length < 2} onClick={createList}>
               Save {rows.length} shown
             </button>
           </div>
-          <p className="rt-field-hint">
-            A list is a saved slice of the board. Create it from what the filters show now, then reopen it any time;
-            rows can be added or removed while a list is active.
-          </p>
         </section>
       )}
 
@@ -420,13 +386,13 @@ export default function RedditRequirements() {
           <thead>
             <tr>
               <th>
-                <SortHeader label="Name" help={undefined} sortKey="name" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggleSort} />
               </th>
               <th className="rt-col-num"><SortHeader label="Subscribers" help={COLUMN_HELP.subscribers} sortKey="subscribers" sort={sort} onSort={toggleSort} /></th>
               <th className="rt-col-num"><SortHeader label="Min. post karma" help={COLUMN_HELP.min_post_karma} sortKey="min_post_karma" sort={sort} onSort={toggleSort} /></th>
               <th className="rt-col-num"><SortHeader label="Min. comment karma" help={COLUMN_HELP.min_comment_karma} sortKey="min_comment_karma" sort={sort} onSort={toggleSort} /></th>
               <th className="rt-col-num"><SortHeader label="Min. age" help={COLUMN_HELP.min_age_days} sortKey="min_age_days" sort={sort} onSort={toggleSort} /></th>
-              <th className="rt-col-num"><SortHeader label="Avg. karma 🔥" help={COLUMN_HELP.avg_total_karma} sortKey="avg_total_karma" sort={sort} onSort={toggleSort} /></th>
+              <th className="rt-col-num"><SortHeader label="Avg. karma" help={COLUMN_HELP.avg_total_karma} sortKey="avg_total_karma" sort={sort} onSort={toggleSort} /></th>
               <th className="rt-col-num"><SortHeader label="Posts / day" help={COLUMN_HELP.posts_per_day} sortKey="posts_per_day" sort={sort} onSort={toggleSort} /></th>
               <th><HeaderHelp label="Source links" help={COLUMN_HELP.sources} /></th>
               <th><SortHeader label="Verification" help={COLUMN_HELP.confidence} sortKey="confidence" sort={sort} onSort={toggleSort} /></th>
@@ -450,14 +416,20 @@ export default function RedditRequirements() {
                   busy={busy}
                   inList={activeList ? activeList.items.includes(row.id) : null}
                   onToggleSources={() => toggleExpanded(row.id)}
+                  onCycleBotBouncer={async () => {
+                    await call('/api/reddit/requirements', 'PATCH', {
+                      action: 'botbouncer', id: row.id, status: BOT_BOUNCER_NEXT[row.bot_bouncer],
+                    })
+                    reload()
+                  }}
                   onDue={async () => {
                     await call('/api/reddit/requirements', 'PATCH', { action: 'due', id: row.id })
-                    setNotice(`r/${row.display_name} queued for the next collection pass`)
+                    setNotice(`r/${row.display_name} queued for the next pass`)
                     reload()
                   }}
                   onToggleList={() => toggleListItem(row)}
                   onRemove={async () => {
-                    if (!window.confirm(`Remove r/${row.display_name} and its samples from the board?`)) return
+                    if (!window.confirm(`Remove r/${row.display_name} and its samples?`)) return
                     await fetch(`/api/reddit/requirements?id=${encodeURIComponent(row.id)}`, { method: 'DELETE' })
                     setNotice(`r/${row.display_name} removed`)
                     reload()
@@ -471,21 +443,13 @@ export default function RedditRequirements() {
             {!loading && !rows.length && (
               <tr>
                 <td colSpan={profile ? 12 : 11} className="rt-hint">
-                  {filtersActive
-                    ? 'No communities match these filters — Show All clears them.'
-                    : 'No communities on the board yet. Add one above or run a collection pass.'}
+                  {filtersActive ? 'No rows match. Show All clears filters.' : 'Empty board. Add a community above or run Collect now.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      <p className="rt-dim rt-reqfoot">
-        Estimates improve as sampling continues ({data?.settings.requirements_interval_minutes ?? 1440} min cadence per
-        community); a verified label means the same bounds held across three or more passes. Estimates are upper bounds —
-        an account at or above them has matched everyone observed surviving.
-      </p>
     </div>
   )
 }
@@ -526,7 +490,7 @@ function SortHeader({
 }
 
 function RequirementsRowFragment({
-  row, verdict, sources, open, busy, inList, onToggleSources, onDue, onToggleList, onRemove,
+  row, verdict, sources, open, busy, inList, onToggleSources, onCycleBotBouncer, onDue, onToggleList, onRemove,
 }: {
   row: RequirementRow
   verdict: UserVerdict | null
@@ -535,12 +499,13 @@ function RequirementsRowFragment({
   busy: boolean
   inList: boolean | null
   onToggleSources: () => void
+  onCycleBotBouncer: () => void
   onDue: () => void
   onToggleList: () => void
   onRemove: () => void
 }) {
-  const number = (value: number | null, format: (value: number) => string = compact) =>
-    value === null ? <span className="rt-dim">—</span> : format(value)
+  const number = (value: number | null) =>
+    value === null ? <span className="rt-dim">—</span> : compact(value)
 
   return (
     <>
@@ -573,12 +538,12 @@ function RequirementsRowFragment({
           </i>
         </td>
         <td>
-          <i className="rt-status" data-tone={row.bot_bouncer === 'yes' ? 'bad' : row.bot_bouncer === 'no' ? 'ok' : 'idle'}
-            title={row.bot_bouncer === 'unknown'
-              ? 'Not checked yet — connect a Reddit account so installed apps can be read from moderator lists'
-              : row.bot_bouncer_source === 'modlist' ? 'Detected via the moderator list, where installed apps appear' : 'Manually recorded'}>
+          <button type="button" className="rt-reqbadge" data-value={row.bot_bouncer} disabled={busy}
+            onClick={onCycleBotBouncer}
+            title="Click to set: installed / not installed / unknown — detected by hand, Reddit exposes no install list"
+            aria-label={`Bot Bouncer: ${BOT_BOUNCER_LABEL[row.bot_bouncer]}. Click to change`}>
             {BOT_BOUNCER_LABEL[row.bot_bouncer]}
-          </i>
+          </button>
         </td>
         {verdict && (
           <td>
@@ -603,7 +568,7 @@ function RequirementsRowFragment({
       {open && (
         <tr className="rt-reqexpand">
           <td colSpan={verdict ? 12 : 11}>
-            {sources.length === 0 && <span className="rt-dim">No samples recorded yet.</span>}
+            {sources.length === 0 && <span className="rt-dim">No samples yet.</span>}
             <ul className="rt-list">
               {sources.map((source) => (
                 <li key={source.post_id} className="rt-list-row">

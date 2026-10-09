@@ -1681,7 +1681,7 @@ const statements = [
                            check (confidence in ('verified','high','medium','low','insufficient')),
      bot_bouncer         text not null default 'unknown'
                            check (bot_bouncer in ('yes','no','unknown')),
-     bot_bouncer_source  text,                        -- modlist | manual
+     bot_bouncer_source  text,                        -- manual
      bot_bouncer_checked_at timestamptz,
      first_collected_at  timestamptz,
      last_collected_at   timestamptz,
@@ -1690,9 +1690,15 @@ const statements = [
      last_error          text,
      consecutive_failures integer not null default 0,
      source              text not null default 'seed' check (source in ('seed','manual')),
+     discovered_via      text,                        -- the keyword that found it
      added_at            timestamptz not null default now(),
      updated_at          timestamptz not null default now()
    )`,
+  // The source check grew a third value after the table first shipped.
+  `alter table reddit.requirement_subreddits drop constraint if exists requirement_subreddits_source_check`,
+  `alter table reddit.requirement_subreddits add constraint requirement_subreddits_source_check
+     check (source in ('seed','manual','discovered'))`,
+  `alter table reddit.requirement_subreddits add column if not exists discovered_via text`,
   `create index if not exists reddit_reqsub_due_idx
      on reddit.requirement_subreddits (enabled, next_due_at)`,
   `create index if not exists reddit_reqsub_category_idx
@@ -1774,25 +1780,30 @@ const statements = [
    )`,
 
   // The one optional Reddit account, connected through OAuth (authorization
-  // code, `read` scope, never a password). It exists for exactly one job the
-  // app-only token cannot do: reading a community's moderator list to tell
-  // whether Bot Bouncer is installed. Disconnecting deletes the row.
-  `create table if not exists reddit.oauth_account (
-     id            text primary key default 'owner',
-     username      text,
-     refresh_token text not null,
-     scope         text,
-     connected_at  timestamptz not null default now(),
-     last_ok_at    timestamptz,
-     last_error    text,
+  // code, `read` scope, never a password). It existed for exactly one job —
+  // reading moderator lists for Bot Bouncer — and was removed when the
+  // operator cut the account requirement; the drop keeps old installs tidy.
+  `drop table if exists reddit.oauth_account`,
+
+  // The daily discovery sweep: a rotating keyword cursor and the day's
+  // tallies. One row; the sweep has its own request allowance (settings)
+  // and stops the day it is spent.
+  `create table if not exists reddit.discovery_state (
+     id            text primary key default 'global',
+     keyword_index integer not null default 0,
+     last_run_at   timestamptz,
+     day           date,
+     checked_today integer not null default 0,
+     added_today   integer not null default 0,
+     note          text,
      updated_at    timestamptz not null default now()
    )`,
 
   // The requirements collector records its runs in the same table as the
-  // trend collector, under its own trigger value.
+  // trend collector, under its own trigger values.
   `alter table reddit.collector_runs drop constraint if exists collector_runs_trigger_check`,
   `alter table reddit.collector_runs add constraint collector_runs_trigger_check
-     check (trigger in ('cron','manual','validation','requirements'))`,
+     check (trigger in ('cron','manual','validation','requirements','discovery'))`,
 ]
 
 for (const statement of statements) {

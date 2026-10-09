@@ -10,7 +10,6 @@ import type { RequestUsage } from './client'
 import { uniqueCandidates, subredditKey } from './registry'
 import type { Estimate } from './requirements'
 import type {
-  OAuthAccountStatus,
   RequirementProfileStats,
   RequirementRow,
   RequirementSource,
@@ -132,10 +131,12 @@ export async function setRequirementDueNow(id: string): Promise<void> {
   )
 }
 
+/** Set the Bot Bouncer badge. Reddit exposes no install list to app-only
+ *  tokens, so this is operator knowledge — the board never invents it. */
 export async function setBotBouncerStatus(
   id: string,
   status: 'yes' | 'no' | 'unknown',
-  source: string,
+  source = 'manual',
   note?: string | null,
 ): Promise<void> {
   await sql.query(
@@ -317,21 +318,6 @@ export async function countQueuedRequirementJobs(): Promise<number> {
     `select count(*)::int as n from reddit.requirement_jobs where state = 'queued'`,
   )
   return Number(row?.n ?? 0)
-}
-
-/** Communities whose Bot Bouncer status is due a re-check (never checked, or
- *  older than the TTL). Runs only when a Reddit account is connected — the
- *  app-only token cannot read mod lists. */
-export async function requirementBotBouncerDue(limit: number, ttlDays: number): Promise<string[]> {
-  const rows = await q<{ id: string }>(
-    `select id from reddit.requirement_subreddits
-      where enabled and status in ('pending','active')
-        and (bot_bouncer_checked_at is null or bot_bouncer_checked_at < now() - ($1::int * interval '1 day'))
-      order by bot_bouncer_checked_at asc nulls first
-      limit $2`,
-    [ttlDays, limit],
-  )
-  return rows.map((row) => row.id)
 }
 
 /* --------------------------------------------------------------- samples */
@@ -573,64 +559,113 @@ export function toProfileStats(row: {
   }
 }
 
-/* ---------------------------------------------------------------- oauth */
+/* ------------------------------------------------------------ discovery */
 
-export async function getOAuthAccount(): Promise<{
-  username: string | null; refresh_token: string; scope: string | null;
-  connected_at: string; last_ok_at: string | null; last_error: string | null
-} | null> {
-  const rows = await q<{
-    username: string | null; refresh_token: string; scope: string | null;
-    connected_at: string; last_ok_at: string | null; last_error: string | null
-  }>(
-    `select username, refresh_token, scope, connected_at, last_ok_at, last_error
-       from reddit.oauth_account where id = 'owner'`,
-  )
-  return rows[0] ?? null
+export type DiscoveryState = {
+  keyword_index: number
+  last_run_at: string | null
+  day: string | null
+  checked_today: number
+  added_today: number
 }
 
-export async function saveOAuthAccount(input: { username: string; refresh_token: string; scope: string | null }): Promise<void> {
+export async function getDiscoveryState(): Promise<DiscoveryState> {
+  const rows = await q<DiscoveryState>(
+    `select keyword_index, last_run_at, day::text as day, checked_today, added_today
+       from reddit.discovery_state where id = 'global'`,
+  )
+  return rows[0] ?? { keyword_index: 0, last_run_at: null, day: null, checked_today: 0, added_today: 0 }
+}
+
+/** Record one sweep: the cursor moves, the day's tallies roll over at
+ *  midnight (database time), the run time is stamped. */
+export async function saveDiscoveryRun(patch: {
+  keywordIndex: number
+  checked: number
+  added: number
+  note?: string | null
+}): Promise<void> {
   await sql.query(
-    `insert into reddit.oauth_account (id, username, refresh_token, scope, connected_at, last_ok_at, last_error)
-     values ('owner', $1, $2, $3, now(), now(), null)
+    `insert into reddit.discovery_state (id, keyword_index, last_run_at, day, checked_today, added_today, note, updated_at)
+     values ('global', $1, now(), current_date, $2, $3, $4, now())
      on conflict (id) do update
-       set username = excluded.username,
-           refresh_token = excluded.refresh_token,
-           scope = excluded.scope,
-           connected_at = now(),
-           last_ok_at = now(),
-           last_error = null,
+       set keyword_index = $1,
+           last_run_at = now(),
+           checked_today = case when reddit.discovery_state.day = current_date
+                                then reddit.discovery_state.checked_today + $2 else $2 end,
+           added_today = case when reddit.discovery_state.day = current_date
+                              then reddit.discovery_state.added_today + $3 else $3 end,
+           day = current_date,
+           note = $4,
            updated_at = now()`,
-    [input.username, input.refresh_token, input.scope],
+    [patch.keywordIndex, patch.checked, patch.added, patch.note ?? null],
   )
 }
 
-export async function touchOAuthAccount(ok: boolean, error?: string | null): Promise<void> {
-  if (ok) {
-    await sql.query(`update reddit.oauth_account set last_ok_at = now(), last_error = null, updated_at = now() where id = 'owner'`)
-    return
-  }
-  await sql.query(
-    `update reddit.oauth_account set last_error = $1, updated_at = now() where id = 'owner'`,
-    [(error ?? 'unknown error').slice(0, 300)],
+/** Requests the discovery sweeps spent since midnight — its own 1,000/day
+ *  allowance, counted from the usage log rather than a tally somebody could
+ *  forget to update. */
+export async function countDiscoveryRequestsToday(): Promise<number> {
+  const [row] = await q<{ n: number }>(
+    `select count(*)::int as n
+       from reddit.api_usage u
+       join reddit.collector_runs r on r.id = u.run_id
+      where r.trigger = 'discovery' and u.at >= date_trunc('day', now())`,
   )
+  return Number(row?.n ?? 0)
 }
 
-export async function deleteOAuthAccount(): Promise<void> {
-  await sql.query(`delete from reddit.oauth_account where id = 'owner'`)
+/** Whether a discovery sweep is due: never run, or older than 20 hours. */
+export async function discoveryDue(): Promise<boolean> {
+  const [row] = await q<{ due: boolean }>(
+    `select coalesce(
+        (select last_run_at is null or last_run_at < now() - interval '20 hours'
+           from reddit.discovery_state where id = 'global'),
+        true) as due`,
+  )
+  return Boolean(row?.due)
 }
 
-export async function oauthStatus(configured: boolean, redirectUri: string | null): Promise<OAuthAccountStatus> {
-  const account = await getOAuthAccount()
+export type DiscoveredSubreddit = {
+  name: string
+  subscribers: number | null
+  over18: boolean
+  via: string
+}
+
+/** One insert for a sweep's finds. `on conflict do nothing` so a community
+ *  already on the board keeps whatever it has earned. */
+export async function insertDiscoveredSubreddits(candidates: DiscoveredSubreddit[]): Promise<string[]> {
+  if (!candidates.length) return []
+  const rows = await q<{ id: string }>(
+    `insert into reddit.requirement_subreddits
+       (id, display_name, url, category, over18, status, source, discovered_via)
+     select lower(name), name, 'https://www.reddit.com/r/' || name || '/',
+            'Discovered NSFW', true, 'pending', 'discovered', via
+       from unnest($1::text[], $2::int[], $3::text[]) as t(name, subs, via)
+     on conflict (id) do nothing
+     returning id`,
+    [
+      candidates.map((candidate) => candidate.name),
+      candidates.map((candidate) => candidate.subscribers),
+      candidates.map((candidate) => candidate.via),
+    ],
+  )
+  return rows.map((row) => row.id)
+}
+
+/** Requests the discovery sweep made today, against its settings cap. The
+ *  spend is bounded by the caller; this is the reading it bounds with. */
+export async function discoveryStatus(enabled: boolean, dailyCap: number, minSubscribers: number) {
+  const [state, requests] = await Promise.all([getDiscoveryState(), countDiscoveryRequestsToday()])
   return {
-    connected: Boolean(account),
-    configured,
-    username: account?.username ?? null,
-    scope: account?.scope ?? null,
-    connected_at: account?.connected_at ?? null,
-    last_ok_at: account?.last_ok_at ?? null,
-    last_error: account?.last_error ?? null,
-    redirect_uri: redirectUri,
+    enabled,
+    daily_cap: dailyCap,
+    requests_today: requests,
+    added_today: Number(state.added_today ?? 0),
+    checked_today: Number(state.checked_today ?? 0),
+    last_run_at: state.last_run_at,
+    min_subscribers: minSubscribers,
   }
 }
 

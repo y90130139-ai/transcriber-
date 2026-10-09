@@ -81,7 +81,9 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.msel-pop[data-side='up'] { animation-name: msel-in-up; }
 @keyframes msel-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+@keyframes msel-in-up { from { opacity: 0; transform: translateY(4px) scale(0.98); } }
 .msel-pop::-webkit-scrollbar { display: none; }
 .msel-pop:focus { outline: none; }
 .msel-opt {
@@ -94,6 +96,8 @@
 .msel-opt > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msel-opt:hover, .msel-opt[data-focus='true'] { background: var(--sc-ember-tint); }
 .msel-opt[data-on='true'] { color: var(--sc-ink-900); font-weight: 600; }
+.msel-opt[data-disabled='true'],
+.msel-opt[data-disabled='true']:hover { background: transparent; opacity: 0.45; cursor: not-allowed; }
 .msel-check { color: var(--sc-ember-deep); font-weight: 700; }
 .msel-clear {
   display: block;

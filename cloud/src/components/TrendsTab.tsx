@@ -8,11 +8,12 @@
  * search a term — or tap a row — and the interest graph pulls up, with
  * "a vs b" comparisons. The graph's window picker is Google's (24 h /
  * 7 days / 30 days / 12 months / 5 years). Under it all: the Trends AI
- * box grounded in the board, then the library's own breakouts and sounds.
+ * box grounded in the board, then the sounds spreading across the library.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   INTEREST_RANGES,
+  interestStamp,
   parseInterestQuery,
   sparkPoints,
   startedLabel,
@@ -28,7 +29,6 @@ import {
 } from '@/lib/trends-feed'
 import TrendsChart, { SERIES_COLORS } from './TrendsChart'
 import DropSelect from './dashboard/DropSelect'
-import { OpenGlyph, PlayGlyph } from './platform/glyphs'
 
 type Exchange = { question: string; answer?: string; error?: string }
 type LiveSort = 'relevance' | 'volume' | 'recent'
@@ -40,6 +40,64 @@ const LIVE_PAGE = 30
 
 const SPARK_W = 72
 const SPARK_H = 20
+
+const HERO_TOPICS = 6
+const HERO_ROTATE_MS = 3600
+
+/** The highlighted word comes from this board, not a canned carousel. Keep
+ *  every word in the same layout slot so longer searches do not move the box. */
+function TrendingHeadline({ topics, placeWord }: { topics: string[]; placeWord: string }) {
+  const [current, setCurrent] = useState({ index: 0, previous: -1 })
+
+  useEffect(() => {
+    if (topics.length < 2) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let timer: ReturnType<typeof setInterval> | undefined
+
+    function syncRotation() {
+      clearInterval(timer)
+      timer = undefined
+      if (reducedMotion.matches || document.hidden) return
+      timer = setInterval(() => {
+        setCurrent(({ index }) => ({ index: (index + 1) % topics.length, previous: index }))
+      }, HERO_ROTATE_MS)
+    }
+
+    syncRotation()
+    reducedMotion.addEventListener('change', syncRotation)
+    document.addEventListener('visibilitychange', syncRotation)
+    return () => {
+      clearInterval(timer)
+      reducedMotion.removeEventListener('change', syncRotation)
+      document.removeEventListener('visibilitychange', syncRotation)
+    }
+  }, [topics.length])
+
+  if (topics.length === 0) {
+    return (
+      <h1 className="trends-hero-title">
+        Explore what <mark className="trends-place">{placeWord}</mark> is searching for right now
+      </h1>
+    )
+  }
+
+  return (
+    <h1 className="trends-hero-title"
+      aria-label={`Explore why ${topics[current.index]} is trending right now in ${placeWord}`}>
+      <span aria-hidden="true">Explore why</span>
+      <span className="trends-headline-words" aria-hidden="true">
+        {topics.map((topic, index) => (
+          <mark key={topic} className="trends-place trends-headline-word" title={topic}
+            data-current={index === current.index || undefined}
+            data-previous={index === current.previous || undefined}>
+            {topic}
+          </mark>
+        ))}
+      </span>
+      <span aria-hidden="true">is trending right now</span>
+    </h1>
+  )
+}
 
 function compact(n: number): string {
   return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
@@ -165,12 +223,38 @@ export default function TrendsTab() {
     return rows // relevance — Google's own order
   }, [board, sort])
 
-  const averages = useMemo(
+  const heroTopics = useMemo(() => {
+    // A place/window change keeps the previous table while loading, but the
+    // headline must not present those searches as belonging to the new place.
+    if (!board || (board.geo ?? 'US') !== geo || board.days !== days) return []
+    const rows = board.live?.length ? board.live : geo === 'US' ? board.terms : []
+    const seen = new Set<string>()
+    const topics: string[] = []
+    for (const row of rows) {
+      const topic = row.term.trim()
+      if (!topic || seen.has(topic.toLowerCase())) continue
+      seen.add(topic.toLowerCase())
+      topics.push(topic)
+      if (topics.length === HERO_TOPICS) break
+    }
+    return topics
+  }, [board, days, geo])
+
+  const interestStats = useMemo(
     () => terms.map((_, series) => {
+      if (interest.loading || interest.error || interest.points.length < 2) return null
       const values = interest.points.map((point) => point.v[series] ?? 0)
-      return values.length > 0 ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0
+      const peak = Math.max(...values)
+      const latest = interest.points[interest.points.length - 1]
+      return {
+        latest: values[values.length - 1],
+        latestAt: latest.t,
+        average: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
+        peak,
+        peakAt: interest.points[values.indexOf(peak)].t,
+      }
     }),
-    [terms, interest.points],
+    [terms, interest],
   )
 
   function explore(text: string) {
@@ -220,17 +304,17 @@ export default function TrendsTab() {
   const placeWord = geo === 'US' ? 'the United States' : placeName
   const windowWord = days === 1 ? 'the past 24 hours' : `the past ${RANGE_LABEL[days]}`
   const hints = live.slice(0, 3)
+  const graphWindow = INTEREST_RANGES.find((range) => range.id === interestRange)?.label
+  const summary = interestStats[0]
 
   return (
     <div className="trends">
-      {/* The hero: Google Trends' own question, in the console's clothes.
-          Type, search, hints — nothing behind it. */}
+      {/* The hero: live searches rotate in the highlight; the selected place
+          stays in the kicker. Type, search, hints — nothing behind it. */}
       <section className="trends-hero" aria-label="Search interest">
         <div className="trends-hero-inner">
-          <p className="trends-kicker">Discovery</p>
-          <h1 className="trends-hero-title">
-            Explore what <mark className="trends-place">{placeWord}</mark> is searching for right now
-          </h1>
+          <p className="trends-kicker">Discovery · {placeName}</p>
+          <TrendingHeadline key={JSON.stringify([geo, days, heroTopics])} topics={heroTopics} placeWord={placeWord} />
           <form
             className="trends-search"
             onSubmit={(event) => { event.preventDefault(); submitSearch(query) }}
@@ -279,30 +363,19 @@ export default function TrendsTab() {
         </div>
       </section>
 
-      {/* The graph, once there is one to draw. The range picker is the
-          graph's own, the way Google Trends' is. */}
+      {/* Search results live in one card: the term and place, the window,
+          real summary readings, then the graph. Comparisons label each line. */}
       {terms.length > 0 && (
-        <section className="trends-chart" ref={chartRef} aria-label="Interest over time">
+        <section className="dash-panel trends-chart" ref={chartRef} aria-labelledby="trends-interest-title">
           <header className="trends-chart-head">
             <div className="trends-chart-titles">
-              <p className="trends-panel-kicker">Interest over time · {placeName}</p>
-              <div className="trends-legend">
-                {terms.map((term, series) => (
-                  <span key={term} className="trends-legend-item">
-                    <i aria-hidden style={{ background: SERIES_COLORS[series] }} />
-                    <b>{term}</b>
-                    {interest.points.length > 0 && <span className="trends-legend-avg">avg {averages[series]}</span>}
-                    {terms.length > 1 && (
-                      <button type="button" className="trends-legend-drop"
-                        onClick={() => dropTerm(term)} aria-label={`Remove ${term} from the comparison`}>
-                        ×
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
+              <p className="trends-panel-kicker">Interest over time</p>
+              <h2 className="trends-chart-title" id="trends-interest-title">
+                {terms.length === 1 ? terms[0] : 'Search comparison'}
+              </h2>
+              <p className="trends-chart-meta">{placeName}</p>
             </div>
-            <nav className="trends-ranges" aria-label="Graph window">
+            <nav className="trends-ranges trends-chart-ranges" aria-label="Graph window">
               {INTEREST_RANGES.map((range) => (
                 <button
                   key={range.id}
@@ -316,7 +389,55 @@ export default function TrendsTab() {
                 </button>
               ))}
             </nav>
+            <div className="trends-chart-window">
+              <DropSelect
+                value={interestRange}
+                onChange={(next) => setInterestRange(next as InterestRange)}
+                label="Graph window"
+                options={INTEREST_RANGES.map((range) => ({ value: range.id, label: range.label }))}
+              />
+            </div>
           </header>
+
+          {terms.length === 1 ? (
+            <dl className="trends-chart-stats" aria-label="Search interest summary">
+              <div>
+                <dt>Latest</dt>
+                <dd><b>{summary?.latest ?? '—'}</b><span>/100</span></dd>
+                <dd className="trends-stat-detail">{summary ? interestStamp(summary.latestAt, interestRange) : '—'}</dd>
+              </div>
+              <div>
+                <dt>Average</dt>
+                <dd><b>{summary?.average ?? '—'}</b><span>/100</span></dd>
+                <dd className="trends-stat-detail">Across {graphWindow}</dd>
+              </div>
+              <div>
+                <dt>Peak</dt>
+                <dd><b>{summary?.peak ?? '—'}</b><span>/100</span></dd>
+                <dd className="trends-stat-detail">{summary ? interestStamp(summary.peakAt, interestRange) : '—'}</dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="trends-legend" aria-label="Compared searches and latest interest">
+              {terms.map((term, series) => (
+                <span key={term} className="trends-legend-item">
+                  <i aria-hidden style={{ background: SERIES_COLORS[series] }} />
+                  <span className="trends-legend-copy">
+                    <b title={term}>{term}</b>
+                    <span className="trends-legend-avg">Average {interestStats[series]?.average ?? '—'}</span>
+                  </span>
+                  <span className="trends-legend-score" aria-label={`Latest interest: ${interestStats[series]?.latest ?? 'unavailable'}`}>
+                    {interestStats[series]?.latest ?? '—'}<small>/100</small>
+                  </span>
+                  <button type="button" className="trends-legend-drop"
+                    onClick={() => dropTerm(term)} aria-label={`Remove ${term} from the comparison`}>
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <TrendsChart
             terms={terms}
             points={interest.points}
@@ -325,9 +446,6 @@ export default function TrendsTab() {
             error={interest.error}
             onRetry={() => void loadInterest(terms, interestRange, geo)}
           />
-          <p className="trends-chart-foot">
-            Relative search interest, 0–100 against the window’s peak · times in UTC · Google Trends
-          </p>
         </section>
       )}
 
@@ -489,101 +607,48 @@ export default function TrendsTab() {
         )}
       </section>
 
-      <div className="trends-grid trends-grid-two">
-        <section className="trends-panel" aria-label="Library breakouts">
-          {/* Reels land with Friday's weekly pass, so these two panels hold
-              their 7-day floor whatever the picker says. */}
-          <p className="trends-panel-kicker">Library breakouts · 7 days</p>
-          {/* The same card the /instagram feed wears (Geno, 2026-10-08): the
-              9:16 frame, the age-free top line, the handle and the reason over
-              the floor, the multiple where the score pill sits, plays in the
-              stats stack. The caption is the open-link's tooltip, not a
-              paragraph — one card per reel, scannable. */}
-          {board.breakouts.length === 0 ? (
-            <p className="trends-empty">No watched account beat its usual 2× in the window.</p>
-          ) : (
-            <div className="pl-grid">
-              {board.breakouts.map((reel) => (
-                <article className="pl-card" key={reel.post_id}>
-                  <div className="pl-frame">
-                    {reel.thumb_job ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img className="pl-poster" src={`/api/thumb/${reel.thumb_job}`} alt="" loading="lazy" />
-                    ) : (
-                      <div className="pl-blank"><span>Preview unavailable</span></div>
-                    )}
-                    <span className="pl-scrim" aria-hidden />
+      <section className="trends-panel" aria-label="Sounds spreading">
+        {/* Reels land with Friday's weekly pass, so sounds hold their 7-day
+            floor whatever the picker says. */}
+        <p className="trends-panel-kicker">Sounds spreading · 7 days</p>
+        {board.sounds.length === 0 ? (
+          <p className="trends-empty">No sound reached two watched creators in the window.</p>
+        ) : (
+          <ol className="trends-sounds">
+            {board.sounds.map((sound) => (
+              <li key={sound.title}>
+                <span className="trends-sound-name">♪ {sound.title}{sound.artist ? ` — ${sound.artist}` : ''}</span>
+                <span className="trends-term-meta">
+                  <b>{sound.creators} creators</b>
+                  <Dir direction={sound.direction} />
+                  <Spark series={sound.spark} />
+                  <span className="trends-plays">{compact(sound.plays)} plays</span>
+                </span>
+                <span className="trends-sound-acts">
+                  {sound.audio_id && (
                     <a
-                      className="pl-open"
-                      href={reel.url ?? '#'}
+                      className="trends-sound-act"
+                      href={`https://www.instagram.com/reels/audio/${sound.audio_id}/`}
                       target="_blank"
                       rel="noreferrer"
-                      aria-label={`Open @${reel.handle}'s reel`}
-                      title={reel.caption ?? undefined}
-                    />
-                    <span className="pl-tools">
-                      <a className="pl-tool" href={reel.url ?? '#'} target="_blank" rel="noreferrer" title="Open the post">
-                        <OpenGlyph />
-                      </a>
-                    </span>
-                    <span className="pl-foot">
-                      <span className="pl-user">@{reel.handle}</span>
-                      <span className="pl-subline">{reel.audio_title ? `♪ ${reel.audio_title}` : 'Library reel'}</span>
-                      <span className="pl-score" title={`${reel.multiple}× their usual`}>{reel.multiple}×</span>
-                    </span>
-                    <span className="pl-stats">
-                      <span className="pl-stat" title={`${reel.plays.toLocaleString('en-US')} plays`}>
-                        <PlayGlyph />{compact(reel.plays)}
-                      </span>
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="trends-panel" aria-label="Sounds spreading">
-          <p className="trends-panel-kicker">Sounds spreading · 7 days</p>
-          {board.sounds.length === 0 ? (
-            <p className="trends-empty">No sound reached two watched creators in the window.</p>
-          ) : (
-            <ol className="trends-sounds">
-              {board.sounds.map((sound) => (
-                <li key={sound.title}>
-                  <span className="trends-sound-name">♪ {sound.title}{sound.artist ? ` — ${sound.artist}` : ''}</span>
-                  <span className="trends-term-meta">
-                    <b>{sound.creators} creators</b>
-                    <Dir direction={sound.direction} />
-                    <Spark series={sound.spark} />
-                    <span className="trends-plays">{compact(sound.plays)} plays</span>
-                  </span>
-                  <span className="trends-sound-acts">
-                    {sound.audio_id && (
-                      <a
-                        className="trends-sound-act"
-                        href={`https://www.instagram.com/reels/audio/${sound.audio_id}/`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Use on Instagram
-                      </a>
-                    )}
-                    {/* Only while a stored copy is still alive — Instagram's
-                        links die in hours; Scout's next pass renews them. */}
-                    {sound.fresh_audio && (
-                      <a className="trends-sound-act" href={`/api/trends/sound?title=${encodeURIComponent(sound.title)}`}>
-                        Save file
-                      </a>
-                    )}
-                    <span className="trends-handles">{sound.sample_handles.map((handle) => `@${handle}`).join(' ')}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-      </div>
+                    >
+                      Use on Instagram
+                    </a>
+                  )}
+                  {/* Only while a stored copy is still alive — Instagram's
+                      links die in hours; Scout's next pass renews them. */}
+                  {sound.fresh_audio && (
+                    <a className="trends-sound-act" href={`/api/trends/sound?title=${encodeURIComponent(sound.title)}`}>
+                      Save file
+                    </a>
+                  )}
+                  <span className="trends-handles">{sound.sample_handles.map((handle) => `@${handle}`).join(' ')}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
     </div>
   )
 }

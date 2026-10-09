@@ -7,15 +7,19 @@
     "start": "next start",
     "migrate": "node scripts/migrate.mjs",
     "test": "node --import ./test/ts-resolve.mjs --test test/*.test.ts",
-    "earnings": "node --import ./test/ts-resolve.mjs scripts/earnings-pull.mjs"
+    "earnings": "node --import ./test/ts-resolve.mjs scripts/earnings-pull.mjs",
+    "reddit:seed": "node --import ./test/ts-resolve.mjs scripts/reddit-seed.mjs",
+    "reddit:pull": "node --import ./test/ts-resolve.mjs scripts/reddit-pull.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.8.0",
+    "date-fns": "^4.4.0",
     "nanoid": "^5.1.16",
     "next": "^16.3.4",
     "react": "^19.2.8",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {

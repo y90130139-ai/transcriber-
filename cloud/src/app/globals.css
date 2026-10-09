@@ -4,12 +4,18 @@
 @import './dashboard.css';
 @import './trends.css';
 @import './earnings.css';
+/* Reddit Trends — the section's own surfaces, scoped to `.rt`. */
+@import './reddit.css';
 /* The console's app frame — sidebar rail, top bar, the framed page. Scoped to
    .shell, which only ConsoleShell renders. */
 @import './shell.css';
 /* The platform pages (Instagram / TikTok / Twitter-X) — the rail's platform
    groups and the reference-style media feed. Scoped under .console. */
 @import './platform.css';
+/* The plan dialog's week pane (PlanEditor.tsx), scoped to `.planmodal`. */
+@import './plandialog.css';
+/* DayPicker calendar used by DueDateField in the plan setup. */
+@import './calendar.css';
 /* Last, so a motion rule wins the tie against the component rule it animates.
    This is the only stylesheet both the console and /p/[token] are guaranteed
    to load — the root layout imports this file on every route — which is why
@@ -1496,6 +1502,72 @@ body {
 /* Her page pads itself for a phone's edges; inside the frame that padding is
    already the bezel's. */
 .console .planphone-screen .plan { padding-left: 0; padding-right: 0; }
+
+/* ------------------------------------------------ HER PAGE, IN THE DARK
+   The preview used to inherit whatever ground the console sat on, and the
+   console is always ink — which made half her page come out inverted:
+   `--sc-ink-900` is light on this ground, so the plan's header painted
+   itself cream on dark cards. The phone now carries her page's dark theme
+   itself. The tokens and every ink-as-surface rule below are the block
+   plan.css keeps under `:root[data-theme='dark']` (edit both); what shows
+   is a real state of her page, pinned to dark so nothing white lands in
+   the console. */
+.console .planphone-screen {
+  color-scheme: dark;
+
+  --sc-ink-900: #EDE9E3;
+  --sc-ink-700: #D6D1C8;
+  --sc-ink-500: #A8A29A;
+  --sc-ink-300: #7C776F;
+  --sc-ink-150: #33302C;
+
+  --sc-bone:       #060605;
+  --sc-bone-light: #1B1917;
+  --sc-paper:      #121110;
+
+  --sc-ember:      #E8663A;
+  --sc-ember-deep: #F08460;
+  --sc-ember-tint: #2A1710;
+
+  --sc-positive: #4E9E76;
+  --sc-caution:  #C0942A;
+  --sc-critical: #E0685E;
+
+  --sc-rule-hair: 1px solid #33302C;
+  --sc-rule-firm: 1px solid #EDE9E3;
+  --sc-rule-lock: 2px solid #EDE9E3;
+}
+.console .planphone-screen .plan-head { background-color: #000; color: var(--sc-ink-900); }
+.console .planphone-screen .plan-week,
+.console .planphone-screen .plan-name,
+.console .planphone-screen .plan-facts b { color: var(--sc-ink-900); }
+.console .planphone-screen .plan-player { background: #000; box-shadow: inset 0 0 0 1px rgba(237, 233, 227, 0.10); }
+.console .planphone-screen .plan-item-head .plan-no { background: var(--sc-ember); color: #0A0A0A; }
+.console .planphone-screen .plan-item[data-filmed] .plan-item-head .plan-no {
+  background: var(--sc-positive);
+  color: #0A0A0A;
+}
+.console .planphone-screen .plan-cta { background: var(--sc-ink-900); color: #0A0A0A; border-color: var(--sc-ink-900); }
+.console .planphone-screen .plan-cta-quiet { background: transparent; color: var(--sc-ink-900); border-color: #3A3733; }
+.console .planphone-screen .plan-send { background: var(--sc-ink-900); color: #0A0A0A; }
+.console .planphone-screen .plan-verdict button[aria-pressed='true'] { background: var(--sc-ink-900); color: #0A0A0A; }
+.console .planphone-screen .plan-verdict .plan-no[aria-pressed='true'] {
+  background: var(--sc-critical);
+  border-color: var(--sc-critical);
+  color: #0A0A0A;
+}
+.console .planphone-screen .plan-code[aria-pressed='true'] { color: #0A0A0A; }
+.console .planphone-screen .plan-filmed { color: var(--sc-ink-900); border-color: var(--sc-ink-900); }
+.console .planphone-screen .plan-item[data-filmed] .plan-filmed { color: #0A0A0A; }
+.console .planphone-screen .plan-bar i { background: #2B2926; }
+.console .planphone-screen .plan-bar i[data-on='true'] { background: var(--sc-ember-light); }
+.console .planphone-screen .plan-cta:active { background: var(--sc-ember-light); border-color: var(--sc-ember-light); color: #0A0A0A; }
+.console .planphone-screen .plan-cta-quiet:active { color: var(--sc-ember-light); }
+.console .planphone-screen .plan-group-bar { background: #000; border: 1px solid #2B2926; }
+.console .planphone-screen .plan-group-name { color: var(--sc-ink-900); }
+.console .planphone-screen .plan-copy:active { background: var(--sc-ink-900); color: #0A0A0A; border-color: var(--sc-ink-900); }
+.console .planphone-screen .plan-item { border-color: #33302C; }
+.console .planphone-screen .plan-kind[data-kind='repurpose'] b { color: #6FCF97; }
 
 .console .planpane-note {
   margin: var(--sc-space-3) 0 0;

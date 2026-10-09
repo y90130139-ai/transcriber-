@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import PlanView from '@/components/plan/PlanView'
 import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 // Her stylesheet, pulled into the console by this component alone.
@@ -13,6 +13,8 @@ import type { Plan, PlanItem, PlanModel } from '@/lib/plans'
 import '@/app/plan.css'
 
 type Payload = { model: PlanModel; plan: Plan; items: PlanItem[] }
+
+const PREVIEW_DEBOUNCE_MS = 250
 
 /**
  * Her page, inside the console, in a phone.
@@ -42,39 +44,71 @@ export default function PlanPreview({
 }) {
   const [payload, setPayload] = useState<Payload | null>(null)
   const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  /** The week it is showing. A switch of week blanks the phone rather than
+   *  showing last week's page under this week's head. */
+  const [shownFor, setShownFor] = useState<string | null>(null)
+  const inFlight = useRef<AbortController | null>(null)
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/plans/${planId}/preview`).catch(() => null)
+    inFlight.current?.abort()
+    const controller = new AbortController()
+    inFlight.current = controller
+    const response = await fetch(`/api/plans/${planId}/preview`, { signal: controller.signal }).catch(() => null)
+    if (controller.signal.aborted) return
     if (!response?.ok) {
       setFailed(true)
       return
     }
-    setFailed(false)
-    setPayload(await response.json().catch(() => null))
+    const body = await response.json().catch(() => null)
+    if (controller.signal.aborted) return
+    setFailed(!body)
+    if (body) {
+      setPayload(body)
+      setShownFor(planId)
+    }
   }, [planId])
 
-  useEffect(() => { void load() }, [load, revision])
+  // Saves arrive in bursts — a blur, then the list refreshing, then the week
+  // rail — and each used to fire its own refetch, landing in whatever order
+  // the network chose. One fetch per burst, and only the newest is painted.
+  useEffect(() => {
+    const timer = setTimeout(() => { void load() }, PREVIEW_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [load, revision, attempt])
+  useEffect(() => () => inFlight.current?.abort(), [])
 
-  if (failed) {
-    return <p className="planpane-note">The preview could not load. Their link itself is unaffected.</p>
-  }
-  if (!payload) {
-    return <p className="planpane-note">Loading their page…</p>
-  }
+  const ready = payload && shownFor === planId
 
   return (
-    <div className="planphone">
-      <div className="planphone-screen">
-        {/* The token is hers and real, but nothing in preview mode sends it
-            anywhere — every fetch that would use it returns first. It is passed
-            only because PlanView's signature takes it. */}
-        <PlanView
-          preview
-          token=""
-          model={payload.model}
-          plan={payload.plan}
-          items={payload.items}
-        />
+    <div className="planphone" data-state={failed && !ready ? 'failed' : ready ? 'ready' : 'loading'}>
+      <span className="planphone-notch" aria-hidden="true" />
+      <div className="planphone-screen" aria-busy={!ready || undefined}>
+        {ready ? (
+          /* The token is hers and real, but nothing in preview mode sends it
+             anywhere — every fetch that would use it returns first. It is
+             passed only because PlanView's signature takes it. */
+          <PlanView
+            preview
+            token=""
+            model={payload.model}
+            plan={payload.plan}
+            items={payload.items}
+          />
+        ) : failed ? (
+          <div className="planphone-state" role="alert">
+            <p className="planphone-state-title">The preview could not load</p>
+            <p>Their link itself is unaffected.</p>
+            <button type="button" className="chip" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+          </div>
+        ) : (
+          <div className="planphone-skel" aria-label="Loading their page">
+            <span data-h="head" />
+            <span data-h="line" />
+            <span data-h="card" />
+            <span data-h="card" />
+          </div>
+        )}
       </div>
     </div>
   )

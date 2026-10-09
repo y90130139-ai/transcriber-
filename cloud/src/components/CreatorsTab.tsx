@@ -1,13 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import PersonaProposals from './PersonaProposals'
 import CreatorSheet from './CreatorSheet'
 import PersonaBackfill, { BATCH } from './PersonaBackfill'
 import DropMulti from './dashboard/DropMulti'
 import DropSelect from './dashboard/DropSelect'
 import { compact, thumbUrl } from '@/lib/format'
-import { labelOf, taxonomy, toneOf } from '@/lib/taxonomy'
+import { labelOf, taxonomy } from '@/lib/taxonomy'
 
 export type Creator = {
   handle: string
@@ -143,8 +142,6 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
         )}
       </div>
 
-      <PersonaProposals />
-
       {/* Only 44 of 166 items carry a persona. Fixing that per item is 166
           decisions; per creator it is about ten. */}
       <PersonaBackfill open={backfill} onOpenChange={setBackfill} onApplied={() => void load()} />
@@ -154,33 +151,42 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
       ) : shown.length === 0 ? (
         <div className="empty"><p>No creator matches that.</p></div>
       ) : (
-        <div className="models" style={{ marginTop: 'var(--sc-space-5)' }}>
-          {shown.map((creator) => (
-            <button key={creator.handle} className="model" onClick={() => setOpen(creator.handle)}>
-              <span className="model-frame">
-                {creator.cover_id ? (
-                  <img src={thumbUrl(creator.cover_id)} alt="" width={420} height={525} loading="lazy" />
-                ) : (
-                  <span className="card-frame-empty">{creator.handle}</span>
-                )}
-              </span>
-              <span className="model-top">
-                <span className="model-handle">{creator.handle}</span>
-                <span className="model-figures"><b>{compact(creator.median_score)}</b> normal</span>
-              </span>
-              {creator.display_name && <span className="model-name">{creator.display_name}</span>}
-              <span className="model-persona">
-                {creator.persona.length > 0
-                  ? creator.persona.map((tag) => (
-                      <span key={tag} data-tone={toneOf('persona', tag)}>{labelOf('persona', tag)}</span>
-                    ))
-                  : <span data-empty="true">No persona set</span>}
-              </span>
-              <span className="model-figures">
-                <b>{creator.posts}</b> held · <b>{creator.recent_posts}</b> in 90d
-              </span>
-            </button>
-          ))}
+        <div className="creators">
+          {shown.map((creator) => {
+            const tags = creator.persona.slice(0, 2)
+            const extra = creator.persona.length - tags.length
+            return (
+              <button key={creator.handle} className="creator-card" onClick={() => setOpen(creator.handle)}>
+                <span className="creator-card-frame">
+                  {creator.cover_id ? (
+                    <img src={thumbUrl(creator.cover_id)} alt="" width={420} height={525} loading="lazy" />
+                  ) : (
+                    <span className="card-frame-empty">{creator.handle.slice(0, 1)}</span>
+                  )}
+                </span>
+                <span className="creator-card-body">
+                  <span className="creator-card-handle">@{creator.handle}</span>
+                  <span className="creator-card-meta">
+                    <b>{creator.posts}</b> held
+                    <span aria-hidden="true">·</span>
+                    <b>{creator.recent_posts}</b> in 90d
+                    {creator.median_score !== null && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <b>{compact(creator.median_score)}</b> normal
+                      </>
+                    )}
+                  </span>
+                  <span className="creator-card-tags">
+                    {tags.length > 0
+                      ? tags.map((tag) => <span key={tag}>{labelOf('persona', tag)}</span>)
+                      : <span data-empty="true">No persona</span>}
+                    {extra > 0 && <span className="creator-card-more">+{extra}</span>}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { headlineFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from './appeal'
 import { sql } from './db'
 import { currentWeekOf } from './dates'
+import { linksFor, mediaBase } from './media'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
 import { hiddenFromModel, sourceOf, type CardSource } from './source'
 import { spoken } from './sql'
@@ -216,17 +217,57 @@ async function currentPlanFor(model: PlanModel): Promise<Plan | null> {
   return (plan as Plan | undefined) ?? null
 }
 
-function mediaFor(row: Record<string, unknown>): PlanMedia | null {
-  const config = r2Config()
-  const key = row.r2_key as string | null
-  if (!config || !key || !row.uploaded_at) return null
+function cardFilename(row: Record<string, unknown>): string {
   // Saved as the card's own name (Geno, 2026-10-06): "V-119 reference.mp4"
   // beats a random id — she names her own files V-119 back, so the pair
   // sorts together in her folder. The id stays the fallback for the few
   // cards the card_no backfill never reached.
   const no = row.card_no === null || row.card_no === undefined ? null : Number(row.card_no)
-  const name = no ? `V-${no} reference.mp4` : `${String(row.item_id).slice(0, 12)}.mp4`
-  return planMediaFor(config, key, name)
+  return no ? `V-${no} reference.mp4` : `${String(row.item_id).slice(0, 12)}.mp4`
+}
+
+/** The reel's shortcode, from the card or from its Instagram URL. */
+function postCode(row: Record<string, unknown>): string | null {
+  const stored = typeof row.source_post === 'string' ? row.source_post.trim() : ''
+  if (/^[A-Za-z0-9_-]{5,}$/.test(stored)) return stored
+  const url = typeof row.webpage_url === 'string' ? row.webpage_url : ''
+  const match = url.match(/instagram\.com\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i)
+  return match?.[1] ?? null
+}
+
+/**
+ * Where the card's video actually plays from, in the order that keeps it
+ * loading: the copy already on R2, then the library file on the Mac, then
+ * Instagram's own link while that link is still alive. A card with a source
+ * and none of the three is the only one that stays a link.
+ */
+function mediaFor(
+  row: Record<string, unknown>,
+  mac: string | null,
+  instagram: Map<string, string>,
+): PlanMedia | null {
+  const config = r2Config()
+  const key = row.r2_key as string | null
+  if (config && key && row.uploaded_at) return planMediaFor(config, key, cardFilename(row))
+  if (mac && row.folder) {
+    const links = linksFor(mac, String(row.folder))
+    return { video: links.video, download: links.download }
+  }
+  const code = postCode(row)
+  const live = code ? instagram.get(code) : null
+  return live ? { video: live, download: live } : null
+}
+
+/** Instagram's video link, only while it has not expired. */
+async function instagramVideos(rows: Record<string, unknown>[]): Promise<Map<string, string>> {
+  const codes = [...new Set(rows.map(postCode).filter((code): code is string => Boolean(code)))]
+  if (!codes.length) return new Map()
+  const found = await sql.query(
+    `select post_id, video_url from transcriber.creator_posts
+      where post_id = any($1::text[]) and media_until > now() and video_url is not null`,
+    [codes],
+  )
+  return new Map(found.map((row) => [String(row.post_id), String(row.video_url)]))
 }
 
 /**
@@ -282,7 +323,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
                        where g.job_id = i.job_id and g.axis = 'format'), '{}') as formats,
             coalesce((select array_agg(g.tag) from transcriber.tags g
                        where g.job_id = i.job_id and g.axis = 'hook'), '{}') as hooks,
-            t.webpage_url, t.duration_sec, t.blocks,
+            t.webpage_url, t.duration_sec, t.folder, t.blocks,
             ${SIGNALS_COLUMNS},
             ${spoken('t.plain')} as transcript,
             coalesce(m.messages, '[]'::json) as messages,
@@ -312,6 +353,15 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     [planId],
   )
 
+  // One look at the Mac, and one at Instagram, for every card that is not
+  // already playing from its own R2 copy.
+  const config = r2Config()
+  const waiting = rows.filter((row) => !(config && row.r2_key && row.uploaded_at))
+  const [mac, instagram] = await Promise.all([
+    waiting.some((row) => row.folder) ? mediaBase() : Promise.resolve(null),
+    instagramVideos(waiting),
+  ])
+
   const items: PlanItem[] = rows.map((row) => ({
     headline: headlineFor(signalsFrom(row)),
     id: String(row.item_id),
@@ -339,7 +389,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     duration_sec: row.duration_sec === null ? null : Number(row.duration_sec),
     blocks: Array.isArray(row.blocks) ? (row.blocks as PlanBlock[]) : [],
     transcript: String(row.transcript ?? '').trim(),
-    media: mediaFor(row),
+    media: mediaFor(row, mac, instagram),
     bucket: isBucket(row.bucket) ? row.bucket : null,
     source_post: (row.source_post as string | null) ?? null,
     source: sourceOf(row.source, typeof row.bucket === 'string' ? row.bucket : null),

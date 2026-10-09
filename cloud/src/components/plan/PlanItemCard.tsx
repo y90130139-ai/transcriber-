@@ -317,6 +317,7 @@ export default function PlanItemCard({
     durationSec: item.duration_sec,
   })
 
+  const hasWords = item.blocks.length > 0 || Boolean(item.transcript)
   const words = item.blocks.length > 0
     ? item.blocks.map((block, index) => (
         <p key={index}>
@@ -355,20 +356,25 @@ export default function PlanItemCard({
             under it and "video 7" meant something else after any edit. */}
         <span className="plan-no">{cardId}</span>
         {item.title && <span className="plan-item-title">{item.title}</span>}
-        {/* The work it asks of her, read off the measured video. `title`
-            carries the why ("2 shots · prop the phone · no lines") where
-            hover exists; the chip alone has to carry phones. */}
-        {filming && <span className="plan-effort" data-tier={effort.tier} title={effort.why || undefined}>{effort.label}</span>}
-        {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
-        {/* Where the card came from, in her words (2026-10-08): a reference
-            to copy, a twist on one, or something written for her. Only on
-            cards she films — a repurpose is posted, not sourced. */}
-        {filming && SOURCE_TEXT[item.source].chip && (
-          <span className="plan-source" data-source={item.source}>
-            {SOURCE_TEXT[item.source].chip}
-          </span>
-        )}
       </div>
+
+      {(filming || Boolean(item.duration_sec)) && (
+        <div className="plan-item-meta">
+          {/* The work it asks of her, read off the measured video. `title`
+              carries the why ("2 shots · prop the phone · no lines") where
+              hover exists; the chip alone has to carry phones. */}
+          {filming && <span className="plan-effort" data-tier={effort.tier} title={effort.why || undefined}>{effort.label}</span>}
+          {/* Where the card came from, in her words (2026-10-08): a reference
+              to copy, a twist on one, or something written for her. Only on
+              cards she films — a repurpose is posted, not sourced. */}
+          {filming && SOURCE_TEXT[item.source].chip && (
+            <span className="plan-source" data-source={item.source}>
+              {SOURCE_TEXT[item.source].chip}
+            </span>
+          )}
+          {item.duration_sec ? <span className="plan-len">{clock(item.duration_sec)}</span> : null}
+        </div>
+      )}
 
       {/* When it goes out, and what kind of card it is — in her words. Only on
           cards the 70/20/10 planner drafted; everything older renders as it
@@ -401,8 +407,9 @@ export default function PlanItemCard({
       {/* The card as steps, in the order she works through it (Susanna,
           2026-09-27: "what to do, what to say, what to write", like the OF
           scripts). Numbered by what is actually on this card. */}
-      {/* A custom card has no reference video at all — the directions ARE
-          the card, so there is nothing to watch and the step says nothing. */}
+      {/* Every card that has a video plays it — a written card included, when
+          it was built on a reel. The source is the R2 copy, the library file,
+          or Instagram while that link lives. */}
       {(item.media || item.webpage_url) && (
       <Step no={++step} title="Watch it">
         {item.media ? (
@@ -473,38 +480,33 @@ export default function PlanItemCard({
           2026-10-06: "so many words") — the same eight lines on every card
           read as wallpaper by card three; a button she opens when she wants
           them keeps the card short and the list useful. */}
-      {film && (
-        <Step no={++step} title="Before you film">
-          <details className="plan-transcript plan-film-fold">
-            <summary><span aria-hidden>&#128161;</span> Things you should know</summary>
-            <ul className="plan-film-check">
-              {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
-            </ul>
-          </details>
-        </Step>
-      )}
-
       {film && shotList && (
         <Step no={++step} title="Film it">
-          {/* A planner card on her own winner still says what must not
-              change — that is the whole test. A new idea says it once, at
-              the top of the page. */}
-          {item.bucket && (
-            <div className="plan-rule">
-              <span className="plan-label">{rule.label}</span>
-              <dl className="plan-spec">
-                <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
-                <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
-              </dl>
-            </div>
-          )}
           <ShotListView list={shotList} face={expression} />
           {item.bucket && item.wardrobe && (
             <p className="plan-shot-line"><span>Wardrobe</span>{item.wardrobe}</p>
           )}
+          {/* The same lines on every card read as wallpaper by card three, so
+              the house rules sit behind one fold under the shots. */}
+          <details className="plan-transcript plan-tips">
+            <summary>Filming tips</summary>
+            <div>
+              {/* A planner card on her own winner still says what must not
+                  change — that is the whole test. */}
+              {item.bucket && (
+                <dl className="plan-spec">
+                  <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
+                  <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
+                </dl>
+              )}
+              <ul className="plan-film-check">
+                {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+              </ul>
+            </div>
+          </details>
           {item.blocks.length > 0 && (
             <details className="plan-transcript">
-              <summary><span aria-hidden>🗣️</span> What they say, word for word</summary>
+              <summary>What they say, word for word</summary>
               <div>{words}</div>
             </details>
           )}
@@ -513,31 +515,15 @@ export default function PlanItemCard({
 
       {film && !shotList && (
         <Step no={++step} title="Film it">
-          {/* What she keeps exactly and what she changes. */}
-          <div className="plan-rule">
-            <span className="plan-label">{rule.label}</span>
-            <dl className="plan-spec">
-              <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
-              <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
-              <div className="plan-spec-row"><dt>Your face</dt><dd>{expression}</dd></div>
-            </dl>
-          </div>
-
-          {(item.notes || spec.length > 0) && (
+          {/* The brief is the loud part. What she keeps, what she changes and
+              the house setup are the same on most cards, so they fold. */}
+          {item.notes ? (
             <div className="plan-direction">
               <span className="plan-label">Direction</span>
-              {item.notes && <p className="plan-notes">{item.notes}</p>}
-              {spec.length > 0 && (
-                <dl className="plan-spec">
-                  {spec.map(([key, label]) => (
-                    <div key={key} className="plan-spec-row">
-                      <dt>{label}</dt>
-                      <dd>{item[key]}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
+              <p className="plan-notes">{item.notes}</p>
             </div>
+          ) : (
+            <p className="plan-direction-lead">{rule.label}</p>
           )}
 
           {item.editing_notes && (
@@ -546,10 +532,30 @@ export default function PlanItemCard({
               {item.editing_notes}
             </p>
           )}
+
+          <details className="plan-transcript plan-tips">
+            <summary>Filming tips</summary>
+            <div>
+              <dl className="plan-spec">
+                <div className="plan-spec-row"><dt>Keep</dt><dd>{rule.keep}</dd></div>
+                <div className="plan-spec-row"><dt>Change</dt><dd>{rule.change}</dd></div>
+                <div className="plan-spec-row"><dt>Your face</dt><dd>{expression}</dd></div>
+                {spec.map(([key, label]) => (
+                  <div key={key} className="plan-spec-row">
+                    <dt>{label}</dt>
+                    <dd>{item[key]}</dd>
+                  </div>
+                ))}
+              </dl>
+              <ul className="plan-film-check">
+                {FILM_CHECKLIST.map((check) => <li key={check}>{check}</li>)}
+              </ul>
+            </div>
+          </details>
         </Step>
       )}
 
-      {film && !shotList && (
+      {film && !shotList && (item.hook || hasWords || (scaffold && scaffold.beats.length > 1)) && (
         <Step no={++step} title="What to say">
           {/* The reference's opening, only when it can be read — the screen
               reader's misreads ("Bal al") are filtered out on load. */}
@@ -579,10 +585,12 @@ export default function PlanItemCard({
             </details>
           )}
 
-          <details className="plan-transcript">
-            <summary><span aria-hidden>🗣️</span> What they say, word for word</summary>
-            <div>{words}</div>
-          </details>
+          {hasWords && (
+            <details className="plan-transcript">
+              <summary>What they say, word for word</summary>
+              <div>{words}</div>
+            </details>
+          )}
         </Step>
       )}
 
@@ -635,6 +643,9 @@ export default function PlanItemCard({
         </div>
       )}
 
+      {/* Every answer and action in one block at the foot, in the order she
+          reaches for them: yes or no, made already, filmed, ask. */}
+      <footer className="plan-item-actions">
       {/* Hers to answer. A card nobody has answered is a card nobody has
           decided about, which is different from one she has turned down. */}
       <div className="plan-verdict" role="group" aria-label={`Will you do ${cardId}`}>
@@ -806,6 +817,7 @@ export default function PlanItemCard({
           </div>
         )}
       </div>
+      </footer>
     </li>
   )
 }

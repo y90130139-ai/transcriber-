@@ -4,6 +4,7 @@ import { isScheduler, PLANNING_TZ, weekdayIn } from '@/lib/cron'
 import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
 import { archiveExpired } from '@/lib/expiry'
+import { collect } from '@/lib/reddit/collect'
 import { ingestTrends } from '@/lib/trends'
 
 export const maxDuration = 60
@@ -48,6 +49,16 @@ export async function GET(request: Request) {
     did.trends = await ingestTrends()
   } catch (error) {
     did.trends = { error: error instanceof Error ? error.message : String(error) }
+  }
+
+  // Every day: the Reddit collector's floor cadence. The brief's 15–60
+  // minute target needs a frequent caller — any scheduler can hit
+  // /api/cron/reddit?k=$CRON_SECRET — but a fresh install must collect
+  // something without one, and the collector is idempotent anyway.
+  try {
+    did.reddit = await collect({ trigger: 'cron', budget: 20 })
+  } catch (error) {
+    did.reddit = { error: error instanceof Error ? error.message : String(error) }
   }
 
   // Keep the existing serverless queue fallback armed; Railway invokes the

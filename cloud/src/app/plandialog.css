@@ -1,0 +1,2258 @@
+/* ============================================================
+   PLAN DIALOG — the week pane, regrouped (2026-10-09).
+
+   Top to bottom it now reads the way a week is worked: which
+   week · how it stands · what is left before it goes · add ·
+   the cards · the team, her posts, suggestions · send. Every
+   control from the old stack is still here; the change is the
+   grouping and the hierarchy between the groups.
+
+   Scoped to `.planmodal`. Imported after library.css/profile.css
+   but before globals.css's own body, so a rule that has to beat a
+   `.console .x` rule from globals is written at (0,3,0).
+   ============================================================ */
+
+/* ------------------------------------------------------ THE PANE
+   Three zones, each drawn as its own: the week bar pinned across the
+   top, the week's sections down the middle, her phone in a column of
+   its own behind a full-height rule. The columns pad themselves so the
+   rules and the pinned bars run edge to edge. */
+.planmodal .planmodal-body > .planpane {
+  --pane-x: var(--sc-space-6);
+  padding: 0;
+  gap: 0;
+}
+.planmodal .planpane-main {
+  display: grid;
+  gap: var(--sc-space-8);
+  align-content: start;
+  min-width: 0;
+  padding: 0 var(--pane-x);
+}
+.planmodal .planpane-main > * { margin: 0; }
+/* The week's sections scroll; the send bar is the column's foot, so a card
+   can never slide underneath it. */
+.planmodal .weekscroll {
+  position: relative;
+  display: grid;
+  /* max-content, not auto: in a height-capped scroller an auto row lets any
+     section that clips its overflow (the folds) collapse to a sliver. */
+  grid-auto-rows: max-content;
+  gap: var(--sc-space-6);
+  align-content: start;
+  min-width: 0;
+  padding: var(--sc-space-5) 0 var(--sc-space-6);
+}
+/* A wall card held over the week: the whole column is the target. */
+.planmodal .weekscroll[data-drop] { outline: 2px dashed var(--sc-ember); outline-offset: -2px; }
+.planmodal .weekdrop {
+  position: sticky;
+  top: var(--sc-space-2);
+  z-index: 6;
+  height: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.planmodal .weekdrop span {
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: var(--sc-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+/* ------------------------------------------------------ THE STEPS
+   The week is worked top to bottom: 1 set up, 2 add content, 3 go
+   through the cards, 4 check & send, then the extras. Each step is a
+   numbered head over its own body; the space between steps is the
+   largest on the pane so the groups read at a glance. */
+.planmodal .weekscroll { gap: var(--sc-space-8); }
+.planmodal .weekscroll > .planstep {
+  display: grid;
+  gap: var(--sc-space-4);
+  margin: 0;
+  min-width: 0;
+}
+.planmodal .weekscroll > .planstep > * { margin-top: 0; margin-bottom: 0; }
+.planmodal .planstep-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 0 0 var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+  min-width: 0;
+}
+.planmodal .planstep-no {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-pill);
+  font-size: var(--sc-text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink-700);
+  background: var(--sc-bone);
+}
+.planmodal .planstep[data-extra] .planstep-no { color: var(--sc-ink-300); border-style: dashed; background: transparent; }
+.planmodal .planstep-id { display: grid; gap: 2px; min-width: 0; }
+.planmodal .planstep-title {
+  margin: 0;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.3;
+  color: var(--sc-ink-900);
+}
+.planmodal .planstep-sub {
+  font-size: var(--sc-text-xs);
+  line-height: 1.45;
+  color: var(--sc-ink-500);
+}
+.planmodal .planstep-aside {
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Step 1's head is the fold's button. */
+.planmodal .planstep-toggle {
+  width: 100%;
+  margin: 0;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.planmodal .planstep-toggle:hover .planstep-title { color: var(--sc-ember); }
+.planmodal .planstep-toggle:focus-visible { outline: 2px solid var(--sc-ember); outline-offset: 4px; border-radius: var(--r-sm); }
+.planmodal .planstep-setup[data-open] .planstep-no {
+  border-color: var(--sc-ember);
+  color: var(--sc-ember);
+  background: var(--sc-ember-tint);
+}
+.planmodal .planstep-chev {
+  width: 8px;
+  height: 8px;
+  margin: 0 var(--sc-space-2) 4px;
+  border-right: 1.5px solid var(--sc-ink-300);
+  border-bottom: 1.5px solid var(--sc-ink-300);
+  transform: rotate(45deg);
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planstep-setup[data-open] .planstep-chev { transform: rotate(-135deg); margin-bottom: -4px; }
+
+/* Folded, the setup is one line of what it is set to. */
+.planmodal .setupsum {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.planmodal .setupsum li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-pill);
+  background: var(--sc-bone);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  white-space: nowrap;
+}
+.planmodal .setupsum li span {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.planmodal .setupsum li[data-missing] { color: var(--sc-caution); }
+
+/* Open, a settings sheet: the group's name on the left, its fields on
+   the right, a hairline between groups. */
+.planmodal .setupgroups {
+  display: grid;
+  gap: 0;
+  padding: var(--sc-space-1) var(--sc-space-5);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+}
+.planmodal .setupgroup {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--sc-space-3) var(--sc-space-5);
+  padding: var(--sc-space-4) 0;
+  align-items: start;
+}
+.planmodal .setupgroup + .setupgroup { border-top: var(--sc-rule-hair); }
+.planmodal .setupgroup > :not(.setupgroup-title) { grid-column: 2; margin: 0; min-width: 0; }
+.planmodal .setupgroup-title {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  margin: 0;
+  padding-top: 0.4rem;
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.planmodal .setupgroup .form-row { display: grid; gap: var(--sc-space-2); }
+.planmodal .setupgroup .hint { margin: 0; font-size: var(--sc-text-xs); line-height: 1.5; }
+.planmodal .setupgroup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-space-3) var(--sc-space-4);
+}
+.planmodal .setupgroups-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) 0;
+  border-top: var(--sc-rule-hair);
+}
+.planmodal .setupgroups-foot .hint { margin: 0; font-size: var(--sc-text-xs); }
+@media (max-width: 760px) {
+  .planmodal .setupgroups { padding: var(--sc-space-1) var(--sc-space-4); }
+  .planmodal .setupgroup { grid-template-columns: minmax(0, 1fr); }
+  .planmodal .setupgroup > :not(.setupgroup-title),
+  .planmodal .setupgroup-title { grid-column: 1; grid-row: auto; }
+  .planmodal .setupgroup-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The save line in the header: saving, saved at, or kept on the device. */
+.planmodal .weekhead-aside { display: flex; align-items: center; gap: var(--sc-space-3); flex: none; }
+.planmodal .weekhead-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+.planmodal .weekhead-save::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-300);
+}
+.planmodal .weekhead-save[data-state='saving']::before { background: var(--sc-ember); animation: plansave 0.9s ease-in-out infinite; }
+.planmodal .weekhead-save[data-state='saved']::before { background: var(--sc-positive); }
+.planmodal .weekhead-save[data-state='failed'] { color: var(--sc-caution); }
+.planmodal .weekhead-save[data-state='failed']::before { background: var(--sc-caution); }
+@keyframes plansave { 50% { opacity: 0.25; } }
+
+/* Edits that never reached the server, offered back on the next open. */
+.planmodal .planrestore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: 1px solid color-mix(in srgb, var(--sc-ember) 45%, transparent);
+  border-left-width: 3px;
+  border-radius: var(--r-sm);
+  background: var(--sc-ember-tint);
+}
+.planmodal .planrestore-text { min-width: 0; display: grid; gap: 2px; }
+.planmodal .planrestore-title { margin: 0; font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-900); }
+.planmodal .planrestore-list { margin: 0; font-size: var(--sc-text-xs); line-height: 1.45; color: var(--sc-ink-700); }
+.planmodal .planrestore-actions { display: flex; gap: var(--sc-space-2); flex: none; }
+@media (max-width: 700px) {
+  .planmodal .planrestore { flex-direction: column; align-items: stretch; }
+  .planmodal .planrestore-actions { justify-content: flex-end; }
+}
+
+/* The week bar: pinned, on the pane's ground, ruled underneath. */
+.planmodal .planpane-main > .weekbar {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  margin: 0 calc(var(--pane-x) * -1);
+  padding: var(--sc-space-4) var(--pane-x) var(--sc-space-3);
+  display: grid;
+  gap: var(--sc-space-2);
+  background: var(--sc-bone-light);
+  border-bottom: var(--sc-rule-hair);
+  box-shadow: 0 12px 20px -16px rgba(0, 0, 0, 0.7);
+}
+.planmodal .weekbar-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sc-space-3); }
+.planmodal .weekbar-title {
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-700);
+}
+.planmodal .weekbar-count { font-size: var(--sc-text-xs); color: var(--sc-ink-300); font-variant-numeric: tabular-nums; }
+.planmodal .weekbar .weektabs { padding-bottom: 0; border-bottom: 0; }
+
+/* ------------------------------------------------- WHAT THEY SEE
+   Hidden by default. Opens from the dialog header and slides in from the
+   right over the week pane — her phone, live and safe to touch. */
+/* Scroll lives on the right column. `min-height: 0` is required — without it
+   the grid item grows with the week and the modal clips it instead of
+   scrolling (what froze the pane after the preview drawer landed). */
+.planmodal .planmodal-body > .planpane {
+  position: relative;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.planmodal .planmodal-body > .planpane[data-preview='true'] {
+  overflow: hidden;
+}
+.planmodal .planpreview-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, #000 40%, transparent);
+  cursor: pointer;
+  animation: planpreview-scrim-in 200ms var(--sc-ease) both;
+}
+@keyframes planpreview-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.planmodal .planpane > .planpane-side {
+  /* Absolute over the week column's visible box — never in document flow,
+     so closed it cannot steal width, and open it keeps a real height for
+     the phone (height:auto had collapsed the preview to nothing). */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  width: min(440px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--sc-bone);
+  border-left: var(--sc-rule-hair);
+  padding: var(--sc-space-4) var(--sc-space-5) var(--sc-space-6);
+  transform: translateX(110%);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 280ms;
+}
+.planmodal .planpane > .planpane-side[data-open] {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .planmodal .planpreview-scrim { animation: none; }
+  .planmodal .planpane > .planpane-side,
+  .planmodal .planpane > .planpane-side[data-open] { transition: none; }
+}
+.planmodal .planpane-side-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: var(--sc-space-4);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.planmodal .planpane-side .planpane-head {
+  flex: none;
+  margin: 0;
+  padding: 0 0 var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-3);
+}
+.planmodal .planpane-head-id { display: grid; gap: var(--sc-space-1); min-width: 0; }
+.planmodal .planpane-head-title {
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-700);
+}
+.planmodal .planpane-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+}
+.planmodal .planpane-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: currentColor;
+}
+.planmodal .planpane-live[data-status='sent'] { color: var(--sc-positive); }
+.planmodal .planpane-head-tools { display: flex; gap: var(--sc-space-2); }
+.planmodal .planpane-head-tools .chip { border-radius: var(--r-pill); }
+
+.planmodal .planphone-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+.planmodal .planpane-side .planpane-note {
+  flex: none;
+  margin: 0 auto;
+  max-width: 40ch;
+  text-align: center;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.5;
+  color: var(--sc-ink-300);
+}
+
+/* The device. `transform` makes it the containing block for anything on her
+   page that is `position: fixed` — the tucked header, its pill, the undo
+   toast, the sheets — so they land inside the phone, not on the console. */
+.planmodal .planpane-side .planphone {
+  position: relative;
+  width: min(100%, 390px);
+  /* Solid height — `height: auto` inside the flex drawer collapsed the
+     screen to nothing and the preview looked empty. */
+  height: min(780px, calc(100dvh - 11rem));
+  max-height: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 10px 10px;
+  border-radius: 44px;
+  box-shadow: var(--sc-lift-2);
+  overflow: hidden;
+  transform: translateZ(0);
+}
+/* (0,5,0): `:root:not([data-theme]) .console .planphone` repaints the frame
+   at (0,4,0) from later in the cascade. */
+.planmodal .planpane-side .planphone-stage > .planphone[data-state] {
+  border: 1px solid #3A3733;
+  background: #0A0A0A;
+}
+.planmodal .planphone-notch {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 64px;
+  height: 6px;
+  margin-left: -32px;
+  border-radius: var(--r-pill);
+  background: #26241F;
+}
+.planmodal .planpane-side .planphone-screen {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  border-radius: 34px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Her stylesheet steps up at 430px and 560px of WINDOW width, which on a
+   desktop is always true — so the phone was drawing her tablet layout at
+   phone size. These pin the phone-width values back inside the frame. */
+.planmodal .planpane-side .planphone-screen {
+  /* Her bar folds its button labels at phone width; inside the frame that
+     is decided by the screen, not the desktop window. */
+  container-type: inline-size;
+}
+.planmodal .planpane-side .planphone-screen .plan {
+  --plan-gutter: var(--sc-space-3);
+  max-width: none;
+  padding: 0 var(--plan-gutter) var(--sc-space-12);
+}
+/* The console pins her page dark without setting data-theme, so the two
+   surface tokens her dark theme restates are restated here too. */
+.planmodal .planphone-screen .plan,
+.console .planphone-screen .plan {
+  --plan-head-bg: #000;
+  --plan-raised: #26231F;
+}
+.planmodal .planphone-screen .plan-week { font-size: 2rem; }
+.planmodal .planphone-screen .plan-body { padding: var(--sc-space-5) 0 0; }
+.planmodal .planphone-screen .plan-item { padding: var(--sc-space-4); }
+.planmodal .planphone-screen .plan-links { grid-template-columns: minmax(0, 1fr); }
+.planmodal .planphone-screen .plan-spec-row { grid-template-columns: minmax(0, 1fr); gap: var(--sc-space-1); }
+
+/* Loading and failure, inside the phone so the frame never jumps. */
+.planmodal .planphone-skel { display: grid; gap: var(--sc-space-3); padding: var(--sc-space-3); }
+.planmodal .planphone-skel span {
+  display: block;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #121110 0%, #24221F 50%, #121110 100%);
+  background-size: 200% 100%;
+  animation: planskel 1.2s linear infinite;
+}
+.planmodal .planphone-skel [data-h='head'] { height: 9rem; }
+.planmodal .planphone-skel [data-h='line'] { height: 1rem; width: 60%; border-radius: var(--r-pill); }
+.planmodal .planphone-skel [data-h='card'] { height: 11rem; }
+.planmodal .planphone-state {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-6);
+  text-align: center;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+}
+.planmodal .planphone-state p { margin: 0; }
+.planmodal .planphone-state-title { font-weight: 600; color: var(--sc-ink-900); }
+@media (prefers-reduced-motion: reduce) {
+  .planmodal .planphone-skel span { animation: none; }
+}
+
+.planmodal .planmodal-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex: none;
+  margin-left: auto;
+}
+/* Same chip language as Close — the head is painted with fixed console
+   ink, so these colours stay literal rather than flipping with tokens. */
+.planmodal .planmodal-preview {
+  flex: none;
+  background: none;
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #A8A29A;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease), background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planmodal-preview:hover:not(:disabled) {
+  color: var(--sc-ember);
+  border-color: var(--sc-ember);
+}
+.planmodal .planmodal-preview[aria-pressed='true'] {
+  color: #EDE9E3;
+  border-color: var(--sc-ember);
+  background: color-mix(in srgb, var(--sc-ember) 18%, transparent);
+}
+.planmodal .planmodal-preview:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Shared section furniture: a label, a rule running out from it, and
+   the count at the far end — the divider between sections. */
+.planmodal .plansec-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-4);
+  min-width: 0;
+}
+.planmodal .plansec-head::after {
+  content: '';
+  order: 1;
+  flex: 1 1 auto;
+  min-width: var(--sc-space-4);
+  height: 1px;
+  background: var(--sc-ink-150);
+}
+.planmodal .plansec-head > :not(.plansec-title) {
+  order: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planmodal .plansec-head .hint { margin: 0; font-size: var(--sc-text-xs); }
+.planmodal .plansec-title {
+  order: 0;
+  flex: none;
+  margin: 0;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-700);
+}
+.planmodal .plansec-count {
+  flex: none;
+  overflow: visible;
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Denser fields inside the pane, and placeholders that can be read —
+   ink-150 on the dark ground was below 1.5:1. */
+.planmodal .planpane-main .field {
+  font-size: var(--sc-text-sm);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-radius: var(--r-sm);
+}
+.planmodal .planpane-main .field::placeholder { color: var(--sc-ink-300); }
+.planmodal .planpane-main .form-row { margin-bottom: 0; }
+
+/* ------------------------------------------------------- WEEK TABS */
+.planmodal .weektabs {
+  display: flex;
+  gap: var(--sc-space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .weektabs::-webkit-scrollbar { display: none; }
+
+.planmodal .weektab {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-width: 7.5rem;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .weektab:hover:not(:disabled) { border-color: var(--sc-ink-300); background: var(--sc-bone); }
+.planmodal .weektab[data-on] { border-color: var(--sc-ember); background: var(--sc-ember-tint); }
+.planmodal .weektab:disabled { opacity: 0.45; cursor: default; }
+
+.planmodal .weektab-date {
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  white-space: nowrap;
+}
+.planmodal .weektab-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.planmodal .weektab[data-on] .weektab-meta { color: var(--sc-ink-500); }
+.planmodal .weektab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-300);
+  flex: none;
+}
+.planmodal .weektab-dot[data-status='sent'] { background: var(--sc-positive); }
+.planmodal .weektab-new {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.planmodal .weektab-add {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border-style: dashed;
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.planmodal .weektab-add:hover:not(:disabled) { color: var(--sc-ink-900); }
+
+/* --------------------------------------------------------- LOADING
+   The shape of the week while its first read is in flight, at the sizes
+   the real sections take, so nothing jumps when they land. */
+.planmodal .weektab-skel {
+  min-width: 7.5rem;
+  height: 3rem;
+  border-color: transparent;
+}
+.planmodal .planskel { display: grid; gap: var(--sc-space-3); }
+.planmodal .weektab-skel,
+.planmodal .planskel-line,
+.planmodal .planskel-block {
+  display: block;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--sc-bone) 0%, var(--sc-ink-150) 50%, var(--sc-bone) 100%);
+  background-size: 200% 100%;
+  animation: planskel 1.2s linear infinite;
+}
+.planmodal .planskel-line[data-w='title'] { width: 14rem; height: 1.75rem; margin-bottom: var(--sc-space-2); }
+.planmodal .planskel-block { border-radius: var(--r); }
+.planmodal .planskel-block[data-h='stats'] { height: 4.5rem; }
+.planmodal .planskel-block[data-h='check'] { height: 5rem; margin-bottom: var(--sc-space-3); }
+.planmodal .planskel-block[data-h='row'] { height: 4.5rem; }
+@keyframes planskel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .planmodal .weektab-skel,
+  .planmodal .planskel-line,
+  .planmodal .planskel-block { animation: none; }
+}
+
+/* ----------------------------------------------------- WEEK HEADER */
+.planmodal .weekhead { display: grid; gap: var(--sc-space-3); }
+.planmodal .weekhead-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+.planmodal .weekhead-id { min-width: 0; }
+.planmodal .weekhead-title {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-tight);
+  font-size: var(--sc-text-xl);
+  line-height: 1.05;
+  color: var(--sc-ink-900);
+}
+.planmodal .weekhead-sub {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planmodal .weekhead-status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sc-space-1) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-pill);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.planmodal .weekhead-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: currentColor;
+}
+.planmodal .weekhead-status[data-status='sent'] {
+  color: var(--sc-positive);
+  border-color: color-mix(in srgb, var(--sc-positive) 45%, transparent);
+  background: color-mix(in srgb, var(--sc-positive) 12%, transparent);
+}
+
+.planmodal .weekhead-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+}
+.planmodal .weekstat { min-width: 0; padding: var(--sc-space-3) var(--sc-space-4); }
+.planmodal .weekstat + .weekstat { border-left: var(--sc-rule-hair); }
+.planmodal .weekstat dt {
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.planmodal .weekstat dd {
+  margin: var(--sc-space-1) 0 0;
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.planmodal .weekstat dd small { font-size: var(--sc-text-sm); font-weight: 500; color: var(--sc-ink-300); }
+
+.planmodal .weekhead-meter {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-150);
+  overflow: hidden;
+}
+.planmodal .weekhead-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sc-ember);
+  transition: width var(--sc-dur) var(--sc-ease);
+}
+.planmodal .weekhead-meter[data-full] i { background: var(--sc-positive); }
+
+/* ----------------------------------------------------------- FOLDS
+   Week setup, Editors, Their posts, Suggested — one disclosure style:
+   title and count on the left, a chevron on the right. */
+.planmodal .planfold { padding: 0; overflow: hidden; border-radius: var(--r); }
+.planmodal .planfold > summary,
+.planmodal .editorspanel-toggle {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sc-space-2) var(--sc-space-4);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planfold > summary:hover,
+.planmodal .editorspanel-toggle:hover { background: var(--sc-bone-light); }
+.planmodal .planfold .queue-fold-title::before { content: none; }
+.planmodal .planfold .queue-fold-title,
+.planmodal .editorspanel-toggle .queue-fold-title { color: var(--sc-ink-900); }
+.planmodal .planfold .queue-fold-count,
+.planmodal .editorspanel-toggle .queue-fold-count {
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.planmodal .planfold > summary::after,
+.planmodal .editorspanel-toggle::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin: 0 var(--sc-space-1) 3px;
+  border-right: 1.5px solid var(--sc-ink-300);
+  border-bottom: 1.5px solid var(--sc-ink-300);
+  transform: rotate(45deg);
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planfold[open] > summary::after,
+.planmodal .editorspanel[data-open] .editorspanel-toggle::after {
+  transform: rotate(-135deg);
+  margin-bottom: -3px;
+}
+.planmodal .planfold > .planfold-body {
+  margin: 0;
+  padding: var(--sc-space-1) var(--sc-space-4) var(--sc-space-4);
+  gap: var(--sc-space-4);
+}
+
+/* Week setup: a settings grid rather than a stack. */
+.planmodal .setupgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.planmodal .setupgrid > * { margin: 0; }
+.planmodal .setupgrid-wide { grid-column: 1 / -1; }
+.planmodal .setupgrid .hint { font-size: var(--sc-text-xs); line-height: 1.5; }
+
+/* The bottom group: three folds in one panel, ruled between. */
+.planmodal .planfolds {
+  display: grid;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+  overflow: hidden;
+}
+.planmodal .planfolds > .planfold,
+.planmodal .planfolds > .editorspanel {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.planmodal .planfolds > * + * { border-top: var(--sc-rule-hair); }
+
+/* Editors, wearing the fold. */
+.planmodal .editorspanel-toggle {
+  width: 100%;
+  display: grid;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.planmodal .editorspanel-toggle b { color: var(--sc-ember-deep); font-weight: 600; }
+.planmodal .editorspanel-body {
+  margin: 0;
+  padding: var(--sc-space-1) var(--sc-space-4) var(--sc-space-4);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  gap: var(--sc-space-3);
+}
+.planmodal .editorspanel-row {
+  padding: var(--sc-space-2) 0;
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .editorspanel-row:last-of-type { border-bottom: 0; }
+.planmodal .editorspanel-row input {
+  flex: 1 1 10rem;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  color: var(--sc-ink-900);
+}
+.planmodal .editorspanel-row input::placeholder { color: var(--sc-ink-300); }
+
+/* ------------------------------------------------ SUGGESTED FOR THEM
+   The formats as one sideways-scrolling strip, not a wall of chips; the
+   list under it as quiet rows with a small outlined add. */
+.planmodal .formatrail {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--sc-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(var(--sc-space-4) * -1);
+  padding: 0 var(--sc-space-4) var(--sc-space-1);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--sc-space-4), #000 calc(100% - var(--sc-space-6)), transparent 100%);
+}
+.planmodal .formatrail::-webkit-scrollbar { display: none; }
+.planmodal .planfold .formatchip {
+  flex: none;
+  margin: 0;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-700);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planfold .formatchip:hover:not(:disabled) { border-color: var(--sc-ink-300); color: var(--sc-ink-900); }
+.planmodal .planfold .formatchip[data-on] {
+  border-color: var(--sc-ember);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ink-900);
+}
+.planmodal .planfold .formatchip[data-refused] { text-decoration: line-through; opacity: 0.4; cursor: not-allowed; }
+.planmodal .formatrail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  min-height: 1.75rem;
+}
+.planmodal .formatrail-foot .hint { margin: 0; font-size: var(--sc-text-xs); }
+.planmodal .formatrail + .formatrail-foot { margin-top: calc(var(--sc-space-3) * -1); }
+.planmodal .planfold .suggestlist:last-child { margin-bottom: calc(var(--sc-space-4) * -1); }
+.planmodal .planfold .formatchip-clear { padding: 0.2rem 0.6rem; }
+
+.planmodal .planfold .suggestlist {
+  display: grid;
+  margin: 0 calc(var(--sc-space-4) * -1);
+  border-top: var(--sc-rule-hair);
+}
+.planmodal .planfold .suggestrow {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planfold .suggestrow:last-child { border-bottom: 0; }
+.planmodal .planfold .suggestrow:hover { background: var(--sc-bone-light); }
+.planmodal .planfold .suggestrow-thumb {
+  width: 40px;
+  height: 50px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+  background: var(--sc-ink-150);
+}
+.planmodal .suggestrow-who {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-900);
+}
+.planmodal .suggestrow-meta {
+  margin: 2px 0 0;
+  font-size: var(--sc-text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink-500);
+}
+.planmodal .planfold .suggestrow-why { margin: var(--sc-space-1) 0 0; gap: 4px; }
+.planmodal .planfold .suggestrow-why span {
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember-tint);
+  font-family: var(--sc-font-text);
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-700);
+}
+.planmodal .planfold .suggestrow-add {
+  flex: none;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease), background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planfold .suggestrow-add:hover { border-color: var(--sc-ember); background: var(--sc-ember-tint); }
+@media (max-width: 720px) {
+  .planmodal .planfold .suggestrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .planmodal .planfold .suggestrow-thumb { display: none; }
+}
+
+/* ----------------------------------------------------- CALLOUTS */
+/* One callout shape for every banner that carries an action — carry
+   forward, undo, the template nudge. */
+.planmodal .planpane-main .planstate {
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-left-width: 3px;
+  border-radius: var(--r-sm);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-700);
+  background: var(--sc-bone);
+}
+.planmodal .planpane-main .planstate-short { border-left-color: var(--sc-ember); }
+.planmodal .planpane-main .planstate-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2) var(--sc-space-4);
+}
+.planmodal .planpane-main .planstate-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-shrink: 0;
+}
+.planmodal .planpane-main .planstate-dismiss {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--sc-ink-500);
+  font-size: 1.15rem;
+  line-height: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+}
+.planmodal .planpane-main .planstate-dismiss:hover {
+  color: var(--sc-ink-900);
+  background: var(--sc-ink-100);
+}
+.planmodal .planpane-main .planstate-dismiss:focus-visible {
+  outline: 2px solid var(--sc-ember);
+  outline-offset: 1px;
+}
+.planmodal .planpane-main > .hint[role='status'] { font-size: var(--sc-text-sm); }
+
+/* ------------------------------------------------ BEFORE IT GOES */
+.planmodal .plancheck .plancheck-count { color: var(--sc-caution); font-weight: 600; }
+.planmodal .plancheck[data-clear] .plancheck-count { color: var(--sc-positive); }
+.planmodal .plancheck-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--sc-space-4);
+  display: grid;
+  gap: var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+}
+.planmodal .plancheck-item {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: var(--sc-space-2);
+  align-items: start;
+  font-size: var(--sc-text-sm);
+  line-height: 1.45;
+  color: var(--sc-ink-700);
+}
+.planmodal .plancheck-item::before {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--r-pill);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.planmodal .plancheck-item[data-tone='ok']::before {
+  content: '✓';
+  color: var(--sc-positive);
+  background: color-mix(in srgb, var(--sc-positive) 16%, transparent);
+}
+.planmodal .plancheck-item[data-tone='warn']::before {
+  content: '!';
+  color: var(--sc-caution);
+  background: color-mix(in srgb, var(--sc-caution) 18%, transparent);
+}
+
+/* ------------------------------------------------------ ADD CARDS */
+.planmodal .planadd { display: block; }
+.planmodal .planadd-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--sc-space-2);
+}
+/* The tile that unlocks the wall on the left reads as the main way in. */
+.planmodal .planadd-actions > .planadd-pick:not([data-on]) {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--sc-ember) 55%, transparent);
+}
+.planmodal .planadd-pickhint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-left: 3px solid var(--sc-ember);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+  font-size: var(--sc-text-sm);
+  line-height: 1.45;
+  color: var(--sc-ink-700);
+}
+.planmodal .planadd-pickhint b { color: var(--sc-ink-900); font-weight: 600; }
+.planmodal .planadd-pickhint .btn { flex: none; }
+.planmodal .planadd-tile,
+.planmodal .planadd .customcard-open {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* (0, 3, 1) and the hover below beat `:root:not([data-theme]) .btn`,
+     which paints every button's type #0A0A0A — black on this dark pane. */
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planadd-actions > .planadd-tile,
+.planmodal .planadd-actions > button.customcard-open,
+.planmodal .planadd-actions > .planadd-tile:hover,
+.planmodal .planadd-actions > button.customcard-open:hover:not(:disabled) {
+  color: var(--sc-ink-900);
+}
+.planmodal .planadd-tile:hover,
+.planmodal .planadd .customcard-open:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--sc-ink-300);
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+}
+.planmodal .planadd-tile[data-on] {
+  border-style: solid;
+  border-color: var(--sc-ember);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ink-900);
+}
+.planmodal .planadd-tile[aria-disabled] { opacity: 0.45; pointer-events: none; }
+.planmodal .planadd-file:focus-within { outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+/* The custom-card form takes the whole row once it is open. */
+.planmodal .planadd > .customcard {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--sc-space-4);
+  background: var(--sc-bone);
+  border-radius: var(--r);
+}
+.planmodal .planadd > .customcard input[type='text']::placeholder,
+.planmodal .planadd > .customcard textarea::placeholder { color: var(--sc-ink-300); }
+
+/* The custom card as a small form of its own: a head, three labelled
+   steps, and a foot with the add on the right. */
+.planmodal .planadd > .customcard {
+  display: grid;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-4) var(--sc-space-5) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+}
+.planmodal .customcard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding-bottom: var(--sc-space-3);
+  margin-bottom: var(--sc-space-1);
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .customcard-title { margin: 0; font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-900); }
+.planmodal .customcard-sub { margin: 2px 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+.planmodal .planadd .customcard-x {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+}
+.planmodal .planadd .customcard-x:hover { border-color: var(--sc-ink-150); color: var(--sc-ink-900); }
+.planmodal .customcard-step {
+  margin: var(--sc-space-2) 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.planmodal .customcard-restored {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-left: 3px solid var(--sc-ember);
+  border-radius: var(--r-sm);
+  background: var(--sc-ember-tint);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-900);
+}
+.planmodal .customcard-foot {
+  margin-top: var(--sc-space-2);
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+}
+.planmodal .composer-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-2);
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+}
+.planmodal .composer-foot-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+.planmodal .composer-count.volstep { flex: none; }
+.planmodal .composer-add {
+  min-width: 10rem;
+  justify-self: end;
+}
+.planmodal .customcard-count { margin-right: 0; }
+.planmodal .customcard-go { display: flex; gap: var(--sc-space-2); margin-left: auto; }
+.planmodal .planadd .customcard .customcard-add {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #0A0A0A;
+}
+.planmodal .planadd .customcard .customcard-add:disabled { opacity: 0.45; }
+.planmodal .planadd-actions > .planadd-pick[data-draft] {
+  border-style: solid;
+  border-color: var(--sc-caution);
+}
+
+/* ---- the card composer: four numbered steps inside the one form */
+.planmodal .planadd > .composer { gap: var(--sc-space-3); padding: var(--sc-space-3) var(--sc-space-4) var(--sc-space-4); }
+.planmodal .planadd > .composer .customcard-head { padding-bottom: var(--sc-space-2); }
+.planmodal .planadd > .composer .composer-drafts { padding-bottom: var(--sc-space-3); }
+.planmodal .planadd > .composer .composer-step { gap: 6px; }
+.planmodal .planadd > .composer textarea { min-height: 4.5rem; }
+.planmodal .planadd > .composer .customcard-foot { margin-top: 0; padding-top: var(--sc-space-3); }
+.planmodal .planadd > .composer .customcard-head { margin-bottom: 0; }
+.planmodal .composer-step { display: grid; gap: var(--sc-space-2); min-width: 0; }
+.planmodal .composer .customcard-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0;
+}
+.planmodal .composer .customcard-step b {
+  display: inline-grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-150);
+  color: var(--sc-ink-900);
+  font-size: 0.625rem;
+  letter-spacing: 0;
+}
+.planmodal .composer .customcard-step em {
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-300);
+}
+.planmodal .composer-basis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-space-2);
+}
+.planmodal .planadd .composer-basis > button {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease), background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .planadd .composer-basis > button:hover { border-color: var(--sc-ink-300); }
+.planmodal .planadd .composer-basis > button[data-on] {
+  border-color: var(--sc-ember);
+  background: var(--sc-ember-tint);
+  box-shadow: inset 0 0 0 1px var(--sc-ember);
+}
+.planmodal .composer-basis b { font-size: var(--sc-text-sm); font-weight: 600; letter-spacing: 0; text-transform: none; }
+.planmodal .composer-basis span { font-size: var(--sc-text-xs); line-height: 1.4; color: var(--sc-ink-500); }
+.planmodal .composer-picks-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: 1px dashed color-mix(in srgb, var(--sc-ember) 55%, transparent);
+  border-radius: var(--r-sm);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-700);
+}
+.planmodal .composer-picks-empty span { font-size: var(--sc-text-lg); color: var(--sc-ember); animation: composernudge 1.4s ease-in-out infinite; }
+@keyframes composernudge { 50% { transform: translateX(-4px); } }
+.planmodal .composer-picks {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone-light);
+}
+.planmodal .composer-picks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  min-width: 0;
+}
+.planmodal .composer-picks li {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  max-width: 12rem;
+  padding: 3px var(--sc-space-2) 3px 3px;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  color: var(--sc-ink-900);
+}
+.planmodal .composer-picks li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planmodal .composer-picks img,
+.planmodal .composer-pick-blank {
+  flex: none;
+  width: 24px;
+  height: 30px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--sc-ink-150);
+}
+.planmodal .composer-picks .composer-picks-more { padding: 3px var(--sc-space-3); color: var(--sc-ink-500); }
+.planmodal .composer .customcard-note[data-tone='bad'] { color: var(--sc-critical); }
+
+/* Head: title, the auto-save line, close. */
+.planmodal .composer .customcard-head > div { flex: 1 1 auto; min-width: 0; }
+.planmodal .composer-saved {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px var(--sc-space-2);
+  border-radius: var(--r-pill);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+.planmodal .composer-saved::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ink-300);
+}
+.planmodal .composer-saved[data-on] { color: var(--sc-positive); background: color-mix(in srgb, var(--sc-positive) 12%, transparent); }
+.planmodal .composer-saved[data-on]::before { background: var(--sc-positive); }
+
+/* What the last add did — said where the button is, not below the fold. */
+.planmodal .composer-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-left: 3px solid var(--sc-positive);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--sc-positive) 10%, transparent);
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+  color: var(--sc-ink-900);
+}
+.planmodal .composer-status[data-tone='bad'] {
+  border-left-color: var(--sc-caution);
+  background: color-mix(in srgb, var(--sc-caution) 12%, transparent);
+}
+.planmodal .composer-error,
+.planmodal .composer-warn {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-radius: var(--r-sm);
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+}
+.planmodal .composer-error { color: var(--sc-ink-900); background: color-mix(in srgb, var(--sc-critical) 14%, transparent); border-left: 3px solid var(--sc-critical); }
+.planmodal .composer-warn { color: var(--sc-ink-700); background: color-mix(in srgb, var(--sc-caution) 10%, transparent); }
+.planmodal .composer-warn b { color: var(--sc-ink-900); }
+
+/* The stack of drafts. */
+.planmodal .composer-drafts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  padding-bottom: var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .composer-draft {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 15rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone-light);
+  overflow: hidden;
+}
+.planmodal .composer-draft[data-on] { border-color: var(--sc-ember); box-shadow: inset 0 0 0 1px var(--sc-ember); background: var(--sc-ember-tint); }
+.planmodal .composer-draft[data-error] { border-color: var(--sc-critical); }
+.planmodal .planadd .composer-draft > button {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--sc-ink-900);
+  cursor: pointer;
+}
+.planmodal .planadd .composer-draft > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  padding: var(--sc-space-1) var(--sc-space-3) var(--sc-space-1) var(--sc-space-1);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+}
+.planmodal .composer-draft i {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  background: var(--sc-ink-150);
+  font-style: normal;
+  font-size: 0.625rem;
+}
+.planmodal .composer-draft[data-ready] i { background: var(--sc-positive); color: #0A0A0A; }
+.planmodal .composer-draft[data-error] i { background: var(--sc-critical); color: #0A0A0A; }
+.planmodal .composer-draft > button:first-child > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planmodal .composer-draft em { flex: none; font-style: normal; font-weight: 500; color: var(--sc-ink-300); }
+.planmodal .planadd .composer-draft-x {
+  padding: 0 var(--sc-space-2);
+  border-left: var(--sc-rule-hair) !important;
+  color: var(--sc-ink-300) !important;
+  font-size: 0.9rem;
+}
+.planmodal .planadd .composer-draft-x:hover { color: var(--sc-critical) !important; }
+.planmodal .planadd .composer-another {
+  margin: 0;
+  padding: var(--sc-space-1) var(--sc-space-3);
+  min-height: 1.75rem;
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  color: var(--sc-ink-700);
+  cursor: pointer;
+}
+.planmodal .planadd .composer-another:hover { border-style: solid; border-color: var(--sc-ember); color: var(--sc-ink-900); }
+
+/* A pick already on the week is marked, and each pick can be unticked here. */
+.planmodal .composer-picks li[data-blocked] { border-color: var(--sc-caution); opacity: 0.75; }
+.planmodal .composer-picks li em {
+  flex: none;
+  font-style: normal;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--sc-caution);
+  white-space: nowrap;
+}
+.planmodal .planadd .composer-pick-x {
+  flex: none;
+  margin: 0 0 0 2px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+}
+.planmodal .planadd .composer-pick-x:hover { color: var(--sc-critical); }
+.planmodal .composer-picks li > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (max-width: 700px) {
+  .planmodal .composer-basis { grid-template-columns: minmax(0, 1fr); }
+}
+
+.planmodal .planadd-intake {
+  display: grid;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-3);
+  padding: var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+}
+.planmodal .planadd-row { gap: var(--sc-space-2); }
+.planmodal .planadd-note { margin: var(--sc-space-2) 0 0; font-size: var(--sc-text-sm); }
+
+/* ---------------------------------------------------------- CARDS */
+.planmodal .planempty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-8) var(--sc-space-4);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r);
+  text-align: center;
+}
+.planmodal .planempty-title { margin: 0; font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-900); }
+.planmodal .planempty .hint { margin: 0; max-width: 46ch; }
+
+/* No week at all: a starting point with the two ways in, not a dead end. */
+.planmodal .planempty-start {
+  margin-top: var(--sc-space-2);
+  padding: var(--sc-space-12) var(--sc-space-6);
+  gap: var(--sc-space-2);
+  background: var(--sc-bone);
+}
+.planmodal .planempty-start .planempty-title { font-size: var(--sc-text-base); }
+.planmodal .planempty-mark { display: flex; gap: var(--sc-space-1); margin-bottom: var(--sc-space-2); }
+.planmodal .planempty-mark i {
+  width: 10px;
+  height: 24px;
+  border-radius: 3px;
+  background: var(--sc-ink-150);
+}
+.planmodal .planempty-mark i:first-child { background: var(--sc-ember); }
+.planmodal .planempty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-3);
+}
+.planmodal .planempty-start .hint[data-tone='bad'] { color: var(--sc-critical); }
+
+/* The week's cards as one list, not thirty boxes: a single panel, rows
+   ruled between, the state as a thin stripe on the row's left edge.
+   Written at (0,4,0)+ — globals' `.console .planrow*` rules come later
+   in the cascade at (0,3,0)/(0,4,0) and would otherwise box every row. */
+.planmodal .plancards .planlist {
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+  overflow: hidden;
+}
+.planmodal .plancards .planstate { margin-top: var(--sc-space-3); }
+.planmodal .plancards .planlist > .planrow {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.planmodal .plancards .planlist > .planrow + .planrow { border-top: var(--sc-rule-hair); }
+.planmodal .plancards .planlist > .planrow[data-new] {
+  outline: 0;
+  background: color-mix(in srgb, var(--sc-ember) 10%, transparent);
+}
+@media (hover: hover) {
+  .planmodal .plancards .planlist > .planrow[data-compact]:hover {
+    background: var(--sc-bone-light);
+    border-color: var(--sc-ink-150);
+  }
+}
+
+/* ---- closed: one line to scan */
+.planmodal .planrow-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-3) var(--sc-space-3) var(--sc-space-4);
+}
+.planmodal .planrow-open {
+  display: grid;
+  grid-template-columns: 3rem 48px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sc-space-3);
+  width: 100%;
+}
+.planmodal .plancards .planlist .planrow .planrow-no {
+  justify-self: start;
+  min-width: 0;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ember);
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-transform: none;
+}
+.planmodal .plancards .planrow-open img,
+.planmodal .plancards .planrow-cover,
+.planmodal .plancards .planrow-thumb-blank {
+  width: 48px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: none;
+}
+.planmodal .plancards .planrow-thumb-blank {
+  display: block;
+  border: 0;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--sc-ink-300) 10%, transparent) 6px 7px),
+    var(--sc-bone-light);
+}
+.planmodal .planrow-open .planrow-id { display: grid; gap: 3px; min-width: 0; }
+.planmodal .plancards .planrow-open .planrow-who {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.35;
+  color: var(--sc-ink-900);
+}
+.planmodal .plancards .planrow-open:hover .planrow-who { color: var(--sc-ember); }
+.planmodal .plancards .planrow-open .planrow-line {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sc-font-text);
+  font-style: normal;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+}
+.planmodal .planrow-badges {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.planmodal .planrow-badges .planrow-meta {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  color: var(--sc-ink-300);
+}
+
+/* The kind as quiet coloured text, not an outlined capsule. */
+.planmodal .plancards .planrow-kind {
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--sc-font-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sc-ember);
+}
+.planmodal .plancards .planrow-kind[data-kind='recreate'] { color: var(--sc-ink-500); }
+.planmodal .plancards .planrow-kind[data-kind='repurpose'] { color: var(--sc-positive); }
+
+/* "Already on someone else's week": a line of amber text with a mark,
+   not a full-width outlined banner. */
+.planmodal .plancards .rosterflags { display: block; margin: 0; min-width: 0; }
+.planmodal .plancards .rosterflag {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-caution);
+}
+.planmodal .plancards .rosterflag::before { content: '⚠ '; }
+.planmodal .plancards .rosterflag::first-letter { text-transform: uppercase; }
+
+/* Small square tools, ghosted until the row is pointed at. */
+.planmodal .plancards .cardtool {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  margin: 0;
+  padding: 0 var(--sc-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-500);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease), background var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .plancards .cardtool:hover:not(:disabled) {
+  border-color: var(--sc-ink-150);
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-900);
+}
+.planmodal .plancards .cardtool:disabled { opacity: 0.3; cursor: default; }
+.planmodal .plancards .cardtool-danger:hover:not(:disabled) { border-color: var(--sc-critical); color: var(--sc-critical); background: transparent; }
+.planmodal .plancards .planrow-compact .planrow-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-self: end;
+}
+.planmodal .planrow-chev {
+  width: 1.25rem;
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--sc-ink-300);
+}
+@media (hover: hover) {
+  .planmodal .plancards .planrow-compact .planrow-tools .cardtool {
+    opacity: 0;
+    transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  }
+  .planmodal .plancards .planrow-compact:hover .planrow-tools .cardtool,
+  .planmodal .plancards .planrow-compact:focus-within .planrow-tools .cardtool { opacity: 1; }
+  .planmodal .plancards .planrow-compact:hover .planrow-tools .cardtool:disabled { opacity: 0.3; }
+}
+
+/* ---- open: the card being edited, lifted out of the list */
+.planmodal .plancards .planlist > .planrow:not([data-compact]) {
+  display: grid;
+  gap: var(--sc-space-4);
+  padding: 0 0 var(--sc-space-4);
+  background: var(--sc-bone-light);
+  box-shadow: none;
+}
+.planmodal .plancards .planlist > .planrow:not([data-compact]) + .planrow,
+.planmodal .plancards .planlist > .planrow + .planrow:not([data-compact]) { border-top-color: var(--sc-ink-150); }
+.planmodal .planrow-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+  background: var(--sc-bone);
+  border-radius: 0;
+}
+.planmodal .planrow-detail-count {
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  color: var(--sc-ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.planmodal .planrow-detail-head .planrow-tools { display: flex; gap: 2px; margin-left: auto; }
+.planmodal .plancards .planrow-detail-head .cardtool { border-color: var(--sc-ink-150); }
+
+.planmodal .cardhero {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--sc-space-4);
+  align-items: start;
+  padding: 0 var(--sc-space-4);
+}
+.planmodal .plancards .cardhero-thumb {
+  width: 120px;
+  height: 150px;
+  border-radius: var(--r);
+  object-fit: cover;
+  display: block;
+  background: var(--sc-ink-150);
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+}
+.planmodal .cardhero-thumb-blank {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--sc-ink-150);
+  background:
+    repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--sc-ink-300) 12%, transparent) 6px 7px),
+    var(--sc-bone);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+  text-align: center;
+  padding: var(--sc-space-2);
+}
+.planmodal .cardhero-id { display: grid; gap: var(--sc-space-2); min-width: 0; align-content: start; }
+.planmodal .cardhero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-width: 0;
+}
+.planmodal .cardhero-tags .planrow-rate,
+.planmodal .cardhero-tags .planrow-made { margin: 0; }
+.planmodal .plancards .cardhero .planrow-state {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--sc-ink-150) 35%, transparent);
+  color: var(--sc-ink-700);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.planmodal .plancards .cardhero .planrow-state[data-state='written'] {
+  background: color-mix(in srgb, var(--sc-ink-300) 22%, transparent);
+  color: var(--sc-ink-900);
+}
+.planmodal .plancards .cardhero .planrow-state[data-state='filmed'],
+.planmodal .plancards .cardhero .planrow-state[data-state='ready'] {
+  background: color-mix(in srgb, var(--sc-positive) 22%, transparent);
+  color: var(--sc-positive);
+}
+.planmodal .cardhero-dur {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  color: var(--sc-ink-300);
+}
+.planmodal .cardhero-title {
+  margin: 0;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.planmodal .cardhero-sub {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  line-height: 1.4;
+  color: var(--sc-ink-500);
+}
+.planmodal .cardhero-line {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-left: 2px solid var(--sc-ink-150);
+  font-size: var(--sc-text-sm);
+  line-height: 1.5;
+  color: var(--sc-ink-700);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.planmodal .cardhero-link {
+  justify-self: start;
+  font-size: var(--sc-text-xs);
+  font-weight: 600;
+  color: var(--sc-ember-light);
+  text-decoration: none;
+}
+.planmodal .cardhero-link:hover { text-decoration: underline; }
+
+/* The open card's tools on a bar of their own, grouped by what they do. */
+.planmodal .cardtools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0 var(--sc-space-4);
+  padding: var(--sc-space-2);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+}
+.planmodal .cardtools-group { display: flex; align-items: center; gap: 2px; }
+.planmodal .cardtools-group + .cardtools-group {
+  padding-left: var(--sc-space-2);
+  border-left: var(--sc-rule-hair);
+}
+.planmodal .cardtools .cardtool-danger { margin-left: auto; }
+.planmodal .plancards .cardtools .cardtool-select {
+  height: 1.875rem;
+  padding: 0 var(--sc-space-2);
+  appearance: auto;
+}
+.planmodal .plancards .cardtools .cardtool-select option { color: #0A0A0A; }
+.planmodal .cardtools .msel-trigger {
+  min-height: 1.875rem;
+  padding: 0 var(--sc-space-3);
+  font-size: var(--sc-text-xs);
+}
+
+.planmodal .cardsec {
+  margin: 0 var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+  overflow: hidden;
+}
+.planmodal .cardsec + .cardsec { margin-top: 0; }
+.planmodal .cardsec-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--sc-font-text);
+  font-weight: 600;
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+  background: color-mix(in srgb, var(--sc-bone-light) 55%, transparent);
+  user-select: none;
+}
+.planmodal .cardsec-title::-webkit-details-marker { display: none; }
+.planmodal .cardsec-title::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--sc-ink-300);
+  font-size: 0.85rem;
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .cardsec:not([open]) .cardsec-title::after { transform: rotate(-90deg); }
+.planmodal .cardsec-title em,
+.planmodal .cardsec-hint {
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-300);
+}
+.planmodal .cardsec-body {
+  display: grid;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+}
+.planmodal .cardsec .form-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+  margin: 0;
+}
+.planmodal .cardsec .form-row { display: grid; gap: var(--sc-space-2); margin: 0; }
+.planmodal .cardsec .axis-name {
+  margin: 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-500);
+}
+.planmodal .cardsec textarea.field { line-height: 1.55; min-height: 6rem; }
+@media (max-width: 760px) {
+  .planmodal .cardsec .form-pair { grid-template-columns: minmax(0, 1fr); }
+  .planmodal .cardhero { grid-template-columns: 88px minmax(0, 1fr); }
+  .planmodal .plancards .cardhero-thumb { width: 88px; height: 110px; }
+}
+.planmodal .cardsec-new {
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.planmodal .cardsec-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+.planmodal .cardsec-toggles .chip { border-radius: var(--r-pill); }
+.planmodal .cardsec-caption { flex: 1 1 14rem; width: auto; }
+.planmodal .cardsec .editorassign { margin: 0; }
+.planmodal .planrow-declined,
+.planmodal .planrow-accepted { margin: 0; }
+.planmodal .planrow-declined { border-radius: var(--r-sm); }
+
+/* ------------------------------------------------------- SEND BAR
+   Two rows, always: the note with the two quiet housekeeping buttons on
+   its right, then the send row — wording on the left, Mark as sent and
+   Send on Telegram on the right, kept together as one piece. */
+.planmodal .planpane-main > .plansend {
+  container-type: inline-size;
+  margin: 0 calc(var(--pane-x) * -1);
+  padding: 0;
+  display: grid;
+  gap: 0;
+  background: var(--sc-bone-light);
+  border-top: var(--sc-rule-hair);
+  box-shadow: 0 -12px 24px -12px rgba(0, 0, 0, 0.5);
+  position: static;
+}
+.planmodal .plansend-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) var(--pane-x);
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .plansend-status { min-width: 0; padding: 0; border: 0; }
+.planmodal .plansend-status .hint,
+.planmodal .plansend-status p { margin: 0; font-size: var(--sc-text-xs); line-height: 1.45; }
+.planmodal .plansend-quiet { display: flex; align-items: center; gap: var(--sc-space-1); }
+.planmodal .plansend .plansend-quiet .btn {
+  min-height: 1.75rem;
+  padding: 0 var(--sc-space-2);
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.6875rem;
+  color: var(--sc-ink-500);
+  white-space: nowrap;
+}
+.planmodal .plansend .plansend-quiet .btn:hover:not(:disabled) { color: var(--sc-ink-900); border-color: var(--sc-ink-150); }
+.planmodal .plansend-actions { padding: var(--sc-space-3) var(--pane-x); }
+.planmodal .plansend-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  min-width: 0;
+}
+.planmodal .plansend-go { display: flex; align-items: center; gap: var(--sc-space-2); margin-left: auto; }
+.planmodal .plansend .plansend-main .btn,
+.planmodal .plansend .msel-trigger {
+  min-height: 2.25rem;
+  padding: 0 var(--sc-space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+@container (max-width: 30rem) {
+  .planmodal .plansend-top { grid-template-columns: minmax(0, 1fr); }
+  .planmodal .plansend-quiet { justify-content: flex-end; }
+  .planmodal .plansend-main { flex-wrap: wrap; }
+  .planmodal .plansend-go { width: 100%; }
+  .planmodal .plansend-go .btn { flex: 1 1 auto; }
+}
+.planmodal .planpane-main .plansend-primary {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #0A0A0A;
+}
+.planmodal .planpane-main .plansend-primary:hover:not(:disabled) {
+  background: var(--sc-ember-deep);
+  border-color: var(--sc-ember-deep);
+}
+.planmodal .plansend .plansend-quiet .btn.plansend-danger:hover:not(:disabled) {
+  background: transparent;
+  color: var(--sc-critical);
+  border-color: var(--sc-critical);
+}
+
+/* ---------------------------------------------------- NARROW */
+@media (max-width: 1100px) {
+  .planmodal .planmodal-body > .planpane { --pane-x: var(--sc-space-4); padding: 0; }
+}
+@media (max-width: 700px) {
+  .planmodal .setupgrid { grid-template-columns: minmax(0, 1fr); }
+  .planmodal .planadd-actions { grid-template-columns: minmax(0, 1fr); }
+  .planmodal .weekstat { padding: var(--sc-space-2) var(--sc-space-3); }
+  .planmodal .weekstat dd { font-size: var(--sc-text-base); }
+  .planmodal .planrow-open { grid-template-columns: auto minmax(0, 1fr); }
+  .planmodal .plancards .planrow-open img,
+  .planmodal .plancards .planrow-thumb-blank { display: none; }
+  .planmodal .plancards .planrow-compact .planrow-tools .cardtool { opacity: 1; }
+  .planmodal .cardhero { grid-template-columns: 48px minmax(0, 1fr); gap: var(--sc-space-3); }
+  .planmodal .plancards .cardhero-thumb { width: 48px; height: 60px; }
+  .planmodal .plancards .planlist > .planrow:not([data-compact]) { padding: 0 var(--sc-space-3) var(--sc-space-4); }
+  .planmodal .planrow-detail-head { margin: 0 calc(var(--sc-space-3) * -1); }
+}
+
+/* ------------------------------------------------ THE WALL, LOCKED
+   Browse-only until "From the library" under Add cards turns picking on. */
+.planmodal .planpicker-lock {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-bottom: var(--sc-rule-hair);
+  background: var(--sc-bone-light);
+  font-size: var(--sc-text-xs);
+  line-height: 1.45;
+  color: var(--sc-ink-500);
+}
+.planmodal .planpicker-lock b { color: var(--sc-ink-900); font-weight: 600; }
+.planmodal .planpicker-lock em { font-style: normal; color: var(--sc-ember); font-weight: 600; }
+.planmodal .planpicker-drag { min-width: 0; display: grid; }
+.planmodal .planpicker-drag[draggable='true'] { cursor: grab; }
+.planmodal .planpicker-drag[draggable='true']:active { cursor: grabbing; }
+.planmodal .planpicker-drag img { -webkit-user-drag: none; }

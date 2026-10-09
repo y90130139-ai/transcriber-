@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { clock, compact, thumbUrl } from '@/lib/format'
-import { taxonomy } from '@/lib/taxonomy'
+import { labelOf, taxonomy } from '@/lib/taxonomy'
 import { explainOutperformance } from '@/lib/outperformance'
 import Scorecard from './Scorecard'
 import WhyChips from './WhyChips'
@@ -41,6 +42,7 @@ export default function CreatorSheet({
   const [posts, setPosts] = useState<Post[]>([])
   const [tally, setTally] = useState<Tally[]>([])
   const [editing, setEditing] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/creators/${encodeURIComponent(handle)}`)
@@ -54,10 +56,22 @@ export default function CreatorSheet({
   useEffect(() => { void load() }, [load])
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [])
+
+  function requestClose() {
+    if (closing) return
+    setClosing(true)
+    window.setTimeout(onClose, 150)
+  }
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') requestClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [closing, onClose])
 
   async function savePersona(persona: string[]) {
     const response = await fetch(`/api/creators/${encodeURIComponent(handle)}`, {
@@ -75,118 +89,153 @@ export default function CreatorSheet({
   const formats = tally.filter((row) => row.axis === 'format').slice(0, 6)
   const hooks = tally.filter((row) => row.axis === 'hook').slice(0, 4)
 
-  return (
-    <>
-      <button className="reader-scrim" onClick={onClose} aria-label="Close" />
-      <aside className="reader" aria-label={`${handle} profile`}>
-        <header className="reader-head">
-          <button className="reader-close" onClick={onClose} aria-label="Close">Close</button>
-          <h3>{handle}</h3>
-          {profile?.display_name && <p className="facts">{profile.display_name}</p>}
-          <p className="facts">
-            {posts.length} in the library
-            {posts[0]?.upload_date ? ` · newest ${posts[0].upload_date}` : ''}
-          </p>
+  return createPortal(
+    <div className="creatordialog-layer" data-closing={closing || undefined}>
+      <button
+        type="button"
+        className="creatordialog-scrim"
+        onClick={requestClose}
+        aria-label="Close"
+      />
+      <div
+        className="creatordialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${handle} profile`}
+      >
+        <header className="creatordialog-head">
+          <div className="creatordialog-id">
+            <h3>@{handle}</h3>
+            <p className="creatordialog-facts">
+              {profile?.display_name && <span>{profile.display_name}</span>}
+              <span>{posts.length} in the library</span>
+              {posts[0]?.upload_date && <span>Newest {posts[0].upload_date}</span>}
+            </p>
+          </div>
+          <button type="button" className="creatordialog-x" onClick={requestClose} aria-label="Close">×</button>
         </header>
 
-        <div className="reader-body">
-          <div className="axis">
-            <div className="axis-head">
-              <span className="axis-name">Persona</span>
-              <button className="axis-confirm" onClick={() => setEditing((open) => !open)}>
+        <div className="creatordialog-body">
+          <section className="creatordialog-sec">
+            <div className="creatordialog-sec-head">
+              <h4>Persona</h4>
+              <button type="button" onClick={() => setEditing((open) => !open)}>
                 {editing ? 'Done' : 'Edit'}
               </button>
             </div>
-            <div className="chips">
+            <div className="creatordialog-chips">
               {persona.map((tag) => (
                 <button
                   key={tag}
-                  className="chip"
-                  data-origin="human"
+                  type="button"
                   onClick={() => savePersona(persona.filter((existing) => existing !== tag))}
                 >
                   {taxonomy.persona.tags.find((option) => option.id === tag)?.label ?? tag}
                 </button>
               ))}
               {persona.length === 0 && !editing && (
-                <span className="hint">Set it once and every new post inherits it.</span>
+                <span className="creatordialog-empty">No persona yet. Set it once and every new post inherits it.</span>
               )}
             </div>
             {editing && (
-              <div className="picker">
-                <div className="picker-grid">
-                  {taxonomy.persona.tags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      className="picker-option"
-                      data-on={persona.includes(tag.id)}
-                      onClick={() =>
-                        savePersona(
-                          persona.includes(tag.id)
-                            ? persona.filter((existing) => existing !== tag.id)
-                            : [...persona, tag.id],
-                        )
-                      }
-                    >
-                      <b>{tag.label}</b>
-                      <span>{tag.desc}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="creatordialog-picker">
+                {taxonomy.persona.tags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    data-on={persona.includes(tag.id) || undefined}
+                    onClick={() =>
+                      savePersona(
+                        persona.includes(tag.id)
+                          ? persona.filter((existing) => existing !== tag.id)
+                          : [...persona, tag.id],
+                      )
+                    }
+                  >
+                    <b>{tag.label}</b>
+                    <span>{tag.desc}</span>
+                  </button>
+                ))}
               </div>
             )}
-          </div>
+          </section>
 
-          <Scorecard handle={handle} />
+          <section className="creatordialog-sec">
+            <Scorecard handle={handle} />
+          </section>
 
           {(formats.length > 0 || hooks.length > 0) && (
-            <div className="axis">
-              <div className="axis-head"><span className="axis-name">What they make</span></div>
-              <div className="chips">
-                {formats.map((row) => (
-                  <span key={row.tag} className="chip chip-static">{row.tag} <b>{row.n}</b></span>
-                ))}
-                {hooks.map((row) => (
-                  <span key={row.tag} className="chip chip-static">{row.tag} <b>{row.n}</b></span>
-                ))}
+            <section className="creatordialog-sec">
+              <div className="creatordialog-sec-head"><h4>What they make</h4></div>
+              <div className="creatordialog-make">
+                {formats.length > 0 && (
+                  <div>
+                    <span>Formats</span>
+                    <div className="creatordialog-chips">
+                      {formats.map((row) => (
+                        <span key={`f-${row.tag}`}>{labelOf('format', row.tag)} <b>{row.n}</b></span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {hooks.length > 0 && (
+                  <div>
+                    <span>Hooks</span>
+                    <div className="creatordialog-chips">
+                      {hooks.map((row) => (
+                        <span key={`h-${row.tag}`}>{labelOf('hook', row.tag)} <b>{row.n}</b></span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="copybar">
-            <button className="btn" onClick={() => onFilterTo(handle)}>See all in Library</button>
-          </div>
-
-          <div className="section-head">
-            <h2 style={{ fontSize: 'var(--sc-text-lg)' }}>Top performers</h2>
-          </div>
-
-          <ol className="ladder">
-            {posts.map((post) => (
-              <li key={post.id} className="rung" data-hot={Boolean(post.is_hot)}>
-                {post.has_thumb && (
-                  <img src={thumbUrl(post.id)} alt="" width={96} height={120} loading="lazy" />
-                )}
-                <div>
-                  <p className="rung-figure">
-                    <span title={post.outperformance ? explainOutperformance(post.outperformance) : undefined}>
-                      {post.outperformance ?? '—'}×
-                    </span> {post.is_hot && <span>🔥</span>}
-                  </p>
-                  <p className="rung-meta">
-                    {[post.why?.multiple != null ? `${post.why.multiple}× their median plays` : null,
-                      post.upload_date, `${compact(post.like_count)} likes`,
-                      `${compact(post.comment_count)} cm`, clock(post.duration_sec)]
-                      .filter(Boolean).join(' · ')}
-                  </p>
-                  {post.preview && <p className="rung-line">{post.preview}</p>}
-                  <WhyChips why={post.why} />
-                </div>
-              </li>
-            ))}
-          </ol>
+          <section className="creatordialog-sec creatordialog-posts-sec">
+            <div className="creatordialog-sec-head">
+              <h4>Top performers</h4>
+              <button type="button" className="creatordialog-library" onClick={() => onFilterTo(handle)}>
+                See all in Library
+              </button>
+            </div>
+            {posts.length === 0 ? (
+              <p className="creatordialog-empty">Nothing of theirs in the library yet.</p>
+            ) : (
+              <ol className="creatordialog-posts">
+                {posts.map((post) => (
+                  <li key={post.id}>
+                    {post.has_thumb ? (
+                      <img src={thumbUrl(post.id)} alt="" width={72} height={90} loading="lazy" />
+                    ) : (
+                      <span className="creatordialog-nothumb" aria-hidden="true" />
+                    )}
+                    <div className="creatordialog-post">
+                      <p className="creatordialog-post-top">
+                        <b title={post.outperformance ? explainOutperformance(post.outperformance) : undefined}>
+                          {post.outperformance ?? '—'}×
+                        </b>
+                        {post.is_hot && <span className="creatordialog-hot">Hot</span>}
+                        <span className="creatordialog-meta">
+                          {[post.upload_date, `${compact(post.like_count)} likes`,
+                            `${compact(post.comment_count)} comments`, clock(post.duration_sec)]
+                            .filter(Boolean).join(' · ')}
+                        </span>
+                      </p>
+                      {post.why?.multiple != null && (
+                        <p className="creatordialog-multiple">{post.why.multiple}× their median plays</p>
+                      )}
+                      {post.preview && <p className="creatordialog-line">{post.preview}</p>}
+                      <WhyChips why={post.why} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>,
+    document.body,
   )
 }

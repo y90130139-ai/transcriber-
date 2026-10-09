@@ -28,6 +28,7 @@ const GROUPS: NavGroup[] = [
     id: 'research', label: 'Research', icon: 'trending',
     items: [
       { href: '/trends', label: 'Trends', icon: 'trending' },
+      { href: '/reddit-trends', label: 'Reddit Trends', icon: 'reddit' },
       { href: '/sounds', label: 'Sounds', icon: 'music' },
     ],
   },
@@ -131,7 +132,9 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
   const queued = counts.queued + counts.running
   const needYou = Math.max(0, counts.failed - (counts.waiting ?? 0))
   const navShown = narrow ? mobileNav : navOpen
-  const crumb = LABELS[pathname] ?? 'Console'
+  // Reddit Trends is one rail item with nine of its own pages; the crumb is
+  // the section, the way a platform's crumb is the platform.
+  const crumb = pathname.startsWith('/reddit-trends') ? 'Reddit Trends' : LABELS[pathname] ?? 'Console'
 
   function toggleNav() {
     // One button, two behaviours: a drawer below the rail's breakpoint, a

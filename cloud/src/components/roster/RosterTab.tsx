@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import SendSurveys from './SendSurveys'
 import ModelProfile, { type ProfileTab } from './ModelProfile'
-import PlanEditor from './PlanEditor'
+import PlanEditor, { prefetchPlan } from './PlanEditor'
+import { prefetchPicks } from './PickVideos'
 import BatchWeek from './BatchWeek'
 import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
@@ -102,6 +103,8 @@ export default function RosterTab({
     warmTimer.current = setTimeout(() => {
       warmTimer.current = null
       warmProfile(id)
+      // Her weeks ride along, so Plan opens on the week already painted.
+      prefetchPlan(id)
     }, WARM_AFTER_MS)
   }, [])
   const cool = useCallback(() => {
@@ -135,10 +138,15 @@ export default function RosterTab({
   useEffect(() => { void load() }, [load])
   useEffect(() => { void loadSweep() }, [loadSweep])
 
+  // The plan dialog's video wall is warmed while the roster is being looked
+  // at, so pressing Plan opens with videos already painted (Geno, 2026-10-09).
+  useEffect(() => { prefetchPicks() }, [])
+
   useEffect(() => {
     if (!openPlanFor) return
     const wanted = models.find((model) => model.id === openPlanFor)
     if (!wanted) return
+    prefetchPlan(wanted.id)
     setPlanning(wanted)
     onOpened?.()
   }, [openPlanFor, models, onOpened])

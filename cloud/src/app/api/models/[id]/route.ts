@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { MODEL_COLUMNS, linkedOnlyfans, keysForModel, newToken, readModelInput, trashKeys } from '@/lib/models'
+import { planWeeks } from '@/lib/plan-read'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -21,21 +22,7 @@ export async function GET(_request: Request, { params }: Params) {
       `select ${MODEL_COLUMNS}, ${linkedOnlyfans('models')} from transcriber.models where id = $1`,
       [id],
     ),
-    sql.query(
-      `select p.id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
-              to_char(p.due_date, 'YYYY-MM-DD') as due_date,
-              p.title, p.status, p.sent_at,
-              count(i.id)::int as items,
-              count(i.id) filter (where i.filmed_at is not null)::int as filmed,
-              count(i.id) filter (where i.uploaded_at is null and i.r2_purged_at is null)::int as waiting,
-              count(i.id) filter (where i.model_note is not null and i.seen_at is null)::int as unread
-         from transcriber.plans p
-         left join transcriber.plan_items i on i.plan_id = p.id
-        where p.model_id = $1
-        group by p.id
-        order by p.week_of desc`,
-      [id],
-    ),
+    planWeeks(id),
     // What she has actually turned down, counted. A decline has always carried
     // her reason in prose, which cannot be added up — so three "nowhere to film"
     // in a row read as three bad weeks rather than as one fact about her house.

@@ -39,6 +39,18 @@ const ICONS = {
       <path d="M15 7h6v6" />
     </>
   ),
+  // The community mark: a round face with two antennae and a quiet smile —
+  // deliberately generic rather than Reddit's own mascot.
+  reddit: (
+    <>
+      <circle cx="12" cy="13.5" r="6.8" />
+      <path d="M12 6.7V3.6" />
+      <circle cx="12" cy="3" r="1.1" />
+      <path d="M9.2 12.6h.01" />
+      <path d="M14.8 12.6h.01" />
+      <path d="M9.4 16.2c1.5 1.1 3.7 1.1 5.2 0" />
+    </>
+  ),
   music: (
     <>
       <path d="M9 18V5.5l11-2v12.5" />

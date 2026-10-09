@@ -19,3 +19,17 @@ test('an unknown tag falls back to its id rather than vanishing', () => {
   const lines = contentLines([{ formats: ['not-a-real-tag'] }])
   assert.deepEqual(lines, [{ count: 1, label: 'not-a-real-tag' }])
 })
+
+test('titles group into one family, number and "reel" included', () => {
+  const lines = contentLines([
+    { title: 'BODY BASED #4', formats: ['text-overlay'] },
+    { title: 'BODY BASED REEL #6', formats: ['text-overlay'] },
+    { title: 'BODY BASED #10', formats: ['fit-check'] },
+    { title: 'TALKING HEAD #3', formats: ['talking-head'] },
+    { title: 'TALKING HEAD #1', formats: ['talking-head'] },
+  ])
+  assert.deepEqual(lines, [
+    { count: 3, label: 'Body based' },
+    { count: 2, label: 'Talking head' },
+  ])
+})

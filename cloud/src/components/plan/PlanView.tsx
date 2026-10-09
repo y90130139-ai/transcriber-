@@ -46,6 +46,22 @@ function groupByLocation(items: PlanItem[]): Group[] {
   return groups
 }
 
+/** Height of the pinned bar; the hero counts as gone once it slides under it. */
+const CHROME_PX = 64
+
+const GUIDE_KEY = 'plan.guide.hidden'
+
+/** The nearest ancestor that scrolls on its own, or null for the window. */
+function scrollParent(node: HTMLElement): HTMLElement | null {
+  let parent = node.parentElement
+  while (parent && parent !== document.body) {
+    const { overflowY } = window.getComputedStyle(parent)
+    if (overflowY === 'auto' || overflowY === 'scroll') return parent
+    parent = parent.parentElement
+  }
+  return null
+}
+
 /** The three things she does, pinned open at the top (2026-09-27): three
  *  creators needed the flow explained in chat. The folded "How your plan
  *  works" list went the same day — every card now carries its own steps.
@@ -152,32 +168,51 @@ export default function PlanView({
   const [setupOpen, setSetupOpen] = useState(
     () => !preview && cleanStyle(model.portal_style).done !== true,
   )
-  /** Her week's header rides along as she scrolls, condensed once it has left
-   *  its own space, and tucked away entirely if she wants the screen back. */
+  /** The bar on top is pinned and never changes height; once the hero under
+   *  it has scrolled away it swaps her name for the week and the count. The
+   *  old header condensed itself in place, which shortened the page, moved
+   *  the sentinel back on screen and flickered on every scroll. */
   const [stuck, setStuck] = useState(false)
   const [tucked, setTucked] = useState(false)
-  const topMark = useRef<HTMLDivElement>(null)
+  const heroEnd = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const sentinel = topMark.current
+    const sentinel = heroEnd.current
     if (!sentinel || typeof IntersectionObserver === 'undefined') return
-    // A sentinel above the header rather than a scroll listener: it fires
-    // twice per screen instead of on every pixel, which is what keeps this
-    // from costing her a frame on an old phone.
+    // The console's phone scrolls its own screen, not the window.
+    const root = scrollParent(sentinel)
     const watch = new IntersectionObserver(
       ([entry]) => {
-        setStuck(!entry.isIntersecting)
-        // Back at the top, the header comes back by itself. Tucking it is her
-        // saying "not while I am reading the cards", not "never again", and
-        // making her find the pill to undo it at the top of her own week is
-        // the kind of small toll that turns into a habit of not tucking it.
-        if (entry.isIntersecting) setTucked(false)
+        const top = entry.rootBounds?.top ?? 0
+        // Past the hero means above the root, not merely off screen below it.
+        const past = !entry.isIntersecting && entry.boundingClientRect.top < top
+        setStuck(past)
+        // Back at the top, the bar comes back by itself.
+        if (!past) setTucked(false)
       },
-      { threshold: 0 },
+      { root, rootMargin: `-${CHROME_PX}px 0px 0px 0px`, threshold: 0 },
     )
     watch.observe(sentinel)
     return () => watch.disconnect()
   }, [])
+
+  /** "How to use this" stays out of the way once she has said she knows it.
+   *  The console preview always shows it — that is the first-visit view. */
+  const [guideHidden, setGuideHidden] = useState(false)
+  useEffect(() => {
+    if (preview) return
+    try {
+      if (window.localStorage.getItem(GUIDE_KEY) === '1') setGuideHidden(true)
+    } catch {}
+  }, [preview])
+  function hideGuide(next: boolean) {
+    setGuideHidden(next)
+    if (preview) return
+    try {
+      if (next) window.localStorage.setItem(GUIDE_KEY, '1')
+      else window.localStorage.removeItem(GUIDE_KEY)
+    } catch {}
+  }
 
   // Either half is enough to have something to say. Neither, and every
   // delivery render on this page is skipped rather than drawn empty.
@@ -321,78 +356,99 @@ export default function PlanView({
   return (
     <main className="plan">
       {runOpen && !preview && <RunSheet token={token} onClose={() => setRunOpen(false)} />}
-      {/* What says the header has left its own space. Zero height, no paint. */}
-      <div ref={topMark} className="plan-mark" aria-hidden="true" />
-
-      {/* The week is the headline, not her name — she knows who she is, and
-          what she opens this to find out is which week she is looking at. */}
-      <header className="plan-head" data-stuck={stuck || undefined} data-tucked={tucked || undefined}>
-        <div className="plan-who">
-          {/* Photo with her name under it, not clamped beside it — "MONA …"
-              was ellipsizing against the buttons (Geno, 2026-10-06). The
-              eyebrow moved to its own line above the tools. */}
-          <div className="plan-id">
-            {model.photo_url && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img className="plan-face" src={model.photo_url} alt="" width={104} height={104} />
-            )}
-            <b className="plan-name">{model.name}</b>
+      {/* Pinned, one height for its whole life. Only the words in the middle
+          swap once the hero has scrolled under it: her name at rest, the week
+          and the count while she reads cards. */}
+      <header className="plan-chrome" data-stuck={stuck || undefined} data-tucked={tucked || undefined}>
+        <div className="plan-chrome-row">
+          {model.photo_url && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img className="plan-face" src={model.photo_url} alt="" width={80} height={80} />
+          )}
+          <div className="plan-chrome-id">
+            <span className="plan-chrome-rest" aria-hidden={stuck || undefined}>
+              <b className="plan-name">{model.name}</b>
+              <span className="plan-eyebrow">Your content plan</span>
+            </span>
+            <span className="plan-chrome-live" aria-hidden={!stuck || undefined}>
+              <b>Week of {formatDate(plan.week_of)}</b>
+              <span><em>{done}</em>/{total} filmed · Due {formatDate(plan.due_date)}</span>
+            </span>
           </div>
 
-          <div className="plan-topline">
-            <p className="plan-eyebrow">Your content plan</p>
-
-            {/* Two controls, one size, top right: what she is looking at, and
-                how it looks. The run glows because nothing else on this page
-                has ever been worth tapping out of curiosity — it is the only
-                thing here that gives her something back. */}
-            <div className="plan-tools">
+          <div className="plan-tools">
             <button
               type="button"
               className="plan-run"
               onClick={() => setRunOpen(true)}
               aria-haspopup="dialog"
+              aria-label="Your run"
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3c0 4-4 5-4 9a4 4 0 0 0 8 0c0-2-1-3-1-3s3 2 3 6a8 8 0 0 1-8 8 8 8 0 0 1-8-8c0-7 10-8 10-12z" />
               </svg>
-              Your run
+              <span className="plan-tool-label" aria-hidden="true">Your run</span>
             </button>
             {/* Her deck of picked reels — hers to browse, star and claim
                 (2026-10-06). Never in the console preview: starring from
                 Geno's screen would write her taste for her. */}
             {!preview && (
-              <a className="plan-run plan-discover-link" href={`/p/${token}/discover`}>
-                &#10022; Discover
+              <a className="plan-run plan-discover-link" href={`/p/${token}/discover`} aria-label="Discover">
+                <span aria-hidden="true">&#10022;</span>
+                <span className="plan-tool-label" aria-hidden="true">Discover</span>
               </a>
             )}
             <ThemeToggle />
-            {/* Only worth offering once it is actually in her way. */}
-            {stuck && (
-              <button
-                type="button"
-                className="plan-tuck"
-                onClick={() => setTucked(true)}
-                aria-label="Tuck this out of the way"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M6 15l6-6 6 6" />
-                </svg>
-              </button>
-            )}
-            </div>
+            {/* Always rendered so the row never reflows; only usable once the
+                bar is actually in her way. */}
+            <button
+              type="button"
+              className="plan-tuck"
+              onClick={() => setTucked(true)}
+              aria-label="Tuck this out of the way"
+              tabIndex={stuck ? 0 : -1}
+              data-on={stuck || undefined}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M6 15l6-6 6 6" />
+              </svg>
+            </button>
           </div>
         </div>
+        {/* A hairline of progress under the bar, so the count is still a
+            picture once the hero is gone. */}
+        <span className="plan-chrome-progress" aria-hidden="true">
+          <i style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
+        </span>
+      </header>
 
+      {/* The week is the headline. It scrolls away with the page — nothing
+          here is ever restyled by scroll position. */}
+      <section className="plan-hero" aria-label="This week">
         <h1 className="plan-week">Week of {formatDate(plan.week_of)}</h1>
-
         {plan.title && <p className="plan-title">{plan.title}</p>}
 
-        {/* One segment per video rather than one filling rule. A continuous
-            bar only ever says "some of it"; a countable strip lets her see
-            how many are left without doing the arithmetic. */}
+        <div className="plan-score">
+          <p className="plan-count">
+            <b>{done}</b><span>/{total}</span>
+            <small>filmed</small>
+          </p>
+          <ul className="plan-facts">
+            <li data-late={overdue || undefined}>
+              <span>Due</span>
+              {formatDate(plan.due_date)}{overdue && ' · overdue'}
+            </li>
+            <li>
+              <span>Filming</span>
+              {filmingDaysLabel(model.filming_days)}
+            </li>
+          </ul>
+        </div>
+
+        {/* One segment per video rather than one filling rule, so she can
+            count what is left without doing the arithmetic. */}
         <div
           className="plan-bar"
           role="progressbar"
@@ -405,19 +461,8 @@ export default function PlanView({
             <i key={item.id} data-on={index < done || undefined} />
           ))}
         </div>
-
-        {/* One mono line rather than a three-column table. The table wrapped
-            into itself on a narrow phone and read as one run-on figure. */}
-        <p className="plan-facts">
-          <span className="plan-count"><b>{done}</b>/{total} filmed</span>
-          <span className="plan-sep" aria-hidden="true">·</span>
-          <span data-late={overdue || undefined}>
-            Due {formatDate(plan.due_date)}{overdue && ' · overdue'}
-          </span>
-          <span className="plan-sep" aria-hidden="true">·</span>
-          <span>Filming {filmingDaysLabel(model.filming_days)}</span>
-        </p>
-      </header>
+      </section>
+      <div ref={heroEnd} className="plan-mark" aria-hidden="true" />
 
       {tucked && (
         <button type="button" className="plan-untuck" onClick={() => setTucked(false)}>
@@ -488,27 +533,36 @@ export default function PlanView({
           </dl>
         </details>
 
-        <section className="plan-quick" aria-labelledby="plan-quick-head">
-          {/* Named so the steps read as the manual, not three stray facts
-              (Geno, 2026-10-06: "a little header... follow the steps"). */}
-          <h2 className="plan-quick-head" id="plan-quick-head">How to use this</h2>
-          <ol>
-            {QUICK_STEPS.map((step, index) => (
-              <li key={step.title}>
-                <span className="plan-quick-no" aria-hidden>{index + 1}</span>
-                <b>{step.title}</b>
-                <span>{step.text}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="plan-quick-note">
-            You film and edit these yourself. Want us to edit one? Tap &ldquo;Ask about this one&rdquo; on that card and say so.
-          </p>
-          {/* Said once here instead of as Keep / Change on every card. */}
-          <p className="plan-quick-note">
-            Copy the idea, not the video — your outfit, place and people can all be different.
-          </p>
-        </section>
+        {guideHidden ? (
+          <button type="button" className="plan-guide-open" onClick={() => hideGuide(false)}>
+            How this works
+          </button>
+        ) : (
+          <section className="plan-quick" aria-labelledby="plan-quick-head">
+            {/* Named so the steps read as the manual, not three stray facts
+                (Geno, 2026-10-06: "a little header... follow the steps"). */}
+            <div className="plan-quick-top">
+              <h2 className="plan-quick-head" id="plan-quick-head">How to use this</h2>
+              <button type="button" className="plan-quick-done" onClick={() => hideGuide(true)}>
+                Got it
+              </button>
+            </div>
+            <ol>
+              {QUICK_STEPS.map((step, index) => (
+                <li key={step.title}>
+                  <span className="plan-quick-no" aria-hidden>{index + 1}</span>
+                  <b>{step.title}</b>
+                  <span>{step.text}</span>
+                </li>
+              ))}
+            </ol>
+            {/* Said once here instead of as Keep / Change on every card. */}
+            <p className="plan-quick-note">
+              Copy the idea, not the video — your outfit, place and people can all be different.
+              You film and edit these yourself; want us to edit one? Tap &ldquo;Ask about this one&rdquo; on that card.
+            </p>
+          </section>
+        )}
 
         {/* Two piles, her choice pinned between them: what still wants a yes
             or no, and the list she is actually filming. One long mixed feed
@@ -537,17 +591,21 @@ export default function PlanView({
         )}
 
         {ideas.length === 0 ? (
-          <p className="plan-empty">Nothing on this week yet. Keep this link — it stays the same.</p>
+          <div className="plan-empty">
+            <b>Nothing on this week yet</b>
+            <span>Your videos land here as soon as they are added. Keep this link — it stays the same.</span>
+          </div>
         ) : visible.length === 0 ? (
           view === 'review' ? (
-            <p className="plan-empty">
-              Every idea has an answer — nothing waiting on you here.
-            </p>
+            <div className="plan-empty">
+              <b>All answered</b>
+              <span>Every idea has a yes or no. Your yeses are on My reels.</span>
+            </div>
           ) : (
-            <p className="plan-empty">
-              Nothing here yet. Tap &ldquo;I&rsquo;ll do this&rdquo; on the ideas you like and
-              they land here.
-            </p>
+            <div className="plan-empty">
+              <b>Nothing here yet</b>
+              <span>Tap &ldquo;I&rsquo;ll do this&rdquo; on the ideas you like and they land here.</span>
+            </div>
           )
         ) : setups ? (
           /* Batched by how it gets filmed: one phone setup, several videos.

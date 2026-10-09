@@ -2880,3 +2880,550 @@
   cursor: pointer;
 }
 .disc-sound[aria-pressed='true'] { background: var(--sc-ember); }
+
+/* ============================================================
+   THE WEEK, REBUILT — 2026-10-09.
+   A pinned bar that never changes height, and a hero under it
+   that scrolls away. The old header condensed itself in place:
+   that shortened the page, put its sentinel back on screen and
+   flickered on every scroll. Nothing here is restyled by scroll
+   position except opacity and transform.
+   Sits last so it wins over the layers above on order.
+   ============================================================ */
+.plan {
+  --plan-head-bg: #0E0D0C;
+  --plan-raised: #FFFFFF;
+  --plan-inset: calc(var(--plan-gutter) + var(--sc-space-2));
+  --plan-on-ink-quiet: rgba(246, 243, 238, 0.56);
+  /* One face for the whole page: the sans already on the description
+     and the To review / My reels tabs. Headlines, labels and counts
+     were a display cut, a monospace and a serif. */
+  --sc-font-display: var(--sc-font-text);
+  --sc-font-mono: var(--sc-font-text);
+  --sc-font-counter: var(--sc-font-text);
+  font-family: var(--sc-font-text);
+  padding-top: 0;
+}
+:root[data-theme='dark'] .plan {
+  --plan-head-bg: #000;
+  --plan-raised: #26231F;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .plan { --plan-head-bg: #000; --plan-raised: #26231F; }
+}
+@media (min-width: 560px) {
+  .plan { padding-top: 0; }
+}
+
+/* ---------------------------------------------------------- THE BAR */
+.plan-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 calc(-1 * var(--plan-gutter));
+  padding: 0 var(--plan-inset);
+  background-color: var(--plan-head-bg);
+  color: var(--plan-on-ink);
+  transition: transform 260ms var(--sc-ease), box-shadow 260ms var(--sc-ease);
+}
+.plan-chrome[data-stuck] {
+  box-shadow: 0 1px 0 rgba(246, 243, 238, 0.06), 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+.plan-chrome[data-tucked] {
+  transform: translateY(-100%);
+  box-shadow: none;
+  pointer-events: none;
+}
+.plan-chrome-row {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+.plan-chrome .plan-face {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1.5px rgba(246, 243, 238, 0.16);
+}
+.plan-chrome-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+}
+.plan-chrome-rest,
+.plan-chrome-live {
+  grid-area: 1 / 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  transition: opacity 200ms var(--sc-ease), transform 200ms var(--sc-ease);
+}
+.plan-chrome-live { opacity: 0; transform: translateY(6px); pointer-events: none; }
+.plan-chrome[data-stuck] .plan-chrome-rest { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+.plan-chrome[data-stuck] .plan-chrome-live { opacity: 1; transform: none; pointer-events: auto; }
+.plan-chrome .plan-name,
+.plan-chrome-live b {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-family: var(--sc-font-display);
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--plan-on-ink);
+}
+.plan-chrome .plan-eyebrow,
+.plan-chrome-live span {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-family: var(--sc-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--plan-on-ink-quiet);
+}
+.plan-chrome-live em { font-style: normal; color: var(--sc-ember-light); }
+:root[data-theme='dark'] .plan-chrome .plan-name { color: var(--plan-on-ink); }
+
+.plan-chrome .plan-tools {
+  margin-left: auto;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.plan-chrome .plan-run,
+.plan-chrome .plan-theme { height: 2.25rem; }
+.plan-chrome .plan-run { padding: 0 var(--sc-space-3) 0 10px; font-size: 0.62rem; gap: 6px; }
+.plan-chrome .plan-theme { width: 2.25rem; }
+.plan-chrome .plan-tuck {
+  width: 0;
+  height: 2.25rem;
+  padding: 0;
+  border-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: width 200ms var(--sc-ease), opacity 200ms var(--sc-ease);
+}
+.plan-chrome .plan-tuck[data-on] {
+  width: 2.25rem;
+  border-width: 1px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* A phone has room for the controls or their words, not both. Icons keep
+   their rings and the run keeps its glow, so the invitation survives. */
+@media (max-width: 440px) {
+  .plan-chrome .plan-tool-label { display: none; }
+  .plan-chrome .plan-run { width: 2.25rem; padding: 0; justify-content: center; }
+}
+@container (max-width: 440px) {
+  .plan-chrome .plan-tool-label { display: none; }
+  .plan-chrome .plan-run { width: 2.25rem; padding: 0; justify-content: center; }
+}
+
+/* Progress as a hairline under the bar, once the hero's ticks are gone. */
+.plan-chrome-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(246, 243, 238, 0.08);
+  opacity: 0;
+  transition: opacity 200ms var(--sc-ease);
+}
+.plan-chrome[data-stuck] .plan-chrome-progress { opacity: 1; }
+.plan-chrome-progress i {
+  display: block;
+  height: 100%;
+  background: var(--sc-ember-light);
+  transition: width var(--sc-dur) var(--sc-ease);
+}
+
+/* --------------------------------------------------------- THE HERO
+   The same ink as the bar, so at rest the two read as one block; the
+   warm wash sits in the far corner, away from the seam with the bar. */
+.plan-hero {
+  margin: 0 calc(-1 * var(--plan-gutter));
+  padding: var(--sc-space-2) var(--plan-inset) var(--sc-space-6);
+  background-color: var(--plan-head-bg);
+  background-image: radial-gradient(90% 120% at 100% 100%, var(--pal-wash-16) 0%, var(--pal-wash-04) 45%, transparent 72%);
+  color: var(--plan-on-ink);
+  border-radius: 0 0 28px 28px;
+  box-shadow: var(--sc-lift-2);
+}
+.plan-hero .plan-week {
+  margin: 0;
+  font-size: clamp(2rem, 1.5rem + 2.6vw, 2.6rem);
+  line-height: 1.02;
+  color: var(--plan-on-ink);
+}
+.plan-hero .plan-title {
+  margin: var(--sc-space-2) 0 0;
+  color: var(--plan-on-ink-quiet);
+}
+.plan-score {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-6);
+}
+.plan-hero .plan-count {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.plan-hero .plan-count b {
+  font-family: var(--sc-font-display);
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+  color: var(--sc-ember-light);
+}
+.plan-hero .plan-count span {
+  font-family: var(--sc-font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--plan-on-ink-quiet);
+}
+.plan-hero .plan-count small {
+  margin-left: var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--plan-on-ink-quiet);
+}
+.plan-hero .plan-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sc-space-2);
+  justify-items: end;
+  text-align: right;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--plan-on-ink);
+}
+.plan-hero .plan-facts span {
+  display: block;
+  font-family: var(--sc-font-mono);
+  font-size: 0.56rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--plan-on-ink-quiet);
+}
+.plan-hero .plan-facts [data-late] { color: var(--sc-ember-light); }
+.plan-hero .plan-bar { height: 6px; margin: var(--sc-space-4) 0 0; }
+.plan-hero .plan-bar i,
+:root[data-theme='dark'] .plan-hero .plan-bar i { background: rgba(246, 243, 238, 0.12); }
+.plan-hero .plan-bar i[data-on='true'],
+:root[data-theme='dark'] .plan-hero .plan-bar i[data-on='true'] { background: var(--sc-ember-light); }
+
+/* ---------------------------------------------------------- THE BODY */
+.plan-body,
+.plan .plan-body { padding: var(--sc-space-6) 0 0; }
+
+.plan-contents {
+  margin: 0 0 var(--sc-space-5);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+/* One column under the title. The count keeps a fixed rail so every
+   label starts on the same line, including the long carousel row. */
+.plan-contents .plan-label { margin-bottom: var(--sc-space-2); }
+.plan-contents-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  font-size: var(--sc-text-sm);
+}
+.plan-contents-list li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--sc-space-3);
+  min-width: 0;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #E4E1DC;
+}
+:root[data-theme='dark'] .plan-contents-list li { border-bottom-color: #2B2926; }
+.plan-contents-list b {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+  font-size: var(--sc-text-base);
+  font-variant-numeric: tabular-nums;
+}
+.plan-contents-extra { grid-column: auto; color: var(--sc-ink-700); font-size: var(--sc-text-sm); }
+.plan-contents-sources {
+  border-top: 0;
+  margin: var(--sc-space-3) 0 0  calc(3rem + var(--sc-space-3));
+  padding-top: 0;
+}
+
+.plan-rules { border-radius: var(--r-sm); border-left-width: 3px; }
+
+.plan-extras { border-radius: var(--r-sm); }
+
+/* How to use this — open on a first visit, one tap to put away. */
+.plan .plan-quick {
+  margin: 0 0 var(--sc-space-5);
+  padding: var(--sc-space-4);
+  border: 0;
+  border-radius: var(--r);
+  background: var(--sc-bone-light);
+}
+.plan-quick-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-3);
+}
+.plan .plan-quick-head { margin: 0; font-size: var(--sc-text-lg); }
+.plan-quick-done {
+  appearance: none;
+  min-height: 36px;
+  padding: 0 var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-700);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.plan-quick-done:hover { color: var(--sc-ink-900); border-color: var(--sc-ink-300); }
+.plan .plan-quick li { grid-template-columns: 1.6rem 1fr; }
+.plan .plan-quick-no {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.75rem;
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+}
+.plan .plan-quick li b { font-size: var(--sc-text-sm); }
+.plan .plan-quick-note { margin-top: var(--sc-space-3); line-height: var(--sc-leading-body); color: var(--sc-ink-500); }
+.plan-guide-open {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 var(--sc-space-5);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-500);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.plan-guide-open:hover { color: var(--sc-ink-900); border-color: var(--sc-ink-300); }
+
+/* The two piles: one track, the chosen half raised off it. */
+.plan-piles {
+  margin: var(--sc-space-6) 0 var(--sc-space-4);
+  padding: 4px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--sc-bone-light);
+}
+.plan-pile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  min-height: 44px;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  color: var(--sc-ink-500);
+}
+.plan-pile[data-on] {
+  background: var(--plan-raised);
+  color: var(--sc-ink-900);
+  box-shadow: var(--sc-lift-1);
+}
+.plan-pile b,
+.plan-pile[data-on] b {
+  margin: 0;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-family: var(--sc-font-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--sc-ink-150);
+  color: var(--sc-ink-700);
+}
+.plan-pile[data-on] b { background: var(--sc-ember); color: #FFFFFF; }
+
+.plan-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sc-space-1);
+  margin: var(--sc-space-4) 0;
+  padding: var(--sc-space-12) var(--sc-space-5);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r);
+  text-align: center;
+  font-family: var(--sc-font-text);
+  font-style: normal;
+  font-size: var(--sc-text-sm);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-500);
+}
+.plan-empty b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  color: var(--sc-ink-900);
+}
+.plan-empty span { max-width: 26ch; }
+
+/* ---------------------------------------------------------- THE CARD
+   Name first, then what kind of job it is, the steps, and every
+   answer together at the foot. One accent per card: the kind. */
+.plan-item {
+  padding: var(--sc-space-4);
+  gap: var(--sc-space-3);
+  border-radius: 18px;
+  scroll-margin-top: 80px;
+}
+.plan-item-head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+}
+.plan-item-head .plan-no { flex: 0 0 auto; margin-top: 1px; }
+.plan-item-head .plan-item-title {
+  flex: 1 1 auto;
+  font-size: var(--sc-text-base);
+  line-height: 1.3;
+  text-transform: none;
+}
+.plan-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.plan-item-meta .plan-len { margin-left: auto; }
+
+.plan .plan-kind {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  gap: 2px;
+  border-left-width: 3px;
+  border-radius: 0 10px 10px 0;
+}
+.plan .plan-kind b {
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: var(--sc-track-label);
+}
+.plan .plan-kind span { font-size: var(--sc-text-sm); line-height: var(--sc-leading-body); }
+.plan .plan-twist { margin: 0; }
+
+.plan-step {
+  gap: var(--sc-space-3);
+  padding-top: var(--sc-space-4);
+  margin-top: var(--sc-space-1);
+}
+.plan-step-head { font-size: var(--sc-text-base); font-weight: 600; }
+.plan-step-num {
+  width: 22px;
+  height: 22px;
+  font-size: 0.66rem;
+  background: var(--sc-ink-900);
+  color: var(--sc-bone);
+}
+.plan-direction-lead {
+  margin: 0;
+  font-size: var(--sc-text-base);
+  line-height: var(--sc-leading-body);
+  color: var(--sc-ink-700);
+}
+
+/* Folds sit quiet: an outlined row with the accent only on its mark. */
+.plan .plan-transcript { border-top: 0; padding-top: 0; }
+.plan .plan-transcript summary {
+  min-height: 44px;
+  padding: 0 var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+}
+.plan .plan-transcript summary::after { color: var(--sc-ember); }
+.plan .plan-transcript[open] summary { border-color: var(--sc-ink-300); }
+.plan-tips > div { display: flex; flex-direction: column; gap: var(--sc-space-3); }
+.plan-tips .plan-film-check { padding-top: 0; }
+
+/* Every answer at the foot, in one column. */
+.plan-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-1);
+  padding-top: var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+}
+.plan .plan-verdict {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sc-space-2);
+}
+.plan .plan-verdict button { min-height: 52px; border-radius: var(--r-sm); font-size: var(--sc-text-sm); }
+.plan-item-actions .plan-made { margin-top: 0; }
+.plan-item-actions .plan-filmed { min-height: 3rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-chrome,
+  .plan-chrome-rest,
+  .plan-chrome-live,
+  .plan-chrome-progress,
+  .plan-chrome .plan-tuck { transition: none; }
+}
+
+/* Light mode: the card edge is a light grey. Filmed and declined keep
+   their status colours; hover only steps one shade darker. */
+:root[data-theme='light'] .plan-item { border-color: #E4E1DC; }
+:root[data-theme='light'] .plan-item[data-filmed] { border-color: var(--sc-positive); }
+:root[data-theme='light'] .plan-item[data-verdict='declined'] { border-color: var(--sc-critical); }
+@media (hover: hover) {
+  :root[data-theme='light'] .plan-item:hover { border-color: #D4D0CA; }
+  :root[data-theme='light'] .plan-item[data-filmed]:hover { border-color: var(--sc-positive); }
+  :root[data-theme='light'] .plan-item[data-verdict='declined']:hover { border-color: var(--sc-critical); }
+}

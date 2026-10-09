@@ -542,6 +542,106 @@
 }
 .model-figures b { color: var(--sc-ink-900); font-weight: 700; }
 
+/* ------------------------------------------------------------ CREATORS
+   Their own card, not the roster's. Cover, handle, one stat line, one
+   chip row — every card the same height no matter how many tags they have. */
+.creators {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-5);
+  align-items: stretch;
+}
+.creator-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: 12px;
+  background: var(--sc-paper);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.creator-card-frame {
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--sc-ink-900);
+}
+.creator-card-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.creator-card-frame .card-frame-empty { width: 100%; height: 100%; }
+.creator-card-body {
+  display: grid;
+  grid-template-rows: auto auto 1.5rem;
+  align-content: start;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  min-width: 0;
+}
+.creator-card-handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: var(--sc-text-sm);
+  letter-spacing: -0.01em;
+  color: var(--sc-ink-900);
+}
+.creator-card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.creator-card-meta b { color: var(--sc-ink-900); font-weight: 600; }
+.creator-card-meta span { margin: 0 0.3rem; color: var(--sc-ink-300); }
+.creator-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 1.5rem;
+  overflow: hidden;
+}
+.creator-card-tags span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-700);
+}
+.creator-card-tags span[data-empty='true'] {
+  border-style: dashed;
+  color: var(--sc-ink-300);
+  font-weight: 500;
+}
+.creator-card-more { flex: 0 0 auto; color: var(--sc-ink-500); }
+@media (hover: hover) {
+  .creator-card:hover { border-color: var(--sc-ink-300); }
+  .creator-card:hover .creator-card-handle { color: var(--sc-ember-deep); }
+}
+
 /* ------------------------------------------------------------ LADDER */
 .ladder { list-style: none; margin: 0; padding: 0; }
 
@@ -2052,3 +2152,872 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
 .planrow-repurpose:hover { background: var(--sc-ember-tint); }
 .planrow-rate { font-size: 0.9rem; margin-right: 0.25rem; }
 .planrow-made { font-size: 0.72rem; color: var(--sc-positive); margin-right: 0.35rem; }
+
+/* ============================================================
+   PLAN DIALOG — the centered popup (2026-10-09).
+
+   Geno's shape: a dialog in the middle of the screen, the video
+   selector as a scrolling left pane (Library · OFMPro feeds), the
+   week itself — settings, cards, her live page — in the right pane.
+   Each pane scrolls alone; the cards are the library's and the
+   platform feeds' own, so nothing here redraws them.
+   ============================================================ */
+.planmodal {
+  position: fixed;
+  /* Big on purpose (Geno, 2026-10-09): the dialog is the whole workspace —
+     picker, week and her page at once — so it takes the screen it needs and
+     keeps a hair of ground showing at the edges. */
+  inset: 0.75rem;
+  z-index: 50;
+  margin: auto;
+  width: min(1840px, calc(100vw - 1.5rem));
+  height: min(1080px, calc(100dvh - 1.5rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--sc-bone-light);
+  /* The console's own edge, stated literally: `--sc-rule-lock` flips with the
+     ground and drew a light border around the dialog. */
+  border: 1px solid #33302C;
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: var(--sc-lift-3);
+  animation: planmodal-in var(--sc-dur) var(--sc-ease);
+}
+@keyframes planmodal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
+@media (prefers-reduced-motion: reduce) { .planmodal { animation: none; } }
+
+.planmodal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  /* Literal ink, not tokens: a surface painted with --sc-ink-900 inverts
+     with the ground, and on the console's dark ground that made this bar
+     cream with black type (Geno's screenshot, 2026-10-09). The console's
+     ink values are fixed (#171717 ground, #EDE9E3 type, #33302C rules), so
+     the head states them rather than borrowing a token that flips. */
+  background: #171717;
+  color: #EDE9E3;
+  border-bottom: 1px solid #33302C;
+  padding: var(--sc-space-4) var(--sc-space-6);
+}
+.planmodal-head h3 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.95;
+  font-size: var(--sc-text-xl);
+  color: #EDE9E3;
+}
+.planmodal-head .facts {
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+  font-variant-numeric: tabular-nums;
+}
+.planmodal-close {
+  flex: none;
+  background: none;
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #A8A29A;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal-close:hover { color: var(--sc-ember); border-color: var(--sc-ember); }
+
+.planmodal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  /* The picker takes a slice of the width rather than a fixed pane: on a
+     big screen it earns more room and the wall goes three across. */
+  grid-template-columns: clamp(23rem, 25vw, 31rem) minmax(0, 1fr);
+}
+
+/* The right half: the week, scrolling on its own. The `.planpane` inside it
+   keeps the two-column preview split it already had. No bottom padding —
+   the send bar is always the last thing and owns the foot. */
+.planmodal-body > .planpane {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+  padding: var(--sc-space-6) var(--sc-space-6) 0;
+  border-left: var(--sc-rule-hair);
+}
+
+/* Nothing drawn down the edge (Geno, 2026-10-09): the wall, the week and her
+   page all still scroll on wheel, trackpad and touch — the chrome is gone. */
+.planpicker-scroll,
+.planmodal-body > .planpane,
+.console .planphone-screen { scrollbar-width: none; }
+.planpicker-scroll::-webkit-scrollbar,
+.planmodal-body > .planpane::-webkit-scrollbar,
+.console .planphone-screen::-webkit-scrollbar { display: none; }
+
+/* The preview's toolbar — "What they see", Write captions, Hide — sits on a
+   proper rule of its own rather than floating over her phone. */
+.planmodal .planpane-head {
+  border-bottom: 1px solid #33302C;
+  padding-bottom: var(--sc-space-3);
+}
+
+/* ============================================================
+   THE WEEK PANE — reshaped (Geno, 2026-10-09).
+
+   The editor used to be one wall: every setting open, every card's whole
+   form stacked beneath the last, twenty-nine format chips wrapping over
+   four rows. Now the week is a scan — a folded setup, compact card rows
+   that open one editor at a time, folded posts and suggestions, and the
+   send actions pinned at the foot.
+   ============================================================ */
+.planfold-body { display: grid; gap: var(--sc-space-3); margin-top: var(--sc-space-4); }
+
+/* The folds are the queue's own block, on the pane's ground. */
+.planmodal .queue-fold { background: var(--sc-bone); border: 1px solid #33302C; }
+
+.planadd { display: grid; gap: var(--sc-space-2); }
+.planadd-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+.planadd-file { cursor: pointer; }
+
+/* The compact card row: the whole left side is one button, the tools sit
+   beside it. One line each; the frame is a look, the line is the gist. */
+.planrow[data-compact] { padding-top: var(--sc-space-2); padding-bottom: var(--sc-space-2); }
+.planrow-compact { display: flex; align-items: center; gap: var(--sc-space-3); }
+.planrow-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.planrow-open .planrow-no { min-width: 1.8rem; }
+.planrow-open img {
+  width: 44px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  background: var(--sc-ink-900);
+  flex: none;
+}
+.planrow-open .planrow-id { flex: 1; min-width: 0; }
+.planrow-open .planrow-who,
+.planrow-open .planrow-meta { display: block; }
+.planrow-open .planrow-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.planrow-open:hover .planrow-who { color: var(--sc-ember-deep); }
+.planrow-compact .planrow-tools { flex: none; }
+
+.planrow-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin-bottom: var(--sc-space-2);
+}
+.planrow-detail-head .planrow-tools { margin-left: auto; }
+
+/* The send bar rides the pane's foot — always a thumb away. */
+.plansend {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  margin: var(--sc-space-4) calc(var(--sc-space-6) * -1) 0;
+  padding: var(--sc-space-3) var(--sc-space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  background: var(--sc-bone-light);
+  border-top: 1px solid #33302C;
+}
+.plansend .hint { flex-basis: 100%; margin: 0; }
+
+/* ------------------------------------------------------ PICKER (left) */
+.planpicker {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sc-bone);
+}
+.planpicker-head {
+  flex: 0 0 auto;
+  display: grid;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+}
+.planpicker-sources { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+.planpicker-sources .chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+.planpicker-sources .chip b { font-weight: 600; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.planpicker-sources .chip .planpicker-sel { color: var(--sc-ember); opacity: 1; }
+.planpicker-sources .chip[data-on='true'] .planpicker-sel { color: var(--sc-ember-light); }
+.planpicker-search { flex: none; width: 100%; }
+.planpicker-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+.planpicker-row .pl-bar-count { margin-left: auto; }
+
+.planpicker-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
+  display: grid;
+  gap: var(--sc-space-3);
+  align-content: start;
+}
+
+/* No week open yet: the wall is a window, not a picker (Geno, 2026-10-09).
+   Nothing in here is clickable until a week exists to add to — the auto-
+   created current week lifts this the moment it lands. */
+.planpicker-scroll[data-locked='true'] {
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Smaller cards than the full feeds — a wall of them, two or three across.
+   At this size only the tick fits on the frame: the age line and the other
+   tools would sit on top of one another, and picking needs one control, not
+   five. The library cards keep their hover preview. */
+.planpicker .planpicker-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--sc-space-3); }
+.planpicker .card-tags,
+.planpicker .card-line,
+.planpicker .pl-subline,
+.planpicker .pl-topline { display: none; }
+.planpicker .pl-tool,
+.planpicker .card-tool { display: none; }
+.planpicker .pl-tool:last-child,
+.planpicker .card-tool:last-child { display: grid; }
+
+.planpicker-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+  background: var(--sc-bone-light);
+}
+.planpicker-count {
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink-900);
+  white-space: nowrap;
+}
+.planpicker-foot .pill { margin-left: auto; }
+.planpicker-wait {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+  font-size: var(--sc-text-xs);
+}
+
+/* A big screen earns a bigger wall. */
+@media (min-width: 1600px) {
+  .planpicker .planpicker-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+/* No room for two panes side by side: the picker sits on top, the week
+   below, and both keep their own scroll. */
+@media (max-width: 1100px) {
+  .planmodal {
+    inset: 0.5rem;
+    width: calc(100vw - 1rem);
+    height: calc(100dvh - 1rem);
+  }
+  .planmodal-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 48%) minmax(0, 1fr); }
+  .planpicker { border-bottom: var(--sc-rule-hair); }
+  .planmodal-body > .planpane { border-left: 0; padding: var(--sc-space-4); }
+}
+
+/* Phone: the dialog IS the screen. */
+@media (max-width: 700px) {
+  .planmodal {
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .planmodal-head { padding: var(--sc-space-3) var(--sc-space-4); }
+  .planpicker-head,
+  .planpicker-scroll { padding-left: var(--sc-space-3); padding-right: var(--sc-space-3); }
+  .planpicker .planpicker-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--sc-space-2); }
+}
+
+/* ============================================================
+   CREATOR DIALOG — centered, fades in and out. The console's
+   ink is stated literally so a flipped token cannot cream the panel.
+   ============================================================ */
+.creatordialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  animation: fade var(--sc-dur) var(--sc-ease);
+}
+.creatordialog-layer[data-closing] {
+  animation: fade var(--sc-dur-fast) var(--sc-ease) reverse forwards;
+  pointer-events: none;
+}
+.creatordialog-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.creatordialog {
+  position: relative;
+  z-index: 1;
+  width: min(860px, 100%);
+  max-height: min(820px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: #171717;
+  color: #EDE9E3;
+  border: 1px solid #33302C;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--sc-lift-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .creatordialog-layer,
+  .creatordialog-layer[data-closing] { animation: none; }
+}
+
+.creatordialog-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border-bottom: 1px solid #33302C;
+}
+.creatordialog-id { min-width: 0; }
+.creatordialog-id h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #EDE9E3;
+}
+.creatordialog-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0;
+  margin: 6px 0 0;
+  font-size: var(--sc-text-sm);
+  color: #A8A29A;
+}
+.creatordialog-facts span:not(:last-child)::after {
+  content: '·';
+  margin: 0 0.45rem;
+  color: #6B6660;
+}
+.creatordialog-x {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #33302C;
+  border-radius: 8px;
+  background: transparent;
+  color: #A8A29A;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.creatordialog-x:hover { color: #EDE9E3; border-color: #6B6660; }
+
+.creatordialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.creatordialog-sec {
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border-bottom: 1px solid #33302C;
+}
+.creatordialog-sec:last-child { border-bottom: 0; }
+.creatordialog-sec .axis { margin: 0; }
+.creatordialog-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-3);
+}
+.creatordialog-sec-head h4 {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.creatordialog-sec-head button {
+  border: 1px solid #33302C;
+  border-radius: 8px;
+  background: transparent;
+  color: #EDE9E3;
+  font: inherit;
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+.creatordialog-sec-head button:hover { border-color: #6B6660; }
+.creatordialog-library { color: var(--sc-ember-light) !important; }
+
+.creatordialog-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.creatordialog-chips button,
+.creatordialog-chips span {
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  background: transparent;
+  color: #EDE9E3;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+}
+.creatordialog-chips button { cursor: pointer; }
+.creatordialog-chips button:hover { border-color: #6B6660; }
+.creatordialog-chips b { font-weight: 700; color: var(--sc-ember-light); }
+.creatordialog-empty {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  color: #A8A29A;
+}
+
+.creatordialog-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: var(--sc-space-3);
+  padding-top: var(--sc-space-3);
+  border-top: 1px solid #33302C;
+}
+.creatordialog-picker button {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #33302C;
+  border-radius: 10px;
+  background: transparent;
+  color: #EDE9E3;
+  font: inherit;
+  cursor: pointer;
+}
+.creatordialog-picker button b { font-size: var(--sc-text-sm); font-weight: 600; }
+.creatordialog-picker button span { font-size: 0.72rem; color: #A8A29A; font-weight: 500; }
+.creatordialog-picker button[data-on] {
+  border-color: var(--sc-ember);
+  background: color-mix(in srgb, var(--sc-ember) 14%, transparent);
+}
+
+.creatordialog-posts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.creatordialog-posts li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) 0;
+  border-top: 1px solid #33302C;
+}
+.creatordialog-posts li:first-child { border-top: 0; padding-top: 0; }
+.creatordialog-posts img,
+.creatordialog-nothumb {
+  width: 72px;
+  height: 90px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+  background: #0E0D0C;
+  border: 1px solid #33302C;
+}
+.creatordialog-score {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.creatordialog-score b {
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #EDE9E3;
+}
+.creatordialog-score span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sc-ember-light);
+}
+.creatordialog-meta,
+.creatordialog-line {
+  margin: 4px 0 0;
+  font-size: var(--sc-text-sm);
+  line-height: 1.4;
+  color: #A8A29A;
+}
+.creatordialog-line {
+  color: #EDE9E3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.creatordialog-post { min-width: 0; }
+.creatordialog-post-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.creatordialog-post-top b {
+  flex: 0 0 auto;
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #EDE9E3;
+}
+.creatordialog-hot {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ember-light);
+}
+.creatordialog-post-top .creatordialog-meta {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.creatordialog-multiple {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #A8A29A;
+}
+.creatordialog-make {
+  display: grid;
+  gap: var(--sc-space-3);
+}
+.creatordialog-make > div > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6B6660;
+}
+
+/* The pace numbers, forced into three equal cells with a divider between. */
+.creatordialog .axis { margin: 0; }
+.creatordialog .axis-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-3);
+}
+.creatordialog .axis-name {
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.creatordialog .hint { color: #6B6660; font-size: var(--sc-text-sm); }
+.creatordialog .score-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid #33302C;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.creatordialog .scorecard {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.creatordialog .scorecard + .scorecard { border-left: 1px solid #33302C; }
+.creatordialog .score-name,
+.creatordialog .score-target { color: #A8A29A; }
+.creatordialog .score-value {
+  font-family: var(--sc-font-text);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #EDE9E3;
+}
+.creatordialog .chips { margin-top: var(--sc-space-3); }
+.creatordialog .chip {
+  border-color: #33302C;
+  background: transparent;
+  color: #EDE9E3;
+}
+.creatordialog .why { margin-top: 6px; }
+.creatordialog .why-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #A8A29A;
+}
+@media (max-width: 640px) {
+  .creatordialog .score-row { grid-template-columns: 1fr; }
+  .creatordialog .scorecard + .scorecard { border-left: 0; border-top: 1px solid #33302C; }
+}
+
+/* ============================================================
+   ADD A MODEL — one centered form, same fade as the creator dialog.
+   Portaled to document.body, so every color is a literal.
+   ============================================================ */
+.adddialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: fade var(--sc-dur) var(--sc-ease);
+}
+.adddialog-layer[data-closing] {
+  animation: fade var(--sc-dur-fast) var(--sc-ease) reverse forwards;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adddialog-layer,
+  .adddialog-layer[data-closing] { animation: none; }
+}
+.adddialog-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(10, 10, 10, 0.72);
+  cursor: pointer;
+}
+.adddialog {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  max-height: min(860px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: #171717;
+  color: #EDE9E3;
+  border: 1px solid #33302C;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.adddialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid #33302C;
+}
+.adddialog-kicker {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.adddialog-head h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.adddialog-lead { margin: 6px 0 0; color: #A8A29A; font-size: 0.92rem; }
+.adddialog-x {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  background: transparent;
+  color: #EDE9E3;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.adddialog-x:hover { border-color: #EDE9E3; }
+.adddialog-body { overflow: auto; padding: 8px 22px 22px; }
+.adddialog-section { padding: 18px 0; border-top: 1px solid #33302C; }
+.adddialog-section:first-child { border-top: 0; }
+.adddialog-section h3 {
+  margin: 0 0 14px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.adddialog-who { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
+.adddialog-photo {
+  width: 96px;
+  height: 120px;
+  padding: 0;
+  border: 1px dashed #33302C;
+  border-radius: 12px;
+  background: #141210;
+  color: #A8A29A;
+  cursor: pointer;
+  overflow: hidden;
+}
+.adddialog-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adddialog-names { display: grid; gap: 8px; }
+.adddialog-label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  color: #A8A29A;
+}
+.adddialog-names .adddialog-label:first-child { margin-top: 0; }
+.adddialog-quiet {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #A8A29A;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.adddialog-pair { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 16px; align-items: start; }
+.adddialog .field,
+.adddialog .msel-trigger {
+  width: 100%;
+  background: #141210;
+  border: 1px solid #33302C;
+  border-radius: 10px;
+  color: #EDE9E3;
+  padding: 10px 12px;
+}
+.adddialog .field:focus,
+.adddialog .msel-trigger[data-open] { outline: none; border-color: #EDE9E3; }
+.adddialog .field::placeholder { color: #6B6660; }
+.adddialog .hint { color: #6B6660; font-size: 0.82rem; }
+.adddialog .chip {
+  font-family: var(--sc-font-text);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+  border-color: #33302C;
+  color: #EDE9E3;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+.adddialog .chip:hover { border-color: #EDE9E3; color: #EDE9E3; }
+.adddialog .chip[data-on='true'] { background: #EDE9E3; color: #171717; border-color: #EDE9E3; }
+.adddialog .axis-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.adddialog .axis-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.adddialog .axis-confirm {
+  border: 0;
+  background: none;
+  color: #EDE9E3;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.adddialog .sociallist { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.adddialog .socialrow { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.adddialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid #33302C;
+  background: #171717;
+}
+.adddialog-note { margin-right: auto; color: #A8A29A; font-size: 0.88rem; }
+.adddialog-note[data-bad] { color: #E8663A; }
+.adddialog-cancel,
+.adddialog-save {
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+.adddialog-cancel { background: transparent; color: #EDE9E3; border: 1px solid #33302C; }
+.adddialog-save { background: #EDE9E3; color: #171717; border: 1px solid #EDE9E3; font-weight: 600; }
+.adddialog-cancel:disabled,
+.adddialog-save:disabled { opacity: 0.45; cursor: default; }
+@media (max-width: 640px) {
+  .adddialog-layer { padding: 12px; }
+  .adddialog-who,
+  .adddialog-pair,
+  .adddialog .socialrow { grid-template-columns: 1fr; }
+  .adddialog-photo { width: 100%; height: 160px; }
+}
+

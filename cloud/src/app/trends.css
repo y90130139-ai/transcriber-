@@ -51,6 +51,51 @@
   box-decoration-break: clone;
 }
 
+/* All six searches occupy the same slot, including the hidden ones. The
+   search and list stay still while only the highlighted word slides/fades. */
+.trends-headline-words {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0.06em 0 0.1em;
+  line-height: 1.12;
+}
+.trends-headline-word {
+  grid-area: 1 / 1;
+  align-self: start;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.trends-headline-word[data-current] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  animation: trends-word-in var(--sc-dur) var(--sc-ease) both;
+}
+.trends-headline-word[data-previous] {
+  visibility: visible;
+  animation: trends-word-out var(--sc-dur) ease-in both;
+}
+@keyframes trends-word-in {
+  from { opacity: 0; transform: translateY(0.55em); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes trends-word-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-0.55em); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trends-headline-word[data-current] { animation: none; }
+  .trends-headline-word[data-previous] { visibility: hidden; animation: none; }
+}
+
 .trends-search {
   display: flex;
   align-items: center;
@@ -127,59 +172,126 @@
 
 /* ------------------------------------------------- the graph */
 
-.trends-chart { scroll-margin-top: calc(3.25rem + var(--sc-space-4)); }
+.trends-chart {
+  scroll-margin-top: calc(3.25rem + var(--sc-space-4));
+  padding: var(--sc-space-6);
+}
 .trends-chart-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--sc-space-3);
-  margin-bottom: var(--sc-space-4);
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
 }
-.trends-chart-titles { display: grid; gap: var(--sc-space-2); min-width: 0; }
-.trends-chart-head .trends-panel-kicker { margin: 0; }
+.trends-chart-titles { display: grid; flex: 1; gap: var(--sc-space-1); min-width: 0; }
+.trends-chart-head .trends-panel-kicker { margin: 0; color: var(--sc-ink-500); }
+.trends-chart-title {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-xl);
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  line-height: var(--sc-leading-tight);
+  color: var(--sc-ink-900);
+  overflow-wrap: anywhere;
+}
+.trends-chart-meta { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-500); }
+.trends-chart-ranges {
+  flex: none;
+  padding: var(--sc-space-1);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+}
+.trends-chart-ranges .trends-range { min-height: 32px; border-radius: var(--r-sm, 8px); color: var(--sc-ink-500); }
+.trends-chart-ranges .trends-range:hover:not([data-on]) { background: var(--sc-bone-light); color: var(--sc-ink-900); }
+.trends-chart-ranges .trends-range[data-on] { color: var(--sc-bone); }
+.trends-chart-window { display: none; }
 
-.trends-legend { display: flex; flex-wrap: wrap; gap: var(--sc-space-2) var(--sc-space-4); }
+.trends-chart-stats {
+  display: flex;
+  gap: var(--sc-space-6);
+  max-width: 640px;
+  margin: 0 0 var(--sc-space-5);
+}
+.trends-chart-stats > div { flex: 1; min-width: 0; }
+.trends-chart-stats > div + div { border-left: var(--sc-rule-hair); padding-left: var(--sc-space-6); }
+.trends-chart-stats dt { font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+.trends-chart-stats dd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-1);
+  margin: var(--sc-space-1) 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.trends-chart-stats dd b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-2xl);
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  line-height: var(--sc-leading-tight);
+  color: var(--sc-ink-900);
+}
+.trends-chart-stats > div:first-child dd b { color: var(--sc-ember-deep); }
+.trends-chart-stats dd span { font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+.trends-stat-detail { margin: var(--sc-space-1) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-500); }
+
+.trends-legend { display: flex; flex-wrap: wrap; gap: var(--sc-space-3); margin-bottom: var(--sc-space-5); }
 .trends-legend-item {
   display: inline-flex;
+  flex: 1 1 240px;
   align-items: center;
   gap: var(--sc-space-2);
   min-width: 0;
+  max-width: 100%;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
   font-size: var(--sc-text-sm);
   color: var(--sc-ink-900);
 }
 .trends-legend-item i { width: 9px; height: 9px; flex: none; border-radius: 999px; }
+.trends-legend-copy { display: grid; gap: var(--sc-space-1); flex: 1; min-width: 0; }
 .trends-legend-item b {
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 24ch;
 }
-.trends-legend-avg { font-size: var(--sc-text-xs); color: var(--sc-ink-300); font-variant-numeric: tabular-nums; }
+.trends-legend-avg { font-size: var(--sc-text-xs); color: var(--sc-ink-500); font-variant-numeric: tabular-nums; }
+.trends-legend-score { display: flex; flex: none; align-items: baseline; gap: var(--sc-space-1); font-size: var(--sc-text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.trends-legend-score small { font-size: var(--sc-text-xs); font-weight: 400; color: var(--sc-ink-500); }
 .trends-legend-drop {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
   border: 0;
+  border-radius: var(--r-sm, 8px);
   background: none;
-  padding: 0 2px;
-  color: var(--sc-ink-300);
+  padding: 0;
+  color: var(--sc-ink-500);
   font: inherit;
-  font-size: var(--sc-text-sm);
+  font-size: var(--sc-text-lg);
   line-height: 1;
   cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
 }
-.trends-legend-drop:hover { color: var(--sc-critical); }
+.trends-legend-drop:hover { background: var(--sc-ember-tint); color: var(--sc-ember-deep); }
 
-.trends-chart-box { position: relative; min-height: 340px; }
-.trends-chart-box svg { display: block; }
+.trends-chart-box { position: relative; min-width: 0; padding-top: var(--sc-space-3); border-top: var(--sc-rule-hair); }
+.trends-chart-box svg { display: block; max-width: 100%; touch-action: pan-y; border-radius: var(--r-sm, 8px); }
 .trends-grid-line {
   stroke: color-mix(in oklab, var(--sc-ink-150) 70%, transparent);
   stroke-width: 1;
-  stroke-dasharray: 2 4;
 }
 .trends-axis {
-  fill: var(--sc-ink-300);
+  fill: var(--sc-ink-500);
   font-family: var(--sc-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
 }
 .trends-area { fill-opacity: 0.08; }
@@ -190,8 +302,7 @@
 .trends-tip {
   position: absolute;
   top: var(--sc-space-3);
-  min-width: 172px;
-  max-width: 250px;
+  max-width: calc(100% - var(--sc-space-4));
   padding: var(--sc-space-2) var(--sc-space-3);
   background: var(--sc-bone);
   border: var(--sc-rule-hair);
@@ -203,10 +314,10 @@
 .trends-tip-when {
   margin: 0 0 var(--sc-space-1);
   font-family: var(--sc-font-mono);
-  font-size: 10px;
+  font-size: var(--sc-text-xs);
   letter-spacing: var(--sc-track-label);
   text-transform: uppercase;
-  color: var(--sc-ink-300);
+  color: var(--sc-ink-500);
 }
 .trends-tip-row {
   display: flex;
@@ -230,7 +341,7 @@
   margin: 0;
   padding: var(--sc-space-4);
   text-align: center;
-  color: var(--sc-ink-300);
+  color: var(--sc-ink-500);
   font-size: var(--sc-text-sm);
   background: color-mix(in oklab, var(--sc-bone) 85%, transparent);
   z-index: 1;
@@ -246,8 +357,6 @@
   cursor: pointer;
 }
 .trends-chart-veil button:hover { border-color: var(--sc-ember); }
-
-.trends-chart-foot { margin: var(--sc-space-3) 0 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
 
 /* ------------------------------------------------- shared controls */
 
@@ -297,10 +406,6 @@
 .trends-pull:disabled { opacity: 0.6; cursor: default; }
 
 /* ------------------------------------------------- the evidence */
-
-.trends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sc-space-8); align-items: start; }
-.trends-grid-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 1100px) { .trends-grid, .trends-grid-two { grid-template-columns: 1fr; } }
 
 .trends-panel { min-width: 0; }
 .trends-panel-kicker {
@@ -509,14 +614,6 @@
   stroke-linecap: round;
 }
 
-/* ------------------------------------------------- breakout cards
-
-   The /instagram feed's card, worn by the library's breakouts (Geno,
-   2026-10-08): the 9:16 frame, the handle and audio over the floor, the
-   multiple where the score pill sits, plays in the stats stack. The grid
-   is tighter than the platform pages' — the panel is half a page wide. */
-.trends-panel .pl-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-
 /* ------------------------------------------------- sound actions */
 .trends-sound-acts {
   display: flex;
@@ -582,4 +679,23 @@
   .trends-search button { padding: var(--sc-space-3) var(--sc-space-4); }
   .trends-head-tools { justify-items: start; }
   .trends-sec-head { align-items: flex-start; }
+  .trends-chart { padding: var(--sc-space-4); }
+  .trends-chart-head { gap: var(--sc-space-3); }
+  .trends-chart-title { font-size: var(--sc-text-lg); }
+  .trends-chart-ranges { display: none; }
+  .trends-chart-window { display: block; flex: none; }
+  .trends-chart-window .msel-trigger {
+    min-height: 40px;
+    padding: var(--sc-space-2) var(--sc-space-3);
+    border-radius: var(--r-sm, 8px);
+    background: var(--sc-bone);
+    font-size: var(--sc-text-sm);
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--sc-ink-900);
+  }
+  .trends-chart-stats { gap: var(--sc-space-3); }
+  .trends-chart-stats > div + div { padding-left: var(--sc-space-3); }
+  .trends-chart-stats dd b { font-size: var(--sc-text-xl); }
+  .trends-legend-drop { width: 40px; height: 40px; }
 }

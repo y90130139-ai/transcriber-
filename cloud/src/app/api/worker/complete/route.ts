@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
+import { redraftForJob } from '@/lib/models'
 import { autoTag } from '@/lib/tagging'
 
 /** The Mac posts a finished transcript here and the job closes out. */
@@ -131,6 +132,14 @@ export async function POST(request: Request) {
   // are cheap to correct and impossible to catch up on by hand later.
   await autoTag(payload.id).catch(() => {
     // A tagging miss must never fail a transcript that arrived intact.
+  })
+
+  // A thin card — a feed pick added to a week before this fetch — has no
+  // direction yet. Now that the words, tags and screen reads exist, every
+  // card for this job that is still the machine's (or blank) gets its drafted
+  // brief. Written cards are left alone inside; see redraftForJob.
+  await redraftForJob(String(payload.id)).catch(() => {
+    // Same rule as tagging: this must never fail a transcript that landed.
   })
 
   return NextResponse.json({ ok: true })

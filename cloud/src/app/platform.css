@@ -367,6 +367,16 @@
   white-space: nowrap;
 }
 .pl-bulk .chip, .pl-bulk .btn { white-space: nowrap; }
+/* What the queue said back — the bar keeps its selection after an add, so
+   the note sits beside the count instead of flashing past. */
+.pl-bulk .pl-bulk-note {
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+}
 
 /* ---------------------------------------------------------- STATES */
 .pl-skeleton { position: relative; aspect-ratio: 9 / 16; border-radius: var(--r); overflow: hidden; background: var(--sc-bone-light); border: var(--sc-rule-hair); }
@@ -465,4 +475,14 @@
   .pl-bar-count { margin-left: 0; width: 100%; }
   .pl-tools { opacity: 1; }
   .pl-tool { width: 2rem; height: 2rem; }
+  /* The bulk bar grows buttons with the selection; on a phone it wraps
+     instead of running off the screen. */
+  .pl-bulk {
+    max-width: calc(100vw - var(--sc-space-6) * 2);
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: var(--r);
+    padding: var(--sc-space-2) var(--sc-space-3);
+  }
+  .pl-bulk .pl-bulk-note { order: 9; flex-basis: 100%; max-width: 100%; white-space: normal; text-align: center; }
 }

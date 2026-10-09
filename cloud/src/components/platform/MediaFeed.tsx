@@ -44,6 +44,7 @@ type MediaItem = {
   slides: number | null
   mirror: string | null
 }
+export type { MediaItem }
 
 type Feed = {
   platform: string
@@ -54,6 +55,7 @@ type Feed = {
   totals: { views: number; likes: number; comments: number; creators: number; scored: number }
   items: MediaItem[]
 }
+export type { Feed }
 
 const BATCH = 48
 
@@ -69,7 +71,7 @@ const exact = (value: number) => value.toLocaleString('en-US')
 
 /* ---------------------------------------------------------------- card */
 
-function MediaCard({ item, platform, selected, onToggle }: {
+export function MediaCard({ item, platform, selected, onToggle }: {
   item: MediaItem
   platform: Platform
   selected: boolean
@@ -274,6 +276,9 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
   const [shown, setShown] = useState(BATCH)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [copied, setCopied] = useState(false)
+  /** The library run: sending, and what the queue said back. */
+  const [adding, setAdding] = useState(false)
+  const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
 
   const load = useCallback(() => {
     setFailed(false)
@@ -312,14 +317,78 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
     return filtered.sort(by[sort])
   }, [feed, query, sort])
 
-  /** The window's leaders: one bar per handle, top six by collected views. */
+  /** Tick or untick one card. */
   function toggle(id: string) {
+    setNote(null)
     setSelected((current) => {
       const next = new Set(current)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+  }
+
+  /** Everything currently drawn — the bar's own slice of the sorted feed. */
+  const visible = items.slice(0, shown)
+  const shownAllSelected = visible.length > 0 && visible.every((item) => selected.has(item.id))
+
+  /** One tap for a whole screen of videos (Geno, 2026-10-09): picking a
+   *  research run by hand, 48 checkmarks at a time, was the slow part of
+   *  feeding the library from these feeds. */
+  function toggleShown() {
+    setNote(null)
+    setSelected((current) => {
+      const next = new Set(current)
+      const all = visible.length > 0 && visible.every((item) => next.has(item.id))
+      for (const item of visible) {
+        if (all) next.delete(item.id)
+        else next.add(item.id)
+      }
+      return next
+    })
+  }
+
+  /** Straight into the library: the picked rows' post links go through the
+   *  queue exactly like a paste (scripts/import-ofmpro.mjs feeds these feeds;
+   *  /api/links is the door into the corpus). Pictures are skipped — a still
+   *  has nothing whisper can hear — and the queue's own dedupe answers with
+   *  how many were already held. */
+  async function addToLibrary() {
+    if (!feed) return
+    const picked = feed.items.filter((item) => selected.has(item.id))
+    const isPicture = (item: MediaItem) => item.image !== null && item.video === null
+    const pictures = picked.filter(isPicture).length
+    const videos = picked.filter((item) => item.url && !isPicture(item))
+    const linkless = picked.length - videos.length - pictures
+
+    if (videos.length === 0) {
+      setNote({
+        text: pictures
+          ? 'Nothing to hear in a picture — select videos to send to the library.'
+          : 'Nothing there carries a link the library can fetch.',
+        bad: true,
+      })
+      return
+    }
+
+    setAdding(true)
+    setNote(null)
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: videos.map((item) => item.url).join('\n') }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setNote({ text: body.error ?? 'Could not send those to the library.', bad: true })
+    } else {
+      const parts = [`Added ${body.added} to the library`]
+      if (body.skipped) parts.push(`${body.skipped} already held`)
+      if (pictures) parts.push(`${pictures} picture${pictures === 1 ? '' : 's'} skipped`)
+      if (linkless) parts.push(`${linkless} with no link`)
+      setNote({ text: `${parts.join(' · ')} — the Mac fetches and listens from here.` })
+    }
+    setAdding(false)
   }
 
   function copyLinks() {
@@ -388,6 +457,17 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
                 </button>
               ))}
             </div>
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="chip"
+                data-on={shownAllSelected || undefined}
+                onClick={toggleShown}
+                title="Tick every card on screen, for a run into the library"
+              >
+                {shownAllSelected ? 'Deselect shown' : 'Select shown'}
+              </button>
+            )}
             <span className="pl-bar-count">
               {exact(items.length)} of {exact(feed.unique)}
             </span>
@@ -401,14 +481,15 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
           ) : (
             <>
               <div className="pl-grid">
-                {items.slice(0, shown).map((item) => (
+                {visible.map((item) => (
                   <MediaCard key={item.id} item={item} platform={platform} selected={selected.has(item.id)} onToggle={toggle} />
                 ))}
               </div>
 
               <p className="pl-grid-note">
                 Previews stream straight from {label}&apos;s CDN — signed links expire after a few days, and each
-                card quietly falls back to the OFMPro mirror when one is dead. Re-import to refresh the window.
+                card quietly falls back to the OFMPro mirror when one is dead. Tick the videos you want and send
+                them into the library: the Mac fetches and listens to each one. Re-import to refresh the window.
               </p>
 
               {shown < items.length && (
@@ -424,10 +505,31 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
           {selected.size > 0 && (
             <div className="pl-bulk" role="status">
               <span className="pl-bulk-count">{selected.size} selected</span>
+              <button
+                type="button"
+                className="pill"
+                data-primary="true"
+                onClick={() => void addToLibrary()}
+                disabled={adding}
+                title="Send the ticked videos to the library — the Mac fetches and transcribes each one"
+              >
+                {adding ? 'Sending' : 'Add to library'}
+              </button>
               <button type="button" className="chip" onClick={copyLinks}>
                 {copied ? 'Copied ✓' : 'Copy links'}
               </button>
-              <button type="button" className="chip" onClick={() => setSelected(new Set())}>Clear</button>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => { setSelected(new Set()); setNote(null) }}
+              >
+                Clear
+              </button>
+              {note && (
+                <span className="pl-bulk-note hint" data-tone={note.bad ? 'bad' : undefined} title={note.text}>
+                  {note.text}
+                </span>
+              )}
             </div>
           )}
         </>

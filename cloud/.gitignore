@@ -5,3 +5,7 @@ node_modules
 *.tsbuildinfo
 .env*
 !.env.example
+
+# local dev / scheduler logs
+.dev-server.log
+.reddit-pull.log

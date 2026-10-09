@@ -1,0 +1,175 @@
+/** Shared types for the Reddit Trends feature. */
+
+export type Priority = 'high' | 'medium' | 'low'
+
+export type SubredditStatus =
+  | 'pending'        // seeded, not yet validated against the API
+  | 'active'         // validated and collectable
+  | 'unavailable'    // 404 — renamed or never existed
+  | 'restricted'     // 403 — private or forbidden for this app
+  | 'quarantined'    // Reddit says quarantine/over-18 gate
+  | 'error'          // validation failed for a transient reason
+  | 'disabled'       // admin turned it off
+
+export type TrendStatus = 'breakout' | 'rising' | 'stable' | 'cooling' | 'building'
+
+export type TopicScore = {
+  /** 0–100 against the topic's own rolling baseline, shrunk by confidence. */
+  interest: number
+  /** Fractional change of mention rate vs the trailing baseline window. */
+  growth: number | null
+  /** Engagement units per hour since the earliest mention in the window. */
+  velocity: number | null
+  /** 0–1 blend of growth, velocity share and community spread. */
+  breakout: number | null
+  /** 0–1 — how much of this reading rests on enough data. */
+  confidence: number
+  status: TrendStatus
+}
+
+export type TopicRow = {
+  id: string
+  name: string
+  category: string
+  adult: boolean
+  creator: boolean
+  mentions: number
+  unique_authors: number
+  subreddits: number
+  engagement: number
+  velocity: number | null
+  growth: number | null
+  interest: number | null
+  breakout: number | null
+  confidence: number | null
+  status: TrendStatus
+  captured_at: string | null
+  spark: number[]
+  top_subreddit: string | null
+}
+
+export type PostRow = {
+  id: string
+  subreddit: string
+  author: string | null
+  title: string
+  permalink: string | null
+  score: number | null
+  comments: number | null
+  created_utc: string
+  first_seen_at: string
+  over18: boolean
+  flair: string | null
+  velocity: number | null
+  topics: string[]
+}
+
+export type SubredditRow = {
+  id: string
+  display_name: string
+  category: string
+  url: string | null
+  title: string | null
+  description: string | null
+  subscribers: number | null
+  over18: boolean
+  adult: boolean
+  enabled: boolean
+  paused: boolean
+  priority: Priority
+  interval_minutes: number
+  status: SubredditStatus
+  status_note: string | null
+  validated_at: string | null
+  last_synced_at: string | null
+  last_error: string | null
+  consecutive_failures: number
+  source: 'seed' | 'manual'
+  posts_collected: number
+  engagement: number
+  /** New posts per day, last 14 days — the table's trend spark. */
+  spark?: number[]
+}
+
+export type CollectorRun = {
+  id: string
+  started_at: string
+  finished_at: string | null
+  trigger: 'cron' | 'manual' | 'validation'
+  state: 'running' | 'done' | 'partial' | 'failed' | 'stopped'
+  subreddits: number
+  requests: number
+  posts_new: number
+  posts_updated: number
+  mentions: number
+  errors: number
+  budget: number
+  remaining: number | null
+  note: string | null
+}
+
+export type AlertRow = {
+  id: string
+  dedupe_key: string
+  kind: string
+  subject: string
+  title: string
+  body: string | null
+  severity: 'info' | 'warning' | 'critical'
+  created_at: string
+  seen_at: string | null
+}
+
+/** The global settings object, in one place. Everything is optional in the
+ *  database; these defaults are what the code actually runs with. */
+export type RedditSettings = {
+  paused: boolean
+  emergency_stop: boolean
+  budget_per_run: number
+  min_interval_ms: number
+  safety_ratio: number
+  /** Rolling safety net: no more than this many Reddit requests in any
+   *  clock hour, whatever the queue says. */
+  hourly_cap: number
+  /** Internal daily ceiling — all requests, including failures and retries.
+   *  Collection stops for the rest of the day at this number. */
+  daily_cap: number
+  /** The normal throttle: requests per minute, a floor the client never
+   *  exceeds (header pacing can only slow it further). */
+  requests_per_minute: number
+  /** Set when the circuit breaker trips; collection refuses to start until
+   *  this passes. Null when everything is calm. */
+  rate_cooldown_until: string | null
+  retention_days: number
+  retention_post_days: number
+  high_interval_minutes: number
+  medium_interval_minutes: number
+  low_interval_minutes: number
+  min_mentions: number
+  breakout_interest: number
+  breakout_growth: number
+  alert_growth_pct: number
+  alert_velocity: number
+  alert_spread: number
+  alerts_enabled: boolean
+  adult_enabled: boolean
+  /** Adult-only scope: the section shows — and the collector only fetches —
+   *  adult communities. Always enabled for this adult-space section. */
+  adult_only: boolean
+  export_raw_enabled: boolean
+  attestations: {
+    app_registered: boolean
+    oauth_scopes: boolean
+    analytics_permitted: boolean
+    commercial_written: boolean
+    adult_authorized: boolean
+  }
+}
+
+export type RedditPreferences = {
+  range: '1h' | '6h' | '24h' | '7d' | '30d' | '90d' | 'custom'
+  from: string | null
+  to: string | null
+  saved_searches: { name: string; query: string; kinds: string[] }[]
+  density: 'comfortable' | 'compact'
+}

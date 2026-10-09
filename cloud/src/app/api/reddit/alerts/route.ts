@@ -1,0 +1,29 @@
+import { NextResponse } from 'next/server'
+import { isSignedIn } from '@/lib/auth'
+import { alertsList, alertsUnseenCount } from '@/lib/reddit/queries'
+import { markAlertSeen, markAllAlertsSeen } from '@/lib/reddit/store'
+
+/** The alert centre. Every event is written once (dedupe keys at write
+ *  time); this route only marks them seen. */
+export async function GET(request: Request) {
+  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const limit = Math.min(200, Math.max(1, Number(new URL(request.url).searchParams.get('limit') ?? 50)))
+  try {
+    const [rows, unseen] = await Promise.all([alertsList(limit), alertsUnseenCount()])
+    return NextResponse.json({ rows, unseen })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  try {
+    const body = await request.json().catch(() => ({}))
+    if (body.all === true) await markAllAlertsSeen()
+    else if (body.id) await markAlertSeen(String(body.id))
+    return NextResponse.json({ ok: true, unseen: await alertsUnseenCount() })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
+  }
+}

@@ -1235,7 +1235,6 @@ const statements = [
      received_at   timestamptz not null default now()
    )`,
 
-<<<<<<< HEAD
   // Her own posts are matched on the handle, case-insensitively — the reads on
   // her sheet and the roster's post count both say `lower(t.author) = lower(...)`.
   // The plain author index cannot serve a match wrapped in `lower()`, so the
@@ -1274,7 +1273,7 @@ const statements = [
      points     jsonb not null,
      primary key (terms_key, geo, range_id)
    )`,
-=======
+
   // The mixed-source plan (2026-10-08). Every card says where it came from —
   // reference / reskin / original / ai_draft / blank — and a reskin carries
   // the one line that changes it. Null `source` derives from `bucket`
@@ -1317,7 +1316,268 @@ const statements = [
   // Null/false = shown, exactly as every card behaved before.
   `alter table transcriber.plan_items add column if not exists hide_film boolean`,
   `alter table transcriber.plan_items add column if not exists hide_captions boolean`,
->>>>>>> d639262a6800f52f19869ba9a88f63fc2b3fc4d0
+
+  // ============================================================ Reddit Trends
+  //
+  // A separate schema, deliberately: everything below is collected from
+  // Reddit under its API terms, has its own retention rules, and must never
+  // be joined into a creator-facing surface by accident. The console reads
+  // aggregates from these tables and nothing else.
+  //
+  // Twelve tables, the shape the feature brief asked for. The guiding rule
+  // throughout: observations are stored, estimates are labelled, and raw
+  // content that Reddit's terms do not permit us to keep forever is stored
+  // as narrowly as the analytics allow (a title, a length — never a body).
+  `create schema if not exists reddit`,
+
+  // One row per community we track. The ten requested categories arrive from
+  // the seed registry (lib/reddit/registry.ts) with adult-facing communities
+  // disabled; a human enables those explicitly in Settings. Status records
+  // what validation against the authorized API actually found, so a
+  // community that is missing, private, quarantined or forbidden is marked
+  // unavailable rather than guessed at.
+  `create table if not exists reddit.tracked_subreddits (
+     id                  text primary key,            -- lower-cased name, no r/
+     display_name        text not null,
+     category            text not null,
+     url                 text,
+     title               text,
+     description         text,
+     subscribers         bigint,
+     over18              boolean not null default false,
+     adult               boolean not null default false,
+     enabled             boolean not null default true,
+     paused              boolean not null default false,
+     priority            text not null default 'medium'
+                           check (priority in ('high','medium','low')),
+     interval_minutes    integer not null default 60,
+     status              text not null default 'pending'
+                           check (status in ('pending','active','unavailable','restricted','quarantined','error','disabled')),
+     status_note         text,
+     validated_at        timestamptz,
+     last_synced_at      timestamptz,
+     last_error          text,
+     consecutive_failures integer not null default 0,
+     source              text not null default 'seed' check (source in ('seed','manual')),
+     added_at            timestamptz not null default now(),
+     updated_at          timestamptz not null default now()
+   )`,
+  `create index if not exists reddit_tracked_due_idx
+     on reddit.tracked_subreddits (enabled, paused, priority, last_synced_at)`,
+  `create index if not exists reddit_tracked_category_idx
+     on reddit.tracked_subreddits (category)`,
+
+  // One row per community per collection touching it: subscriber count and
+  // the activity that run actually observed. A series, because a single
+  // reading cannot show a trend — the same reasoning creator_snapshots uses.
+  `create table if not exists reddit.subreddit_snapshots (
+     subreddit      text not null,
+     captured_at    timestamptz not null default now(),
+     subscribers    bigint,
+     active_users   bigint,
+     posts_seen     integer not null default 0,
+     posts_new      integer not null default 0,
+     engagement     bigint not null default 0,
+     primary key (subreddit, captured_at)
+   )`,
+  `create index if not exists reddit_sub_snap_captured_idx
+     on reddit.subreddit_snapshots (captured_at desc)`,
+
+  // Every post the collector has seen, deduplicated by Reddit's own id so a
+  // re-fetch updates counts and never duplicates. `selftext_len` and never
+  // `selftext`: we keep the shape of a post, not its body. Authors are
+  // nulled by the deletion reconciler when Reddit says they are gone.
+  `create table if not exists reddit.reddit_posts (
+     id             text primary key,                 -- Reddit base36 id
+     subreddit      text not null,
+     author         text,
+     title          text not null,
+     permalink      text,
+     url            text,
+     kind           text,
+     score          integer,
+     comments       integer,
+     upvote_ratio   real,
+     over18         boolean not null default false,
+     flair          text,
+     created_utc    timestamptz not null,
+     first_seen_at  timestamptz not null default now(),
+     last_seen_at   timestamptz not null default now(),
+     listing        text,                             -- where we first saw it
+     is_deleted     boolean not null default false,
+     removed_at     timestamptz,
+     selftext_len   integer
+   )`,
+  `create index if not exists reddit_posts_sub_created_idx
+     on reddit.reddit_posts (subreddit, created_utc desc)`,
+  `create index if not exists reddit_posts_created_idx
+     on reddit.reddit_posts (created_utc desc)`,
+  `create index if not exists reddit_posts_score_idx
+     on reddit.reddit_posts (score desc) where is_deleted = false`,
+
+  // Score and comment count over time, one row per post per collection that
+  // saw it move. This is what makes "velocity" a measured fact rather than
+  // (score ÷ age) dressed up as one.
+  `create table if not exists reddit.reddit_post_metric_snapshots (
+     post_id     text not null references reddit.reddit_posts(id) on delete cascade,
+     captured_at timestamptz not null,
+     score       integer,
+     comments    integer,
+     primary key (post_id, captured_at)
+   )`,
+  `create index if not exists reddit_post_snap_captured_idx
+     on reddit.reddit_post_metric_snapshots (captured_at desc)`,
+
+  // A topic is a tracked entity — a phrase or cluster the registry knows
+  // about — with the keywords that match it. Derived topics (recurring
+  // bigrams the extractor finds) land here too, labelled as derived, but
+  // never overwrite a curated one.
+  `create table if not exists reddit.topic_entities (
+     id            text primary key,                  -- slug
+     name          text not null,
+     category      text not null,
+     keywords      text[] not null default '{}',
+     source        text not null default 'registry' check (source in ('registry','derived','manual')),
+     adult         boolean not null default false,
+     creator       boolean not null default false,
+     first_seen_at timestamptz not null default now(),
+     updated_at    timestamptz not null default now()
+   )`,
+  `alter table reddit.topic_entities add column if not exists creator boolean not null default false`,
+
+  // One row per post per topic it matched. `weight` distinguishes a phrase
+  // hit from a loose keyword; `matched` records which word fired so a wrong
+  // rule can be found and fixed.
+  `create table if not exists reddit.topic_mentions (
+     id           bigserial primary key,
+     topic_id     text not null references reddit.topic_entities(id) on delete cascade,
+     post_id      text not null references reddit.reddit_posts(id) on delete cascade,
+     subreddit    text not null,
+     author       text,
+     matched      text,
+     weight       real not null default 1,
+     mentioned_at timestamptz not null default now(),
+     unique (topic_id, post_id)
+   )`,
+  `create index if not exists reddit_mentions_topic_idx
+     on reddit.topic_mentions (topic_id, mentioned_at desc)`,
+  `create index if not exists reddit_mentions_post_idx
+     on reddit.topic_mentions (post_id)`,
+
+  // The computed trend record. One row per topic per computation, holding
+  // both the observed numbers (mentions, authors, engagement) and the
+  // calculated scores (velocity, growth, interest, breakout, confidence).
+  // `status = 'building'` is the honest state before a baseline exists.
+  `create table if not exists reddit.topic_metric_snapshots (
+     topic_id      text not null references reddit.topic_entities(id) on delete cascade,
+     captured_at   timestamptz not null,
+     window_hours  integer not null default 24,
+     mentions      integer not null default 0,
+     unique_authors integer not null default 0,
+     subreddits    integer not null default 0,
+     engagement    bigint not null default 0,
+     velocity      real,
+     growth        real,
+     interest      real,
+     breakout      real,
+     confidence    real,
+     status        text not null default 'building'
+                    check (status in ('breakout','rising','stable','cooling','building')),
+     primary key (topic_id, captured_at, window_hours)
+   )`,
+  `create index if not exists reddit_topic_snap_captured_idx
+     on reddit.topic_metric_snapshots (captured_at desc)`,
+
+  // The queue the scheduler works from. Idempotent by construction: the id
+  // is derived from the community and the interval bucket it is due in, so
+  // two schedulers racing cannot enqueue the same slot twice.
+  `create table if not exists reddit.collector_jobs (
+     id         text primary key,
+     subreddit  text not null,
+     listing    text not null default 'new',
+     due_at     timestamptz not null,
+     priority   text not null default 'medium',
+     state      text not null default 'queued'
+                check (state in ('queued','running','done','skipped','failed')),
+     attempts   integer not null default 0,
+     error      text,
+     updated_at timestamptz not null default now()
+   )`,
+  `create index if not exists reddit_jobs_state_idx
+     on reddit.collector_jobs (state, due_at)`,
+
+  // One row per collection run — what it cost, what it found, how it ended.
+  // The health page reads straight off this instead of a log file.
+  `create table if not exists reddit.collector_runs (
+     id            text primary key,
+     started_at    timestamptz not null,
+     finished_at   timestamptz,
+     trigger       text not null default 'cron' check (trigger in ('cron','manual','validation')),
+     state         text not null default 'running'
+                    check (state in ('running','done','partial','failed','stopped')),
+     subreddits    integer not null default 0,
+     requests      integer not null default 0,
+     posts_new     integer not null default 0,
+     posts_updated integer not null default 0,
+     mentions      integer not null default 0,
+     errors        integer not null default 0,
+     budget        integer not null default 0,
+     remaining     integer,
+     note          text,
+     detail        jsonb not null default '{}'
+   )`,
+  `create index if not exists reddit_runs_started_idx
+     on reddit.collector_runs (started_at desc)`,
+
+  // Every Reddit request, with the rate-limit headers Reddit actually sent.
+  // Quotas are learned from these rows — never assumed from documentation.
+  `create table if not exists reddit.api_usage (
+     id          bigserial primary key,
+     run_id      text,
+     endpoint    text not null,
+     method      text not null default 'GET',
+     status      integer,
+     remaining   integer,
+     used        integer,
+     reset_at    timestamptz,
+     duration_ms integer,
+     at          timestamptz not null default now()
+   )`,
+  `create index if not exists reddit_usage_at_idx on reddit.api_usage (at desc)`,
+  `create index if not exists reddit_usage_run_idx on reddit.api_usage (run_id)`,
+
+  // Alerts, once each. `dedupe_key` is the whole mechanism: a topic that is
+  // still breaking out tomorrow gets tomorrow's key, today's is never
+  // repeated.
+  `create table if not exists reddit.trend_alerts (
+     id         text primary key,
+     dedupe_key text not null unique,
+     kind       text not null,
+     subject    text not null,
+     title      text not null,
+     body       text,
+     severity   text not null default 'info' check (severity in ('info','warning','critical')),
+     created_at timestamptz not null default now(),
+     seen_at    timestamptz
+   )`,
+  `create index if not exists reddit_alerts_created_idx
+     on reddit.trend_alerts (created_at desc)`,
+
+  // The console's own choices: saved searches, default range, density. One
+  // row, owner-keyed so a second operator can exist without a migration.
+  `create table if not exists reddit.user_tracking_preferences (
+     id         text primary key default 'owner',
+     prefs      jsonb not null default '{}',
+     updated_at timestamptz not null default now()
+   )`,
+
+  // Global configuration and the attestation checklist. Key-value so a new
+  // tuning knob does not need a migration; only ever written by Settings.
+  `create table if not exists reddit.settings (
+     id         text primary key default 'global',
+     values     jsonb not null default '{}',
+     updated_at timestamptz not null default now()
+   )`,
 ]
 
 for (const statement of statements) {

@@ -434,6 +434,10 @@ export type CardExtras = {
   lead?: string | null
 }
 
+/** Why `appendItems` left a reel off: already on the week, turned down by
+ *  her, or needs someone else on camera while she films alone. */
+export type SkipReason = 'already' | 'declined' | 'solo'
+
 /**
  * Put library items on a plan, each with a drafted brief.
  *
@@ -445,6 +449,7 @@ export async function appendItems(
   modelId: string,
   jobIds: string[],
   extrasFor?: (jobId: string, index: number) => CardExtras,
+  skipped?: Map<string, SkipReason>,
 ): Promise<number> {
   const [row] = await sql.query(
     `select coalesce(max(position), -1) as last from transcriber.plan_items where plan_id = $1`,
@@ -481,31 +486,52 @@ export async function appendItems(
   const [who] = await sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId])
   const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(jobIds)
 
+  // Which of these the library has already heard. A feed pick — a TikTok or
+  // an OFMPro row added before the Mac fetched it — lands as a thin card, and
+  // a brief drafted from a transcript that does not exist yet would be a
+  // direction about a video nobody has heard. Thin cards get their brief the
+  // moment the fetch completes (redraftForJob), from the words actually there.
+  const heard = new Set(
+    (await sql.query(
+      `select job_id from transcriber.transcripts where job_id = any($1::text[])`,
+      [jobIds],
+    )).map((row) => String(row.job_id)),
+  )
+
   for (const [index, jobId] of jobIds.entries()) {
-    if (declined.has(jobId) || needsOthers.has(jobId) || already.has(jobId)) continue
+    const reason: SkipReason | null = already.has(jobId) ? 'already'
+      : declined.has(jobId) ? 'declined'
+        : needsOthers.has(jobId) ? 'solo'
+          : null
+    if (reason) {
+      skipped?.set(jobId, reason)
+      continue
+    }
     already.add(jobId) // a batch repeating one job dedupes itself too
     const extras = extrasFor?.(jobId, index) ?? {}
     // A reskin or an iteration points at HER reel, so the brief must stop
     // coaching her to fix its opening. `source_post` is what says whose it is.
-    const input = { ...await briefInputFor(jobId, modelId), ownReel: Boolean(extras.source_post) }
+    const input = heard.has(jobId)
+      ? { ...await briefInputFor(jobId, modelId), ownReel: Boolean(extras.source_post) }
+      : null
     // `notes` stays the direction and is still written on every insert — it is
     // what her card renders as prose and what everything from before phase 3
     // falls back to. What it no longer carries is the handful of facts that
     // are now fields of their own, because showing them twice is worse than
     // the wall of text this was meant to break up.
-    const fields = draftFields(input)
+    const fields = input ? draftFields(input) : null
     // On her own reel the wardrobe line is not a suggestion. A control means
     // the same clothes; an outfit rung means one deliberate change and nothing
     // else. "Your call — pick it before the camera is up" said neither, and on
     // a card whose whole point is the single variable it reads as permission
     // to change something that must not move.
-    if (extras.source_post) {
+    if (fields && extras.source_post) {
       fields.wardrobe = extras.axis === 'outfit'
         ? 'A different outfit from the original — that is the one thing being tested. ' +
           'Same place, same hair, same everything else.'
         : 'Exactly what you wore in the original.'
     }
-    const notes = [extras.lead, fields.direction].filter(Boolean).join('\n\n')
+    const notes = fields ? [extras.lead, fields.direction].filter(Boolean).join('\n\n') : null
     const inserted = await sql.query(
       // `card_no` counts on from the highest this model has ever been given,
       // across every week. It is read inside the insert so a batch of adds
@@ -530,10 +556,10 @@ export async function appendItems(
        returning id`,
       [
         newId(), planId, jobId, position + 1, notes,
-        fields.wardrobe, fields.camera, fields.takes,
-        fields.sound, fields.hook, fields.caption,
-        draftLocation(input.formats),
-        draftTitle(input.formats, (tag) => labelOf('format', tag)),
+        fields?.wardrobe ?? null, fields?.camera ?? null, fields?.takes ?? null,
+        fields?.sound ?? null, fields?.hook ?? null, fields?.caption ?? null,
+        input ? draftLocation(input.formats) : null,
+        input ? draftTitle(input.formats, (tag) => labelOf('format', tag)) : null,
         modelId,
         extras.bucket ?? null, extras.axis ?? null,
         extras.source_post ?? null, extras.source_url ?? null,
@@ -546,4 +572,64 @@ export async function appendItems(
     }
   }
   return added
+}
+
+/**
+ * Give a thin card its brief the moment the reference lands.
+ *
+ * A feed pick added to a week before the Mac fetched it creates a card with no
+ * direction: there was nothing to draft from. When the fetch completes the
+ * transcript, the tags and the screen reads finally exist, so every card for
+ * that job that is still carrying the machine's own output — or nothing at all —
+ * gets the full drafted brief, exactly as if it had been added after the fetch.
+ * A card somebody has already written into is never touched, the same contract
+ * `isUntouchedDraft` enforces on the editor's own Draft button.
+ *
+ * `coalesce` fills the structured fields; the direction is replaced only when it
+ * is the machine's (or missing). Called from the worker's complete route, after
+ * `autoTag`, because the fresh tags are what the draft reads.
+ */
+export async function redraftForJob(jobId: string): Promise<number> {
+  const cards = await sql.query(
+    `select i.id, i.plan_id, i.notes, p.model_id
+       from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+      where i.job_id = $1`,
+    [jobId],
+  )
+
+  let redrafted = 0
+  for (const card of cards) {
+    const { blob, fields, location, title, standingRules, priorBlob, priorDirection } =
+      await draftBothFor(jobId, String(card.model_id))
+    const notes = card.notes as string | null
+    // No direction at all counts as replaceable: a thin card has nothing a
+    // person wrote, and leaving it blank would strand it forever.
+    const machine = !notes || isUntouchedDraft(notes, {
+      blob, direction: fields.direction, standingRules, priorBlob, priorDirection,
+    })
+    const [row] = await sql.query(
+      `update transcriber.plan_items
+          set wardrobe = coalesce(wardrobe, $3),
+              camera   = coalesce(camera,   $4),
+              takes    = coalesce(takes,    $5),
+              sound    = coalesce(sound,    $6),
+              hook     = coalesce(hook,     $7),
+              caption  = coalesce(caption,  $8),
+              notes    = case when $9::bool then $10::text else notes end,
+              location = coalesce(location, $11),
+              title    = coalesce(title,    $12)
+        where id = $1 and plan_id = $2
+        returning id`,
+      [
+        String(card.id), String(card.plan_id),
+        fields.wardrobe, fields.camera, fields.takes,
+        fields.sound, fields.hook, fields.caption,
+        machine, fields.direction,
+        location, title,
+      ],
+    )
+    if (row) redrafted += 1
+  }
+  return redrafted
 }

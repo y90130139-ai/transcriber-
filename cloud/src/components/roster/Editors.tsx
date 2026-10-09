@@ -109,9 +109,13 @@ export function EditorsPanel({ editors, reload }: { editors: EditorRow[]; reload
   }
 
   return (
-    <div className="editorspanel">
-      <button type="button" className="btn btn-small" onClick={() => setOpen((o) => !o)}>
-        Editors{editors.some((e) => e.waiting > 0) && <b> · {editors.reduce((n, e) => n + e.waiting, 0)} to send</b>}
+    <div className="editorspanel" data-open={open || undefined}>
+      <button type="button" className="editorspanel-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="queue-fold-title">Editors</span>
+        <span className="queue-fold-count">
+          {editors.length} on the team
+          {editors.some((e) => e.waiting > 0) && <b> · {editors.reduce((n, e) => n + e.waiting, 0)} to send</b>}
+        </span>
       </button>
       {open && (
         <div className="editorspanel-body">
@@ -129,8 +133,8 @@ export function EditorsPanel({ editors, reload }: { editors: EditorRow[]; reload
             </div>
           ))}
           <div className="editorspanel-row">
-            <input type="text" value={name} placeholder="Name" onChange={(event) => setName(event.target.value)} />
-            <input type="email" value={email} placeholder="Email (optional)" onChange={(event) => setEmail(event.target.value)} />
+            <input type="text" value={name} placeholder="Name" aria-label="Editor name" onChange={(event) => setName(event.target.value)} />
+            <input type="email" value={email} placeholder="Email (optional)" aria-label="Editor email" onChange={(event) => setEmail(event.target.value)} />
             <button type="button" className="chip" disabled={!name.trim()} onClick={() => void add()}>Add</button>
           </div>
           {said && <p className="editorspanel-said" role="status">{said}</p>}

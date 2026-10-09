@@ -23,6 +23,7 @@ import AnalyticsTab from './profile/AnalyticsTab'
 import StrategyTab from './profile/StrategyTab'
 import MessagesTab from './profile/MessagesTab'
 import EarningsTab from '../earnings/EarningsTab'
+import AddModelDialog from './AddModelDialog'
 
 export type ProfileTab = Tab
 type Tab = 'analytics' | 'earnings' | 'profile' | 'reels' | 'brand' | 'strategy' | 'messages' | 'week' | 'access'
@@ -313,6 +314,23 @@ export default function ModelProfile({
   }
 
   const shareUrl = token && typeof window !== 'undefined' ? `${window.location.origin}/p/${token}` : null
+
+  // A new model is one form. The profile sheet is for someone who already exists.
+  if (!model) {
+    return (
+      <AddModelDialog
+        form={form}
+        set={set}
+        setForm={setForm}
+        busy={busy}
+        note={note}
+        closing={closing}
+        onClose={close}
+        onSave={() => void save()}
+        onPhoto={(file) => void takePhoto(file)}
+      />
+    )
+  }
 
   return (
     <>

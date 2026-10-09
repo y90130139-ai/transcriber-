@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
-import { appendItems, draftBothFor, isUntouchedDraft, newId, trashKeys } from '@/lib/models'
+import { appendItems, draftBothFor, isUntouchedDraft, newId, trashKeys, type SkipReason } from '@/lib/models'
 import { isSource } from '@/lib/source'
 import { isValidTag } from '@/lib/taxonomy'
 
@@ -165,43 +165,134 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ added: ids.length, item_ids: ids })
   }
 
-  // A custom card (Geno, 2026-10-07): no library video behind it — a blank
-  // template the team labels, formats and writes themselves. It lands as a
-  // normal card; her page simply has no "Watch it" step for it.
+  // A custom card (Geno, 2026-10-07): written by the team. Optional `job_id`
+  // is only the cover / reference frame — her page still has no Watch step
+  // (bucket stays custom). Solo / declined rules do not apply here; one card
+  // per reel per week still does, via the unique index.
+  // `cards: [{ label, job_id? }]` lands a whole pile in one ask so the
+  // composer is not N round-trips for N ticks.
   if (body.custom && typeof body.custom === 'object') {
     const custom = body.custom as {
       label?: unknown; format?: unknown; body?: unknown; source?: unknown; count?: unknown
+      job_id?: unknown; cards?: unknown
     }
-    const label = typeof custom.label === 'string' ? custom.label.trim().slice(0, 120) : ''
-    if (!label) return NextResponse.json({ error: 'give the card a label' }, { status: 400 })
     const format = typeof custom.format === 'string' && isValidTag('format', custom.format) ? custom.format : null
-    const text = typeof custom.body === 'string' ? custom.body.trim().slice(0, 4000) : ''
-    // A custom card with directions was written by the team; one without is a
-    // blank to fill in — which her page hides until somebody fills it.
-    const source = isSource(custom.source) ? custom.source : text ? 'original' : 'blank'
-    // "We need 7 of the same template" (Geno, 2026-10-08): one ask, N cards,
-    // each with its own number so each is filmed, answered and threaded alone.
-    const count = typeof custom.count === 'number' && Number.isFinite(custom.count)
-      ? Math.max(1, Math.min(MAX_COPIES, Math.round(custom.count)))
-      : 1
-    const ids: string[] = []
-    for (let copy = 0; copy < count; copy += 1) {
-      const [item] = await sql.query(
-        `insert into transcriber.plan_items (id, plan_id, job_id, position, notes, title, bucket, source, card_no)
-         select $1, $2, null,
-                coalesce(max(i.position), -1) + 1,
-                $3, $4, 'custom', $6,
-                (select coalesce(max(prior.card_no), 0) + 1
-                   from transcriber.plan_items prior
-                   join transcriber.plans pp on pp.id = prior.plan_id
-                  where pp.model_id = $5)
-           from transcriber.plan_items i where i.plan_id = $2
-         returning id`,
-        [newId(), id, [format ? `Format: ${format}` : null, text].filter(Boolean).join('\n\n') || null, label, modelId, source],
-      )
-      ids.push(String(item.id))
+    const sharedBody = typeof custom.body === 'string' ? custom.body.trim().slice(0, 4000) : ''
+    const sharedSource = isSource(custom.source) ? custom.source : null
+
+    type CardAsk = { label: string; jobId: string | null; text: string }
+    const asks: CardAsk[] = []
+    if (Array.isArray(custom.cards)) {
+      for (const raw of custom.cards.slice(0, MAX_BATCH)) {
+        if (!raw || typeof raw !== 'object') continue
+        const row = raw as { label?: unknown; job_id?: unknown; body?: unknown }
+        const label = typeof row.label === 'string' ? row.label.trim().slice(0, 120) : ''
+        if (!label) continue
+        asks.push({
+          label,
+          jobId: typeof row.job_id === 'string' && row.job_id.trim() ? row.job_id.trim().slice(0, 64) : null,
+          text: typeof row.body === 'string' ? row.body.trim().slice(0, 4000) : sharedBody,
+        })
+      }
+    } else {
+      const label = typeof custom.label === 'string' ? custom.label.trim().slice(0, 120) : ''
+      if (!label) return NextResponse.json({ error: 'give the card a label' }, { status: 400 })
+      const jobId = typeof custom.job_id === 'string' && custom.job_id.trim()
+        ? custom.job_id.trim().slice(0, 64)
+        : null
+      const count = jobId
+        ? 1
+        : typeof custom.count === 'number' && Number.isFinite(custom.count)
+          ? Math.max(1, Math.min(MAX_COPIES, Math.round(custom.count)))
+          : 1
+      for (let copy = 0; copy < count; copy += 1) {
+        asks.push({ label, jobId, text: sharedBody })
+      }
     }
-    return NextResponse.json({ added: ids.length, item_id: ids[0], item_ids: ids })
+    if (asks.length === 0) return NextResponse.json({ error: 'nothing to add' }, { status: 400 })
+
+    const jobIds = asks.map((ask) => ask.jobId).filter((job): job is string => Boolean(job))
+    const held = jobIds.length > 0
+      ? await sql.query(
+          `select job_id from transcriber.plan_items where plan_id = $1 and job_id = any($2::text[])`,
+          [id, jobIds],
+        )
+      : []
+    const already = new Set(held.map((row) => String(row.job_id)))
+    const thumbs = jobIds.length > 0
+      ? new Set(
+          (await sql.query(
+            `select job_id from transcriber.transcripts
+              where job_id = any($1::text[]) and thumbnail is not null`,
+            [jobIds],
+          )).map((row) => String(row.job_id)),
+        )
+      : new Set<string>()
+
+    const items: Record<string, unknown>[] = []
+    const skipped: string[] = []
+    const [positionRow, cardNoRow] = await Promise.all([
+      sql.query(
+        `select coalesce(max(position), -1) as last from transcriber.plan_items where plan_id = $1`,
+        [id],
+      ),
+      sql.query(
+        `select coalesce(max(i.card_no), 0) as last
+           from transcriber.plan_items i
+           join transcriber.plans p on p.id = i.plan_id
+          where p.model_id = $1`,
+        [modelId],
+      ),
+    ])
+    let position = Number(positionRow[0]?.last ?? -1)
+    let cardNo = Number(cardNoRow[0]?.last ?? 0)
+
+    for (const ask of asks) {
+      if (ask.jobId && already.has(ask.jobId)) {
+        skipped.push(ask.jobId)
+        continue
+      }
+      const text = ask.text
+      const source = sharedSource ?? (text ? 'original' : 'blank')
+      const notes = [format ? `Format: ${format}` : null, text || null].filter(Boolean).join('\n\n') || null
+      position += 1
+      cardNo += 1
+      const itemId = newId()
+      const [item] = await sql.query(
+        `insert into transcriber.plan_items
+           (id, plan_id, job_id, position, notes, title, bucket, source, card_no)
+         values ($1, $2, $3, $4, $5, $6, 'custom', $7, $8)
+         returning id, job_id, position, notes, title as item_title, bucket, source, card_no`,
+        [itemId, id, ask.jobId, position, notes, ask.label, source, cardNo],
+      )
+      if (!item) continue
+      if (ask.jobId) already.add(ask.jobId)
+      items.push({
+        ...item,
+        has_thumb: ask.jobId ? thumbs.has(ask.jobId) : false,
+        author: null,
+        title: null,
+        preview: null,
+        messages: [],
+        unread: 0,
+        also_on: [],
+      })
+    }
+
+    if (items.length === 0) {
+      return NextResponse.json({
+        error: skipped.length > 0 ? 'that video is already on this week' : 'the card did not land',
+        added: 0,
+        skipped,
+      }, { status: skipped.length > 0 ? 409 : 500 })
+    }
+    return NextResponse.json({
+      added: items.length,
+      item_id: String(items[0].id),
+      item_ids: items.map((item) => String(item.id)),
+      items,
+      skipped,
+    })
   }
 
   const offered = Array.isArray(body.job_ids)
@@ -214,7 +305,9 @@ export async function POST(request: Request, { params }: Params) {
     .slice(0, MAX_BATCH)
   if (jobIds.length === 0) return NextResponse.json({ error: 'nothing to add' }, { status: 400 })
 
-  return NextResponse.json({ added: await appendItems(id, modelId, jobIds) })
+  const skipped = new Map<string, SkipReason>()
+  const added = await appendItems(id, modelId, jobIds, undefined, skipped)
+  return NextResponse.json({ added, skipped: Object.fromEntries(skipped) })
 }
 
 /**

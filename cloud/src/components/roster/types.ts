@@ -221,10 +221,9 @@ export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purge
 /** Whether this item is actually available on her phone, which is the one thing
  *  worth knowing before a link is sent. */
 export function uploadStateOf(item: PlanItemRow): UploadState {
-  // A written card — custom, original, blank — has no video on purpose: the
-  // directions ARE the card. Counting it as "no video on disk" made three
-  // perfectly healthy cards read as broken (Geno, 2026-10-08).
-  if (!item.job_id) return 'written'
+  // A written / custom card — directions ARE the card. A cover job_id may
+  // still sit on it for the frame in the console; that is not a Mac upload.
+  if (!item.job_id || item.bucket === 'custom') return 'written'
   if (item.uploaded_at) return 'ready'
   if (item.r2_purged_at) return 'purged'
   if (!item.folder) {

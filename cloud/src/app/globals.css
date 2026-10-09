@@ -14,6 +14,8 @@
 @import './platform.css';
 /* The plan dialog's week pane (PlanEditor.tsx), scoped to `.planmodal`. */
 @import './plandialog.css';
+/* The Video Batcher console page, scoped to `.vb`. */
+@import './batcher.css';
 /* DayPicker calendar used by DueDateField in the plan setup. */
 @import './calendar.css';
 /* Last, so a motion rule wins the tie against the component rule it animates.

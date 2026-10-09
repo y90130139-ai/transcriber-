@@ -70,7 +70,7 @@ export async function PUT(request: Request) {
     const current = await getSettings()
     const patch: Partial<typeof current> = {}
 
-    for (const key of ['paused', 'emergency_stop', 'alerts_enabled', 'export_raw_enabled'] as const) {
+    for (const key of ['paused', 'emergency_stop', 'alerts_enabled', 'export_raw_enabled', 'requirements_enabled'] as const) {
       if (body[key] !== undefined) patch[key] = Boolean(body[key])
     }
     if (body.budget_per_run !== undefined) patch.budget_per_run = clamp(Number(body.budget_per_run), 1, 600, DEFAULT_SETTINGS.budget_per_run)
@@ -98,6 +98,18 @@ export async function PUT(request: Request) {
     if (body.requests_per_minute !== undefined) {
       const rpm = Number(body.requests_per_minute)
       patch.requests_per_minute = Number.isFinite(rpm) ? Math.min(600, Math.max(0.1, rpm)) : DEFAULT_SETTINGS.requests_per_minute
+    }
+    if (body.requirements_interval_minutes !== undefined) {
+      patch.requirements_interval_minutes = clamp(Number(body.requirements_interval_minutes), 15, 1440, DEFAULT_SETTINGS.requirements_interval_minutes)
+    }
+    if (body.requirements_budget_per_run !== undefined) {
+      patch.requirements_budget_per_run = clamp(Number(body.requirements_budget_per_run), 2, 600, DEFAULT_SETTINGS.requirements_budget_per_run)
+    }
+    if (body.requirements_sample_size !== undefined) {
+      patch.requirements_sample_size = clamp(Number(body.requirements_sample_size), 5, 100, DEFAULT_SETTINGS.requirements_sample_size)
+    }
+    if (body.requirements_profile_batch !== undefined) {
+      patch.requirements_profile_batch = clamp(Number(body.requirements_profile_batch), 0, 60, DEFAULT_SETTINGS.requirements_profile_batch)
     }
     if (body.rate_cooldown_until !== undefined) {
       const value = body.rate_cooldown_until

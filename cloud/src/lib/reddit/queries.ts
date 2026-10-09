@@ -9,7 +9,7 @@ import { q, sql } from '../db'
 import { getSettings } from './settings'
 import { REGISTRY_CATEGORIES, TOPIC_CATEGORIES } from './registry'
 import { latestRateState, queueState, registryCounts, usageSummary, usageToday } from './store'
-import type { AlertRow, CollectorRun, Priority, SubredditRow, TrendStatus } from './types'
+import type { AlertRow, CollectorRun, Priority, RequirementRow, RequirementSource, SubredditRow, TrendStatus } from './types'
 
 export type RangeKey = '1h' | '6h' | '24h' | '7d' | '30d' | '90d' | 'custom'
 
@@ -1231,7 +1231,165 @@ export async function alertsUnseenCount(): Promise<number> {
   return Number(row?.n ?? 0)
 }
 
-/* --------------------------------------------------------------- export */
+/* ------------------------------------------------- requirements board */
+
+export type RequirementQuery = {
+  search?: string | null
+  category?: string | null
+  /** 'with' = Bot Bouncer installed, 'without' = checked and not installed.
+   *  Unknown rows are excluded from both — the board never guesses. */
+  botBouncer?: 'all' | 'with' | 'without'
+  /** The "Display nsfw subreddits" switch. Null keeps both. */
+  includeNsfw?: boolean
+  list?: string | null
+  status?: string | null
+  limit?: number
+  offset?: number
+}
+
+export type RequirementBoardMeta = {
+  total: number
+  with_bot_bouncer: number
+  without_bot_bouncer: number
+  unknown_bot_bouncer: number
+  nsfw: number
+  categories: string[]
+  last_updated: string | null
+  next_due_at: string | null
+  due_now: number
+}
+
+export async function requirementRows(filters: RequirementQuery = {}): Promise<RequirementRow[]> {
+  const conditions: string[] = []
+  const params: unknown[] = []
+  if (filters.search) {
+    params.push(`%${filters.search.toLowerCase()}%`)
+    conditions.push(`(lower(s.id) like $${params.length} or lower(s.display_name) like $${params.length})`)
+  }
+  if (filters.category) {
+    params.push(filters.category)
+    conditions.push(`s.category = $${params.length}`)
+  }
+  if (filters.botBouncer === 'with') conditions.push(`s.bot_bouncer = 'yes'`)
+  if (filters.botBouncer === 'without') conditions.push(`s.bot_bouncer = 'no'`)
+  if (filters.includeNsfw === false) conditions.push(`not s.over18`)
+  if (filters.status) {
+    params.push(filters.status)
+    conditions.push(`s.status = $${params.length}`)
+  }
+  if (filters.list) {
+    params.push(filters.list)
+    conditions.push(`exists (select 1 from reddit.subreddit_list_items i where i.list_id = $${params.length} and i.subreddit = s.id)`)
+  }
+  const where = conditions.length ? ` where ${conditions.join(' and ')}` : ''
+  params.push(Math.min(1000, Math.max(1, filters.limit ?? 400)))
+  params.push(Math.max(0, filters.offset ?? 0))
+  const rows = await q<RequirementRow>(
+    `select s.* from reddit.requirement_subreddits s${where}
+      order by s.subscribers desc nulls last, s.display_name
+      limit $${params.length - 1} offset $${params.length}`,
+    params,
+  )
+  const numeric = rows.map(normalizeRequirementRow)
+  const sources = await requirementSourceMap(numeric.map((row) => row.id))
+  for (const row of numeric) row.sources = sources.get(row.id) ?? []
+  return numeric
+}
+
+/** Neon hands bigints back as strings; the board deals in numbers. */
+function normalizeRequirementRow(row: RequirementRow): RequirementRow {
+  const num = (value: unknown) => (value === null || value === undefined ? null : Number(value))
+  return {
+    ...row,
+    subscribers: num(row.subscribers),
+    posts_per_day: num(row.posts_per_day),
+    sample_count: Number(row.sample_count ?? 0),
+    survivor_count: Number(row.survivor_count ?? 0),
+    filtered_count: Number(row.filtered_count ?? 0),
+    profile_count: Number(row.profile_count ?? 0),
+    min_post_karma: num(row.min_post_karma),
+    min_comment_karma: num(row.min_comment_karma),
+    min_age_days: num(row.min_age_days),
+    avg_total_karma: num(row.avg_total_karma),
+    confirmations: Number(row.confirmations ?? 0),
+    consecutive_failures: Number(row.consecutive_failures ?? 0),
+  }
+}
+
+/** Up to four pieces of evidence per community for the table's inline
+ *  source list: any AutoMod-filtered authors first (they hold the floor),
+ *  then the lowest-karma survivors (they hold the ceiling). */
+export async function requirementSourceMap(ids: string[]): Promise<Map<string, RequirementSource[]>> {
+  const map = new Map<string, RequirementSource[]>()
+  if (!ids.length) return map
+  const rows = await q<RequirementSource & { subreddit: string }>(
+    `select subreddit, post_id, author, permalink, outcome, link_karma, comment_karma,
+            account_age_days, post_created_utc
+       from (
+         select s.*,
+                row_number() over (
+                  partition by s.subreddit
+                  order by (s.outcome = 'filtered') desc, s.link_karma asc nulls last, s.sampled_at desc
+                ) as rn
+           from reddit.requirement_samples s
+          where s.subreddit = any($1::text[])
+       ) ranked
+      where rn <= 4`,
+    [ids],
+  )
+  for (const row of rows) {
+    const list = map.get(row.subreddit) ?? []
+    list.push({
+      post_id: row.post_id,
+      author: row.author,
+      permalink: row.permalink,
+      outcome: row.outcome,
+      link_karma: row.link_karma === null ? null : Number(row.link_karma),
+      comment_karma: row.comment_karma === null ? null : Number(row.comment_karma),
+      account_age_days: row.account_age_days === null ? null : Number(row.account_age_days),
+      post_created_utc: row.post_created_utc,
+    })
+    map.set(row.subreddit, list)
+  }
+  return map
+}
+
+export async function requirementBoardMeta(): Promise<RequirementBoardMeta> {
+  const [counts, categories] = await Promise.all([
+    q<{
+      total: number; with_bb: number; without_bb: number; unknown_bb: number; nsfw: number;
+      last_updated: string | null; next_due_at: string | null; due_now: number
+    }>(
+      `select count(*)::int as total,
+              count(*) filter (where bot_bouncer = 'yes')::int as with_bb,
+              count(*) filter (where bot_bouncer = 'no')::int as without_bb,
+              count(*) filter (where bot_bouncer = 'unknown')::int as unknown_bb,
+              count(*) filter (where over18)::int as nsfw,
+              max(last_collected_at) as last_updated,
+              min(next_due_at) filter (where enabled and status in ('pending','active')) as next_due_at,
+              count(*) filter (where enabled and status in ('pending','active')
+                                 and (next_due_at is null or next_due_at <= now()))::int as due_now
+         from reddit.requirement_subreddits`,
+    ),
+    q<{ category: string }>(
+      `select distinct category from reddit.requirement_subreddits order by category`,
+    ),
+  ])
+  const row = counts[0]
+  return {
+    total: Number(row?.total ?? 0),
+    with_bot_bouncer: Number(row?.with_bb ?? 0),
+    without_bot_bouncer: Number(row?.without_bb ?? 0),
+    unknown_bot_bouncer: Number(row?.unknown_bb ?? 0),
+    nsfw: Number(row?.nsfw ?? 0),
+    categories: categories.map((entry) => entry.category),
+    last_updated: row?.last_updated ?? null,
+    next_due_at: row?.next_due_at ?? null,
+    due_now: Number(row?.due_now ?? 0),
+  }
+}
+
+/* -------------------------------------------------------------- export */
 
 export type ExportKind = 'topics' | 'subreddits' | 'posts'
 

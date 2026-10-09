@@ -5,7 +5,6 @@ import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
 import { IN_HOT_WINDOW, IN_MONTH, IN_WEEK, IS_HOT, SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
 import { badgesFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from '@/lib/appeal'
-import { tagsForMany } from '@/lib/tagging'
 import { AXES } from '@/lib/taxonomy'
 import { WARN_DAYS, daysLeft, isHers, onOpenCard } from '@/lib/expiry'
 
@@ -32,7 +31,19 @@ const COLUMNS = `
   j.archived_at,
   -- Days before it leaves the library (lib/expiry.ts); null for a model's own.
   case when ${isHers('j', 't')} then null else ${daysLeft('j', 't')} end as expires_in,
-  ${onOpenCard('j')} as on_open_card
+  ${onOpenCard('j')} as on_open_card,
+  -- The filtered total rides the same pass as the rows (2026-10-09): a second
+  -- count query ran the scoring CTE again and paid another round trip for a
+  -- number the window function already knows.
+  (count(*) over ())::int as total_matched,
+  -- Tags, in the same pass. Fetching them afterwards was a second round trip
+  -- for bytes this query already had the ids for.
+  coalesce((
+    select json_agg(json_build_object('axis', g.axis, 'tag', g.tag, 'origin', g.origin, 'score', g.score)
+                    order by g.axis, g.score desc nulls last)
+      from transcriber.tags g
+     where g.job_id = j.id
+  ), '[]'::json) as tags
 `
 
 const ORDERS: Record<string, string> = {
@@ -95,84 +106,80 @@ export async function GET(request: Request) {
   if (window === '90') where.push(IN_HOT_WINDOW)
   if (onlyHot) where.push(IS_HOT)
 
-  const rows = await sql.query(
-    `with ${SCORING_CTE}
-     select ${COLUMNS}, ${SCORING_COLUMNS}, ${SIGNALS_COLUMNS}
-       from transcriber.jobs j
-       join transcriber.transcripts t on t.job_id = j.id
-       ${SCORING_JOIN}
-       ${SIGNALS_JOIN}
-      where ${where.join(' and ')}
-      order by ${sort}
-      limit ${limit} offset ${offset}`,
-    params,
-  )
+  // Four independent reads, one wait (2026-10-09): the rows, the nav counts,
+  // the queue, and the Mac's heartbeat have no order between them, and run
+  // sequentially they cost four round trips of latency for one screen.
+  const [rows, countRows, pending, pingRows] = await Promise.all([
+    sql.query(
+      `with ${SCORING_CTE}
+       select ${COLUMNS}, ${SCORING_COLUMNS}, ${SIGNALS_COLUMNS}
+         from transcriber.jobs j
+         join transcriber.transcripts t on t.job_id = j.id
+         ${SCORING_JOIN}
+         ${SIGNALS_JOIN}
+        where ${where.join(' and ')}
+        order by ${sort}
+        limit ${limit} offset ${offset}`,
+      params,
+    ),
+    sql.query(
+      // ::int matters. Postgres count() is a bigint and the driver hands
+      // bigints back as strings, so the nav badge was doing "2" + "0" and
+      // rendering 20.
+      `select count(*) filter (where status = 'queued')::int  as queued,
+              count(*) filter (where status = 'running')::int as running,
+              count(*) filter (where status = 'done' and archived_at is null)::int as done,
+              count(*) filter (where archived_at is not null)::int as archived,
+              count(*) filter (where status = 'failed')::int  as failed,
+              -- Of those, the ones the viewer still has (lib/queue-state.ts).
+              count(*) filter (where status = 'failed'
+                                 and error like 'could not download%'
+                                 and source ~ '/(reels?|p)/[A-Za-z0-9_-]+'
+                                 and coalesce(m.tries, 0) < ${VIEW_TRIES})::int as waiting
+         from transcriber.jobs
+         left join transcriber.job_media m on m.job_id = transcriber.jobs.id`,
+    ),
+    sql.query(
+      // Work in progress is never filtered — the point of the queue is to see
+      // everything that has not landed yet.
+      // The viewer's tries ride along so the queue can tell a reel it is still
+      // working on from one it gave up on (lib/queue-state.ts). In flight
+      // first, so a long tail of failures can never push live work past the
+      // limit.
+      `select ${COLUMNS}, coalesce(m.tries, 0)::int as view_tries
+         from transcriber.jobs j
+         left join transcriber.transcripts t on t.job_id = j.id
+         left join transcriber.job_media m on m.job_id = j.id
+        where j.status in ('queued', 'running', 'failed')
+        order by case j.status when 'running' then 0 when 'queued' then 1 else 2 end,
+                 j.created_at desc
+        limit 300`,
+    ),
+    sql.query(
+      `select media_url, extract(epoch from (now() - seen_at)) as age
+         from transcriber.worker_pings where id = 1`,
+    ),
+  ])
 
   // The multiplier stays on the row for anyone who wants the working; the
-  // badges are what the grid actually reads out.
-  const items: Record<string, unknown>[] = rows.map((row) => ({ ...row, badges: badgesFor(signalsFrom(row)) }))
+  // badges are what the grid actually reads out. Tags and the filtered total
+  // rode the query itself.
+  const items: Record<string, unknown>[] = rows.map((row) => ({
+    ...row,
+    tags: row.tags ?? [],
+    badges: badgesFor(signalsFrom(row)),
+  }))
 
-  // How many the filter actually holds, as against how many came back. Without
-  // this the grid could only ever report what it was handed, so a truncated
-  // view looked exactly like a complete one — which is how 76 of 166 items sat
-  // unreachable, and how the first audit read a creator at 19 items when she
-  // had 60. Same `where` and same params as the query above; only the select
-  // and the ordering differ.
-  const [held] = await sql.query(
-    `with ${SCORING_CTE}
-     select count(*)::int as total
-       from transcriber.jobs j
-       join transcriber.transcripts t on t.job_id = j.id
-       ${SCORING_JOIN}
-      where ${where.join(' and ')}`,
-    params,
-  )
-
-  // Work in progress is never filtered — the point of the queue is to see
-  // everything that has not landed yet.
-  // The viewer's tries ride along so the queue can tell a reel it is still
-  // working on from one it gave up on (lib/queue-state.ts). In flight first,
-  // so a long tail of failures can never push live work past the limit.
-  const pending = await sql.query(
-    `select ${COLUMNS}, coalesce(m.tries, 0)::int as view_tries
-       from transcriber.jobs j
-       left join transcriber.transcripts t on t.job_id = j.id
-       left join transcriber.job_media m on m.job_id = j.id
-      where j.status in ('queued', 'running', 'failed')
-      order by case j.status when 'running' then 0 when 'queued' then 1 else 2 end,
-               j.created_at desc
-      limit 300`,
-  )
-
-  const [counts] = await sql.query(
-    // ::int matters. Postgres count() is a bigint and the driver hands bigints
-    // back as strings, so the nav badge was doing "2" + "0" and rendering 20.
-    `select count(*) filter (where status = 'queued')::int  as queued,
-            count(*) filter (where status = 'running')::int as running,
-            count(*) filter (where status = 'done' and archived_at is null)::int as done,
-            count(*) filter (where archived_at is not null)::int as archived,
-            count(*) filter (where status = 'failed')::int  as failed,
-            -- Of those, the ones the viewer still has (lib/queue-state.ts).
-            count(*) filter (where status = 'failed'
-                               and error like 'could not download%'
-                               and source ~ '/(reels?|p)/[A-Za-z0-9_-]+'
-                               and coalesce(m.tries, 0) < ${VIEW_TRIES})::int as waiting
-       from transcriber.jobs
-       left join transcriber.job_media m on m.job_id = transcriber.jobs.id`,
-  )
-
-  const [ping] = await sql.query(
-    `select media_url, extract(epoch from (now() - seen_at)) as age
-       from transcriber.worker_pings where id = 1`,
-  )
+  const [counts] = countRows
+  const [ping] = pingRows
   const age = ping?.age === null || ping?.age === undefined ? null : Number(ping.age)
 
-  const tags = await tagsForMany(items.map((item) => item.id as string))
-  const withTags = items.map((item) => ({ ...item, tags: tags.get(item.id as string) ?? [] }))
-
   return NextResponse.json({
-    items: withTags,
-    total: Number(held?.total ?? withTags.length),
+    items,
+    // How many the filter actually holds, as against how many came back. The
+    // grid showed what it was handed and a truncated view looked complete —
+    // the window count makes the two numbers agree in one pass.
+    total: rows.length > 0 ? Number(rows[0].total_matched) : items.length,
     offset,
     pageSize: PAGE_SIZE,
     pending,

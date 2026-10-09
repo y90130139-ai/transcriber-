@@ -2,8 +2,10 @@
   "name": "transcriber-cloud",
   "private": true,
   "scripts": {
+    "vendor:ffmpeg": "node scripts/vendor-ffmpeg.mjs",
+    "postinstall": "node scripts/vendor-ffmpeg.mjs",
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/vendor-ffmpeg.mjs && next build",
     "start": "next start",
     "migrate": "node scripts/migrate.mjs",
     "test": "node --import ./test/ts-resolve.mjs --test test/*.test.ts",
@@ -13,6 +15,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/core-mt": "^0.12.10",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.8.0",
     "date-fns": "^4.4.0",

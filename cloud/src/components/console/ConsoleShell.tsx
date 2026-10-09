@@ -22,6 +22,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: '/library', label: 'Library', icon: 'layers' },
       { href: '/queue', label: 'Queue', icon: 'list' },
+      { href: '/video-batcher', label: 'Video Batcher', icon: 'film' },
     ],
   },
   {

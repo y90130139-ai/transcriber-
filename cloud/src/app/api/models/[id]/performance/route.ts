@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
-import { WINDOWS, accountBreakdown, loadBoard, type WindowDays } from '@/lib/performance/load'
+import { WINDOWS, accountBreakdown, loadBoard, loadModels, type WindowDays } from '@/lib/performance/load'
 
 type Params = { params: Promise<{ id: string }> }
 const TAGS = new Set(['top', 'average', 'attention'])
@@ -14,10 +14,15 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params
   const asked = Number(new URL(request.url).searchParams.get('days'))
   const days = (WINDOWS as readonly number[]).includes(asked) ? (asked as WindowDays) : 30
-  const board = await loadBoard(days, id)
+  // Her board and her per-account lines only share her handles, so they load
+  // beside each other instead of one after the other (2026-10-09).
+  const [board, accounts] = await Promise.all([
+    loadBoard(days, id),
+    loadModels(id).then((rows) => accountBreakdown(rows[0]?.handles ?? [], days)),
+  ])
   const model = board.models[0]
   if (!model) return NextResponse.json({ error: 'not found' }, { status: 404 })
-  return NextResponse.json({ ...board, model, accounts: await accountBreakdown(model.handles, days) })
+  return NextResponse.json({ ...board, model, accounts })
 }
 
 /** Pin a tag — `{ tag: 'top' | 'average' | 'attention' }` — or `{ tag: null }`

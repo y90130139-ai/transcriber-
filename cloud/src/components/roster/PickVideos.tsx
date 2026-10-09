@@ -35,9 +35,9 @@ const FEED_SOURCES: {
   platform: Platform
   dataUrl: string
 }[] = [
-  { id: 'instagram', label: 'Instagram', platform: 'instagram', dataUrl: '/instagram/medias.json' },
-  { id: 'tiktok', label: 'TikTok', platform: 'tiktok', dataUrl: '/tiktok/medias.json' },
-  { id: 'twitter', label: 'Twitter / X', platform: 'x', dataUrl: '/twitter/medias.json' },
+  { id: 'instagram', label: 'Instagram', platform: 'instagram', dataUrl: '/api/ofmpro/instagram' },
+  { id: 'tiktok', label: 'TikTok', platform: 'tiktok', dataUrl: '/api/ofmpro/tiktok' },
+  { id: 'twitter', label: 'Twitter / X', platform: 'x', dataUrl: '/api/ofmpro/twitter' },
 ]
 
 /** `name` and `thumb` are for showing the pick elsewhere (the card composer);

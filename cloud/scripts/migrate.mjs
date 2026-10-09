@@ -98,6 +98,9 @@ const statements = [
    )`,
 
   `create index if not exists tags_lookup_idx on transcriber.tags (axis, tag)`,
+  // The library and every item view reads tags by job. Without this the read
+  // was a seq scan per request (2026-10-09).
+  `create index if not exists tags_job_idx on transcriber.tags (job_id)`,
 
   // A creator's persona is a property of the creator, not of each video, so it
   // lives here and the Models tab reads it directly.
@@ -1311,6 +1314,66 @@ const statements = [
   `create unique index if not exists format_kinds_one
      on transcriber.format_kinds (format, lower(label))`,
 
+  // ------------------------------------------------------------ OFMPro media
+  //
+  // The tracked posts from OFM Pro's own API (`/v2/medias/fetch`), one row per
+  // media id (2026-10-09). Before this the feeds were one-off JSON exports in
+  // public/ — hand-trimmed files that froze the day they were exported. `raw_url`
+  // and `mirror_url` are what OFM Pro served at import time and both are signed
+  // links that expire, so the worker copies each video into R2 and the console
+  // streams from the R2 object once `downloaded_at` is set; until then the card
+  // falls back exactly as it always did.
+  `create table if not exists transcriber.ofmpro_media (
+     platform      text not null,
+     media_id      text not null,
+     shortcode     text,
+     post_url      text,
+     posted_at     timestamptz,
+     caption       text,
+     media_type    text,
+     slides        int,
+     view_count    bigint,
+     like_count    bigint,
+     comment_count bigint,
+     score         real,
+     username      text,
+     nickname      text,
+     followers     bigint,
+     audio         text,
+     raw_url       text,
+     mirror_url    text,
+     r2_key        text,
+     r2_bytes      bigint,
+     downloaded_at timestamptz,
+     first_seen_at timestamptz not null default now(),
+     updated_at    timestamptz not null default now(),
+     primary key (platform, media_id)
+   )`,
+  `create index if not exists ofmpro_media_platform_posted
+     on transcriber.ofmpro_media (platform, posted_at desc)`,
+  `create index if not exists ofmpro_media_platform_score
+     on transcriber.ofmpro_media (platform, score desc nulls last)`,
+
+  // One row per worker pass: the window it asked for and what came back, so a
+  // quiet day on the feeds has an answer in the data rather than a shrug.
+  `create table if not exists transcriber.ofmpro_runs (
+     id          text primary key,
+     started_at  timestamptz not null default now(),
+     finished_at timestamptz,
+     status      text not null default 'running',
+     window_from date,
+     window_to   date,
+     per_platform jsonb,
+     fetched     int not null default 0,
+     inserted    int not null default 0,
+     updated     int not null default 0,
+     downloaded  int not null default 0,
+     failed      int not null default 0,
+     error       text
+   )`,
+  `create index if not exists ofmpro_runs_started
+     on transcriber.ofmpro_runs (started_at desc)`,
+
   // Per-card switches (2026-10-08): hide the filming directions, hide the
   // automated captions — a written card without a video captions nothing.
   // Null/false = shown, exactly as every card behaved before.
@@ -1578,6 +1641,158 @@ const statements = [
      values     jsonb not null default '{}',
      updated_at timestamptz not null default now()
    )`,
+
+  // ============================================== Subreddit requirements
+  //
+  // The posting-requirement board: one row per community we have sampled.
+  // Every figure is inferred the only way a read-only API allows — from the
+  // account stats of people whose posts we actually saw. The lowest karma /
+  // shortest account age observed among *surviving* posts bounds the gate
+  // from above; authors whose post AutoMod filtered bound it from below.
+  // Nothing here is invented: a missing estimate stays null and the UI says
+  // "not enough data".
+  //
+  // This is a separate registry from tracked_subreddits on purpose — the
+  // trend collector's queue and cadence are not the requirement board's.
+  `create table if not exists reddit.requirement_subreddits (
+     id                  text primary key,            -- lower-cased name, no r/
+     display_name        text not null,
+     url                 text,
+     category            text not null default 'Uncategorized',
+     over18              boolean not null default false,
+     enabled             boolean not null default true,
+     priority            text not null default 'medium'
+                           check (priority in ('high','medium','low')),
+     status              text not null default 'pending'
+                           check (status in ('pending','active','unavailable','restricted','quarantined','error','disabled')),
+     status_note         text,
+     subscribers         bigint,
+     posts_per_day       real,
+     sample_count        integer not null default 0,  -- sampled posts in the window
+     survivor_count      integer not null default 0,
+     filtered_count      integer not null default 0,
+     profile_count       integer not null default 0,
+     min_post_karma      integer,
+     min_comment_karma   integer,
+     min_age_days        integer,
+     avg_total_karma     integer,
+     confirmations       integer not null default 0,  -- refreshes the bounds held
+     confidence          text not null default 'insufficient'
+                           check (confidence in ('verified','high','medium','low','insufficient')),
+     bot_bouncer         text not null default 'unknown'
+                           check (bot_bouncer in ('yes','no','unknown')),
+     bot_bouncer_source  text,                        -- modlist | manual
+     bot_bouncer_checked_at timestamptz,
+     first_collected_at  timestamptz,
+     last_collected_at   timestamptz,
+     about_at            timestamptz,                 -- last /about refresh
+     next_due_at         timestamptz,
+     last_error          text,
+     consecutive_failures integer not null default 0,
+     source              text not null default 'seed' check (source in ('seed','manual')),
+     added_at            timestamptz not null default now(),
+     updated_at          timestamptz not null default now()
+   )`,
+  `create index if not exists reddit_reqsub_due_idx
+     on reddit.requirement_subreddits (enabled, next_due_at)`,
+  `create index if not exists reddit_reqsub_category_idx
+     on reddit.requirement_subreddits (category)`,
+  `create index if not exists reddit_reqsub_botbouncer_idx
+     on reddit.requirement_subreddits (bot_bouncer)`,
+
+  // One row per sampled post: who posted it, what their account looked like
+  // at sample time, and what Reddit later said happened to the post. This is
+  // the entire evidence base — every minimum on the board can be traced to
+  // a row here, and so to a permalink a human can open.
+  `create table if not exists reddit.requirement_samples (
+     id                 bigserial primary key,
+     subreddit          text not null,
+     post_id            text not null,
+     author             text,
+     permalink          text,
+     post_created_utc   timestamptz not null,
+     sampled_at         timestamptz not null default now(),
+     link_karma         integer,
+     comment_karma      integer,
+     account_age_days   integer,
+     profile_at         timestamptz,
+     outcome            text not null default 'pending'
+                          check (outcome in ('pending','survived','filtered','removed','unavailable')),
+     removed_by_category text,
+     checked_at         timestamptz,
+     unique (subreddit, post_id)
+   )`,
+  `create index if not exists reddit_reqsample_sub_idx
+     on reddit.requirement_samples (subreddit, sampled_at desc)`,
+  `create index if not exists reddit_reqsample_due_idx
+     on reddit.requirement_samples (outcome, post_created_utc)`,
+
+  // The account-stats cache. Karma and account age are read once per user
+  // and reused across communities and refreshes; refetching for every
+  // sampled post would triple the request cost for no extra truth.
+  `create table if not exists reddit.requirement_profiles (
+     username     text primary key,                   -- lower-cased
+     link_karma   integer,
+     comment_karma integer,
+     total_karma  integer,
+     created_utc  timestamptz,
+     over18       boolean,
+     source       text not null default 'api' check (source in ('api','manual')),
+     fetched_at   timestamptz not null default now(),
+     error        text
+   )`,
+
+  // The requirements queue, same discipline as the trend collector's: the id
+  // is the due slot, so overlapping schedulers cannot double-enqueue.
+  `create table if not exists reddit.requirement_jobs (
+     id         text primary key,
+     subreddit  text not null,
+     due_at     timestamptz not null,
+     state      text not null default 'queued'
+                check (state in ('queued','running','done','failed')),
+     attempts   integer not null default 0,
+     error      text,
+     updated_at timestamptz not null default now()
+   )`,
+  `create index if not exists reddit_reqjobs_state_idx
+     on reddit.requirement_jobs (state, due_at)`,
+
+  // The operator's own lists ("+ New List"): a name and a set of
+  // communities, used to slice the board the same way saved searches do.
+  `create table if not exists reddit.subreddit_lists (
+     id         text primary key,
+     name       text not null,
+     note       text,
+     created_at timestamptz not null default now(),
+     updated_at timestamptz not null default now()
+   )`,
+  `create table if not exists reddit.subreddit_list_items (
+     list_id    text not null references reddit.subreddit_lists(id) on delete cascade,
+     subreddit  text not null,
+     added_at   timestamptz not null default now(),
+     primary key (list_id, subreddit)
+   )`,
+
+  // The one optional Reddit account, connected through OAuth (authorization
+  // code, `read` scope, never a password). It exists for exactly one job the
+  // app-only token cannot do: reading a community's moderator list to tell
+  // whether Bot Bouncer is installed. Disconnecting deletes the row.
+  `create table if not exists reddit.oauth_account (
+     id            text primary key default 'owner',
+     username      text,
+     refresh_token text not null,
+     scope         text,
+     connected_at  timestamptz not null default now(),
+     last_ok_at    timestamptz,
+     last_error    text,
+     updated_at    timestamptz not null default now()
+   )`,
+
+  // The requirements collector records its runs in the same table as the
+  // trend collector, under its own trigger value.
+  `alter table reddit.collector_runs drop constraint if exists collector_runs_trigger_check`,
+  `alter table reddit.collector_runs add constraint collector_runs_trigger_check
+     check (trigger in ('cron','manual','validation','requirements'))`,
 ]
 
 for (const statement of statements) {

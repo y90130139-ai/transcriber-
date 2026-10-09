@@ -16,16 +16,19 @@ export async function GET(_request: Request, { params }: Params) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { id } = await params
 
-  const [model] = await sql.query(
-    `select m.persona, m.plan_template,
-            (select count(*)::int from transcriber.plans p
-              where p.model_id = m.id and p.status = 'sent') as sent
-       from transcriber.models m where m.id = $1`,
-    [id],
-  )
+  // Her row and her reel bank are independent reads — one wait (2026-10-09).
+  const [[model], bank] = await Promise.all([
+    sql.query(
+      `select m.persona, m.plan_template,
+              (select count(*)::int from transcriber.plans p
+                where p.model_id = m.id and p.status = 'sent') as sent
+         from transcriber.models m where m.id = $1`,
+      [id],
+    ),
+    bankFor(id),
+  ])
   if (!model) return NextResponse.json({ error: 'not found' }, { status: 404 })
 
-  const bank = await bankFor(id)
   const winners = bank?.winners ?? []
   const verticals = bank ? await verticalsFor(id, bank, (model.persona as string[]) ?? []) : []
 

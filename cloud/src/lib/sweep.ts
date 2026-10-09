@@ -279,56 +279,60 @@ export async function loadSweep(): Promise<Sweep> {
   // The same reel on two active weeks at once. Scoped to this week and to
   // active models: a collision with a paused model, or with a week that has
   // already been and gone, is not a thing to do anything about today.
-  const collisions = await sql.query(
-    `select i.job_id, t.author,
-            count(distinct p.model_id)::int as models,
-            string_agg(distinct m.name, ', ') as names
-       from transcriber.plan_items i
-       join transcriber.plans  p on p.id = i.plan_id
-       join transcriber.models m on m.id = p.model_id
-       left join transcriber.transcripts t on t.job_id = i.job_id
-      where p.week_of = $1::date and m.status = 'active'
-      group by i.job_id, t.author
-     having count(distinct p.model_id) > 1
-      order by count(distinct p.model_id) desc, t.author nulls last`,
-    [weekOf],
-  )
-
-  const [health] = await sql.query(
-    `select
-       (select count(*) from transcriber.jobs where status = 'done' and archived_at is null)::int as held,
-       (select count(*) from transcriber.jobs j
-         where j.status = 'done' and j.archived_at is null
-           and not exists (select 1 from transcriber.plan_items i where i.job_id = j.id)
-       )::int as unused,
-       (select count(*) from transcriber.jobs j
-         where j.status = 'done' and j.archived_at is null
-           and not exists (select 1 from transcriber.tags t
-                            where t.job_id = j.id and t.axis = 'format')
-       )::int as untagged,
-       (select count(*) from transcriber.jobs where status = 'failed')::int as failed,
-       (select count(*) from transcriber.models
-         where status = 'active' and cardinality(formats) = 0)::int as unprofiled`,
-  )
-
-  const [score] = await sql.query(
-    `select count(distinct p.id)::int as sent,
-            count(distinct p.id) filter (
-              where (p.sent_at at time zone m.timezone)::date <= p.week_of
-            )::int as sent_on_time,
-            count(i.id)::int as items,
-            count(i.id) filter (where i.accepted_at is not null)::int as accepted,
-            count(i.id) filter (where i.declined_at is not null)::int as declined,
-            count(i.id) filter (where i.filmed_at  is not null)::int as filmed,
-            count(i.id) filter (where i.posted_at  is not null)::int as posted
-       from transcriber.plans p
-       join transcriber.models m on m.id = p.model_id
-       left join transcriber.plan_items i on i.plan_id = p.id
-      where p.status = 'sent'
-        and p.week_of > $1::date - interval '${SCORE_WEEKS} weeks'
-        and p.week_of <= $1::date`,
-    [weekOf],
-  )
+  // Collisions, library health and the send score are independent — one wait
+  // instead of three (2026-10-09).
+  const [collisions, healthRows, scoreRows] = await Promise.all([
+    sql.query(
+      `select i.job_id, t.author,
+              count(distinct p.model_id)::int as models,
+              string_agg(distinct m.name, ', ') as names
+         from transcriber.plan_items i
+         join transcriber.plans  p on p.id = i.plan_id
+         join transcriber.models m on m.id = p.model_id
+         left join transcriber.transcripts t on t.job_id = i.job_id
+        where p.week_of = $1::date and m.status = 'active'
+        group by i.job_id, t.author
+       having count(distinct p.model_id) > 1
+        order by count(distinct p.model_id) desc, t.author nulls last`,
+      [weekOf],
+    ),
+    sql.query(
+      `select
+         (select count(*) from transcriber.jobs where status = 'done' and archived_at is null)::int as held,
+         (select count(*) from transcriber.jobs j
+           where j.status = 'done' and j.archived_at is null
+             and not exists (select 1 from transcriber.plan_items i where i.job_id = j.id)
+         )::int as unused,
+         (select count(*) from transcriber.jobs j
+           where j.status = 'done' and j.archived_at is null
+             and not exists (select 1 from transcriber.tags t
+                              where t.job_id = j.id and t.axis = 'format')
+         )::int as untagged,
+         (select count(*) from transcriber.jobs where status = 'failed')::int as failed,
+         (select count(*) from transcriber.models
+           where status = 'active' and cardinality(formats) = 0)::int as unprofiled`,
+    ),
+    sql.query(
+      `select count(distinct p.id)::int as sent,
+              count(distinct p.id) filter (
+                where (p.sent_at at time zone m.timezone)::date <= p.week_of
+              )::int as sent_on_time,
+              count(i.id)::int as items,
+              count(i.id) filter (where i.accepted_at is not null)::int as accepted,
+              count(i.id) filter (where i.declined_at is not null)::int as declined,
+              count(i.id) filter (where i.filmed_at  is not null)::int as filmed,
+              count(i.id) filter (where i.posted_at  is not null)::int as posted
+         from transcriber.plans p
+         join transcriber.models m on m.id = p.model_id
+         left join transcriber.plan_items i on i.plan_id = p.id
+        where p.status = 'sent'
+          and p.week_of > $1::date - interval '${SCORE_WEEKS} weeks'
+          and p.week_of <= $1::date`,
+      [weekOf],
+    ),
+  ])
+  const [health] = healthRows
+  const [score] = scoreRows
 
   return {
     weekOf,

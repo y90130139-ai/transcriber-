@@ -1,0 +1,11 @@
+{
+  "name": "transcriber-worker-capture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node capture_cookies.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}

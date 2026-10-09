@@ -136,6 +136,113 @@ const ICONS = {
       <path d="M20.5 12H9.5" />
     </>
   ),
+  /* --- Video Batcher ------------------------------------------------ */
+  film: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M7.5 4v16" />
+      <path d="M16.5 4v16" />
+      <path d="M3 9h4.5" />
+      <path d="M3 15h4.5" />
+      <path d="M16.5 9H21" />
+      <path d="M16.5 15H21" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M4 8h9" />
+      <path d="M17 8h3" />
+      <circle cx="15" cy="8" r="2" />
+      <path d="M4 16h3" />
+      <path d="M11 16h9" />
+      <circle cx="9" cy="16" r="2" />
+    </>
+  ),
+  type: (
+    <>
+      <path d="M4 7V5h16v2" />
+      <path d="M12 5v14" />
+      <path d="M9 19h6" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="m4 18 5.5-5.5 3.5 3.5 3-3L20 17" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="m3.5 12.6 8.4 8.4a2 2 0 0 0 2.9 0l6.2-6.2a2 2 0 0 0 0-2.9l-8.4-8.4" />
+      <path d="M3.5 3.5h6l-6 9" />
+      <circle cx="7.3" cy="7.3" r="1.3" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3.5v11" />
+      <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+      <path d="M4.5 20.5h15" />
+    </>
+  ),
+  play: <path d="M7 4.8v14.4a.8.8 0 0 0 1.2.7l11-7.2a.8.8 0 0 0 0-1.4l-11-7.2A.8.8 0 0 0 7 4.8Z" />,
+  pause: (
+    <>
+      <path d="M8.5 5v14" />
+      <path d="M15.5 5v14" />
+    </>
+  ),
+  stop: <rect x="6" y="6" width="12" height="12" rx="1.5" />,
+  trash: (
+    <>
+      <path d="M4.5 6.5h15" />
+      <path d="M9.5 6.5V4.8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.7" />
+      <path d="M6.5 6.5 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12.5" />
+      <path d="M10 10.5v6" />
+      <path d="M14 10.5v6" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+      <path d="M20 3.5V9h-5.5" />
+    </>
+  ),
+  dice: (
+    <>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
+      <path d="M8.2 8.2h.01" />
+      <path d="M15.8 8.2h.01" />
+      <path d="M12 12h.01" />
+      <path d="M8.2 15.8h.01" />
+      <path d="M15.8 15.8h.01" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="m6 6 12 12" />
+      <path d="M18 6 6 18" />
+    </>
+  ),
+  folder: (
+    <>
+      <path d="M3.5 6.5A2 2 0 0 1 5.5 4.5h4l2 2.5h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" />
+    </>
+  ),
+  gauge: (
+    <>
+      <path d="M4.5 19a9.5 9.5 0 1 1 15 0" />
+      <path d="m12 15 4-5.5" />
+      <circle cx="12" cy="16" r="1.4" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof ICONS

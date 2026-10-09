@@ -164,6 +164,16 @@ export type RedditSettings = {
     commercial_written: boolean
     adult_authorized: boolean
   }
+  /** The requirements board: its own queue, cadence and per-run budget, all
+   *  spending from the same governed client and daily cap as everything
+   *  else. */
+  requirements_enabled: boolean
+  requirements_interval_minutes: number
+  requirements_budget_per_run: number
+  /** Posts sampled per community per pass. */
+  requirements_sample_size: number
+  /** Account-stat reads per community per pass (the expensive request). */
+  requirements_profile_batch: number
 }
 
 export type RedditPreferences = {
@@ -172,4 +182,94 @@ export type RedditPreferences = {
   to: string | null
   saved_searches: { name: string; query: string; kinds: string[] }[]
   density: 'comfortable' | 'compact'
+}
+
+/* ------------------------------------------------ subreddit requirements */
+
+export type RequirementStatus = SubredditStatus
+
+/** How much weight the board puts on an estimate. `verified` means the same
+ *  bounds held for several collection passes; `insufficient` means fewer
+ *  surviving posts than the floor the estimator needs — never a made-up
+ *  number. */
+export type RequirementConfidence = 'verified' | 'high' | 'medium' | 'low' | 'insufficient'
+
+export type BotBouncerStatus = 'yes' | 'no' | 'unknown'
+
+export type RequirementRow = {
+  id: string
+  display_name: string
+  url: string | null
+  category: string
+  over18: boolean
+  enabled: boolean
+  priority: Priority
+  status: RequirementStatus
+  status_note: string | null
+  subscribers: number | null
+  posts_per_day: number | null
+  sample_count: number
+  survivor_count: number
+  filtered_count: number
+  profile_count: number
+  min_post_karma: number | null
+  min_comment_karma: number | null
+  min_age_days: number | null
+  avg_total_karma: number | null
+  confirmations: number
+  confidence: RequirementConfidence
+  bot_bouncer: BotBouncerStatus
+  bot_bouncer_source: string | null
+  bot_bouncer_checked_at: string | null
+  first_collected_at: string | null
+  last_collected_at: string | null
+  about_at: string | null
+  next_due_at: string | null
+  last_error: string | null
+  consecutive_failures: number
+  source: 'seed' | 'manual'
+  /** The posts that evidence the current bounds, newest first. */
+  sources?: RequirementSource[]
+}
+
+/** One piece of evidence, shaped for the table's inline source list. */
+export type RequirementSource = {
+  post_id: string
+  author: string | null
+  permalink: string | null
+  outcome: string
+  link_karma: number | null
+  comment_karma: number | null
+  account_age_days: number | null
+  post_created_utc: string
+}
+
+export type RequirementProfileStats = {
+  username: string
+  link_karma: number | null
+  comment_karma: number | null
+  total_karma: number | null
+  created_utc: string | null
+  over18: boolean | null
+  fetched_at: string
+  age_days: number | null
+}
+
+export type SubredditList = {
+  id: string
+  name: string
+  note: string | null
+  created_at: string
+  items: string[]
+}
+
+export type OAuthAccountStatus = {
+  connected: boolean
+  configured: boolean
+  username: string | null
+  scope: string | null
+  connected_at: string | null
+  last_ok_at: string | null
+  last_error: string | null
+  redirect_uri: string | null
 }

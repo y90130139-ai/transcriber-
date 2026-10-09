@@ -295,34 +295,39 @@ export async function suggestionsFor(
     why = why.replaceAll('m.topics', slot)
     gate = gate.replaceAll('m.topics', slot)
   }
-  const rows = await sql.query(
-    `with ${SCORING_CTE}, ${ITEM_TAGS}
-     select ranked.* from (
-       select j.id, t.author, t.duration_sec, t.upload_date,
-              (t.thumbnail is not null) as has_thumb,
-              ${preview('t.plain', 150, 't.on_screen_text')} as preview,
-              round((s.score / nullif(b.median_score, 0))::numeric, 2)::float as outperformance,
-              (${fit})::float as fit,
-              (${TASTE})::float as taste,
-              ${why} as matched,
-              ${alsoOn('j.id', 'm.id')} as also_on
-         from transcriber.models m
-         join transcriber.jobs j on j.status = 'done' and j.archived_at is null
-         join item_tags g on g.job_id = j.id
-         join transcriber.transcripts t on t.job_id = j.id
-         left join scored   s on s.job_id = t.job_id
-         left join baseline b on b.author = t.author
-        where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED} and ${NOT_DECLINED} and ${gate}
-     ) ranked
-      where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
-      order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc
-      limit ${capped * SOLO_HEADROOM}`,
-    [modelId, ...(override ? [formats] : []), ...(niches ? [topics] : [])],
-  )
-  // A solo model is never offered a reel that needs someone else on camera —
-  // `appendItems` would refuse it anyway, and a planner that picks what then
-  // gets refused hands her a short week.
-  const [who] = await sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId])
+  // The ranked shelf and her solo switch are independent — one wait
+  // (2026-10-09). The solo read is a handful of bytes; serializing it behind
+  // the heaviest query in the app was a round trip for nothing.
+  const [rows, [who]] = await Promise.all([
+    sql.query(
+      `with ${SCORING_CTE}, ${ITEM_TAGS}
+       select ranked.* from (
+         select j.id, t.author, t.duration_sec, t.upload_date,
+                (t.thumbnail is not null) as has_thumb,
+                ${preview('t.plain', 150, 't.on_screen_text')} as preview,
+                round((s.score / nullif(b.median_score, 0))::numeric, 2)::float as outperformance,
+                (${fit})::float as fit,
+                (${TASTE})::float as taste,
+                ${why} as matched,
+                ${alsoOn('j.id', 'm.id')} as also_on
+           from transcriber.models m
+           join transcriber.jobs j on j.status = 'done' and j.archived_at is null
+           join item_tags g on g.job_id = j.id
+           join transcriber.transcripts t on t.job_id = j.id
+           left join scored   s on s.job_id = t.job_id
+           left join baseline b on b.author = t.author
+          where m.id = $1 and ${NOT_REFUSED} and ${NOT_ASSIGNED} and ${NOT_DECLINED} and ${gate}
+      ) ranked
+       where ranked.fit >= ${MIN_FIT} and ${EXPLAINABLE}
+       order by ranked.fit desc, ranked.outperformance desc nulls last, ranked.upload_date desc
+       limit ${capped * SOLO_HEADROOM}`,
+      [modelId, ...(override ? [formats] : []), ...(niches ? [topics] : [])],
+    ),
+    // A solo model is never offered a reel that needs someone else on camera —
+    // `appendItems` would refuse it anyway, and a planner that picks what then
+    // gets refused hands her a short week.
+    sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId]),
+  ])
   const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(rows.map((row) => String(row.id)))
   return rows.filter((row) => !needsOthers.has(String(row.id))).slice(0, capped)
 }

@@ -17,6 +17,7 @@
  */
 
 const TOKEN_URL = 'https://www.reddit.com/api/v1/access_token'
+const AUTHORIZE_URL = 'https://www.reddit.com/api/v1/authorize'
 const API_BASE = 'https://oauth.reddit.com'
 
 export class RedditNotConfiguredError extends Error {
@@ -398,3 +399,156 @@ export function classifyAboutFailure(status: number, body = ''): {
   if (status === 451) return { status: 'unavailable', note: 'Unavailable for legal reasons (451)' }
   return { status: 'error', note: `Validation failed with HTTP ${status}` }
 }
+
+/* ----------------------------------------------------- user-context OAuth
+ *
+ * Everything above runs application-only, which is the right default. One
+ * fact needs a user context: a community's moderator list, which is where an
+ * installed Bot Bouncer shows up. Reddit refuses that endpoint to app-only
+ * tokens (403, verified against live subs), so this section exists for
+ * exactly one flow — the operator connects their own Reddit account once,
+ * read scope only, authorization code grant, never a password grant. The
+ * refresh token is stored server-side and nothing else changes.
+ */
+
+export function redditUserOAuthConfigured(): boolean {
+  return Boolean(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET && process.env.REDDIT_REDIRECT_URI)
+}
+
+export function redditRedirectUri(): string | null {
+  const value = process.env.REDDIT_REDIRECT_URI?.trim()
+  return value ? value : null
+}
+
+/** The URL the operator is sent to to grant read access. `permanent` is what
+ *  returns a refresh token, which is the whole point of doing this once. */
+export function oauthAuthorizeUrl(state: string): string {
+  const id = process.env.REDDIT_CLIENT_ID
+  const redirect = redditRedirectUri()
+  if (!id || !redirect) throw new RedditNotConfiguredError()
+  const query = new URLSearchParams({
+    client_id: id,
+    response_type: 'code',
+    state,
+    redirect_uri: redirect,
+    duration: 'permanent',
+    scope: 'read',
+  })
+  return `${AUTHORIZE_URL}?${query}`
+}
+
+export type UserToken = { accessToken: string; scope: string | null; expiresIn: number }
+
+async function tokenRequest(body: URLSearchParams, fetchImpl: typeof fetch): Promise<{
+  access_token?: string
+  refresh_token?: string
+  scope?: string
+  expires_in?: number
+  error?: string
+}> {
+  const id = process.env.REDDIT_CLIENT_ID
+  const secret = process.env.REDDIT_CLIENT_SECRET
+  if (!id || !secret) throw new RedditNotConfiguredError()
+  const response = await fetchImpl(TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': userAgent(),
+    },
+    body: body.toString(),
+  })
+  const text = await response.text()
+  if (!response.ok) throw new RedditAuthError(`Reddit rejected the token request (${response.status}). ${text.slice(0, 160)}`)
+  try {
+    return JSON.parse(text) as {
+      access_token?: string
+      refresh_token?: string
+      scope?: string
+      expires_in?: number
+      error?: string
+    }
+  } catch {
+    throw new RedditAuthError('Reddit returned a token response that was not JSON')
+  }
+}
+
+/** One-time exchange of the authorization code for tokens. The refresh token
+ *  is the only piece worth keeping; the access token is minted fresh from it
+ *  whenever a check actually runs. */
+export async function exchangeOAuthCode(code: string): Promise<{ username: string; refreshToken: string; scope: string | null }> {
+  const redirect = redditRedirectUri()
+  if (!redirect) throw new RedditNotConfiguredError()
+  const parsed = await tokenRequest(new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirect,
+  }), fetch)
+  if (!parsed.refresh_token || !parsed.access_token) {
+    throw new RedditAuthError('Reddit returned no refresh token — is the app type "web app" and duration permanent?')
+  }
+  const me = await userGet<{ name?: string }>(parsed.access_token, '/api/v1/me')
+  return {
+    username: me?.name ?? 'unknown',
+    refreshToken: parsed.refresh_token,
+    scope: parsed.scope ?? null,
+  }
+}
+
+let userTokenCache: { key: string; token: string; scope: string | null; expiresAt: number } | null = null
+
+/** Mint an access token for the connected account, cached until expiry. */
+export async function userAccessToken(refreshToken: string): Promise<UserToken> {
+  const key = refreshToken.slice(0, 10)
+  if (userTokenCache && userTokenCache.key === key && userTokenCache.expiresAt > Date.now() + 30_000) {
+    return { accessToken: userTokenCache.token, scope: userTokenCache.scope, expiresIn: Math.floor((userTokenCache.expiresAt - Date.now()) / 1000) }
+  }
+  const parsed = await tokenRequest(new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  }), fetch)
+  if (!parsed.access_token) throw new RedditAuthError('Reddit returned no access token for the connected account')
+  const expiresIn = Math.max(60, (parsed.expires_in ?? 3600) - 60)
+  userTokenCache = {
+    key,
+    token: parsed.access_token,
+    scope: parsed.scope ?? null,
+    expiresAt: Date.now() + expiresIn * 1000,
+  }
+  return { accessToken: parsed.access_token, scope: parsed.scope ?? null, expiresIn }
+}
+
+/** A single user-context GET. Deliberately small: the requirements checks
+ *  are one request per community and never retried in a loop — a failure is
+ *  recorded and the next pass tries again. */
+export async function userGet<T>(accessToken: string, path: string, params: Record<string, string | number> = {}): Promise<T> {
+  const query = new URLSearchParams()
+  for (const [name, value] of Object.entries(params)) query.set(name, String(value))
+  const response = await fetch(`${API_BASE}${path}${query.size ? `?${query}` : ''}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': userAgent(),
+      Accept: 'application/json',
+    },
+  })
+  const text = await response.text()
+  if (!response.ok) throw new RedditHttpError(response.status, text)
+  return JSON.parse(text) as T
+}
+
+/** The moderator list, which is how an installed Bot Bouncer is visible:
+ *  the app adds an account to the community's mod team. Returns lower-cased
+ *  names so `bot-bouncer` can be matched without case games. */
+export async function fetchModeratorNames(accessToken: string, subreddit: string): Promise<string[]> {
+  const payload = await userGet<{ data?: { children?: { name?: string }[] } }>(
+    accessToken,
+    `/r/${subreddit}/about/moderators`,
+    { raw_json: 1, limit: 100 },
+  )
+  return (payload.data?.children ?? [])
+    .map((child) => (child.name ?? '').toLowerCase())
+    .filter(Boolean)
+}
+
+/** The Bot Bouncer app account, as it appears in a mod list. */
+export const BOT_BOUNCER_ACCOUNT = 'bot-bouncer'

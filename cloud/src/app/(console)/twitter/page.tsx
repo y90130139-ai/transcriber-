@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import MediaFeed from '@/components/platform/MediaFeed'
 
 /**
- * X's feed: the OFMPro import — videos, pictures and slideshows — drawn
- * as the reference's card grid. Data comes from the trimmed asset at
- * public/twitter/medias.json (scripts/import-ofmpro.mjs twitter).
+ * X's feed: OFMPro's tracked media — videos, pictures and slideshows — served
+ * from transcriber.ofmpro_media by /api/ofmpro/twitter.
  *
  * `no-referrer` is load-bearing, not hygiene: video.twimg.com serves 403 to
  * any referer that is not twitter.com / x.com (localhost included), and the
@@ -19,7 +18,7 @@ export default function TwitterPage() {
     <MediaFeed
       platform="x"
       label="Twitter / X"
-      dataUrl="/twitter/medias.json"
+      dataUrl="/api/ofmpro/twitter"
       unit="posts"
     />
   )

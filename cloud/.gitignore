@@ -9,3 +9,8 @@ node_modules
 # local dev / scheduler logs
 .dev-server.log
 .reddit-pull.log
+
+# FFmpeg WASM cores vendored from node_modules by scripts/vendor-ffmpeg.mjs
+/public/vb/ffmpeg/
+smoke.log
+*.log

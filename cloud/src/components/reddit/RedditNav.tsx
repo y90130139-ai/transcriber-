@@ -11,6 +11,7 @@ const PAGES = [
   { href: '/reddit-trends/topics', label: 'Topics' },
   { href: '/reddit-trends/posts', label: 'Posts' },
   { href: '/reddit-trends/subreddits', label: 'Subreddits' },
+  { href: '/reddit-trends/requirements', label: 'Requirements' },
   { href: '/reddit-trends/search', label: 'Search' },
   { href: '/reddit-trends/dataset', label: 'Dataset' },
   { href: '/reddit-trends/health', label: 'Health' },

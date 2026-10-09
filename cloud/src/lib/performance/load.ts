@@ -287,9 +287,15 @@ export async function loadBoard(days: WindowDays, modelId?: string, now = Date.n
   const to = dayIn(now)
   const period = daysBetween(from, to)
   const prevPeriod = daysBetween(dayIn(now - 2 * days * DAY), dayIn(now - days * DAY - DAY))
-  const rows = handles.length
-    ? await loadRows(handles, new Date(now - 2 * days * DAY).toISOString())
-    : { snaps: [], posts: [], lifetime: new Map<string, number>() }
+  // The week's reads and the top-reels board have no order between them —
+  // both only need `models` — so they ride one wait (2026-10-09).
+  const [rows, top_reels] = await Promise.all([
+    handles.length
+      ? loadRows(handles, new Date(now - 2 * days * DAY).toISOString())
+      : Promise.resolve({ snaps: [], posts: [], lifetime: new Map<string, number>() }),
+    topReels(models, new Date(now - days * DAY).toISOString(), modelId ? handles : undefined),
+  ])
+  const usual = modelId ? usualOf(rows.posts, now) : null
 
   const perModel = models.map((m) => perfFor(m, rows, days, now))
   const snapsFor = (m: ModelRow) => rows.snaps.filter((s) => m.handles.includes(s.handle))
@@ -310,7 +316,13 @@ export async function loadBoard(days: WindowDays, modelId?: string, now = Date.n
     views_series: viewsByDay(inPeriod, period),
     views_prev: viewsByDay(inPrev, prevPeriod),
     reels_series: reelsByDay(inPeriod, period),
-    top_reels: await topReels(models, new Date(now - days * DAY).toISOString(), modelId ? handles : undefined, modelId ? usualOf(rows.posts, now) : null),
+    // `multiple` (against her usual views) needs the posts, so it is stamped
+    // on after both reads land rather than blocking the board on it.
+    top_reels: usual === null
+      ? top_reels
+      : top_reels.map((reel) => reel.plays !== null
+        ? { ...reel, multiple: Math.round((reel.plays / usual) * 10) / 10 }
+        : reel),
   }
 }
 

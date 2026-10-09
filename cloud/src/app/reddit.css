@@ -1039,3 +1039,107 @@ a.rt-list-row:hover .rt-list-main b { color: var(--sc-ember-deep); }
   .rt-history li { grid-template-columns: 1fr; gap: 0.15rem; }
   .rt-plot { margin: 0 -0.4rem; }
 }
+
+/* ------------------------------------------- requirements board 2026-10-10
+   The Subreddits Requirements page. Same console surfaces as the rest of
+   the section; the new pieces are the intro block, the filter cluster, the
+   sortable requirement table, the inline evidence rows and the eligibility
+   verdict chips. */
+
+.rt-reqabout { display: grid; gap: 0.35rem; padding: var(--sc-space-4) 0 0; }
+.rt-reqmeta { font-size: 0.72rem; }
+.rt-reqfoot { margin: var(--sc-space-3) 0 0; font-size: 0.68rem; max-width: 90ch; }
+
+.rt-reqconnect {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  flex-wrap: wrap;
+  margin-top: var(--sc-space-3);
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--rt-ember-line);
+  border-radius: var(--rt-r);
+  background: var(--rt-ember-soft);
+  font-size: 0.76rem;
+  color: var(--sc-ink-700);
+}
+.rt-reqconnect span { flex: 1 1 340px; line-height: 1.5; }
+
+.rt-reqcontrols { align-items: flex-end; justify-content: space-between; gap: var(--sc-space-4); }
+.rt-reqgroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.rt-reqsearch { height: 2rem; }
+.rt-reqsearch input { width: 15ch; }
+.rt-reqprefix {
+  font-family: var(--sc-font-mono);
+  font-size: 0.68rem;
+  color: var(--sc-ink-300);
+  border-right: 1px solid var(--rt-line);
+  padding-right: 0.45rem;
+}
+
+.rt-reqhead { display: inline-flex; align-items: center; gap: 0.28rem; }
+.rt-reqhelp {
+  display: inline-grid;
+  place-items: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 1px solid var(--rt-line-strong);
+  border-radius: 999px;
+  font-size: 0.56rem;
+  font-weight: 600;
+  color: var(--sc-ink-300);
+  cursor: help;
+  text-transform: none;
+}
+
+.rt-reqtable { min-width: 1080px; }
+.rt-reqtable td.rt-col-num { white-space: nowrap; }
+.rt-reqname { font-weight: 600; }
+.rt-reqsub { font-size: 0.64rem; margin-top: 0.1rem; white-space: nowrap; }
+
+.rt-reqexpand > td {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.35rem 0.9rem 0.6rem 1.6rem !important;
+}
+.rt-reqexpand .rt-list-row { padding: 0.4rem 0; font-size: 0.72rem; }
+
+.rt-requserbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  flex-wrap: wrap;
+  margin-top: var(--sc-space-3);
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--rt-line-strong);
+  border-radius: var(--rt-r);
+  background: var(--rt-surface);
+  font-size: 0.76rem;
+}
+.rt-requserbar > b { color: var(--sc-ink-900); }
+.rt-requserbar .rt-switch { margin-left: auto; }
+
+.rt-reqverdict {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--rt-line);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.rt-reqverdict[data-verdict='fits'] { color: var(--sc-positive); border-color: rgba(78, 158, 118, 0.4); }
+.rt-reqverdict[data-verdict='under'] { color: var(--sc-critical); border-color: rgba(224, 104, 94, 0.4); }
+.rt-reqverdict[data-verdict='unknown'] { color: var(--sc-ink-300); }
+
+@media (max-width: 900px) {
+  .rt-reqcontrols { flex-direction: column; align-items: stretch; }
+  .rt-reqgroup { justify-content: flex-start; }
+}

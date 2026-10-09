@@ -75,6 +75,11 @@ export default function RedditSettings() {
           adult_enabled: draft.adult_enabled,
           export_raw_enabled: draft.export_raw_enabled,
           attestations: draft.attestations,
+          requirements_enabled: draft.requirements_enabled,
+          requirements_interval_minutes: draft.requirements_interval_minutes,
+          requirements_budget_per_run: draft.requirements_budget_per_run,
+          requirements_sample_size: draft.requirements_sample_size,
+          requirements_profile_batch: draft.requirements_profile_batch,
         },
       )
       const change = body.adult_change?.enabled !== undefined ? ` · ${body.adult_change.enabled} adult communities enabled`
@@ -246,7 +251,76 @@ export default function RedditSettings() {
             <div className="rt-metric"><span className="rt-metric-label">Tracked</span><b className="rt-metric-value">{data.registry.tracked}</b><span className="rt-metric-note">managed on the Subreddits page</span></div>
           </div>
         </section>
+
+        <section className="rt-panel">
+          <div className="rt-panel-head"><h2>Requirements board</h2></div>
+          <div className="rt-form">
+            <label className="rt-switch">
+              <input type="checkbox" checked={draft.requirements_enabled}
+                onChange={(event) => set('requirements_enabled', event.target.checked)} />
+              <span>Collect the Subreddits Requirements board</span>
+            </label>
+            <NumberField label="Sample cadence (minutes)" hint="target gap between passes per community (spread 80–95%)" value={draft.requirements_interval_minutes} min={15} max={1440} onChange={(value) => set('requirements_interval_minutes', value)} />
+            <NumberField label="Requests per requirements pass" value={draft.requirements_budget_per_run} min={2} max={600} onChange={(value) => set('requirements_budget_per_run', value)} />
+            <NumberField label="Posts sampled per community" hint="new posts picked per pass" value={draft.requirements_sample_size} min={5} max={100} onChange={(value) => set('requirements_sample_size', value)} />
+            <NumberField label="Account reads per community" hint="the expensive request; profiles are cached for 45 days" value={draft.requirements_profile_batch} min={0} max={60} onChange={(value) => set('requirements_profile_batch', value)} />
+            <BotBouncerConnect />
+          </div>
+        </section>
       </div>
+    </div>
+  )
+}
+
+/** The optional Reddit account: the only way to read a community moderator
+ *  list, which is where an installed Bot Bouncer is visible. */
+function BotBouncerConnect() {
+  const { data, error, reload } = useJson<{
+    oauth: {
+      connected: boolean; configured: boolean; username: string | null; scope: string | null
+      connected_at: string | null; last_ok_at: string | null; last_error: string | null; redirect_uri: string | null
+    }
+  }>('/api/reddit/oauth')
+  const [busy, setBusy] = useState(false)
+
+  if (error) return <p className="rt-error-inline">{error}</p>
+  if (!data) return <span className="rt-field-hint">Checking the account connection…</span>
+  const oauth = data.oauth
+  return (
+    <div className="rt-field">
+      <span className="rt-field-label">Bot Bouncer detection (optional Reddit account)</span>
+      {oauth.connected ? (
+        <>
+          <span className="rt-field-hint">
+            Connected as u/{oauth.username} · read scope only · connected {timeAgo(oauth.connected_at)}
+            {oauth.last_ok_at ? ` · last check ${timeAgo(oauth.last_ok_at)}` : ''}
+          </span>
+          {oauth.last_error && <span className="rt-field-hint" style={{ color: 'var(--sc-critical)' }}>{oauth.last_error}</span>}
+          <button type="button" className="rt-btn rt-btn-quiet" disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              await fetch('/api/reddit/oauth', { method: 'DELETE' })
+              setBusy(false)
+              reload()
+            }}>
+            Disconnect
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="rt-field-hint">
+            Reddit refuses moderator lists to app-only tokens, so the Bot Bouncer column reads
+            &quot;unknown&quot; without a connected account. Read scope only; disconnect any time.
+            {oauth.configured
+              ? ' The consent flow opens on reddit.com and returns here.'
+              : ' Set REDDIT_REDIRECT_URI on the server first — it must match the Reddit app registration exactly.'}
+          </span>
+          <button type="button" className="rt-btn" disabled={!oauth.configured || busy}
+            onClick={() => { window.location.href = '/api/reddit/oauth?action=start' }}>
+            Connect Reddit account
+          </button>
+        </>
+      )}
     </div>
   )
 }

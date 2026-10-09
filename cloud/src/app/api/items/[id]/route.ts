@@ -12,26 +12,31 @@ export async function GET(_request: Request, { params }: Params) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { id } = await params
 
-  const [item] = await sql.query(
-    `with ${SCORING_CTE}
-     select j.id, j.kind, j.source, j.label, j.status, j.stage, j.error, j.created_at,
-            t.*, ${SCORING_COLUMNS}
-       from transcriber.jobs j
-       left join transcriber.transcripts t on t.job_id = j.id
-       ${SCORING_JOIN}
-      where j.id = $1`,
-    [id],
-  )
+  // The row, its tags and the Mac's heartbeat are three independent reads —
+  // one wait (2026-10-09). Opening an item was three round trips in a row.
+  const [[item], tags, base] = await Promise.all([
+    sql.query(
+      `with ${SCORING_CTE}
+       select j.id, j.kind, j.source, j.label, j.status, j.stage, j.error, j.created_at,
+              t.*, ${SCORING_COLUMNS}
+         from transcriber.jobs j
+         left join transcriber.transcripts t on t.job_id = j.id
+         ${SCORING_JOIN}
+        where j.id = $1`,
+      [id],
+    ),
+    tagsFor(id),
+    mediaBase(),
+  ])
   if (!item) return NextResponse.json({ error: 'not found' }, { status: 404 })
 
   // The poster is served as an image, not inlined; a data URL that size has no
   // business travelling inside a JSON body the grid also polls.
   delete item.thumbnail
 
-  const base = item.folder ? await mediaBase() : null
   return NextResponse.json({
     item,
-    tags: await tagsFor(id),
+    tags,
     media: base && item.folder ? linksFor(base, String(item.folder)) : null,
   })
 }

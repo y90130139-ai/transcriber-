@@ -412,7 +412,8 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
             {feed ? (
               <>
                 Imported from OFMPro · <b>{period?.from}</b> → <b>{period?.to}</b> ·
-                {' '}<b>{exact(feed.unique)}</b> {unit} from <b>{exact(feed.rows)}</b> tracked rows
+                {' '}<b>{exact(feed.unique)}</b> {unit}
+                {feed.duplicates > 0 ? <> from <b>{exact(feed.rows)}</b> tracked rows</> : null}
               </>
             ) : 'Loading the import…'}
           </p>

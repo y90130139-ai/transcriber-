@@ -18,6 +18,10 @@ import {
   createRedditClient,
   classifyAboutFailure,
   redditConfigured,
+  redditUserOAuthConfigured,
+  userAccessToken,
+  fetchModeratorNames,
+  BOT_BOUNCER_ACCOUNT,
   RedditAuthError,
   RedditBudgetError,
   RedditCapError,
@@ -29,6 +33,35 @@ import {
 import { topicsForTitle, recurringBigrams } from './keywords'
 import { alertCollector, computeTopicMetrics, detectSubredditSpikes } from './engine'
 import { getSettings, saveSettings } from './settings'
+import { estimateRequirements, postsPerDay, JUDGE_AFTER_HOURS, type SamplePoint } from './requirements'
+import {
+  applySampleOutcomes,
+  authorsMissingProfiles,
+  claimRequirementJobs,
+  enqueueDueRequirementJobs,
+  existingSampleIds,
+  fillSampleProfiles,
+  finishRequirementJob,
+  getOAuthAccount,
+  getProfile,
+  getProfiles,
+  getRequirementSubreddit,
+  markRequirementAbout,
+  markRequirementCollected,
+  markRequirementFailure,
+  recordRequirementSamples,
+  recordRequirementUsage,
+  recoverStaleRequirementWork,
+  requirementBotBouncerDue,
+  requeueRequirementJob,
+  samplesAwaitingJudgement,
+  samplesForEstimate,
+  saveProfile,
+  seedRequirementSubreddits,
+  setBotBouncerStatus,
+  touchOAuthAccount,
+  type SampleInsert,
+} from './requirementStore'
 import {
   applyRetention,
   claimJobs,
@@ -60,7 +93,7 @@ import {
   type MentionUpsert,
   type PostUpsert,
 } from './store'
-import type { Priority, RedditSettings } from './types'
+import type { Priority, RedditSettings, RequirementProfileStats } from './types'
 
 const LISTINGS: Record<Priority, string[]> = {
   high: ['new', 'hot', 'rising'],
@@ -587,4 +620,454 @@ function mapPost(child: ListingChild, subreddit: string, listing: string): PostU
     listing,
     selftext_len: typeof data.selftext === 'string' ? data.selftext.length : null,
   }
+}
+
+/* ===================================================== requirements board
+ *
+ * The Subreddits Requirements collector. Same governed client, same guards,
+ * its own queue — a separate registry with its own cadence, because the
+ * board answers a different question than the trend section: not "what is
+ * being said", but "who is allowed to post here, and with what account".
+ *
+ * The method, reversed from the reference tool's own description: sample
+ * the people who recently posted, read their karma and account age, and
+ * judge whether each post survived. The lowest stat among survivors bounds
+ * the gate from above; AutoMod-filtered authors bound it from below. No
+ * request is made outside the client, and every reading lands as a sample a
+ * human can open.
+ */
+
+export type RequirementRunSummary = {
+  run_id: string | null
+  state: 'done' | 'partial' | 'failed' | 'stopped' | 'skipped'
+  reason?: string
+  subreddits: number
+  requests: number
+  samples_new: number
+  profiles_fetched: number
+  judged: number
+  bot_bouncer_checked: number
+  errors: number
+  remaining: number | null
+}
+
+/** Requests held back so a run can always close its bookkeeping. */
+const REQUIREMENT_RESERVE = 1
+const REQUIREMENT_ABOUT_REFRESH_DAYS = 14
+const REQUIREMENT_PROFILE_TTL_DAYS = 45
+const REQUIREMENT_JUDGE_LIMIT = 25
+/** Survivors sampled per judging call (one /api/info covers 25 ids). */
+const BOT_BOUNCER_SWEEP_LIMIT = 10
+const BOT_BOUNCER_TTL_DAYS = 7
+
+const sleepMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+export async function collectRequirements(
+  opts: { trigger?: 'cron' | 'manual'; budget?: number } = {},
+): Promise<RequirementRunSummary> {
+  const empty: RequirementRunSummary = {
+    run_id: null, state: 'skipped', subreddits: 0, requests: 0, samples_new: 0,
+    profiles_fetched: 0, judged: 0, bot_bouncer_checked: 0, errors: 0, remaining: null,
+  }
+
+  if (!redditConfigured()) return { ...empty, reason: 'not-configured' }
+  const settings = await getSettings()
+  if (settings.emergency_stop) return { ...empty, reason: 'emergency-stop' }
+  if (settings.paused) return { ...empty, reason: 'paused' }
+  if (!settings.requirements_enabled) return { ...empty, reason: 'requirements-disabled' }
+
+  // Budget guards — fail closed, exactly like the trend collector.
+  let budget = 0
+  let seeded: Awaited<ReturnType<typeof latestRateState>> = null
+  try {
+    if (settings.rate_cooldown_until && Date.parse(settings.rate_cooldown_until) > Date.now()) {
+      return { ...empty, reason: 'rate-cooldown' }
+    }
+    const [hourUsage, usedToday] = await Promise.all([usageSummary(1), usageToday()])
+    if (usedToday >= settings.daily_cap) return { ...empty, reason: 'daily-cap' }
+    if (hourUsage.requests >= settings.hourly_cap) return { ...empty, reason: 'hourly-cap' }
+    const headroom = Math.max(1, Math.min(
+      settings.hourly_cap - hourUsage.requests,
+      settings.daily_cap - usedToday,
+    ))
+    budget = Math.max(1, Math.min(opts.budget ?? settings.requirements_budget_per_run, headroom))
+    seeded = await latestRateState()
+  } catch {
+    return { ...empty, reason: 'guard-failed' }
+  }
+
+  await seedRequirementSubreddits()
+  await recoverStaleRequirementWork().catch(() => null)
+
+  const runId = `q_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
+  await startRun(runId, 'requirements', budget)
+
+  const state: RequirementRunSummary = { ...empty, run_id: runId, state: 'done' }
+  const client = createRedditClient({
+    budget,
+    minIntervalMs: settings.min_interval_ms,
+    maxRequestsPerMinute: settings.requests_per_minute,
+    safetyRatio: settings.safety_ratio,
+    initialState: seeded,
+    onUsage: (usage) => recordRequirementUsage(runId, usage),
+    guard: async () => {
+      const used = await usageToday()
+      if (used >= settings.daily_cap) throw new RedditCapError(used, settings.daily_cap)
+    },
+  })
+
+  try {
+    await enqueueDueRequirementJobs()
+    const reserve = Math.min(REQUIREMENT_RESERVE, Math.max(0, budget - 1))
+    for (;;) {
+      const stats = client.stats()
+      state.requests = stats.requests
+      state.remaining = stats.remaining
+      if (stats.requests >= budget - reserve) break
+
+      const [job] = await claimRequirementJobs(1)
+      if (!job) break
+
+      try {
+        await collectRequirementOne(client, settings, job.subreddit, state)
+        state.subreddits += 1
+        await finishRequirementJob(job.id, 'done')
+      } catch (error) {
+        if (error instanceof RedditCircuitError || error instanceof RedditAuthError
+          || error instanceof RedditBudgetError || error instanceof RedditQuotaError
+          || error instanceof RedditCapError) {
+          await requeueRequirementJob(job.id).catch(() => null)
+          throw error
+        }
+        state.errors += 1
+        const message = error instanceof RedditHttpError
+          ? `HTTP ${error.status}`
+          : error instanceof Error ? error.message : String(error)
+        if (error instanceof RedditHttpError && error.status === 429) {
+          await saveSettings({ rate_cooldown_until: new Date(Date.now() + 10 * 60_000).toISOString() }).catch(() => null)
+        }
+        if (error instanceof RedditHttpError) {
+          const verdict = classifyAboutFailure(error.status, error.body)
+          await markRequirementFailure(job.subreddit, verdict).catch(() => null)
+        } else {
+          await markRequirementFailure(job.subreddit, { status: 'error', note: message }).catch(() => null)
+        }
+        await finishRequirementJob(job.id, 'failed', message).catch(() => null)
+      }
+    }
+
+    // The one user-context job: Bot Bouncer status, when an account is
+    // connected. Never fails the run; the board stays honest either way.
+    try {
+      state.bot_bouncer_checked = await checkBotBouncerSweep(settings, state)
+    } catch { /* a failed sweep leaves statuses exactly as they were */ }
+  } catch (error) {
+    if (error instanceof RedditCircuitError) {
+      state.state = 'stopped'
+      state.reason = 'circuit-breaker'
+      await saveSettings({ rate_cooldown_until: new Date(Date.now() + 15 * 60_000).toISOString() }).catch(() => null)
+    } else if (error instanceof RedditCapError) {
+      state.state = 'stopped'
+      state.reason = 'daily-cap'
+    } else if (error instanceof RedditQuotaError) {
+      state.state = 'stopped'
+      state.reason = 'quota-low'
+    } else if (error instanceof RedditBudgetError) {
+      state.state = 'stopped'
+      state.reason = 'budget-spent'
+    } else if (error instanceof RedditAuthError) {
+      state.state = 'failed'
+      state.reason = error.message
+    } else {
+      state.state = 'failed'
+      state.reason = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  if (state.state === 'done' && state.errors > 0) state.state = 'partial'
+  await finishRun(runId, {
+    state: state.state as 'done' | 'partial' | 'failed' | 'stopped',
+    subreddits: state.subreddits,
+    requests: state.requests,
+    mentions: 0,
+    errors: state.errors,
+    remaining: state.remaining,
+    note: state.reason ?? null,
+    detail: {
+      budget,
+      samples_new: state.samples_new,
+      profiles_fetched: state.profiles_fetched,
+      judged: state.judged,
+      bot_bouncer_checked: state.bot_bouncer_checked,
+    },
+  })
+  return state
+}
+
+/** One community: refresh /about when stale, judge old samples, sample new
+ *  posts, fetch the missing account stats, re-estimate, reschedule. */
+async function collectRequirementOne(
+  client: RedditClient,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  subreddit: string,
+  state: RequirementRunSummary,
+): Promise<void> {
+  const row = await getRequirementSubreddit(subreddit)
+  if (!row) return
+
+  const aboutStale = !row.about_at || (Date.now() - Date.parse(row.about_at)) > REQUIREMENT_ABOUT_REFRESH_DAYS * 86_400_000
+  if (row.status !== 'active' || aboutStale) {
+    const payload = await client.get<{ data: AboutData }>(`/r/${subreddit}/about`, { raw_json: 1 })
+    await markRequirementAbout(subreddit, {
+      display_name: payload.data?.display_name,
+      subscribers: payload.data?.subscribers ?? null,
+      over18: payload.data?.over18 ?? null,
+    })
+  }
+
+  await judgeSamples(client, subreddit, state)
+  const sampled = await sampleNewPosts(client, settings, subreddit, state)
+  state.samples_new += sampled.inserted
+  // A profile fetched for this pass's authors may have been missing for
+  // samples taken in earlier passes; their rows get the stats now.
+  await fillSampleProfiles(subreddit).catch(() => 0)
+
+  const fresh = await getRequirementSubreddit(subreddit)
+  const points: SamplePoint[] = (await samplesForEstimate(subreddit, settings.retention_days))
+    .map((sample) => ({
+      outcome: sample.outcome as SamplePoint['outcome'],
+      link_karma: sample.link_karma === null ? null : Number(sample.link_karma),
+      comment_karma: sample.comment_karma === null ? null : Number(sample.comment_karma),
+      account_age_days: sample.account_age_days === null ? null : Number(sample.account_age_days),
+    }))
+  const estimate = estimateRequirements(points, fresh
+    ? {
+        min_post_karma: fresh.min_post_karma === null ? null : Number(fresh.min_post_karma),
+        min_comment_karma: fresh.min_comment_karma === null ? null : Number(fresh.min_comment_karma),
+        min_age_days: fresh.min_age_days === null ? null : Number(fresh.min_age_days),
+        confirmations: Number(fresh.confirmations),
+      }
+    : null)
+  await markRequirementCollected(subreddit, estimate, sampled.postsPerDay, settings.requirements_interval_minutes)
+}
+
+/** Judge samples whose posts are old enough for AutoMod to have acted. One
+ *  batched /api/info call for the whole page — never one request per post. */
+async function judgeSamples(
+  client: RedditClient,
+  subreddit: string,
+  state: RequirementRunSummary,
+): Promise<void> {
+  const pending = await samplesAwaitingJudgement(subreddit, REQUIREMENT_JUDGE_LIMIT, JUDGE_AFTER_HOURS)
+  if (!pending.length) return
+  const payload = await client.get<{ data: { children: { data: { id: string; removed_by_category?: string | null } }[] } }>(
+    '/api/info',
+    { id: pending.map((sample) => `t3_${sample.post_id}`).join(','), raw_json: 1 },
+  )
+  const alive = new Map(
+    (payload.data?.children ?? []).map((child) => [child.data.id, child.data.removed_by_category ?? null]),
+  )
+  const rows = pending.map((sample) => {
+    const served = alive.has(sample.post_id)
+    const category = alive.get(sample.post_id) ?? null
+    const outcome = !served ? 'unavailable'
+      : category === null ? 'survived'
+      : category === 'automod_filtered' ? 'filtered'
+      : 'removed'
+    return { id: sample.id, outcome, removed_by_category: category }
+  })
+  await applySampleOutcomes(rows)
+  state.judged += rows.length
+}
+
+/** Sample the newest posts: up to `requirements_sample_size` posts whose
+ *  authors and ids we have not sampled before, plus the account stats they
+ *  need. The profile reads are the expensive part and are cached by user. */
+async function sampleNewPosts(
+  client: RedditClient,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  subreddit: string,
+  state: RequirementRunSummary,
+): Promise<{ inserted: number; postsPerDay: number | null }> {
+  const payload = await client.get<{ data: { children: ListingChild[] } }>(
+    `/r/${subreddit}/new`,
+    { limit: LISTING_LIMIT, raw_json: 1 },
+  )
+  const children = (payload.data?.children ?? []).filter(
+    (child) => child.kind === 't3' && child.data?.id && child.data.author
+      && child.data.author !== '[deleted]' && child.data.author !== 'AutoModerator',
+  )
+  const perDay = postsPerDay(
+    (payload.data?.children ?? []).map((child) => child.data?.created_utc ?? 0).filter(Boolean),
+  )
+  if (!children.length) return { inserted: 0, postsPerDay: perDay }
+
+  const known = await existingSampleIds(subreddit, children.map((child) => String(child.data?.id)))
+  const fresh = children.filter((child) => !known.has(String(child.data?.id)))
+    .slice(0, Math.max(1, settings.requirements_sample_size))
+  if (!fresh.length) return { inserted: 0, postsPerDay: perDay }
+
+  const batch = Math.max(0, settings.requirements_profile_batch)
+  const fetched = new Set<string>()
+  if (batch > 0) {
+    const freshAuthors = [...new Set(fresh.map((child) => String(child.data?.author).toLowerCase()))]
+    const cached = await getProfiles(freshAuthors)
+    const missingFresh = freshAuthors.filter((author) => !cached.has(author))
+    const older = missingFresh.length < batch
+      ? (await authorsMissingProfiles(subreddit, batch - missingFresh.length, REQUIREMENT_PROFILE_TTL_DAYS))
+        .map((author) => author.toLowerCase())
+      : []
+    for (const author of [...new Set([...missingFresh, ...older])].slice(0, batch)) {
+      if (fetched.has(author)) continue
+      fetched.add(author)
+      try {
+        const user = await client.get<{ data: UserAboutData }>(`/user/${author}/about`, { raw_json: 1 })
+        await saveProfile(mapUserAbout(author, user.data))
+        state.profiles_fetched += 1
+      } catch (error) {
+        // Suspended or deleted accounts are cached as a miss so the next
+        // pass does not pay for the 404 again.
+        await saveProfile({
+          username: author,
+          link_karma: null, comment_karma: null, total_karma: null,
+          created_utc: null, over18: null,
+          error: error instanceof RedditHttpError ? `HTTP ${error.status}` : 'fetch failed',
+        }).catch(() => null)
+      }
+    }
+  }
+
+  const profiles = await getProfiles(fresh.map((child) => String(child.data?.author).toLowerCase()))
+  const samples: SampleInsert[] = fresh.map((child) => {
+    const data = child.data!
+    const author = String(data.author).toLowerCase()
+    const profile = profiles.get(author)
+    const created = new Date((data.created_utc ?? 0) * 1000).toISOString()
+    const ageDays = profile?.created_utc
+      ? Math.max(0, Math.floor((Date.parse(created) - Date.parse(profile.created_utc)) / 86_400_000))
+      : null
+    return {
+      post_id: String(data.id),
+      author: author,
+      permalink: data.permalink ? `https://www.reddit.com${data.permalink}` : null,
+      post_created_utc: created,
+      link_karma: profile?.link_karma ?? null,
+      comment_karma: profile?.comment_karma ?? null,
+      account_age_days: ageDays,
+    }
+  })
+  const inserted = await recordRequirementSamples(subreddit, samples)
+  return { inserted: inserted.length, postsPerDay: perDay }
+}
+
+/** The Bot Bouncer check: one mod-list read per community, only while a
+ *  Reddit account is connected. User-token requests are not part of the
+ *  governed client (they are not the app's requests), so this function
+ *  reads the daily counter itself before each one and writes the same
+ *  api_usage rows — the cap stays honest across both token kinds. */
+async function checkBotBouncerSweep(
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  state: RequirementRunSummary,
+): Promise<number> {
+  if (!redditUserOAuthConfigured()) return 0
+  const account = await getOAuthAccount()
+  if (!account) return 0
+  let accessToken: string
+  try {
+    ({ accessToken } = await userAccessToken(account.refresh_token))
+  } catch (error) {
+    await touchOAuthAccount(false, error instanceof Error ? error.message : String(error)).catch(() => null)
+    return 0
+  }
+
+  const due = await requirementBotBouncerDue(BOT_BOUNCER_SWEEP_LIMIT, BOT_BOUNCER_TTL_DAYS)
+  let checked = 0
+  let blocked = 0
+  for (const subreddit of due) {
+    // Fail closed: an unreadable counter means no request.
+    const used = await usageToday().catch(() => null)
+    if (used === null || used >= settings.daily_cap) break
+    const started = Date.now()
+    try {
+      const names = await fetchModeratorNames(accessToken, subreddit)
+      await setBotBouncerStatus(subreddit, names.includes(BOT_BOUNCER_ACCOUNT) ? 'yes' : 'no', 'modlist')
+      await recordRequirementUsage(state.run_id, {
+        endpoint: `/r/${subreddit}/about/moderators`, method: 'GET', status: 200,
+        remaining: null, used: null, resetSeconds: null, durationMs: Date.now() - started,
+      }).catch(() => null)
+      checked += 1
+      blocked = 0
+    } catch (error) {
+      const status = error instanceof RedditHttpError ? error.status : 500
+      await recordRequirementUsage(state.run_id, {
+        endpoint: `/r/${subreddit}/about/moderators`, method: 'GET', status,
+        remaining: null, used: null, resetSeconds: null, durationMs: Date.now() - started,
+      }).catch(() => null)
+      if (status === 403) {
+        blocked += 1
+        if (blocked >= 2) {
+          await touchOAuthAccount(false, 'Reddit refused the moderator list (403) for the connected account').catch(() => null)
+          break
+        }
+      } else if (status === 401) {
+        await touchOAuthAccount(false, 'The connected Reddit account token was rejected').catch(() => null)
+        break
+      }
+    }
+    await sleepMs(Math.max(1500, settings.min_interval_ms))
+  }
+  if (checked > 0) await touchOAuthAccount(true).catch(() => null)
+  return checked
+}
+
+/* ------------------------------------------------------ profile lookup */
+
+type UserAboutData = {
+  link_karma?: number
+  comment_karma?: number
+  total_karma?: number
+  created_utc?: number
+  over_18?: boolean
+}
+
+function mapUserAbout(username: string, data: UserAboutData | undefined) {
+  return {
+    username,
+    link_karma: typeof data?.link_karma === 'number' ? data.link_karma : null,
+    comment_karma: typeof data?.comment_karma === 'number' ? data.comment_karma : null,
+    total_karma: typeof data?.total_karma === 'number' ? data.total_karma : null,
+    created_utc: typeof data?.created_utc === 'number' ? new Date(data.created_utc * 1000).toISOString() : null,
+    over18: typeof data?.over_18 === 'boolean' ? data.over_18 : null,
+  }
+}
+
+/**
+ * The username search's one network call: read an account's karma and age
+ * through the same governed client, cache it, and answer from cache for six
+ * hours. This is what lets the board say "this account would clear r/x's
+ * gate" without guessing.
+ */
+export async function fetchRequirementProfile(username: string): Promise<RequirementProfileStats | null> {
+  const clean = username.trim().replace(/^\/?u\//i, '').replace(/[^A-Za-z0-9_-]/g, '').toLowerCase()
+  if (!clean) return null
+  const cached = await getProfile(clean)
+  if (cached && Date.now() - Date.parse(cached.fetched_at) < 6 * 3_600_000) return cached
+  if (!redditConfigured()) return cached
+  try {
+    const settings = await getSettings()
+    const client = createRedditClient({
+      budget: 2,
+      minIntervalMs: 0,
+      onUsage: (usage) => recordRequirementUsage(null, usage),
+      guard: async () => {
+        const used = await usageToday()
+        if (used >= settings.daily_cap) throw new RedditCapError(used, settings.daily_cap)
+      },
+    })
+    const payload = await client.get<{ data: UserAboutData }>(`/user/${clean}/about`, { raw_json: 1 })
+    await saveProfile(mapUserAbout(clean, payload.data))
+  } catch {
+    // Keep whatever was cached — a stale reading beats an error in the UI.
+  }
+  return getProfile(clean)
 }

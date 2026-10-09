@@ -19,6 +19,7 @@ route handler; the console reads only cached database aggregates.
 | `REDDIT_CLIENT_SECRET` | yes | Reddit app secret — server-side only |
 | `REDDIT_USER_AGENT` | no | Descriptive UA; a safe default is built from `REDDIT_CONTACT` |
 | `REDDIT_CONTACT` | no | Contact string used in the default User-Agent |
+| `REDDIT_REDIRECT_URI` | no | Enables the optional "connect a Reddit account" flow on the requirements board (must exactly match the redirect URI registered on the Reddit app; the app already answers both `<origin>/api/auth/reddit/callback` — what this deployment names today — and `/api/reddit/oauth?action=callback`) |
 
 Nothing else changes. Without the credentials the collector reports
 `not-configured` and the Settings page shows the setup checklist; the rest
@@ -156,6 +157,71 @@ is why the local task fires every 10 minutes. (3) 429s pause everything for
 10 minutes, a tripped breaker for 15; both are visible and clearable on
 Collection Health.
 
+## Subreddits Requirements (2026-10-10)
+
+The tenth page: **Requirements**, under the section nav. It answers a
+different question than the trend boards — *who is allowed to post where, and
+with what account* — so it has its own registry, queue, cadence and tables in
+the same `reddit` schema. It shares the one governed client, the pacing, the
+budget guards and the daily cap; it can never spend a request the trend
+collector would not have spent.
+
+**The method, stated plainly.** Reddit does not publish karma or account-age
+gates; AutoModerator enforces them privately. The board therefore *measures*
+them the only way a read-only API allows:
+
+1. Sample `/new` for the community and keep the newest posts whose authors we
+   have not sampled yet (`requirements_sample_size`, default 25 per pass).
+2. Read each author's stats once (`/user/<name>/about` → post karma, comment
+   karma, account creation) and cache them 45 days. Account reads are the
+   expensive request and are batched (`requirements_profile_batch`).
+3. Judge survival later (≥6h after posting, batched `/api/info`):
+   `removed_by_category = automod_filtered` → **filtered** (the author is
+   below a gate); served → **survived**; anything else → removed.
+4. Estimate: the *lowest* post karma / comment karma / account age seen among
+   profiled **survivors** bounds the gate from above; filtered authors bound
+   it from below. No profiled survivors (≥5 floor) → the column stays empty
+   and the Verification chip says **No data**. Zero and unmeasured are never
+   conflated.
+
+**Verification** is stability, not a badge: the same bounds holding across
+three or more passes (within 25%) earns *Verified*; 30+ survivors is
+*Likely*; 15+ *Estimated*; a handful *Rough*. Every row's Source links expand
+to the exact posts the bounds rest on — lowest-karma survivors first, any
+AutoMod-filtered ones after — each linking to the real post.
+
+**Bot Bouncer.** The app account (`u/bot-bouncer`) appears in a subreddit's
+moderator list when installed — but Reddit refuses `/about/moderators` to
+app-only tokens (403 even with `*` scope, verified live), and scraping is
+off the table. The honest path is the optional **Connect Reddit account**
+flow (authorization code, `read` scope, `permanent` for a refresh token;
+stored server-side in `reddit.oauth_account`): the requirements pass then
+reads each due community's mod list, up to 10 per pass, TTL 7 days, writing
+`bot_bouncer = yes|no` with its source. No account connected → **Unknown**,
+and the "With / Without Bot Bouncer" filters exclude unknowns — they never
+guess. The consent URL lives in `client.ts` with the other endpoints, so the
+centralized-gateway test still holds.
+
+**The board's own controls.** u/ search reads one account and flags, per row,
+whether it clears the measured bounds (pure `eligibility()` in the browser;
+the reads themselves go through the governed client). r/ search filters
+locally and offers to add an untracked community; adding is safe — it lands
+`pending` and the next pass proves it exists. Tags come from the registry
+categories. `+ New List` saves the currently shown rows as a named list
+(`reddit.subreddit_lists`), reopenable from the list picker; rows can be
+added/removed while a list is active; **Show All** clears every filter.
+
+**Operations.** Settings gains the board's switches (enabled, cadence,
+budget, sample size, profile batch). `collectRequirements()` runs from the
+same scheduler: the cron route runs it after each trend pass
+(`?job=requirements` for a board-only pass), the console's "Collect now"
+runs a small manual pass, and `npm run reddit:pull` does both (flags
+`--requirements` / `--no-requirements`). Runs land in `collector_runs` with
+`trigger = 'requirements'`, so Collection Health shows them beside the rest.
+Job claims are `FOR UPDATE SKIP LOCKED`, ids are due-slot derived, stale
+`running` rows recover after 20 minutes; the daily/hourly caps and the
+rate-limit circuit breaker apply exactly as they do to trends.
+
 ## The engine
 
 Per topic over a rolling 24-hour window, from `reddit.topic_mentions`:
@@ -191,6 +257,9 @@ phrases from adult communities use the same adult-creator topic category.
 | Collector | `cloud/src/lib/reddit/collect.ts` |
 | Engine | `cloud/src/lib/reddit/engine.ts`, `metrics.ts` |
 | Reads for pages | `cloud/src/lib/reddit/queries.ts`, `store.ts` |
+| Requirements estimator (pure) | `cloud/src/lib/reddit/requirements.ts` |
+| Requirements tables + queue | `cloud/src/lib/reddit/requirementStore.ts` |
+| Requirements API | `cloud/src/app/api/reddit/requirements/*`, `cloud/src/app/api/reddit/lists`, `cloud/src/app/api/reddit/oauth` |
 | API routes | `cloud/src/app/api/reddit/*`, `cloud/src/app/api/cron/reddit` |
 | UI | `cloud/src/components/reddit/*`, `cloud/src/app/(console)/reddit-trends/*`, `cloud/src/app/reddit.css` |
 | Tests | `cloud/test/reddit-*.test.ts` |
@@ -198,10 +267,17 @@ phrases from adult communities use the same adult-creator topic category.
 ## Remaining external steps
 
 1. Register the Reddit app and record the credentials in Vercel.
-2. Tick the attestations in Settings; run **Validate queue** to prove each
+2. For the requirements board's Bot Bouncer column: make sure the Reddit
+   app registers the redirect URI `REDDIT_REDIRECT_URI` names (this
+   deployment: `<origin>/api/auth/reddit/callback`; the app answers it and
+   `/api/reddit/oauth?action=callback` identically), then click **Connect
+   Reddit account** on the Requirements page (or in Settings). Read scope
+   only; without it the column honestly reads *unknown*.
+3. Tick the attestations in Settings; run **Validate queue** to prove each
    community actually exists and is readable (18 starter communities, one
    request each).
-3. Decide the adult-category question explicitly: the gate stays closed
+4. Decide the adult-category question explicitly: the gate stays closed
    until the attestation is ticked.
-4. Point a frequent scheduler at `/api/cron/reddit?k=$CRON_SECRET` for the
-   sub-daily cadence (optional but recommended).
+5. Point a frequent scheduler at `/api/cron/reddit?k=$CRON_SECRET` for the
+   sub-daily cadence (optional but recommended); each pass also advances the
+   requirements board under its own budget.

@@ -32,19 +32,24 @@ export async function loadPlanPreview(planId: string): Promise<
   // `photo_url`, `drive_url` and `delivery_note` are selected because her page
   // renders all three. `models.notes` is not, and must not be — it is internal
   // and the preview is a render of her page, not of the row behind it.
-  const [row] = await sql.query(
-    `select p.id,
-            to_char(p.week_of, 'YYYY-MM-DD') as week_of,
-            to_char(p.due_date, 'YYYY-MM-DD') as due_date,
-            p.title, p.intro,
-            to_char(p.opened_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as opened_at,
-            m.id as model_id, m.name, m.photo_url, m.filming_days, m.timezone,
-            m.weekly_target, m.standing_rules, m.drive_url, m.delivery_note
-       from transcriber.plans p
-       join transcriber.models m on m.id = p.model_id
-      where p.id = $1`,
-    [planId],
-  )
+  // The week's row and its items are both keyed by the plan id — one wait
+  // (2026-10-09).
+  const [[row], items] = await Promise.all([
+    sql.query(
+      `select p.id,
+              to_char(p.week_of, 'YYYY-MM-DD') as week_of,
+              to_char(p.due_date, 'YYYY-MM-DD') as due_date,
+              p.title, p.intro,
+              to_char(p.opened_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as opened_at,
+              m.id as model_id, m.name, m.photo_url, m.filming_days, m.timezone,
+              m.weekly_target, m.standing_rules, m.drive_url, m.delivery_note
+         from transcriber.plans p
+         join transcriber.models m on m.id = p.model_id
+        where p.id = $1`,
+      [planId],
+    ),
+    planItemsFor(planId),
+  ])
   if (!row) return null
 
   const model: PlanModel = {
@@ -68,5 +73,5 @@ export async function loadPlanPreview(planId: string): Promise<
     opened_at: (row.opened_at as string | null) ?? null,
   }
 
-  return { model, plan, items: await planItemsFor(plan.id) }
+  return { model, plan, items }
 }

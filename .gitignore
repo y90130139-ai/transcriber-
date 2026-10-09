@@ -18,3 +18,8 @@ secrets/
 # Claude Code local settings
 .claude/settings.local.json
 .vercel
+# The worker's browser profile and local env never leave the machine.
+worker/data/
+worker/.env
+worker/.env.*
+node_modules/

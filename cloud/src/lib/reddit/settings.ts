@@ -56,6 +56,15 @@ export const DEFAULT_SETTINGS: RedditSettings = {
     commercial_written: false,
     adult_authorized: false,
   },
+  // The requirements board starts gentle: every community once a day (the
+  // spread keeps the wave from arriving at once), a small budget per pass so
+  // a manual run answers within seconds, and enough samples to estimate
+  // without owning the rate limit.
+  requirements_enabled: true,
+  requirements_interval_minutes: 1440,
+  requirements_budget_per_run: 60,
+  requirements_sample_size: 25,
+  requirements_profile_batch: 20,
 }
 
 export const DEFAULT_PREFERENCES: RedditPreferences = {

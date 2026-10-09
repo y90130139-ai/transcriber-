@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { daysBetween, emptyDay, startOfDay, type Day, type RawTxn } from '../src/lib/earnings/days'
 import { lastOfMonth, milestoneText, milestonesFor, recapFor, recapText } from '../src/lib/earnings/monthly'
-import { foldFans, pickQuiet, winbackText, type QuietFan } from '../src/lib/earnings/winback'
+import { foldFans, pickQuiet, winbackMessages, type QuietFan } from '../src/lib/earnings/winback'
 import { reelDays, summarize, type ReelPost } from '../src/lib/earnings/reels'
 
 const run = (from: string, to: string, net: number, subs = 0): Day[] =>
@@ -67,10 +67,16 @@ test('the win-back list is capped per creator and overall, biggest first', () =>
   const picked = pickQuiet([...fans, { model_name: 'Ivy', fan_id: 'i1', spent: 250_000, last_day: '2026-09-01', quiet_days: 30 }])
   assert.equal(picked.filter((f) => f.model_name === 'Jane').length, 5)
   assert.equal(picked[0].fan_id, 'i1')
-  const text = winbackText(picked, '2026-10-05')!
-  assert.match(text, /\$2K\+ · \$2,500 · quiet 30d · fan i1 · https:\/\/onlyfans.com\/my\/chats\/chat\/i1/)
-  assert.match(text, /Never forward this to a creator/)
-  assert.equal(winbackText([], '2026-10-05'), null)
+  const msgs = winbackMessages(picked, '2026-10-05')
+  assert.equal(msgs.length, 3, 'a cover, then one message per creator')
+  assert.equal(msgs[0].key, 'winback:2026-10-05')
+  assert.match(msgs[0].body, /Win-back list, week of 2026-10-05/)
+  assert.deepEqual(msgs.slice(1).map((m) => m.key), ['winback:2026-10-05:ivy', 'winback:2026-10-05:jane'], 'biggest spender first, keyed per creator')
+  assert.match(msgs[1].body, /^💸 Ivy\n/)
+  assert.match(msgs[1].body, /\$2K\+ · \$2,500 · quiet 30d · fan i1 · https:\/\/onlyfans.com\/my\/chats\/chat\/i1/)
+  assert.ok(!msgs[1].body.includes('Jane'), 'one creator per message')
+  for (const m of msgs) assert.match(m.body, /Never forward this to a creator/)
+  assert.deepEqual(winbackMessages([], '2026-10-05'), [])
 })
 
 test('reel days compare the day and the next against her usual two days', () => {

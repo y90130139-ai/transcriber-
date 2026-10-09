@@ -16,7 +16,7 @@
  * EARNINGS_AUTOSEND=1.
  */
 import { addDays, dayOf, foldDays, startOfDay } from './days'
-import { foldFans, pickQuiet, winbackText } from './winback'
+import { foldFans, pickQuiet, winbackMessages } from './winback'
 import { firstOfMonth, lastOfMonth, milestoneText, milestonesFor, recapFor, recapText } from './monthly'
 import { BACKFILL_DAYS, isCurrent, nextWindow, windowEnd } from './window'
 import { listCreators, OutOfTime, transactions } from './infloww'
@@ -95,11 +95,9 @@ async function draftAll(today: string, result: RunResult) {
   // Monday (or Tue/Wed if Monday's run did not finish): big spenders gone
   // quiet, one OPS-only post per week. Never to a creator.
   if (weekday >= 1 && weekday <= 3) {
-    const text = winbackText(pickQuiet(await quietFans(today)), thisMonday)
-    if (text) {
-      await alert(`winback:${thisMonday}`, text)
-      result.alerts++
-    }
+    const winbacks = winbackMessages(pickQuiet(await quietFans(today)), thisMonday)
+    for (const m of winbacks) await alert(m.key, m.body)
+    result.alerts += winbacks.length
   }
 
   for (const r of await reportables()) {

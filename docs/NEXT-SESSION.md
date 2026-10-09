@@ -1,4 +1,45 @@
-# 2026-10-08 (overnight): V4 plan system shipped end to end — read this first
+# 2026-10-09 (morning): the Reddit drop merged + verified — read this first
+
+Main = `8301133`, pushed, in sync with origin. **Undeployed** — prod is still
+at `787e3f4` (plus whatever Geno deployed mid-session on the 8th). 218 tests
+green, `npx next build` clean. Deploys are Geno's unless he asks.
+
+- **"New v2" (`1224467`, y90130139-ai)**: a whole Reddit Trends system
+  (~20k lines — `lib/reddit/*`, `(console)/reddit-trends/*` pages,
+  `/api/reddit/*`, `/api/cron/reddit`, own `reddit` Postgres schema,
+  `docs/REDDIT-TRENDS.md`) plus plan-side additions (plan-drafts, plan-read,
+  DueDateField/calendar, models delivery + open routes, VolumeStepper). It
+  branched off the OLD ASAS commit `b1cbbab`; **"ASSA" (`5ce851a`) is the
+  merge** bringing our fixed line (conflict-marker fix + Apify restore + V4)
+  back in. Verified after the merge: no raw conflict markers this time, and
+  source.ts / template.ts / german.ts / scout-apify.ts / interestOverTime /
+  cron startSweep all intact.
+- **Reddit migration RUN against Neon 2026-10-09** (13 tables in the new
+  `reddit` schema, all idempotent creates — nothing touched `transcriber`).
+  The new plan-side code reads only columns the V4 migrations already created.
+- **Collector stays disabled until Geno adds `REDDIT_CLIENT_ID` /
+  `REDDIT_CLIENT_SECRET` (+ optional UA/contact) on Vercel** — a Reddit
+  "script" app under his account, read scope. Without them the pages show a
+  setup checklist.
+- `npm install` was needed in `cloud/` (New v2 added `date-fns` +
+  `react-day-picker`); without it the build fails module-not-found. Vercel
+  installs its own, so this only bites local builds.
+- **Win-back (`8301133`, 03:37 EDT)**: the Infloww win-back list now goes out
+  one message per creator (another session's commit; tests cover it).
+- **Tonight ~19:00: the first single-burner scout pass over all ~196
+  accounts** (`~/Library/Logs/social-transcriber-daily.log`). Last night's
+  story pass was healthy (357 snapshots). If Friday fails, Saturday's
+  restored Apify sweep covers the open half.
+- A gosian-bot session (geno-78) is handling the FansLink launch cleanup
+  (Mona pin rights + duplicate invoice posts in topic 577, Priscilla
+  MARKETING 1222 commit) — coordinated 2026-10-09, this project is not involved.
+
+Still waiting on Geno: ANTHROPIC_API_KEY on Vercel, RESEND keys, REDDIT_*
+keys (new), D-tier sprint spec, Railway gated-intake setup.
+
+---
+
+# 2026-10-08 (overnight): V4 plan system shipped end to end
 
 Prod = `787e3f4`, deployed READY (deploys by Claude are allowed when Geno
 asks explicitly; `npx vercel deploy --prod --yes` from cloud/). All

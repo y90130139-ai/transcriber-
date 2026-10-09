@@ -30,9 +30,10 @@ green, `npx next build` clean. Deploys are Geno's unless he asks.
   accounts** (`~/Library/Logs/social-transcriber-daily.log`). Last night's
   story pass was healthy (357 snapshots). If Friday fails, Saturday's
   restored Apify sweep covers the open half.
-- A gosian-bot session (geno-78) is handling the FansLink launch cleanup
-  (Mona pin rights + duplicate invoice posts in topic 577, Priscilla
-  MARKETING 1222 commit) — coordinated 2026-10-09, this project is not involved.
+- The gosian-bot FansLink launch cleanup is CLOSED (geno-78's session,
+  2026-10-09): Mona's INVOICES topic 577 had exactly one schedule post,
+  already pinned by Geno by hand — no deletes, no promote needed; Priscilla's
+  MARKETING 1222 re-point is pushed (bot `ced54bc`). This project was not involved.
 
 Still waiting on Geno: ANTHROPIC_API_KEY on Vercel, RESEND keys, REDDIT_*
 keys (new), D-tier sprint spec, Railway gated-intake setup.

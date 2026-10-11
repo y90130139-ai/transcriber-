@@ -2397,6 +2397,7 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
   gap: var(--sc-space-3);
   align-content: start;
 }
+.planpicker-sentinel { width: 100%; height: 1px; }
 
 /* Browsing remains live even before the composer enables picking: hover
    previews play, while the selection controls stay visibly disabled. */

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import LibraryCard from '@/components/LibraryCard'
 import { MediaCard, type Feed, type MediaItem } from '@/components/platform/MediaFeed'
 import PlatformIcon from '@/components/roster/PlatformIcon'
@@ -25,7 +25,7 @@ import { AXES, taxonomy } from '@/lib/taxonomy'
  * nobody has to write the steps by hand afterwards.
  */
 
-const BATCH = 48
+const PAGE_SIZE = 10
 const LIBRARY_LIMIT = 90
 const LIBRARY_TTL_MS = 5 * 60_000
 const DEFAULT_LIBRARY_FILTERS: Filters = { ...EMPTY_FILTERS, sort: 'hot' }
@@ -332,7 +332,8 @@ export default function PickVideos({
   const [failed, setFailed] = useState(false)
   const [query, setQuery] = useState('')
   const [settledQuery, setSettledQuery] = useState('')
-  const [shown, setShown] = useState(BATCH)
+  const [shown, setShown] = useState(PAGE_SIZE)
+  const loadMoreSentinel = useRef<HTMLDivElement>(null)
   const [libraryFilters, setLibraryFilters] = useState<Filters>(DEFAULT_LIBRARY_FILTERS)
   const [feedFilters, setFeedFilters] = useState<FeedFilters>(DEFAULT_FEED_FILTERS)
   const [libraryCreators, setLibraryCreators] = useState<{ handle: string; posts: number }[]>([])
@@ -381,7 +382,7 @@ export default function PickVideos({
     return () => { live = false }
   }, [])
 
-  useEffect(() => setShown(BATCH), [source, query, libraryKey, feedFilters])
+  useEffect(() => setShown(PAGE_SIZE), [source, query, libraryKey, feedFilters])
 
   const needle = query.trim().toLowerCase()
   const items = useMemo(() => {
@@ -411,6 +412,22 @@ export default function PickVideos({
   const visible = items.slice(0, shown)
   const loading = source === 'library' ? library === null : feeds[source] === undefined
   const locked = !planId || !enabled
+
+  useEffect(() => {
+    const node = loadMoreSentinel.current
+    if (!node || shown >= items.length) return
+
+    const scrollRoot = node.closest('.planpicker-scroll')
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      setShown((count) => Math.min(items.length, count + PAGE_SIZE))
+    }, { root: scrollRoot, rootMargin: '320px 0px' })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [items.length, shown])
+
   const shownAllSelected =
     visible.length > 0 &&
     visible.every((item) => selection.has(`${source}:${item.id}`))
@@ -707,7 +724,7 @@ export default function PickVideos({
                   const pick = libraryPick(item)
                   return (
                     <div
-                      key={item.id}
+                      key={`${source}:${item.id}`}
                       className="planpicker-drag"
                       draggable={!locked}
                       onDragStart={(event) => startDrag(event, key, pick)}
@@ -732,7 +749,7 @@ export default function PickVideos({
                   const pick = feedPick(item)
                   return (
                     <div
-                      key={item.id}
+                      key={`${source}:${item.id}`}
                       className="planpicker-drag"
                       draggable={!locked}
                       onDragStart={(event) => startDrag(event, key, pick)}
@@ -752,11 +769,12 @@ export default function PickVideos({
             )}
 
             {shown < items.length && (
-              <div className="loadmore">
-                <button type="button" className="btn btn-quiet" onClick={() => setShown((count) => count + BATCH)}>
-                  Load {Math.min(BATCH, items.length - shown)} more · {items.length - shown} left
-                </button>
-              </div>
+              <>
+                <div className="planpicker-sentinel" ref={loadMoreSentinel} aria-hidden="true" />
+                <p className="sr-only" role="status" aria-live="polite">
+                  Showing {visible.length} of {items.length} videos
+                </p>
+              </>
             )}
           </>
         )}

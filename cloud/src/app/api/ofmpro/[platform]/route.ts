@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
+import { isSignedIn, isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
-import { presignGet, r2Config } from '@/lib/r2'
+import { ofmproR2Config, presignGet } from '@/lib/r2'
 
 /**
  * The three platform feeds, served from `transcriber.ofmpro_media`.
@@ -31,13 +31,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
     [platform],
   )
 
-  const config = r2Config()
+  const config = ofmproR2Config()
   const mirrored = (key: unknown): string | null =>
     config && typeof key === 'string' && key.length > 0 ? presignGet(config, key) : null
 
   const items = rows.map((row) => {
     const picture = row.media_type === 'IMAGE' || row.media_type === 'SLIDESHOW'
+    const hasR2Key = typeof row.r2_key === 'string' && row.r2_key.length > 0
     const r2 = mirrored(row.r2_key)
+    const raw = (row.raw_url as string | null) ?? null
+    const sourceMirror = (row.mirror_url as string | null) ?? null
+    const primary = hasR2Key ? r2 : raw ?? sourceMirror
     return {
       id: String(row.media_id),
       shortcode: (row.shortcode as string | null) ?? null,
@@ -53,10 +57,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       nickname: (row.nickname as string | null) ?? null,
       followers: row.followers === null || row.followers === undefined ? null : Number(row.followers),
       audio: (row.audio as string | null) ?? null,
-      video: picture ? null : r2 ?? (row.raw_url as string | null) ?? null,
-      image: picture ? r2 ?? (row.raw_url as string | null) ?? null : null,
+      video: picture ? null : primary,
+      image: picture ? primary : null,
       slides: row.slides === null || row.slides === undefined ? null : Number(row.slides),
-      mirror: (row.mirror_url as string | null) ?? null,
+      // A saved row uses Cloudflare as its primary URL. The source URL is only
+      // a recovery attempt if that saved copy cannot be played.
+      mirror: hasR2Key ? r2 : sourceMirror,
+      fallback: hasR2Key ? raw ?? sourceMirror : sourceMirror,
     }
   })
 
@@ -83,6 +90,83 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
     },
     // The worker lands new rows a few times a day; a minute of browser cache
     // keeps the feeds from re-downloading a megabyte on every tab switch.
-    { headers: { 'Cache-Control': 'private, max-age=60' } },
+    { headers: { 'Cache-Control': 'private, no-store, max-age=0, must-revalidate' } },
   )
+}
+
+type ProbeResult = 'available' | 'unavailable' | 'unknown'
+
+async function probeMedia(url: string, platform: string): Promise<ProbeResult> {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return 'unavailable'
+    const headers = new Headers({
+      Range: 'bytes=0-0',
+      'User-Agent': 'Mozilla/5.0 (compatible; TranscriberMediaCheck/1.0)',
+    })
+    if (platform !== 'twitter') headers.set('Referer', 'https://app.ofmpro.com/')
+    const response = await fetch(parsed, {
+      headers,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    })
+    try { await response.body?.cancel() } catch { /* the probe does not need the body */ }
+    if (response.status >= 200 && response.status < 300) return 'available'
+    if ([401, 403, 404, 410].includes(response.status)) return 'unavailable'
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/** Remove a row only after its saved R2 copy and every recorded source fail a
+ *  small range probe. Transient/ambiguous network failures are retained. */
+export async function DELETE(request: Request, { params }: { params: Promise<{ platform: string }> }) {
+  if (!(await isSignedIn()) && !isWorker(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+  const { platform } = await params
+  if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
+
+  const mediaId = new URL(request.url).searchParams.get('mediaId')?.trim()
+  if (!mediaId || mediaId.length > 256) {
+    return NextResponse.json({ error: 'mediaId is required' }, { status: 400 })
+  }
+
+  const [row] = await sql.query(
+    `select raw_url, mirror_url, r2_key
+       from transcriber.ofmpro_media
+      where platform = $1 and media_id = $2
+      limit 1`,
+    [platform, mediaId],
+  )
+  if (!row) return NextResponse.json({ deleted: false, reason: 'not_found' }, { status: 404 })
+
+  const sources = new Set<string>()
+  if (typeof row.r2_key === 'string' && row.r2_key) {
+    const config = ofmproR2Config()
+    if (!config) {
+      return NextResponse.json({ deleted: false, reason: 'r2_unconfigured' }, { status: 503 })
+    }
+    sources.add(presignGet(config, row.r2_key))
+  }
+  for (const value of [row.raw_url, row.mirror_url]) {
+    if (typeof value === 'string' && value) sources.add(value)
+  }
+
+  const results = await Promise.all([...sources].map((source) => probeMedia(source, platform)))
+  if (results.includes('available')) {
+    return NextResponse.json({ deleted: false, reason: 'media_still_available' }, { status: 409 })
+  }
+  if (results.includes('unknown')) {
+    return NextResponse.json({ deleted: false, reason: 'availability_unconfirmed' }, { status: 503 })
+  }
+
+  const deleted = await sql.query(
+    `delete from transcriber.ofmpro_media
+      where platform = $1 and media_id = $2
+      returning media_id`,
+    [platform, mediaId],
+  )
+  return NextResponse.json({ deleted: deleted.length > 0 })
 }

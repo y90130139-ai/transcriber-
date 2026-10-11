@@ -86,8 +86,9 @@ export async function GET(request: Request) {
   if (query) {
     params.push(`%${query}%`)
     where.push(`(t.plain ilike $${params.length} or t.author ilike $${params.length}
-                 or t.title ilike $${params.length} or t.caption ilike $${params.length}
-                 or j.source ilike $${params.length})`)
+                  or t.author_name ilike $${params.length}
+                  or t.title ilike $${params.length} or t.caption ilike $${params.length}
+                  or j.source ilike $${params.length})`)
   }
   if (creator) {
     params.push(creator)

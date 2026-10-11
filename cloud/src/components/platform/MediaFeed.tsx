@@ -16,9 +16,9 @@ import {
  * grid: a frame per post, the age chip top left, the tools top right, the
  * handle and numbers over the floor.
  *
- * The signed CDN links behind `raw_source_urls` expire, so nothing is
- * fetched until a card approaches the viewport, and every card falls back
- * (CDN → OFMPro mirror → an honest blank) instead of showing a broken frame.
+ * Saved media streams from Cloudflare R2 first. Unmirrored rows use their
+ * recorded source links until the R2 backlog reaches them. Media is only
+ * removed after both the saved copy and source fallbacks fail verification.
  * X rows are not all video: pictures and slideshows draw as stills (the
  * slideshow wears its slide count). Re-run `scripts/import-ofmpro.mjs
  * <platform>` with a fresh export to refresh the data.
@@ -43,6 +43,7 @@ type MediaItem = {
   image: string | null
   slides: number | null
   mirror: string | null
+  fallback: string | null
 }
 export type { MediaItem }
 
@@ -57,7 +58,7 @@ type Feed = {
 }
 export type { Feed }
 
-const BATCH = 48
+const PAGE_SIZE = 10
 
 const SORTS = [
   { id: 'score', label: 'Score' },
@@ -71,58 +72,98 @@ const exact = (value: number) => value.toLocaleString('en-US')
 
 /* ---------------------------------------------------------------- card */
 
-export function MediaCard({ item, platform, selected, onToggle }: {
+export function MediaCard({ item, platform, selected, onToggle, onUnavailable, selectable = true }: {
   item: MediaItem
   platform: Platform
   selected: boolean
   onToggle: (id: string) => void
+  onUnavailable?: (id: string) => void
+  selectable?: boolean
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
   /** The active source: null until the card approaches the viewport. */
   const [src, setSrc] = useState<string | null>(null)
+  const [imageSrc, setImageSrc] = useState<string | null>(item.image)
   const [failed, setFailed] = useState(false)
   /** The first frame has actually painted — until then, a shimmer holds the
    *  frame instead of a black hole. */
   const [loaded, setLoaded] = useState(false)
   const [muted, setMuted] = useState(true)
+  const [hovering, setHovering] = useState(false)
 
   const primary = item.video ? `${item.video}#t=0.001` : null
-  const fallback = item.mirror ? `${item.mirror}#t=0.001` : null
-  const fileUrl = item.video ?? item.mirror ?? item.image
+  const fallbackUrl = item.fallback ?? (item.mirror !== item.video ? item.mirror : null)
+  const fallback = fallbackUrl && fallbackUrl !== item.video ? `${fallbackUrl}#t=0.001` : null
+  const firstVideoSource = primary ?? fallback
+  const fileUrl = item.video ?? item.image ?? item.mirror ?? item.fallback
 
   // Only videos arm lazily; pictures let the browser's own lazy loading do it.
   useEffect(() => {
     const node = frame.current
-    if (!node || !primary || src !== null || failed) return
+    if (!node || !firstVideoSource || src !== null || failed) return
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) {
         setLoaded(false)
-        setSrc(primary)
+        setSrc(firstVideoSource)
         observer.disconnect()
       }
     }, { rootMargin: '600px 0px' })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [primary, src, failed])
+  }, [firstVideoSource, src, failed])
+
+  useEffect(() => {
+    if (!firstVideoSource || src === null || src === primary || src === fallback || video.current?.paused === false) return
+    setLoaded(false)
+    setSrc(firstVideoSource)
+  }, [fallback, firstVideoSource, primary, src])
+
+  // Hover can arrive before the lazy video element mounts. Retry when its
+  // source is attached, and again when the browser says it can play.
+  useEffect(() => {
+    if (!hovering || !src) return
+    void video.current?.play().catch(() => null)
+  }, [hovering, src])
+
+  useEffect(() => {
+    setImageSrc(item.image)
+  }, [item.image])
 
   function tryPlay() {
     if (!window.matchMedia('(hover: hover)').matches) return
+    setHovering(true)
     void video.current?.play().catch(() => null)
   }
 
   function tryStop() {
+    setHovering(false)
     video.current?.pause()
   }
 
-  /** CDN expired → the mirror; mirror gone → the blank, never a broken frame. */
+  /** Cloudflare first, then the source fallback; never leave a broken frame. */
   function onError() {
+    if (src !== primary && src !== fallback && primary) {
+      setLoaded(false)
+      setSrc(primary)
+      return
+    }
     if (src === primary && fallback) {
       setLoaded(false)
       setSrc(fallback)
       return
     }
     setFailed(true)
+    onUnavailable?.(item.id)
+  }
+
+  function onImageError() {
+    if (imageSrc === item.image && fallbackUrl && fallbackUrl !== item.image) {
+      setImageSrc(fallbackUrl)
+      return
+    }
+    setFailed(true)
+    onUnavailable?.(item.id)
   }
 
   function toggleMute() {
@@ -134,7 +175,13 @@ export function MediaCard({ item, platform, selected, onToggle }: {
   const handle = item.username ?? 'unknown'
   const hasSize = typeof item.followers === 'number' && item.followers > 0
   const isPicture = item.image !== null && item.video === null
-  const nothingToShow = !item.video && !item.image && !item.mirror
+  const nothingToShow = !item.video && !item.image && !item.mirror && !item.fallback
+
+  useEffect(() => {
+    if (!nothingToShow) return
+    setFailed(true)
+    onUnavailable?.(item.id)
+  }, [item.id, nothingToShow, onUnavailable])
 
   return (
     <article className="pl-card" data-on={selected || undefined}>
@@ -150,11 +197,11 @@ export function MediaCard({ item, platform, selected, onToggle }: {
         ) : isPicture ? (
           <img
             className="pl-poster"
-            src={item.image ?? ''}
+            src={imageSrc ?? ''}
             alt=""
             loading="lazy"
             decoding="async"
-            onError={() => setFailed(true)}
+            onError={onImageError}
           />
         ) : src ? (
           <video
@@ -165,7 +212,10 @@ export function MediaCard({ item, platform, selected, onToggle }: {
             loop
             playsInline
             data-loaded={loaded || undefined}
-            onLoadedData={() => setLoaded(true)}
+            onLoadedData={(event) => {
+              setLoaded(true)
+              if (hovering) void event.currentTarget.play().catch(() => null)
+            }}
             onError={onError}
           />
         ) : null}
@@ -229,6 +279,7 @@ export function MediaCard({ item, platform, selected, onToggle }: {
             className="pl-tool"
             data-on={selected || undefined}
             onClick={() => onToggle(item.id)}
+            disabled={!selectable}
             aria-pressed={selected}
             title={selected ? 'Deselect' : 'Select'}
           >
@@ -271,19 +322,21 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
 }) {
   const [feed, setFeed] = useState<Feed | null>(null)
   const [failed, setFailed] = useState(false)
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortId>('score')
-  const [shown, setShown] = useState(BATCH)
+  const [shown, setShown] = useState(PAGE_SIZE)
+  const loadMoreSentinel = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [copied, setCopied] = useState(false)
   /** The library run: sending, and what the queue said back. */
   const [adding, setAdding] = useState(false)
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback((clear = false) => {
     setFailed(false)
-    setFeed(null)
-    fetch(dataUrl)
+    if (clear) setFeed(null)
+    fetch(dataUrl, { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error(String(response.status))
         return response.json() as Promise<Feed>
@@ -296,8 +349,37 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
       .catch(() => setFailed(true))
   }, [dataUrl])
 
-  useEffect(load, [load])
-  useEffect(() => setShown(BATCH), [query, sort])
+  useEffect(() => {
+    load(true)
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const timer = window.setInterval(refresh, 5 * 60_000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [load])
+
+  const onUnavailable = useCallback((id: string) => {
+    setHiddenIds((current) => new Set(current).add(id))
+    setSelected((current) => {
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
+    void fetch(`${dataUrl}?mediaId=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      cache: 'no-store',
+    }).then((response) => {
+      if (response.ok) void load()
+    }).catch(() => null)
+  }, [dataUrl, load])
+
+  useEffect(() => setShown(PAGE_SIZE), [query, sort])
 
   const items = useMemo(() => {
     if (!feed) return []
@@ -314,8 +396,8 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
       likes: (a, b) => b.likes - a.likes,
       newest: (a, b) => Date.parse(b.created ?? '0') - Date.parse(a.created ?? '0'),
     }
-    return filtered.sort(by[sort])
-  }, [feed, query, sort])
+    return filtered.filter((item) => !hiddenIds.has(item.id)).sort(by[sort])
+  }, [feed, hiddenIds, query, sort])
 
   /** Tick or untick one card. */
   function toggle(id: string) {
@@ -328,13 +410,26 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
     })
   }
 
-  /** Everything currently drawn — the bar's own slice of the sorted feed. */
+  /** Everything currently drawn — ten posts at a time as the user scrolls. */
   const visible = items.slice(0, shown)
+
+  useEffect(() => {
+    const node = loadMoreSentinel.current
+    if (!node || shown >= items.length) return
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      setShown((count) => Math.min(items.length, count + PAGE_SIZE))
+    }, { rootMargin: '360px 0px' })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [items.length, shown])
+
   const shownAllSelected = visible.length > 0 && visible.every((item) => selected.has(item.id))
 
-  /** One tap for a whole screen of videos (Geno, 2026-10-09): picking a
-   *  research run by hand, 48 checkmarks at a time, was the slow part of
-   *  feeding the library from these feeds. */
+  /** Select or deselect the posts currently visible in the feed. */
   function toggleShown() {
     setNote(null)
     setSelected((current) => {
@@ -423,7 +518,7 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
       {failed && (
         <div className="pl-fail">
           <span>The import could not be read ({dataUrl}).</span>
-          <button type="button" onClick={load}>Try again</button>
+          <button type="button" onClick={() => load(true)}>Try again</button>
         </div>
       )}
 
@@ -483,22 +578,24 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
             <>
               <div className="pl-grid">
                 {visible.map((item) => (
-                  <MediaCard key={item.id} item={item} platform={platform} selected={selected.has(item.id)} onToggle={toggle} />
+                  <MediaCard
+                    key={item.id}
+                    item={item}
+                    platform={platform}
+                    selected={selected.has(item.id)}
+                    onToggle={toggle}
+                    onUnavailable={onUnavailable}
+                  />
                 ))}
               </div>
 
-              <p className="pl-grid-note">
-                Previews stream straight from {label}&apos;s CDN — signed links expire after a few days, and each
-                card quietly falls back to the OFMPro mirror when one is dead. Tick the videos you want and send
-                them into the library: the Mac fetches and listens to each one. Re-import to refresh the window.
-              </p>
-
               {shown < items.length && (
-                <div className="loadmore">
-                  <button type="button" className="btn btn-quiet" onClick={() => setShown((count) => count + BATCH)}>
-                    Load {Math.min(BATCH, items.length - shown)} more · {exact(items.length - shown)} left
-                  </button>
-                </div>
+                <>
+                  <div className="pl-load-sentinel" ref={loadMoreSentinel} aria-hidden="true" />
+                  <p className="sr-only" role="status" aria-live="polite">
+                    Showing {visible.length} of {items.length} {unit}
+                  </p>
+                </>
               )}
             </>
           )}

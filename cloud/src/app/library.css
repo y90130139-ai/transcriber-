@@ -2368,14 +2368,23 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
   padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-3);
   border-bottom: var(--sc-rule-hair);
 }
-.planpicker-sources { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
-.planpicker-sources .chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+.planpicker-sources {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sc-space-1);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.planpicker-sources::-webkit-scrollbar { display: none; }
+.planpicker-sources .chip { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.2rem; padding: 0.3rem 0.4rem; white-space: nowrap; }
 .planpicker-sources .chip b { font-weight: 600; opacity: 0.75; font-variant-numeric: tabular-nums; }
 .planpicker-sources .chip .planpicker-sel { color: var(--sc-ember); opacity: 1; }
 .planpicker-sources .chip[data-on='true'] .planpicker-sel { color: var(--sc-ember-light); }
 .planpicker-search { flex: none; width: 100%; }
 .planpicker-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
-.planpicker-row .pl-bar-count { margin-left: auto; }
 
 .planpicker-scroll {
   flex: 1 1 auto;
@@ -2389,14 +2398,11 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
   align-content: start;
 }
 
-/* No week open yet: the wall is a window, not a picker (Geno, 2026-10-09).
-   Nothing in here is clickable until a week exists to add to — the auto-
-   created current week lifts this the moment it lands. */
-.planpicker-scroll[data-locked='true'] {
-  opacity: 0.4;
-  pointer-events: none;
-  user-select: none;
-}
+/* Browsing remains live even before the composer enables picking: hover
+   previews play, while the selection controls stay visibly disabled. */
+.planpicker-scroll[data-locked='true'] { user-select: none; }
+.planpicker-scroll[data-locked='true'] .card-tool:disabled,
+.planpicker-scroll[data-locked='true'] .pl-tool:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Smaller cards than the full feeds — a wall of them, two or three across.
    At this size only the tick fits on the frame: the age line and the other

@@ -4,21 +4,40 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cap, type MenuOption } from './DropSelect'
 
+export type MultiSection = {
+  label: string
+  options: MenuOption[]
+  mode?: 'multiple' | 'single'
+}
+
 /** A multi-pick menu: same panel language as DropSelect, but options toggle
  *  with checkboxes and the panel stays open while picking. The trigger wears
- *  the count. Fixed to the viewport so scroll containers never clip it. */
-export default function DropMulti({ values, options, onChange, label, summary }: {
+ *  the count. Optional sections group related filters; single sections behave
+ *  like radio groups while multiple sections keep their independent checks.
+ *  Fixed to the viewport so scroll containers never clip it. */
+export default function DropMulti({ values, options = [], sections, onChange, label, summary, count, clearable }: {
   values: string[]
-  options: MenuOption[]
+  options?: MenuOption[]
+  sections?: MultiSection[]
   onChange: (next: string[]) => void
   label: string
   summary: string
+  /** Override the selected-value count when defaults should not read as active filters. */
+  count?: number
+  /** Override when selected defaults are present but Clear all should stay hidden. */
+  clearable?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [focus, setFocus] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
   const pop = useRef<HTMLDivElement>(null)
   const [at, setAt] = useState<{ left: number; top: number; width: number } | null>(null)
+  const entries = sections
+    ? sections.flatMap((section) => section.options.map((option) => ({ option, section })))
+    : options.map((option) => ({ option, section: null }))
+  const menuOptions = entries.map((entry) => entry.option)
+  const activeCount = count ?? values.length
+  const canClear = clearable ?? values.length > 0
 
   function toggle(next = !open) {
     if (next) {
@@ -57,20 +76,31 @@ export default function DropMulti({ values, options, onChange, label, summary }:
   }, [open])
 
   function flip(index: number) {
-    const option = options[index]
+    const entry = entries[index]
+    const option = entry?.option
     if (!option) return
-    onChange(values.includes(option.value)
-      ? values.filter((v) => v !== option.value)
-      : [...values, option.value])
+    const selected = values.includes(option.value)
+    const singleOptions = entry.section?.mode === 'single'
+      ? new Set(entry.section.options.map((candidate) => candidate.value))
+      : null
+    onChange(selected
+      ? values.filter((value) => value !== option.value)
+      : [...values.filter((value) => !singleOptions?.has(value)), option.value])
+  }
+
+  function stepFocus(from: number, direction: 1 | -1) {
+    const count = menuOptions.length + (canClear ? 1 : 0)
+    if (count === 0) return from
+    return (from + direction + count) % count
   }
 
   function onKey(e: React.KeyboardEvent) {
     if (e.key === 'Escape') { setOpen(false); trigger.current?.focus() }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setFocus((f) => (f + 1) % (options.length + (values.length ? 1 : 0))) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocus((f) => (f - 1 + options.length + (values.length ? 1 : 0)) % (options.length + (values.length ? 1 : 0))) }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setFocus((f) => stepFocus(f, 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocus((f) => stepFocus(f, -1)) }
     else if (e.key === 'Enter') {
       e.preventDefault()
-      if (values.length && focus === options.length) onChange([])
+      if (canClear && focus === menuOptions.length) onChange([])
       else flip(focus)
     }
   }
@@ -79,35 +109,50 @@ export default function DropMulti({ values, options, onChange, label, summary }:
     pop.current?.querySelector<HTMLElement>(`[data-focus='true']`)?.scrollIntoView({ block: 'nearest' })
   }, [focus, open])
 
+  const renderOption = (option: MenuOption, index: number) => {
+    const on = values.includes(option.value)
+    return (
+      <button key={option.value} type="button" role="option"
+        aria-selected={on} aria-disabled={option.disabled || undefined}
+        disabled={option.disabled} data-focus={index === focus || undefined}
+        data-on={on || undefined} data-disabled={option.disabled || undefined}
+        className="msel-opt" onClick={() => flip(index)}
+        onPointerMove={() => { if (!option.disabled) setFocus(index) }}>
+        <span>{cap(option.label)}</span>
+        {on && <b className="msel-check" aria-hidden>✓</b>}
+      </button>
+    )
+  }
+
   return (
     <>
       <button ref={trigger} type="button" className="msel-trigger" data-open={open || undefined}
         aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => toggle()}>
-        <span>{cap(summary)}{values.length > 0 && <b> · {values.length}</b>}</span>
+        <span>{cap(summary)}{activeCount > 0 && <b> · {activeCount}</b>}</span>
         <i className="msel-chev" aria-hidden>▾</i>
       </button>
       {open && at && createPortal(
         <div ref={pop} role="listbox" aria-label={label} aria-multiselectable="true" className="msel-pop"
           style={{ left: at.left, top: at.top, width: at.width }}
           tabIndex={-1} onKeyDown={onKey}>
-          {values.length > 0 && (
-            <button type="button" className="msel-clear" data-focus={focus === options.length || undefined}
+          {canClear && (
+            <button type="button" className="msel-clear" data-focus={focus === menuOptions.length || undefined}
               onClick={() => { onChange([]); setOpen(false) }}
-              onPointerMove={() => setFocus(options.length)}>
+              onPointerMove={() => setFocus(menuOptions.length)}>
               Clear all
             </button>
           )}
-          {options.map((o, i) => {
-            const on = values.includes(o.value)
-            return (
-              <button key={o.value} type="button" role="option"
-                aria-selected={on} data-focus={i === focus || undefined} data-on={on || undefined}
-                className="msel-opt" onClick={() => flip(i)} onPointerMove={() => setFocus(i)}>
-                <span>{cap(o.label)}</span>
-                {on && <b className="msel-check" aria-hidden>✓</b>}
-              </button>
-            )
-          })}
+          {sections
+            ? sections.map((section) => {
+                const start = entries.findIndex((entry) => entry.section === section)
+                return (
+                  <div key={section.label} className="msel-section" role="group" aria-label={section.label}>
+                    <div className="msel-section-title">{cap(section.label)}</div>
+                    {section.options.map((option, index) => renderOption(option, start + index))}
+                  </div>
+                )
+              })
+            : menuOptions.map(renderOption)}
         </div>,
         document.body,
       )}

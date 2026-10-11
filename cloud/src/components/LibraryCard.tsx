@@ -91,6 +91,7 @@ export default function LibraryCard({
   feature = false,
   picked,
   selecting,
+  selectable = true,
   onOpen,
   onToggle,
 }: {
@@ -98,6 +99,7 @@ export default function LibraryCard({
   feature?: boolean
   picked: boolean
   selecting: boolean
+  selectable?: boolean
   onOpen: () => void
   onToggle: () => void
 }) {
@@ -113,6 +115,7 @@ export default function LibraryCard({
   /** The one honest excuse: the files live on the Mac and it is asleep. */
   const [macAsleep, setMacAsleep] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hovering = useRef(false)
 
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current) }, [])
 
@@ -125,13 +128,20 @@ export default function LibraryCard({
 
   function hoverStart() {
     if (pinned || !window.matchMedia('(hover: hover)').matches) return
+    hovering.current = true
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => {
-      void load().then((loaded) => { if (loaded.media) setPlaying(true) })
+      hoverTimer.current = null
+      void load().then((loaded) => {
+        if (hovering.current && loaded.media) setPlaying(true)
+      })
     }, HOVER_DELAY_MS)
   }
 
   function hoverEnd() {
+    hovering.current = false
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    hoverTimer.current = null
     if (!pinned) setPlaying(false)
   }
 
@@ -183,7 +193,12 @@ export default function LibraryCard({
       <button
         type="button"
         className="card-open"
-        onClick={() => (selecting ? onToggle() : onOpen())}
+        aria-disabled={!selectable || undefined}
+        onClick={() => {
+          if (!selectable) return
+          if (selecting) onToggle()
+          else onOpen()
+        }}
       >
         <span
           className="card-frame"
@@ -328,6 +343,7 @@ export default function LibraryCard({
           data-on={picked || undefined}
           aria-label={picked ? 'Deselect' : 'Select'}
           aria-pressed={picked}
+          disabled={!selectable}
           onClick={onToggle}
           title={picked ? 'Deselect' : 'Select'}
         >

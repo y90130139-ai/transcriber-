@@ -63,51 +63,39 @@ Infloww, `social` (Geno, Iona) for the Instagram reads. It defaults to `money`,
 so every earlier row behaves exactly as it did. The table is shared because the
 bot drains one queue; the column is all that splits the tag lines.
 
-## The weekly story read (2026-10-10)
+## One card per creator, per division (2026-10-11)
 
-Scout's daily pass is the only thing that can see Instagram stories at all — a
-story is gone in 24h, so `creator_snapshots` records once a day whether one was
-up, giving days-with-a-story over days-looked-at.
+Geno's rule: everything the team needs about ONE creator arrives in ONE
+message. The only thing that splits her across two cards is the division,
+because different people act on them.
 
-Every **Monday**, `/api/cron/daily` (or `?job=stories`) calls
-`storyCadenceAlerts()` in `cloud/src/lib/performance/stories-job.ts`, which
-writes one `social` alert for Geno and Iona to act on by telling the model
-herself:
+| Card | When | Tags |
+| --- | --- | --- |
+| **Instagram** | Monday, from `/api/cron/daily` (or `?job=stories`) | Geno + Iona (`social`) |
+| **OnlyFans** | Daily, from the earnings job | Geno + Paige + Marinko (`money`) |
 
-- **🔴 Slipping** — under 50% of the days looked at, with **nothing at all**
-  named first and worst-first after that
-- **🟢 Keeping it up** — 80%+, best first
-- 50–79% says nothing; silence beats a message nobody can act on
-- **⏳ Too new to say** — fewer than 3 readings, one line, so a model nobody has
-  looked at never reads as fine
-- A model with **no Instagram handle** is left out entirely: that is a portal
-  gap, not a story habit
+**Instagram** (`cloud/src/lib/performance/attention.ts`, job in
+`attention-job.ts`). A creator gets a card when any of these hold, and the card
+carries all of them at once:
 
-Thresholds and wording are pure and tested in `cloud/test/stories.test.ts`;
-`stories.ts` holds them and has no database import. Keyed `stories:<monday>`,
-so a retry in the same week writes nothing twice.
+- the dashboard's own **Needs attention** tag — quiet 14+ days, trending down,
+  or posting under a quarter of her weekly target. Her reasons are
+  `attentionReasons()`'s own words, so the card and the portal never disagree
+- **slipped from Top performer** — she was `top` last week and is not now. No
+  single week's numbers show this, so last week's tag is kept in
+  `transcriber.model_standing` and read back
+- **stories under 50%** of the days Scout looked at (3 readings minimum)
 
-## Added 2026-09-30 (second round)
+Cards are ordered slipped-from-top, then needs-attention, then the rest. Who
+kept stories up at 80%+ is one line of good news at the end — nobody to chase,
+so no card. A creator who is fine appears nowhere, and a week where nobody
+needs anything sends nothing.
 
-- **Monthly recap** (#6) on the 1st (retried the 2nd/3rd) and **milestones** (#5)
-  the morning after: beat her best month, a round figure no earlier month
-  reached, a new-subs count none did. "On record" = whole months we hold, never
-  fewer than two. `lib/earnings/monthly.ts`. OPS-approved like the rest.
-- **Reels and money** (#1), internal only: each posting day's best reel vs her
-  usual views, against her net that day and the next vs her usual two days.
-  Model → Earnings tab, and "Reels that moved money" on Dashboard → Earnings.
-  Timing, not proof. `lib/earnings/reels.ts`.
-- **Win-back list** (#11): Monday (retried Tue/Wed) OPS-only post of fans who
-  spent $500+ in 90 days and went quiet 14+ days, 5 per creator, 30 total.
-  **Fan IDs only** — `earnings_fan_days` has no name column; names (where chatters
-  write notes) are dropped in `infloww.ts`. Only accounts pulled cleanly that day
-  are listed. `lib/earnings/winback.ts`.
+**OnlyFans** (`cloud/src/lib/earnings/job.ts`). Her lines collect through the
+per-model loop and go out as one `of:<model_id>:<date>` alert: accounts gone
+from Infloww, a failed pull, no Telegram group linked, a day down 25%+, a week
+down 25%+. These were five separate messages before.
 
-## Inactive models
+Thresholds and wording are pure and tested in `cloud/test/attention.test.ts`;
+`attention.ts` has no database import.
 
-Profile header → **Deactivate** (Unresponsive / Left / Other + note) or
-**Reactivate**. Sets `models.status = 'paused'` plus `inactive_reason`,
-`inactive_note`, `inactive_since`; the roster greys her out in an Inactive group.
-Everything portal-side already skips paused models, and the Gosian bot reads
-`/api/bot/inactive` to stop its marketing messages (invoices and birthdays
-continue). `lib/inactive.ts`, `api/models/[id]/active`.

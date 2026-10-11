@@ -1128,6 +1128,15 @@ const statements = [
   // 'social' is Geno + Iona for the weekly Instagram story read. Defaulting
   // to 'money' keeps every existing row exactly as it behaved.
   `alter table transcriber.earnings_alerts add column if not exists audience text not null default 'money'`,
+  // Last week's automatic tag per model (Geno, 2026-10-11), so "slipped from
+  // Top performer" can be said at all — no single week's numbers show it.
+  `create table if not exists transcriber.model_standing (
+     model_id   text not null,
+     week_of    date not null,
+     auto_tag   text,
+     trend      text,
+     primary key (model_id, week_of)
+   )`,
   // The creator questionnaire (lib/survey/, Geno 2026-10-02). Her answers
   // write straight to her profile; best_times and daily_capacity are new
   // there. One row per send — the bot posts it, reminds once after 3 days —

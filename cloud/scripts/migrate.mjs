@@ -1123,6 +1123,11 @@ const statements = [
      created_at  timestamptz not null default now(),
      posted_at   timestamptz
    )`,
+  // Who the bot tags in MODEL PERFORMANCE (Geno, 2026-10-10): 'money' is
+  // Paige + Geno + Marinko, which every earnings line already was, and
+  // 'social' is Geno + Iona for the weekly Instagram story read. Defaulting
+  // to 'money' keeps every existing row exactly as it behaved.
+  `alter table transcriber.earnings_alerts add column if not exists audience text not null default 'money'`,
   // The creator questionnaire (lib/survey/, Geno 2026-10-02). Her answers
   // write straight to her profile; best_times and daily_capacity are new
   // there. One row per send — the bot posts it, reminds once after 3 days —

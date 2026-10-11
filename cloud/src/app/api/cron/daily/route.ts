@@ -5,6 +5,7 @@ import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
 import { archiveExpired } from '@/lib/expiry'
 import { collect } from '@/lib/reddit/collect'
+import { storyCadenceAlerts } from '@/lib/performance/stories-job'
 import { ingestTrends } from '@/lib/trends'
 
 export const maxDuration = 60
@@ -16,6 +17,7 @@ export const maxDuration = 60
  * call carries both standing jobs and decides by weekday which is due:
  *
  *   Sunday   → draft every active model's week
+ *   Monday   → the week's Instagram story read for MODEL PERFORMANCE
  *   Every day → archive library reels past 90 days (lib/expiry.ts)
  *
  * Both were launchd jobs on the Mac. They are the parts that must not miss a
@@ -40,6 +42,17 @@ export async function GET(request: Request) {
 
   if (force === 'autodraft' || (!force && day === 0)) {
     did.autodraft = await draftNextWeek()
+  }
+
+  // Monday: the week's Instagram story read for MODEL PERFORMANCE — who kept
+  // it up and who is slipping, so Geno and Iona can tell her themselves
+  // (Geno, 2026-10-10). Keyed by the Monday, so a retry writes nothing twice.
+  if (force === 'stories' || (!force && day === 1)) {
+    try {
+      did.stories = await storyCadenceAlerts()
+    } catch (error) {
+      did.stories = { error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   // Every day: reels past 90 days leave the library, unless a model's own or

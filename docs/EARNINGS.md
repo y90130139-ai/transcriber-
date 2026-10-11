@@ -57,6 +57,36 @@ draft was made voids that draft.
 `earnings_accounts`, `earnings_days`, `earnings_messages`, `earnings_alerts` —
 see the end of `cloud/scripts/migrate.mjs`.
 
+`earnings_alerts.audience` (2026-10-10) decides who the bot tags in its MODEL
+PERFORMANCE topic: `money` (Paige, Geno, Marinko) for everything out of
+Infloww, `social` (Geno, Iona) for the Instagram reads. It defaults to `money`,
+so every earlier row behaves exactly as it did. The table is shared because the
+bot drains one queue; the column is all that splits the tag lines.
+
+## The weekly story read (2026-10-10)
+
+Scout's daily pass is the only thing that can see Instagram stories at all — a
+story is gone in 24h, so `creator_snapshots` records once a day whether one was
+up, giving days-with-a-story over days-looked-at.
+
+Every **Monday**, `/api/cron/daily` (or `?job=stories`) calls
+`storyCadenceAlerts()` in `cloud/src/lib/performance/stories-job.ts`, which
+writes one `social` alert for Geno and Iona to act on by telling the model
+herself:
+
+- **🔴 Slipping** — under 50% of the days looked at, with **nothing at all**
+  named first and worst-first after that
+- **🟢 Keeping it up** — 80%+, best first
+- 50–79% says nothing; silence beats a message nobody can act on
+- **⏳ Too new to say** — fewer than 3 readings, one line, so a model nobody has
+  looked at never reads as fine
+- A model with **no Instagram handle** is left out entirely: that is a portal
+  gap, not a story habit
+
+Thresholds and wording are pure and tested in `cloud/test/stories.test.ts`;
+`stories.ts` holds them and has no database import. Keyed `stories:<monday>`,
+so a retry in the same week writes nothing twice.
+
 ## Added 2026-09-30 (second round)
 
 - **Monthly recap** (#6) on the 1st (retried the 2nd/3rd) and **milestones** (#5)

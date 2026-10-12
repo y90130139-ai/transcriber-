@@ -153,14 +153,17 @@ export async function addPicksToWeek(planId: string, picks: Pick[]): Promise<{
 
 const isPicture = (item: MediaItem) => item.image !== null && item.video === null
 
+type LibraryPage = { items: LibraryItem[]; total: number }
+type LibraryCacheEntry = { at: number; items: LibraryItem[]; total: number }
+
 /* ---------------------------------------------------------- the cache
    The dialog opens with videos already on screen (Geno, 2026-10-09): the
    wall is warmed while the roster is still being looked at — RosterTab calls
    `prefetchPicks` on mount — and every source is kept in a module cache after
    its first load, so reopening the dialog paints what was already fetched
    while a stale library quietly refreshes behind it. */
-let libraryCache = new Map<string, { at: number; items: LibraryItem[] }>()
-let libraryFlight = new Map<string, Promise<LibraryItem[]>>()
+let libraryCache = new Map<string, LibraryCacheEntry>()
+let libraryFlight = new Map<string, Promise<LibraryPage>>()
 const feedCache: Partial<Record<SourceId, Feed>> = {}
 const feedFlight: Partial<Record<SourceId, Promise<Feed>>> = {}
 
@@ -170,26 +173,45 @@ function libraryRequestKey(filters: Filters, query: string): string {
   return params.toString()
 }
 
-function fetchLibrary(filters = DEFAULT_LIBRARY_FILTERS, query = ''): Promise<LibraryItem[]> {
+function fetchLibrary(filters = DEFAULT_LIBRARY_FILTERS, query = '', offset = 0): Promise<LibraryPage> {
   const key = libraryRequestKey(filters, query)
   const cached = libraryCache.get(key)
-  if (cached && Date.now() - cached.at <= LIBRARY_TTL_MS) return Promise.resolve(cached.items)
-  let flight = libraryFlight.get(key)
+  const fresh = Boolean(cached && Date.now() - cached.at <= LIBRARY_TTL_MS)
+  if (fresh && cached && (offset === 0 || cached.items.length >= offset + LIBRARY_LIMIT || offset >= cached.total)) {
+    return Promise.resolve({
+      items: offset === 0 ? cached.items : cached.items.slice(offset, offset + LIBRARY_LIMIT),
+      total: cached.total,
+    })
+  }
+  if (offset > 0 && !fresh) {
+    return fetchLibrary(filters, query, 0).then(() => fetchLibrary(filters, query, offset))
+  }
+
+  const params = new URLSearchParams(key)
+  params.set('offset', String(offset))
+  const flightKey = params.toString()
+  let flight = libraryFlight.get(flightKey)
   if (!flight) {
-    flight = fetch(`/api/library?${key}`)
+    flight = fetch(`/api/library?${flightKey}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
       .then((body) => {
-        const items = (body.items ?? []).filter((item: LibraryItem) => item.status === 'done')
-        libraryCache.set(key, { at: Date.now(), items })
+        const pageItems = (body.items ?? []).filter((item: LibraryItem) => item.status === 'done')
+        const total = Number(body.total ?? (offset + pageItems.length))
+        const existing: LibraryItem[] = offset === 0 ? [] : libraryCache.get(key)?.items ?? []
+        const seen = new Set(existing.map((item) => item.id))
+        const items = offset === 0
+          ? pageItems
+          : [...existing, ...pageItems.filter((item: LibraryItem) => !seen.has(item.id))]
+        libraryCache.set(key, { at: Date.now(), items, total })
         while (libraryCache.size > 24) {
           const oldest = [...libraryCache].sort((a, b) => a[1].at - b[1].at)[0]
           if (!oldest) break
           libraryCache.delete(oldest[0])
         }
-        return items
+        return { items: pageItems, total }
       })
-      .finally(() => { libraryFlight.delete(key) })
-    libraryFlight.set(key, flight)
+      .finally(() => { libraryFlight.delete(flightKey) })
+    libraryFlight.set(flightKey, flight)
   }
   return flight
 }
@@ -323,10 +345,10 @@ export default function PickVideos({
   onAdded: () => void
 }) {
   const [source, setSource] = useState<SourceId>('library')
-  const [libraryResult, setLibraryResult] = useState<{ key: string; items: LibraryItem[] } | null>(() => {
+  const [libraryResult, setLibraryResult] = useState<{ key: string; items: LibraryItem[]; total: number } | null>(() => {
     const key = libraryRequestKey(DEFAULT_LIBRARY_FILTERS, '')
     const cached = libraryCache.get(key)
-    return cached ? { key, items: cached.items } : null
+    return cached ? { key, items: cached.items, total: cached.total } : null
   })
   const [feeds, setFeeds] = useState<Partial<Record<SourceId, Feed>>>(() => ({ ...feedCache }))
   const [failed, setFailed] = useState(false)
@@ -334,6 +356,8 @@ export default function PickVideos({
   const [settledQuery, setSettledQuery] = useState('')
   const [shown, setShown] = useState(PAGE_SIZE)
   const loadMoreSentinel = useRef<HTMLDivElement>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false)
   const [libraryFilters, setLibraryFilters] = useState<Filters>(DEFAULT_LIBRARY_FILTERS)
   const [feedFilters, setFeedFilters] = useState<FeedFilters>(DEFAULT_FEED_FILTERS)
   const [libraryCreators, setLibraryCreators] = useState<{ handle: string; posts: number }[]>([])
@@ -342,6 +366,7 @@ export default function PickVideos({
 
   const libraryKey = libraryRequestKey(libraryFilters, settledQuery)
   const library = libraryResult?.key === libraryKey ? libraryResult.items : null
+  const libraryTotal = libraryResult?.key === libraryKey ? libraryResult.total : 0
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSettledQuery(query), 220)
@@ -362,7 +387,7 @@ export default function PickVideos({
     let live = true
     setFailed(false)
     void fetchLibrary(libraryFilters, settledQuery)
-      .then((items) => { if (live) setLibraryResult({ key: libraryKey, items }) })
+      .then((page) => { if (live) setLibraryResult({ key: libraryKey, ...page }) })
       .catch(() => { if (live) setFailed(true) })
     return () => { live = false }
   }, [source, libraryKey, libraryFilters, settledQuery])
@@ -412,21 +437,50 @@ export default function PickVideos({
   const visible = items.slice(0, shown)
   const loading = source === 'library' ? library === null : feeds[source] === undefined
   const locked = !planId || !enabled
+  const hasMoreLibrary = source === 'library' && library !== null && library.length < libraryTotal
+
+  const loadNextLibraryPage = useCallback(async () => {
+    if (source !== 'library' || !library || library.length >= libraryTotal || loadingMore) return
+    const requestKey = libraryKey
+    setLoadingMore(true)
+    setLoadMoreFailed(false)
+    try {
+      const page = await fetchLibrary(libraryFilters, settledQuery, library.length)
+      setLibraryResult((current) => {
+        if (!current || current.key !== requestKey) return current
+        const seen = new Set(current.items.map((item) => item.id))
+        const nextItems = page.items.filter((item) => !seen.has(item.id))
+        if (nextItems.length === 0) return { ...current, total: current.items.length }
+        return {
+          ...current,
+          items: [...current.items, ...nextItems],
+          total: page.total,
+        }
+      })
+    } catch {
+      setLoadMoreFailed(true)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [source, library, libraryTotal, loadingMore, libraryKey, libraryFilters, settledQuery])
+
+  useEffect(() => setLoadMoreFailed(false), [source, libraryKey])
 
   useEffect(() => {
     const node = loadMoreSentinel.current
-    if (!node || shown >= items.length) return
+    if (!node || loadingMore || loadMoreFailed || (shown >= items.length && !hasMoreLibrary)) return
 
     const scrollRoot = node.closest('.planpicker-scroll')
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return
       observer.disconnect()
-      setShown((count) => Math.min(items.length, count + PAGE_SIZE))
+      if (shown < items.length) setShown((count) => Math.min(items.length, count + PAGE_SIZE))
+      else if (hasMoreLibrary) void loadNextLibraryPage()
     }, { root: scrollRoot, rootMargin: '320px 0px' })
 
     observer.observe(node)
     return () => observer.disconnect()
-  }, [items.length, shown])
+  }, [items.length, shown, hasMoreLibrary, loadingMore, loadMoreFailed, loadNextLibraryPage])
 
   const shownAllSelected =
     visible.length > 0 &&
@@ -436,7 +490,7 @@ export default function PickVideos({
     [...selection.keys()].filter((key) => key.startsWith(`${id}:`)).length
 
   const sourceCount = (id: SourceId) => {
-    if (id === 'library') return library?.length ?? null
+    if (id === 'library') return library === null ? null : libraryTotal
     return feeds[id]?.items.filter((item) => !isPicture(item) && Boolean(item.url)).length ?? null
   }
 
@@ -768,11 +822,18 @@ export default function PickVideos({
               </div>
             )}
 
-            {shown < items.length && (
+            {(shown < items.length || hasMoreLibrary) && (
               <>
+                {loadMoreFailed && source === 'library' && (
+                  <button type="button" className="btn btn-quiet" onClick={() => void loadNextLibraryPage()}>
+                    Retry loading more
+                  </button>
+                )}
                 <div className="planpicker-sentinel" ref={loadMoreSentinel} aria-hidden="true" />
                 <p className="sr-only" role="status" aria-live="polite">
-                  Showing {visible.length} of {items.length} videos
+                  {loadingMore
+                    ? 'Loading more library videos'
+                    : `Showing ${visible.length} of ${source === 'library' ? libraryTotal : items.length} videos`}
                 </p>
               </>
             )}

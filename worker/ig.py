@@ -24,6 +24,7 @@ import http.cookiejar
 import os
 import random
 import time
+import urllib.parse
 from pathlib import Path
 
 from patchright.sync_api import sync_playwright
@@ -32,8 +33,9 @@ from ofmpro import WorkerStopped
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "./data"))
 
-# One burner is a session; a backup is how a burned one does not end the
-# sweep. Primary first; each keeps its own jar AND its own warm browser state,
+# One burner is a session. A backup may retry missing profiles only after a
+# clean primary pass; any pushback cools down all sessions first.
+# Primary first; each keeps its own jar AND its own warm browser state,
 # so two accounts can never share a session â€” the Mac's registry rule.
 BURNERS = (
     {"label": "main", "jar": "ig-cookies.txt", "state": "ig-state.json",
@@ -42,11 +44,19 @@ BURNERS = (
      "jar_env": "IG_COOKIES_BACKUP_B64", "state_env": "IG_STATE_BACKUP_B64"},
 )
 
-PAUSE_SEC = (8.0, 15.0)
+PAUSE_SEC = (20.0, 35.0)
+BREAK_EVERY = 20
+BREAK_SEC = (60.0, 120.0)
 SETTLE_MS = 5000
 SCROLL_ROUNDS = 2
 NAV_TIMEOUT_MS = 60_000
 WALL = ("/accounts/login", "/challenge")
+
+# The page Instagram serves for a handle it no longer resolves. Kept apart
+# from a real miss: a gone account cannot be retried into existence, and the
+# daily report should name it as deleted or renamed instead of repeating it
+# under "missing" forever.
+GONE_TEXT = ("sorry, this page isn't available", "page not found", "link you followed may be broken")
 
 VIEWPORT = {"width": 1280, "height": 800}
 LOCALE = "en-US"
@@ -124,6 +134,17 @@ def _profiles(node):
     elif isinstance(node, list):
         for value in node:
             yield from _profiles(value)
+
+
+def _pace(index: int, log=print) -> None:
+    """Space profile visits out and take a longer break during large rosters."""
+    if not index:
+        return
+    time.sleep(random.uniform(*PAUSE_SEC))
+    if index % BREAK_EVERY == 0:
+        delay = random.uniform(*BREAK_SEC)
+        log(f"  rate limit: resting {int(delay)}s after {index} profiles")
+        time.sleep(delay)
 
 
 def _media(node):
@@ -264,16 +285,27 @@ class Reader:
             except Exception:
                 pass
 
-    def _visit(self, url: str) -> tuple[dict[str, dict], dict]:
-        """Open a page and keep every post the site fetched, keyed by pk."""
+    def _visit(self, url: str) -> tuple[dict[str, dict], dict, str | None]:
+        """Open a page and keep every post the site fetched, keyed by pk.
+
+        Returns the posts, the account header, and — when the requested
+        handle's own header never arrived — why: "renamed to @x" if Instagram
+        landed on a different username for this address, "gone" if the page is
+        the one it serves for an account that no longer exists, else None. The
+        caller reports that instead of a blanket "header not present".
+        """
         found: dict[str, dict] = {}
         profile: dict = {}
+        headers: dict[str, dict] = {}
         blocked: list[str] = []
+        note: str | None = None
         page = self._ctx.new_page()
 
         def collect(response):
             if "instagram.com" in response.url and response.status in (401, 403, 429):
-                blocked.append(f"Instagram HTTP {response.status} at {response.url.split('?')[0]}")
+                retry_after = response.headers.get("retry-after")
+                retry_note = f" retry-after={retry_after}" if retry_after else ""
+                blocked.append(f"Instagram HTTP {response.status}{retry_note} at {response.url.split('?')[0]}")
                 return
             if "/graphql" not in response.url and "/api/graphql" not in response.url:
                 return
@@ -282,8 +314,14 @@ class Reader:
             except Exception:
                 return
             for who in _profiles(body):
-                if who.get("username", "").lower() == self._want:
-                    profile.update({k: v for k, v in who.items() if v is not None})
+                name = str(who.get("username") or "").lower()
+                if not name:
+                    continue
+                clean = {k: v for k, v in who.items() if v is not None}
+                if name == self._want:
+                    profile.update(clean)
+                else:
+                    headers[name] = clean
             for item in _media(body):
                 key = str(item["pk"])
                 # Merge rather than overwrite: the two tabs carry different
@@ -297,7 +335,7 @@ class Reader:
             if blocked:
                 raise BurnerStopped(blocked[0])
             if any(w in page.url for w in WALL):
-                raise BurnerStopped(f"redirected to {page.url} â€” the burner session needs signing in again")
+                raise BurnerStopped(f"redirected to {page.url} — the burner session needs signing in again")
             for _ in range(SCROLL_ROUNDS):
                 page.mouse.wheel(0, 4000)
                 page.wait_for_timeout(SETTLE_MS)
@@ -312,31 +350,42 @@ class Reader:
             ) if phrase in body_text), None)
             if warning:
                 raise BurnerStopped(f"Instagram warning page: {warning}")
+            if not profile:
+                # The handle's header never arrived: say what the page was
+                # instead of leaving the caller to guess.
+                landed = urllib.parse.urlparse(page.url).path.strip("/").split("/")[0].lower()
+                if landed and landed != self._want and landed in headers:
+                    profile = headers[landed]
+                    note = f"renamed to @{landed}"
+                elif any(marker in body_text for marker in GONE_TEXT):
+                    note = "gone"
         finally:
             try:
                 page.close()
             except Exception:
                 pass
-        return found, profile
+        return found, profile, note
 
     def posts(self, handle: str) -> tuple[list[dict], dict]:
         """Both tabs, merged, plus the account header. Items are the shape
         `to_sighting` and `to_post` expect."""
         self._want = handle.lower()
-        merged, profile = self._visit(f"https://www.instagram.com/{handle}/")
-        more, also = self._visit(f"https://www.instagram.com/{handle}/reels/")
+        merged, profile, _note = self._visit(f"https://www.instagram.com/{handle}/")
+        time.sleep(random.uniform(5.0, 10.0))
+        more, also, _note = self._visit(f"https://www.instagram.com/{handle}/reels/")
         for key, item in more.items():
             merged.setdefault(key, {}).update({k: v for k, v in item.items() if v is not None})
         profile.update({k: v for k, v in also.items() if v is not None})
         return list(merged.values()), profile
 
-    def profile_only(self, handle: str) -> dict:
-        """The header alone â€” one page load, no scrolling. The daily pass:
+    def profile_only(self, handle: str) -> tuple[dict, str | None]:
+        """The header alone — one page load, no scrolling. The daily pass:
         cheap enough for the whole watchlist, and the only way to catch a
-        story before it expires."""
+        story before it expires. The second value says why a header might be
+        absent (see `_visit`)."""
         self._want = handle.lower()
-        _, profile = self._visit(f"https://www.instagram.com/{handle}/")
-        return profile
+        _, profile, note = self._visit(f"https://www.instagram.com/{handle}/")
+        return profile, note
 
 
 def sweep(handles: list[str], cookies_file: Path, state_file: Path,
@@ -350,8 +399,7 @@ def sweep(handles: list[str], cookies_file: Path, state_file: Path,
     stopped: str | None = None
     try:
         for index, handle in enumerate(handles):
-            if index:
-                time.sleep(random.uniform(*PAUSE_SEC))
+            _pace(index, log)
             try:
                 posts, profile = reader.posts(handle)
             except BurnerStopped as error:
@@ -380,31 +428,58 @@ def sweep(handles: list[str], cookies_file: Path, state_file: Path,
 
 
 def light_sweep(handles: list[str], cookies_file: Path, state_file: Path,
-                log=print) -> tuple[list[dict], str | None]:
+                log=print) -> tuple[list[dict], list[str], dict[str, str], dict[str, str], str | None]:
     """The daily pass: one page load each, header only, no scrolling. Stories
-    expire, so a weekly reading can never show one posted midweek."""
+    expire, so a weekly reading can never show one posted midweek.
+
+    Returns (snapshots, missing, gone, renamed, stop reason). `missing` is
+    only handles that failed for an unknown reason; `gone` maps a handle to
+    the reason Instagram no longer serves it (deleted, renamed without a
+    landing username, suspended); `renamed` maps the tracked handle to the
+    username Instagram now lands on. The caller reports the three apart —
+    a gone account is not a refresh that "failed", and retrying it with the
+    backup session is pointless.
+    """
     reader = Reader(cookies_file, state_file)
     snapshots: list[dict] = []
+    missing: list[str] = []
+    gone: dict[str, str] = {}
+    renamed: dict[str, str] = {}
     stopped: str | None = None
     try:
         for index, handle in enumerate(handles):
-            if index:
-                time.sleep(random.uniform(*PAUSE_SEC))
+            _pace(index, log)
             try:
-                profile = reader.profile_only(handle)
+                profile, note = reader.profile_only(handle)
             except BurnerStopped as error:
                 stopped = str(error)
                 log(f"  burner stopped: {error}")
+                missing.extend(handles[index:])
                 break
             except Exception as error:
                 log(f"  ! @{handle}: {str(error)[:120]}")
+                missing.append(handle)
                 continue
             if not profile:
+                if note == "gone":
+                    gone[handle] = "gone"
+                    log(f"  ! @{handle}: Instagram says this page is not available")
+                else:
+                    log(f"  ! @{handle}: profile header was not present in Instagram response")
+                    missing.append(handle)
                 continue
             snap = to_snapshot(profile, handle)
+            if snap["followers"] is None:
+                log(f"  ! @{handle}: profile header had no follower count")
+                missing.append(handle)
+                continue
             snapshots.append(snap)
-            log(f"  @{handle}: {snap['followers']} followers Â· "
-                f"{'story ' + (snap['story_at'] or '') if snap['has_story'] else 'no story'}")
+            if note and note.startswith("renamed to @"):
+                renamed[handle] = note.removeprefix("renamed to @")
+                log(f"  @{handle}: {snap['followers']} followers Â· {note}")
+            else:
+                log(f"  @{handle}: {snap['followers']} followers Â· "
+                    f"{'story ' + (snap['story_at'] or '') if snap['has_story'] else 'no story'}")
     finally:
         reader.close()
-    return snapshots, stopped
+    return snapshots, list(dict.fromkeys(missing)), gone, renamed, stopped

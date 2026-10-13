@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const links = extractLinks(text)
   if (links.length === 0) {
     return NextResponse.json(
-      { error: 'No Instagram, TikTok or YouTube links in that paste.' },
+      { error: 'No supported links in that paste.' },
       { status: 400 },
     )
   }
@@ -63,6 +63,17 @@ export async function POST(request: Request) {
     ],
   )
 
+  // Every link's job id — the ones this paste created and the ones already
+  // held — so the Add content composer can pin a pasted reference onto the
+  // cards it lands in the same breath (Geno, 2026-10-13). The old contract
+  // (added / skipped) is untouched; this is additive.
+  const heldIds = await sql.query(
+    `select id, source_key from transcriber.jobs where source_key = any($1::text[])`,
+    [links],
+  )
+  const idByKey = new Map(heldIds.map((row) => [String(row.source_key), String(row.id)]))
+  const linkJobs = links.map((url) => ({ url, job_id: idByKey.get(url) ?? null }))
+
   // The picked format tags every link in the paste — new and already-held —
   // with the team's word on it (origin 'human'), so the retagger leaves it.
   if (format) {
@@ -101,6 +112,23 @@ export async function POST(request: Request) {
     const jobIds = held.map((job) => String(job.id))
     attached = await appendItems(String(plan.id), String(plan.model_id), jobIds)
     if (attached > 0) {
+      // A named paste — a German playbook pick, or a name typed in — names
+      // its cards before the Mac has fetched anything (Geno, 2026-10-13). A
+      // bare link keeps the job id for a minute rather than a URL as a title.
+      const namedIds = links
+        .filter((link) => label(link) !== labelFor(link))
+        .map((link) => idByKey.get(link))
+        .filter((id): id is string => Boolean(id))
+      if (namedIds.length > 0) {
+        await sql.query(
+          `update transcriber.plan_items i
+              set title = j.label
+             from transcriber.jobs j
+            where j.id = i.job_id and i.plan_id = $1
+              and i.title is null and i.job_id = any($2::text[])`,
+          [String(plan.id), namedIds],
+        )
+      }
       const landed = await sql.query(
         `select id, card_no from transcriber.plan_items
           where plan_id = $1 and job_id = any($2::text[])
@@ -120,5 +148,6 @@ export async function POST(request: Request) {
     attached,
     cards,
     jobs: rows,
+    links: linkJobs,
   })
 }

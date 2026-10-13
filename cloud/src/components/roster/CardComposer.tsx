@@ -41,6 +41,14 @@ export type AddedCard = {
   source: string | null
   card_no: number | null
   has_thumb?: boolean
+  /** The content-style lane it landed under (lib/styles.ts, 2026-10-12) —
+   *  the Add content composer's cards carry one, the older tiles leave it null. */
+  style?: string | null
+  hook?: string | null
+  caption?: string | null
+  wardrobe?: string | null
+  editing_notes?: string | null
+  location?: string | null
 }
 
 type Draft = {

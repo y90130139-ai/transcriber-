@@ -7,6 +7,7 @@ import { labelOf, taxonomy } from '@/lib/taxonomy'
 import { explainOutperformance } from '@/lib/outperformance'
 import Scorecard from './Scorecard'
 import WhyChips from './WhyChips'
+import AddToPlan from './roster/AddToPlan'
 import type { Why } from '@/lib/reasons'
 
 type Profile = { handle: string; display_name: string | null; persona: string[]; note: string | null }
@@ -227,6 +228,10 @@ export default function CreatorSheet({
                       )}
                       {post.preview && <p className="creatordialog-line">{post.preview}</p>}
                       <WhyChips why={post.why} />
+                      {/* The whole point of a top performer (Geno, 2026-10-13):
+                          it can go on one of our weeks without a trip to the
+                          Library, the plan editor and back. */}
+                      <AddToPlan jobId={post.id} />
                     </div>
                   </li>
                 ))}

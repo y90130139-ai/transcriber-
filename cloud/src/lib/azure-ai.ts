@@ -16,6 +16,8 @@
 const MAX_OUTPUT_TOKENS = 900
 const TIMEOUT_MS = 120_000
 
+export type AzureMessage = { role: 'system' | 'user' | 'assistant'; content: string }
+
 export function azureReady(): boolean {
   return Boolean(process.env.AZURE_AI_FOUNDRY_ENDPOINT?.trim() && process.env.AZURE_AI_FOUNDRY_API_KEY?.trim())
 }
@@ -24,19 +26,15 @@ function isReasoningModel(model: string): boolean {
   return /gpt-5|o1|o3|o4|reasoner/i.test(model)
 }
 
-export async function azureChat(system: string, user: string): Promise<string> {
+async function complete(messages: AzureMessage[], modelOverride?: string): Promise<string> {
   const base = process.env.AZURE_AI_FOUNDRY_ENDPOINT?.trim().replace(/\/+$/, '')
   const key = process.env.AZURE_AI_FOUNDRY_API_KEY?.trim()
   if (!base || !key) throw new Error('Azure AI Foundry is not configured — set AZURE_AI_FOUNDRY_ENDPOINT and AZURE_AI_FOUNDRY_API_KEY')
 
-  const model = process.env.AZURE_AI_FOUNDRY_DEPLOYMENT?.trim() || 'gpt-5.4'
-  const payload: Record<string, unknown> = {
-    model,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  }
+  // A feature may pin its own deployment (the rail search runs on gpt-5.2,
+  // Geno 2026-10-13); everything else rides AZURE_AI_FOUNDRY_DEPLOYMENT.
+  const model = modelOverride?.trim() || process.env.AZURE_AI_FOUNDRY_DEPLOYMENT?.trim() || 'gpt-5.4'
+  const payload: Record<string, unknown> = { model, messages }
   if (isReasoningModel(model)) {
     payload.max_completion_tokens = MAX_OUTPUT_TOKENS
   } else {
@@ -69,4 +67,17 @@ export async function azureChat(system: string, user: string): Promise<string> {
       ? content.map((part) => (part as { text?: string })?.text ?? '').join('')
       : ''
   return text.trim()
+}
+
+export function azureChat(system: string, user: string, model?: string): Promise<string> {
+  return complete([
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ], model)
+}
+
+/** A whole conversation instead of one turn (2026-10-13): the studio
+ *  assistant carries the last exchanges, so follow-ups land. */
+export function azureChatMessages(messages: AzureMessage[], model?: string): Promise<string> {
+  return complete(messages, model)
 }

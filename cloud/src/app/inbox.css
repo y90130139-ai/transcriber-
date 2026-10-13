@@ -1,0 +1,1380 @@
+/* ============================================================
+   THE INBOX (Geno, 2026-10-12; Inter + bigger, 2026-10-13)
+
+   A mail client in one colour: ink on the dark ground, no hues,
+   no ember, no rainbow. Photos are the only colour in the house
+   - real faces when a model has one, quiet initials when not.
+   Scoped to .inbox-full so no other page moves an inch.
+
+   Type: Inter, generous sizes. Geist Mono for the small machine
+   voice (times, counts, labels). Copy kept to labels; nothing
+   explains itself.
+
+   Right-click on the left list: mark unread, mute, delete. Right
+   click on your own message: edit, delete. The popup card fades
+   in and out.
+
+   Motion: ix-out for entrances, ix-spring for presses and pops.
+   Reduced motion is honoured globally (tokens.css).
+   ============================================================ */
+
+.console .page-flush .inbox-full {
+  font-family: var(--font-inter), var(--sc-font-text);
+  font-size: 15px;
+  letter-spacing: -0.014em;
+  --ix-hair: color-mix(in srgb, var(--sc-ink-900) 9%, transparent);
+  --ix-hair-2: color-mix(in srgb, var(--sc-ink-900) 16%, transparent);
+  --ix-surface: color-mix(in srgb, var(--sc-ink-900) 4%, transparent);
+  --ix-surface-2: color-mix(in srgb, var(--sc-ink-900) 7.5%, transparent);
+  --ix-mono: var(--font-geist-mono), var(--sc-font-mono);
+  --ix-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ix-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: var(--sc-bone);
+}
+
+.console .page-flush .inbox-full button,
+.console .page-flush .inbox-full input,
+.console .page-flush .inbox-full textarea {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.ix-dialog {
+  font-family: var(--font-inter), var(--sc-font-text);
+  letter-spacing: -0.014em;
+}
+
+.inbox-full ::selection { background: color-mix(in srgb, var(--sc-ink-900) 22%, transparent); }
+
+/* ---------------------------------------------------------- keyframes */
+@keyframes ix-rise {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ix-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ix-flash {
+  0%   { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ink-900) 30%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sc-ink-900) 0%, transparent); }
+}
+@keyframes ix-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@keyframes ix-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes ix-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ix-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes ix-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ix-card-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+@keyframes ix-menu-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ix-menu-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: scale(0.97) translateY(-3px); }
+}
+
+.ix-scroll { scrollbar-width: thin; scrollbar-color: var(--ix-hair-2) transparent; }
+.ix-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.ix-scroll::-webkit-scrollbar-track { background: transparent; }
+.ix-scroll::-webkit-scrollbar-thumb {
+  background: var(--ix-hair-2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ix-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--sc-ink-300); }
+
+/* ================================================================
+   PANE 1 - THE LIST
+   ================================================================ */
+
+.ix-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--ix-hair);
+  background: color-mix(in srgb, var(--sc-ink-900) 1.5%, transparent);
+}
+
+.ix-list-head { padding: 19px 16px 14px; display: grid; gap: 14px; }
+
+.ix-list-title { display: flex; align-items: center; gap: 8px; }
+.ix-list-title h2 {
+  margin: 0;
+  font-family: var(--font-inter), var(--sc-font-text);
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.038em;
+  color: var(--sc-ink-900);
+}
+.ix-title-n {
+  font-family: var(--ix-mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--sc-ink-300);
+  margin-top: 4px;
+  animation: ix-rise 0.4s var(--ix-out);
+}
+.ix-title-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+
+.ix-compose {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-ink-900);
+  background: var(--sc-ink-900);
+  color: #171717;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s var(--ix-spring), filter 0.2s ease;
+}
+.ix-compose:hover { transform: translateY(-1px) scale(1.05); filter: brightness(1.06); }
+.ix-compose:active { transform: scale(0.92); }
+
+.ix-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--ix-hair);
+  background: var(--ix-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.ix-search svg { position: absolute; left: 15px; color: var(--sc-ink-300); pointer-events: none; }
+.ix-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--sc-ink-900);
+  font-size: 14.5px;
+  padding: 0 15px 0 40px;
+}
+.ix-search input::placeholder { color: var(--sc-ink-300); }
+.ix-search:focus-within {
+  border-color: var(--ix-hair-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ink-900) 10%, transparent);
+  background: var(--ix-surface-2);
+}
+
+/* Tabs: one light pill for the active filter, quiet text for the rest. */
+.ix-tabs { display: flex; align-items: center; gap: 4px; }
+.ix-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--sc-ink-300);
+  font-size: 13.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-tab:hover { color: var(--sc-ink-700); background: var(--ix-surface); }
+.ix-tab:active { transform: scale(0.96); }
+.ix-tab[data-on='true'] { background: var(--sc-ink-900); color: #171717; }
+.ix-tab b {
+  margin-left: 6px;
+  font-family: var(--ix-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0.55;
+}
+
+.ix-rows { flex: 1; overflow-y: auto; border-top: 1px solid var(--ix-hair); }
+
+/* One thread. No stripe, no glare: the open row lifts its ground, hover
+   brightens it a touch. */
+.ix-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border: 0;
+  border-bottom: 1px solid var(--ix-hair);
+  background: none;
+  cursor: pointer;
+  transition: background 0.16s ease;
+  animation: ix-rise 0.5s var(--ix-out) backwards;
+}
+.ix-row:hover { background: var(--ix-surface); }
+.ix-row[data-open='true'] { background: var(--ix-surface-2); }
+
+/* Faces: a real photo when we have one, initials when we do not. */
+.ix-face { position: relative; flex: none; display: inline-grid; }
+.ix-av {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  flex: none;
+  overflow: hidden;
+  background: var(--ix-surface-2);
+  color: var(--sc-ink-500);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  font-family: var(--ix-mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 0.24s var(--ix-spring);
+}
+.ix-row:hover .ix-av { transform: scale(1.05); }
+.ix-av img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ix-av--photo { box-shadow: 0 0 0 1px var(--ix-hair-2); }
+.ix-av--lg { width: 52px; height: 52px; font-size: 15px; }
+.ix-av--s { width: 36px; height: 36px; font-size: 11.5px; }
+.ix-av--xs { width: 28px; height: 28px; font-size: 9.5px; }
+.ix-av--tiny { width: 22px; height: 22px; font-size: 8px; }
+
+/* The unread dot floats OUTSIDE the face, sitting on the rim. */
+.ix-dot {
+  position: absolute;
+  z-index: 1;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--sc-ink-900);
+  box-shadow: 0 0 0 2.5px var(--sc-bone);
+}
+
+.ix-row-body { min-width: 0; display: grid; gap: 4px; align-content: center; }
+.ix-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ix-row-name {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--sc-ink-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-row[data-unread='true'] .ix-row-name { color: var(--sc-ink-900); }
+.ix-row-time { flex: none; font-family: var(--ix-mono); font-size: 11px; color: var(--sc-ink-300); }
+.ix-row[data-unread='true'] .ix-row-time { color: var(--sc-ink-700); }
+.ix-row-prev {
+  font-size: 13.5px;
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-row[data-unread='true'] .ix-row-prev { color: var(--sc-ink-500); }
+.ix-row-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
+
+/* Quiet pills - one shape, no hues. */
+.ix-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--sc-ink-300);
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  font-family: var(--ix-mono);
+  font-size: 10px;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Loading: skeleton rows with a shimmer, never the word "Loading". */
+.ix-sk {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ix-hair);
+}
+.ix-sk-av { width: 46px; height: 46px; border-radius: 999px; }
+.ix-sk-lines { display: grid; gap: 8px; align-content: center; }
+.ix-sk-lines i { display: block; height: 12px; border-radius: 999px; }
+.ix-sk-lines i:first-child { width: 56%; }
+.ix-sk-lines i:last-child { width: 84%; height: 10px; }
+.ix-sk-av, .ix-sk-lines i {
+  background: linear-gradient(100deg, var(--ix-surface) 32%, var(--ix-surface-2) 50%, var(--ix-surface) 68%);
+  background-size: 200% 100%;
+  animation: ix-shimmer 1.5s linear infinite;
+}
+
+.ix-empty {
+  display: grid;
+  place-items: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 46px 22px;
+  text-align: center;
+  color: var(--sc-ink-300);
+  animation: ix-rise 0.5s var(--ix-out);
+}
+.ix-empty-glyph {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  color: var(--sc-ink-300);
+}
+.ix-empty b { font-size: 15px; font-weight: 600; color: var(--sc-ink-700); letter-spacing: -0.015em; }
+
+/* ================================================================
+   PANE 2 - THE CONVERSATION
+   ================================================================ */
+
+.ix-convo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc-ink-900) 2.5%, transparent), transparent 320px);
+}
+
+.ix-convo-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ix-hair);
+  animation: ix-rise 0.42s var(--ix-out) backwards;
+}
+
+.ix-stack { display: flex; align-items: center; flex: none; }
+.ix-stack > * { margin-left: -10px; box-shadow: 0 0 0 2.5px var(--sc-bone); border-radius: 999px; }
+.ix-stack > *:first-child { margin-left: 0; }
+.ix-stack .ix-more {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: var(--ix-surface-2);
+  color: var(--sc-ink-300);
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  box-shadow: 0 0 0 2.5px var(--sc-bone);
+}
+
+.ix-head-text { min-width: 0; display: grid; gap: 2px; }
+.ix-head-name {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.026em;
+  color: var(--sc-ink-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-head-sub {
+  font-family: var(--ix-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ix-head-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; flex: none; }
+
+.ix-iconbtn {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid var(--ix-hair);
+  background: var(--ix-surface);
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-iconbtn:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); border-color: var(--ix-hair-2); }
+.ix-iconbtn:active { transform: scale(0.9); }
+.ix-iconbtn[data-busy='true'] svg { animation: ix-spin 0.8s linear infinite; }
+
+.ix-pill {
+  height: 38px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--ix-hair);
+  background: var(--ix-surface);
+  color: var(--sc-ink-700);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-pill:hover { background: var(--ix-surface-2); border-color: var(--ix-hair-2); color: var(--sc-ink-900); }
+.ix-pill:active { transform: scale(0.95); }
+
+.ix-stream {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: 18px 22px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overscroll-behavior: contain;
+}
+
+.ix-day {
+  position: sticky;
+  top: 4px;
+  z-index: 2;
+  align-self: center;
+  margin: 12px 0 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sc-bone) 86%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ix-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 5px 0;
+  animation: ix-pop 0.5s var(--ix-out) backwards;
+}
+.ix-msg[data-side='model'] { align-self: flex-start; max-width: min(660px, 84%); }
+.ix-msg[data-side='team'] { align-self: flex-end; flex-direction: row-reverse; max-width: min(660px, 84%); }
+.ix-msg-col { min-width: 0; max-width: 100%; display: grid; gap: 5px; justify-items: start; }
+.ix-msg[data-side='team'] .ix-msg-col { justify-items: end; }
+
+.ix-msg-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--sc-ink-300);
+}
+.ix-msg-meta b { font-weight: 550; color: var(--sc-ink-500); }
+
+.ix-bubble {
+  max-width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 11px 15px;
+  border-radius: 18px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--sc-ink-700);
+}
+.ix-msg[data-side='model'] .ix-bubble {
+  background: color-mix(in srgb, var(--sc-ink-900) 6.5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  border-bottom-left-radius: 5px;
+}
+.ix-msg[data-side='team'] .ix-bubble {
+  background: var(--sc-ink-900);
+  color: #171717;
+  border-bottom-right-radius: 5px;
+  cursor: context-menu;
+}
+.ix-bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ix-msg--flash .ix-bubble { animation: ix-flash 1.3s ease-out; }
+
+/* A deleted message: a quiet tombstone in the same place. */
+.ix-bubble--gone,
+.ix-msg[data-side='team'] .ix-bubble--gone {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  color: var(--sc-ink-300);
+  font-style: italic;
+  cursor: default;
+}
+
+/* A forwarded copy wears its mark; a reply quotes what it answers. */
+.ix-fwd {
+  font-family: var(--ix-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.ix-bubble .ix-quote {
+  display: grid;
+  gap: 2px;
+  max-width: 100%;
+  padding: 7px 11px;
+  border-radius: 10px;
+  border-left: 2px solid currentColor;
+  background: color-mix(in srgb, var(--ix-hair) 40%, transparent);
+  font-size: 12.5px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+.ix-msg[data-side='team'] .ix-bubble .ix-quote {
+  background: color-mix(in srgb, #171717 12%, transparent);
+}
+.ix-quote b { font-weight: 550; }
+.ix-quote i {
+  font-style: normal;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The tapbacks, under the bubble they belong to (2026-10-13). */
+.ix-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -6px;
+}
+.ix-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sc-ink-900) 7%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  font-size: 13px;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s var(--ix-spring);
+}
+.ix-reaction:hover {
+  background: color-mix(in srgb, var(--sc-ink-900) 12%, transparent);
+  transform: translateY(-1px);
+}
+.ix-reaction b {
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--sc-ink-500);
+}
+.ix-reaction[data-mine] {
+  background: color-mix(in srgb, var(--sc-ink-900) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc-ink-900) 34%, transparent);
+}
+
+/* The quiet react dot beside a message's time — anyone in the room can
+   tap back, several people the same emoji (2026-10-13). */
+.ix-react-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.13s ease, color 0.13s ease, background 0.13s ease;
+}
+.ix-msg:hover .ix-react-open { opacity: 1; }
+.ix-react-open:hover {
+  background: var(--ix-surface-2);
+  color: var(--sc-ink-900);
+  opacity: 1;
+}
+
+/* The reaction bar: one row of emoji, the same card voice as the menu. */
+.ix-react-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  animation: ix-fade-in 0.12s ease;
+}
+.ix-react-bar {
+  position: fixed;
+  z-index: 71;
+  display: flex;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 999px;
+  background: var(--sc-bone-light);
+  box-shadow: inset 0 0 0 1px var(--ix-hair-2), var(--sc-lift-3);
+  max-width: calc(100vw - 16px);
+  animation: ix-menu-in 0.16s var(--ix-out);
+  transform-origin: top left;
+}
+.ix-react-bar button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s var(--ix-spring);
+}
+.ix-react-bar button:hover {
+  background: var(--ix-surface-2);
+  transform: scale(1.18);
+}
+
+/* Editing your own message, in place. */
+.ix-edit { display: grid; gap: 8px; }
+.ix-edit textarea {
+  width: min(440px, 100%);
+  min-height: 64px;
+  resize: none;
+  border: 1px solid color-mix(in srgb, var(--sc-bone) 35%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sc-bone) 8%, transparent);
+  color: #171717;
+  font-size: 14.5px;
+  line-height: 1.5;
+  padding: 9px 11px;
+  outline: none;
+}
+.ix-edit textarea:focus { border-color: color-mix(in srgb, var(--sc-bone) 55%, transparent); }
+.ix-edit-actions { display: flex; justify-content: flex-end; gap: 7px; }
+.ix-edit-actions button {
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s var(--ix-spring), filter 0.18s ease;
+}
+.ix-edit-actions button:active { transform: scale(0.95); }
+.ix-edit-cancel {
+  border: 1px solid color-mix(in srgb, var(--sc-bone) 35%, transparent);
+  background: none;
+  color: #171717;
+}
+.ix-edit-save {
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--sc-bone) 92%, transparent);
+  color: #171717;
+}
+.ix-edit-save:hover { filter: brightness(1.05); }
+
+.ix-att-img {
+  display: block;
+  max-width: min(300px, 100%);
+  max-height: 420px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  cursor: zoom-in;
+  transition: transform 0.25s var(--ix-out), filter 0.25s ease;
+}
+.ix-att-img:hover { transform: scale(1.015); filter: brightness(1.09); }
+video.ix-att-video {
+  display: block;
+  max-width: min(320px, 100%);
+  max-height: 440px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+}
+audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
+.ix-att-audio-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border-radius: 12px;
+  background: var(--ix-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+}
+.ix-att-audio-wrap > span {
+  font-family: var(--ix-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  flex: none;
+}
+.ix-att-audio-wrap audio { flex: 1; min-width: 0; }
+
+/* ---------------------------------------------------------- composer */
+.ix-composer { padding: 11px 18px 14px; border-top: 1px solid var(--ix-hair); display: grid; gap: 8px; }
+.ix-composer-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px 7px 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--ix-hair);
+  background: var(--ix-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.ix-composer-bar:focus-within {
+  border-color: var(--ix-hair-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ink-900) 9%, transparent);
+  background: var(--ix-surface-2);
+}
+.ix-composer textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: min(150px, 26vh);
+  resize: none;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--sc-ink-900);
+  font-size: 14.5px;
+  line-height: 1.5;
+  padding: 11px 0;
+}
+.ix-composer textarea::placeholder { color: var(--sc-ink-300); }
+
+.ix-attach {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 15px;
+  border: 1px solid var(--ix-hair);
+  background: none;
+  color: var(--sc-ink-300);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-attach:hover:not(:disabled) { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+.ix-attach:active:not(:disabled) { transform: scale(0.9); }
+.ix-attach:disabled { opacity: 0.5; cursor: default; }
+
+.ix-send {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 15px;
+  border: 1px solid var(--sc-ink-900);
+  background: var(--sc-ink-900);
+  color: #171717;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s var(--ix-spring), filter 0.2s ease, opacity 0.2s ease;
+}
+.ix-send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
+.ix-send:active:not(:disabled) { transform: scale(0.88); }
+.ix-send:disabled { opacity: 0.28; cursor: default; }
+
+.ix-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 4px 5px 4px 12px;
+  border-radius: 999px;
+  background: var(--ix-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ix-hair-2);
+  font-size: 13px;
+  color: var(--sc-ink-700);
+  animation: ix-rise 0.3s var(--ix-out);
+}
+.ix-pending b { font-weight: 600; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ix-pending button {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 0;
+  background: none;
+  color: var(--sc-ink-300);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ix-pending button:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+
+.ix-footline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 3px;
+  font-size: 12.5px;
+  color: var(--sc-ink-300);
+}
+.ix-footline[data-tone='bad'] { color: var(--sc-critical); }
+
+/* ================================================================
+   PANE 3 - THE RAIL
+   ================================================================ */
+
+.ix-rail {
+  border-left: 1px solid var(--ix-hair);
+  padding: 16px 14px 26px;
+  overflow-y: auto;
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
+/* A system note ("Geno has been added") sits in the middle of the stream. */
+.ix-sys {
+  align-self: center;
+  margin: 9px auto;
+  padding: 4px 13px;
+  border-radius: 999px;
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  color: var(--sc-ink-300);
+  font-size: 12px;
+  text-align: center;
+  max-width: 78%;
+  animation: ix-rise 0.4s var(--ix-out) backwards;
+}
+
+/* The thread at a glance: one face, one name, one label. */
+.ix-hero {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px;
+  border-radius: 18px;
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  animation: ix-rise 0.5s var(--ix-out) backwards;
+}
+.ix-hero-face { position: relative; flex: none; display: inline-grid; }
+.ix-hero-shot {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--ix-hair-2);
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-500);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.18s ease, transform 0.2s var(--ix-spring), color 0.16s ease;
+}
+.ix-hero-face:hover .ix-hero-shot,
+.ix-hero-shot:focus-visible,
+.ix-hero-shot:disabled { opacity: 1; transform: none; }
+.ix-hero-shot:hover { color: var(--sc-ink-900); }
+.ix-hero-shot:disabled { opacity: 0.6; cursor: default; }
+.ix-hero-rename { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ix-hero-input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--ix-hair-2);
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+.ix-hero-input:focus { border-color: color-mix(in srgb, var(--sc-ink-900) 40%, transparent); }
+.ix-hero-save {
+  flex: none;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-ink-900);
+  background: var(--sc-ink-900);
+  color: #171717;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s var(--ix-spring), filter 0.18s ease;
+}
+.ix-hero-save:hover { filter: brightness(1.06); }
+.ix-hero-save:active { transform: scale(0.94); }
+.ix-hero-pencil {
+  margin-left: auto;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--sc-ink-300);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-hero-pencil:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+.ix-hero-pencil:active { transform: scale(0.92); }
+.ix-hero-text { min-width: 0; display: grid; gap: 3px; }
+.ix-hero-text b {
+  font-size: 16.5px;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  color: var(--sc-ink-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-hero-text span {
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ix-sec { display: grid; gap: 7px; animation: ix-rise 0.5s var(--ix-out) backwards; }
+.ix-sec-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ix-person {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 8px;
+  border-radius: 13px;
+  transition: background 0.16s ease;
+}
+.ix-person:hover { background: var(--ix-surface); }
+.ix-person-text { min-width: 0; display: grid; gap: 1px; }
+.ix-person-text b {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--sc-ink-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-person .ix-chip { margin-left: auto; flex: none; }
+
+.ix-detail {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 4px;
+  font-size: 13px;
+  color: var(--sc-ink-300);
+}
+.ix-detail b { font-family: var(--ix-mono); font-size: 12px; font-weight: 500; color: var(--sc-ink-700); font-variant-numeric: tabular-nums; }
+
+.ix-files { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ix-file {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border: 0;
+  padding: 0;
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--ix-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  cursor: pointer;
+  transition: transform 0.24s var(--ix-out), box-shadow 0.24s ease;
+  animation: ix-rise 0.5s var(--ix-out) backwards;
+}
+.ix-file:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--ix-hair-2), var(--sc-lift-2); }
+.ix-file img, .ix-file video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ix-file--doc { display: grid; place-items: center; }
+.ix-file--doc > span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px;
+  font-family: var(--ix-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.ix-file-tag {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 19px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sc-bone) 78%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--sc-ink-500);
+  font-family: var(--ix-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ix-file-time {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sc-bone) 78%, transparent);
+  backdrop-filter: blur(6px);
+  font-family: var(--ix-mono);
+  font-size: 9.5px;
+  color: var(--sc-ink-500);
+}
+
+/* ================================================================
+   THE RIGHT-CLICK MENU
+   ================================================================ */
+
+.ix-menu-veil { position: fixed; inset: 0; z-index: 70; animation: ix-fade-in 0.14s ease; }
+.ix-menu-veil[data-closing='true'] { animation: ix-fade-out 0.15s ease forwards; }
+.ix-menu {
+  position: fixed;
+  z-index: 71;
+  width: 224px;
+  height: 148px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--sc-bone-light);
+  box-shadow: inset 0 0 0 1px var(--ix-hair-2), var(--sc-lift-3);
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  overflow: hidden;
+  animation: ix-menu-in 0.16s var(--ix-out);
+  transform-origin: top left;
+}
+.ix-menu[data-closing='true'] { animation: ix-menu-out 0.15s ease forwards; }
+.ix-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--sc-ink-700);
+  font-size: 13.5px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease;
+}
+.ix-menu button:hover { background: var(--ix-surface-2); color: var(--sc-ink-900); }
+.ix-menu button svg { color: var(--sc-ink-300); flex: none; }
+.ix-menu button:hover svg { color: var(--sc-ink-900); }
+.ix-menu .ix-menu-danger { color: var(--sc-critical); }
+.ix-menu .ix-menu-danger:hover { background: color-mix(in srgb, var(--sc-critical) 14%, transparent); color: var(--sc-critical); }
+.ix-menu .ix-menu-danger svg { color: var(--sc-critical); }
+.ix-menu-sep { height: 1px; margin: 4px 6px; background: var(--ix-hair); }
+
+/* ================================================================
+   THE PICKER (new message / add people) - fades in and out
+   ================================================================ */
+
+.ix-modal-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: ix-fade-in 0.18s ease;
+}
+.ix-modal-veil[data-closing='true'] { animation: ix-fade-out 0.18s ease forwards; }
+.ix-modal-card { animation: ix-card-in 0.26s var(--ix-out); }
+.ix-modal-card[data-closing='true'] { animation: ix-card-out 0.18s ease forwards; }
+
+.ix-pick-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  animation: ix-rise 0.3s var(--ix-out);
+}
+.ix-pick-tray:empty { display: none; }
+.ix-tray-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 31px;
+  padding: 0 5px 0 5px;
+  border-radius: 999px;
+  background: var(--ix-surface-2);
+  box-shadow: inset 0 0 0 1px var(--ix-hair-2);
+  color: var(--sc-ink-700);
+  font-size: 12.5px;
+  font-weight: 550;
+  animation: ix-rise 0.25s var(--ix-spring);
+}
+.ix-tray-chip button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--sc-ink-300);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ix-tray-chip button:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+
+/* The people list: rows, not a chip cloud (Geno, 2026-10-13). */
+.ix-people { display: grid; gap: 14px; max-height: 384px; overflow-y: auto; padding-right: 2px; }
+.ix-group { display: grid; gap: 3px; }
+.ix-group-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 5px;
+  font-family: var(--ix-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.ix-group-name b { font-weight: 500; opacity: 0.7; }
+.ix-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: none;
+  color: var(--sc-ink-700);
+  font-size: 14px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.2s var(--ix-spring);
+  animation: ix-rise 0.3s var(--ix-out) backwards;
+}
+.ix-choice:hover { background: var(--ix-surface); }
+.ix-choice:active { transform: scale(0.985); }
+.ix-choice[data-on='true'] { background: var(--ix-surface-2); border-color: var(--ix-hair-2); }
+.ix-choice-text { min-width: 0; display: grid; gap: 1px; }
+.ix-choice-text b {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--sc-ink-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-choice[data-on='true'] .ix-choice-text b { color: var(--sc-ink-900); }
+.ix-choice-text small {
+  font-family: var(--ix-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.ix-choice-mark {
+  margin-left: auto;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--sc-ink-300);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.2s var(--ix-spring);
+}
+.ix-choice[data-on='true'] .ix-choice-mark {
+  background: var(--sc-ink-900);
+  color: #171717;
+  box-shadow: none;
+  transform: scale(1.05);
+}
+.ix-people-empty { padding: 8px 4px; font-size: 13px; color: var(--sc-ink-300); }
+
+/* ================================================================
+   THE VIEWER - tap an image, see it full, download it
+   ================================================================ */
+
+.ix-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.84);
+  display: grid;
+  place-items: center;
+  padding: 60px 18px 24px;
+  animation: ix-fade-in 0.18s ease;
+}
+.ix-viewer img {
+  max-width: min(1100px, 94vw);
+  max-height: min(84vh, 900px);
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  animation: ix-card-in 0.24s var(--ix-out);
+}
+.ix-viewer-bar {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ix-viewer-name {
+  margin-right: auto;
+  min-width: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ix-viewer-bar button {
+  height: 38px;
+  flex: none;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(23, 23, 23, 0.55);
+  backdrop-filter: blur(8px);
+  color: #ede9e3;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-viewer-bar button:hover { background: rgba(255, 255, 255, 0.16); }
+.ix-viewer-bar button:active { transform: scale(0.95); }
+.ix-viewer-x { width: 38px; padding: 0; display: grid; place-items: center; }
+
+/* ================================================================
+   SMALL SCREENS - one pane at a time (Geno, 2026-10-13)
+   ================================================================ */
+
+.ix-back { display: none; }
+
+@media (max-width: 899px) {
+  .ix-back { display: inline-grid; }
+  .ix-list { border-right: 0; }
+  .inbox-full[data-view='list'] .ix-convo { display: none; }
+  .inbox-full[data-view='convo'] .ix-list { display: none; }
+  .inbox-full[data-view='convo'] .ix-convo { animation: ix-fade-in 0.22s ease; }
+  .inbox-full[data-view='list'] .ix-list { animation: ix-fade-in 0.22s ease; }
+
+  .ix-list-head { padding: 14px 14px 12px; gap: 12px; }
+  .ix-list-title h2 { font-size: 21px; }
+  .ix-row { padding: 14px; gap: 12px; }
+  .ix-convo-head { padding: 12px 14px; gap: 10px; }
+  .ix-head-name { font-size: 16px; }
+  .ix-stream { padding: 14px 14px 6px; }
+  .ix-composer { padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); }
+  .ix-msg[data-side='model'] { max-width: 92%; }
+  .ix-msg[data-side='team'] { max-width: 92%; }
+  .ix-att-img { max-width: min(250px, 100%); max-height: 340px; }
+  video.ix-att-video { max-width: min(260px, 100%); max-height: 360px; }
+  .ix-viewer { padding: 64px 10px 18px; }
+}
+
+/* ================================================================
+   SHORT WINDOWS - wide and squat is still a shape (Geno, 2026-10-13).
+   Chrome shrinks, the composer keeps its head, and nothing overflows
+   the fold.
+   ================================================================ */
+
+@media (max-height: 700px) {
+  .ix-convo-head { padding: 9px 18px; }
+  .ix-stack > * { box-shadow: 0 0 0 2px var(--sc-bone); }
+  .ix-stream { padding-top: 10px; }
+  .ix-day { margin: 7px 0 5px; }
+  .ix-msg { padding: 3px 0; }
+  .ix-composer { padding: 8px 18px 10px; }
+  .ix-composer textarea { min-height: 38px; padding: 8px 0; }
+  .ix-composer-bar { padding: 5px 6px 5px 14px; }
+  .ix-attach, .ix-send { width: 38px; height: 38px; border-radius: 13px; }
+}
+
+@media (max-height: 560px) {
+  .ix-list-head { padding: 12px 13px 10px; gap: 9px; }
+  .ix-list-title h2 { font-size: 20px; }
+  .ix-search { height: 38px; }
+  .ix-tab { height: 30px; }
+  .ix-row { grid-template-columns: 40px minmax(0, 1fr); padding: 10px 13px; gap: 11px; }
+  .ix-av { width: 40px; height: 40px; font-size: 12px; }
+  .ix-sk { grid-template-columns: 40px minmax(0, 1fr); padding: 10px 13px; }
+  .ix-sk-av { width: 40px; height: 40px; }
+  .ix-convo-head { padding: 7px 14px; }
+  .ix-composer { padding: 6px 14px 8px; }
+  .ix-composer textarea { max-height: min(74px, 24vh); }
+}

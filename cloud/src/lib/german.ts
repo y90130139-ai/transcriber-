@@ -150,3 +150,30 @@ export function germanBrief(format: GermanFormat): string {
     format.caption === 'No captions' ? 'No captions on this one.' : `Caption: ${format.caption}`,
   ].join('\n\n')
 }
+
+/**
+ * The doc's versions string as the composer's version rows (Geno, 2026-10-13).
+ *
+ * "V1 bra · V2 tight low-cut top · V3 bikini top" becomes one row per version
+ * with the marker stripped — the row draws its own V1 badge. Doc lines that
+ * name no outfit at all ("Single version", "Two takes", "V1 / V2 same as
+ * reference") come back as one blank row, so the card takes the shared
+ * wardrobe instead of wearing "Single version" as a costume.
+ */
+export function germanVersionRows(versions: string): { outfit: string; caption: string }[] {
+  const raw = versions.trim()
+  if (!raw) return [{ outfit: '', caption: '' }]
+  // "V1 / V2 same as reference" names no outfit — one row, shared wardrobe.
+  if (!/·/.test(raw) && /same as reference/i.test(raw)) return [{ outfit: '', caption: '' }]
+  const parts = raw
+    .split(/\s*·\s*/)
+    .map((part) => part.replace(/^V\d+(?:\s*[–-]\s*\d+)?[a-z]?\s*/i, '').trim())
+    .map((part) => (/^as reference$/i.test(part) ? 'Same as the reference' : part))
+    .filter((part) => part !== '')
+  // A doc line that names no outfit at all is not a wardrobe.
+  if (parts.length === 0) return [{ outfit: '', caption: '' }]
+  if (parts.length === 1 && /^(single version|two takes)\b/i.test(parts[0])) {
+    return [{ outfit: '', caption: '' }]
+  }
+  return parts.slice(0, 8).map((outfit) => ({ outfit, caption: '' }))
+}

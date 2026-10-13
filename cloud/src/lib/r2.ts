@@ -29,15 +29,21 @@ export type R2Config = {
   bucket: string
 }
 
-/** Null when R2 is not set up yet, which is a state the app has to survive. */
-export function r2Config(): R2Config | null {
-  const accountId = process.env.R2_ACCOUNT_ID
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
-  const bucket = process.env.R2_BUCKET
+/** Null when a bucket is not set up yet, which is a state the app has to survive. */
+function configFrom(prefix: string): R2Config | null {
+  const accountId = process.env[`${prefix}_ACCOUNT_ID`]
+  const accessKeyId = process.env[`${prefix}_ACCESS_KEY_ID`]
+  const secretAccessKey = process.env[`${prefix}_SECRET_ACCESS_KEY`]
+  const bucket = process.env[`${prefix}_BUCKET`]
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null
   return { accountId, accessKeyId, secretAccessKey, bucket }
 }
+
+/** R2 bucket used for plans and user-managed media. */
+export const r2Config = () => configFrom('R2')
+
+/** The scraper's separate bucket, where OFMPro media copies are written. */
+export const ofmproR2Config = () => configFrom('OFMPRO_R2')
 
 export const r2Endpoint = (accountId: string) => `https://${accountId}.r2.cloudflarestorage.com`
 

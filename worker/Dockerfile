@@ -15,7 +15,7 @@ COPY . .
 
 # The browser profile lives on the volume, so the OFM Pro session survives
 # redeploys — the whole point of an anti-detect profile is that it is kept.
-ENV DATA_DIR=/data
-VOLUME /data
+ENV DATA_DIR=/data \
+    PYTHONUNBUFFERED=1
 
 CMD ["python", "main.py"]

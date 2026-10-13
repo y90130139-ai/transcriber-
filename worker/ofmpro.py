@@ -36,13 +36,13 @@ from patchright.sync_api import Page, TimeoutError as PlaywrightTimeout, sync_pl
 
 APP = os.environ.get("OFMPRO_URL", "https://app.ofmpro.com").rstrip("/")
 MEDIAS_PATH = os.environ.get("OFMPRO_MEDIAS_PATH", "/v2/medias/fetch")
-MEDIAS_BASE = os.environ.get("OFMPRO_MEDIAS_BASE", APP).rstrip("/")
+MEDIAS_BASE = os.environ.get("OFMPRO_MEDIAS_BASE", "https://api.ofmpro.com").rstrip("/")
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "./data"))
 PROFILE_DIR = DATA_DIR / "ofmpro-profile"
 SCREENSHOT = DATA_DIR / "last-failure.png"
 
-PAGE_SIZE = 500
+PAGE_SIZE = 10
 MAX_PAGES = 20
 CODE_WAIT_SEC = 240
 CODE_POLL_SEC = 6
@@ -78,15 +78,23 @@ def login_email(since_ms: int) -> dict:
     inbox = os.environ.get("AGENTMAIL_INBOX", "")
     if not inbox:
         raise WorkerStopped("AGENTMAIL_INBOX is not set")
-    body = _agentmail(f"/inboxes/{urllib.parse.quote(inbox)}/messages?limit=10")
-    for message in body.get("messages", []):
-        stamp = message.get("timestamp") or message.get("created_at") or ""
+    body = _agentmail(f"/v0/inboxes/{urllib.parse.quote(inbox)}/messages?limit=10")
+    for summary in body.get("messages", []):
+        stamp = summary.get("timestamp") or summary.get("created_at") or ""
         try:
             arrived_ms = int(datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() * 1000)
         except (ValueError, AttributeError):
             continue
         if arrived_ms < since_ms:
             continue
+
+        message_id = summary.get("message_id")
+        if not message_id:
+            continue
+        message = _agentmail(
+            f"/v0/inboxes/{urllib.parse.quote(inbox)}/messages/"
+            f"{urllib.parse.quote(str(message_id), safe='')}"
+        )
         text = f"{message.get('subject') or ''}\n{message.get('extracted_text') or message.get('text') or ''}"
         link = None
         for candidate in re.findall(r"https?://[^\s<>\"')]+", text):
@@ -155,11 +163,29 @@ def _use_login_email(page: Page, since_ms: int) -> bool:
 
 
 def signed_in(page: Page) -> bool:
-    """Whether the app is past its login. The login page is the only proof of
-    the opposite; everything else is treated as signed in, because a slow
-    dashboard and a login wall look identical for the first second."""
-    url = page.url.lower()
-    if any(hint in url for hint in ("/login", "/signin", "/sign-in", "/auth/", "/register")):
+    """Ask the API whether this persistent browser has a real session.
+
+    The login UI can stay on /auth/login after its callback succeeds, so URL
+    checks alone can both miss valid sessions and mistake public pages for one.
+    """
+    try:
+        response = page.request.post(
+            f"{MEDIAS_BASE}/v2/user/fetch",
+            data="{}",
+            headers={"Content-Type": "application/json"},
+            timeout=30_000,
+        )
+        result = response.json()
+        if response.ok and isinstance(result, dict) and result.get("data") is not None and not result.get("error"):
+            print("OFM Pro session check: authenticated", flush=True)
+            return True
+        print(f"OFM Pro session check: HTTP {response.status}, authenticated=False", flush=True)
+    except Exception:
+        print("OFM Pro session check: request failed", flush=True)
+        pass
+
+    path = urllib.parse.urlparse(page.url).path.lower().rstrip("/") or "/"
+    if path in {"/", "/getstarted", "/login", "/signup", "/register"} or path.startswith("/auth/"):
         return False
     try:
         page.wait_for_selector('input[type="email"], input[type="password"]', timeout=2500)
@@ -168,41 +194,86 @@ def signed_in(page: Page) -> bool:
         return True
 
 
+def _api_result(response, label: str) -> dict:
+    try:
+        envelope = response.json()
+    except Exception as error:
+        raise WorkerStopped(f"{label} answered {response.status} — not JSON") from error
+    if not response.ok:
+        raise WorkerStopped(f"{label} answered HTTP {response.status}")
+    if isinstance(envelope, dict) and envelope.get("error"):
+        errors = envelope["error"]
+        if isinstance(errors, list):
+            message = "; ".join(str(item.get("message") or item) if isinstance(item, dict) else str(item) for item in errors)
+        else:
+            message = str(errors)
+        raise WorkerStopped(f"{label} failed: {message[:400]}")
+    data = envelope.get("data", envelope) if isinstance(envelope, dict) else {}
+    return data if isinstance(data, dict) else {}
+
+
 def sign_in(page: Page) -> None:
-    """Passwordless (Geno, 2026-10-09): the inbox address goes in, OFM Pro
-    mails it a one-time code, and AgentMail answers. First signup and later
-    logins are the same form, so the pages are tried in the order that finds
-    an email field; whichever one asks, the rest of the flow is identical."""
+    """Use OFM Pro's own passwordless OTP endpoints and the AgentMail inbox."""
     email = os.environ.get("OFMPRO_EMAIL", "")
     if not email:
         raise WorkerStopped("OFMPRO_EMAIL is not set")
 
     started_ms = int(time.time() * 1000)
-    for target in (f"{APP}/login", f"{APP}/signup", f"{APP}/register", f"{APP}/"):
-        page.goto(target, wait_until="domcontentloaded")
-        page.wait_for_timeout(2500)
-        if signed_in(page):
-            return
-        if _fill_any(page, ['input[type="email"]', 'input[name="email" i]', 'input[placeholder*="email" i]'], email):
-            break
+    print("OFM Pro login: requesting a one-time code; source=AgentMail", flush=True)
+    headers = {
+        "Content-Type": "application/json",
+        "Origin": APP,
+        "Referer": f"{APP}/auth/login",
+    }
+    otp_response = page.request.post(
+        f"{MEDIAS_BASE}/v2/auth/otp",
+        data=json.dumps({"email": email}),
+        headers=headers,
+        timeout=30_000,
+    )
+    print(f"OFM Pro OTP request: HTTP {otp_response.status}", flush=True)
+    _api_result(otp_response, "OTP request")
+
+    found = {}
+    deadline = time.time() + CODE_WAIT_SEC
+    next_wait_log = time.time() + 30
+    while time.time() < deadline and not found:
+        found = login_email(started_ms)
+        if not found:
+            if time.time() >= next_wait_log:
+                print("AgentMail: waiting for a fresh OFM Pro message", flush=True)
+                next_wait_log = time.time() + 30
+            time.sleep(CODE_POLL_SEC)
+    if not found:
+        raise WorkerStopped(f"no fresh OFM Pro one-time code arrived in {CODE_WAIT_SEC}s")
+    print(f"AgentMail: fresh message received; code={bool(found.get('code'))}, link={bool(found.get('link'))} (values hidden)", flush=True)
+
+    if found.get("code"):
+        params = urllib.parse.urlencode({
+            "email": email,
+            "type": "email",
+            "token": found["code"],
+            # The public OFM Pro login client supplies this value for the
+            # passwordless callback, including existing-account logins.
+            "invite_code": "ofmprobest153",
+        })
+        callback_response = page.request.post(
+            f"{MEDIAS_BASE}/v2/auth/callback?{params}",
+            headers=headers,
+            timeout=30_000,
+        )
+        print(f"OFM Pro OTP callback: HTTP {callback_response.status}", flush=True)
+        _api_result(callback_response, "OTP callback")
+    elif found.get("link"):
+        page.goto(found["link"], wait_until="domcontentloaded")
     else:
-        page.screenshot(path=str(SCREENSHOT), full_page=True)
-        raise WorkerStopped(f"no email field found on any entry page — see {SCREENSHOT}")
+        raise WorkerStopped("AgentMail message had neither a six-digit code nor an OFM Pro login link")
 
-    _click_any(page, [r"continue", r"next", r"sign in", r"log in", r"sign up",
-                      r"get started", r"send", r"submit"])
-
-    # An OTP step may or may not arrive; either it is asked for and answered
-    # from AgentMail, or the app appears and the wait returns on its own.
-    for _ in range(8):
-        page.wait_for_timeout(3000)
-        if signed_in(page):
-            return
-        if _use_login_email(page, started_ms):
-            continue
-
-    page.screenshot(path=str(SCREENSHOT), full_page=True)
-    raise WorkerStopped(f"could not sign in — the page is saved at {SCREENSHOT} (url {page.url})")
+    page.goto(f"{APP}/", wait_until="domcontentloaded")
+    page.wait_for_timeout(2000)
+    if not signed_in(page):
+        raise WorkerStopped("OTP callback completed but OFM Pro still reports no authenticated session")
+    print("OFM Pro login: session verified", flush=True)
 
 
 def ensure_session(page: Page) -> None:
@@ -215,10 +286,24 @@ def ensure_session(page: Page) -> None:
     page.wait_for_timeout(2000)
     if not signed_in(page):
         page.screenshot(path=str(SCREENSHOT), full_page=True)
-        raise WorkerStopped("still signed out after a login attempt")
+        diagnostic = page.evaluate("""() => JSON.stringify({
+          path: location.pathname,
+          title: document.title,
+          inputs: [...document.querySelectorAll('input')].map(({ type, name, placeholder, autocomplete }) => ({ type, name, placeholder, autocomplete })),
+          buttons: [...document.querySelectorAll('button')].map((button) => button.innerText.trim()).filter(Boolean)
+        })""")
+        raise WorkerStopped(f"still signed out after a login attempt — page {diagnostic[:700]}")
 
 
-def fetch_medias(page: Page, platform: str, since: str, until: str) -> list[dict]:
+def fetch_medias(
+    page: Page,
+    platform: str,
+    since: str,
+    until: str,
+    *,
+    max_pages: int = MAX_PAGES,
+    sort: str = "MOST_OUTER_SCORE",
+) -> list[dict]:
     """One platform's window, read through the signed-in session.
 
     `page.request` shares the browser's cookies, so this is the same call the
@@ -226,22 +311,40 @@ def fetch_medias(page: Page, platform: str, since: str, until: str) -> list[dict
     stop when a page comes back short, with MAX_PAGES as the backstop.
     """
     seen: dict[str, dict] = {}
-    for number in range(1, MAX_PAGES + 1):
+    for number in range(1, max_pages + 1):
+        # OFM Pro's SDK flattens filters and extra into POST query parameters;
+        # it does not send a nested JSON body.
         query = urllib.parse.urlencode({
-            "platform": platform.upper(),
+            "page": number,
             "page_size": PAGE_SIZE,
-            "sort": "MOST_OUTER_SCORE",
+            "platform": platform.upper(),
+            "sort": sort,
             "minimum_created_at": since,
             "maximum_created_at": until,
-            "page": number,
         })
-        response = page.request.get(f"{MEDIAS_BASE}{MEDIAS_PATH}?{query}")
+        response = page.request.post(
+            f"{MEDIAS_BASE}{MEDIAS_PATH}?{query}",
+            headers={"Content-Type": "application/json"},
+            timeout=60_000,
+        )
         if response.status in (401, 403):
             raise WorkerStopped(f"medias fetch answered {response.status} — session is not accepted")
         try:
-            body = response.json()
+            envelope = response.json()
         except Exception as error:
             raise WorkerStopped(f"medias fetch answered {response.status} — not JSON ({error})") from error
+        if isinstance(envelope, dict) and envelope.get("error"):
+            errors = envelope["error"]
+            if isinstance(errors, list):
+                message = "; ".join(str(item.get("message") or item) for item in errors)
+            else:
+                message = str(errors)
+            if "unauthorized" in message.lower():
+                raise WorkerStopped(f"medias fetch rejected the session: {message[:240]}")
+            raise RuntimeError(f"medias fetch failed: {message[:500]}")
+        body = envelope.get("data", envelope) if isinstance(envelope, dict) else {}
+        if not isinstance(body, dict):
+            raise RuntimeError("medias fetch returned an unexpected response shape")
         items = body.get("items") or []
         for item in items:
             key = str(item.get("id") or item.get("external_id") or "")
@@ -249,6 +352,8 @@ def fetch_medias(page: Page, platform: str, since: str, until: str) -> list[dict
                 seen[key] = item
         if len(items) < PAGE_SIZE:
             break
+        if max_pages > MAX_PAGES:
+            time.sleep(0.15)  # keep a full-history rescan polite to the API
     return list(seen.values())
 
 

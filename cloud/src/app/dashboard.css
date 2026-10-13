@@ -98,6 +98,22 @@
 .msel-opt[data-on='true'] { color: var(--sc-ink-900); font-weight: 600; }
 .msel-opt[data-disabled='true'],
 .msel-opt[data-disabled='true']:hover { background: transparent; opacity: 0.45; cursor: not-allowed; }
+/* The maison optgroup (2026-10-13): the queue composer's menus carry grouped
+   options — "Our own" kinds, the German playbook types — under one small
+   mono header each. */
+.msel-group {
+  padding: var(--sc-space-2) var(--sc-space-3) var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.msel-group:not(:first-child) {
+  margin-top: var(--sc-space-1);
+  border-top: 1px solid var(--sc-ink-150);
+  padding-top: var(--sc-space-3);
+}
 .msel-check { color: var(--sc-ember-deep); font-weight: 700; }
 .msel-clear {
   display: block;
@@ -494,3 +510,177 @@
 .dash-reel-strip .reels-actions,
 .dash-reel-strip .dash-reel-action:last-child { margin-top: auto; }
 .dash-reel-strip .reels-actions { display: grid; gap: var(--sc-space-1); padding-top: var(--sc-space-2); }
+
+/* ============================================================
+   TEMPLATES — the team's reusable card blanks (2026-10-12).
+   Same list the plan editor's Add card picker reads.
+   Redesigned (2026-10-13): the page wears the console's dash frame; the
+   shelf gained a search, skeleton rows, a named two-step delete.
+   ============================================================ */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: var(--sc-space-5);
+  align-items: start;
+}
+.tpl-form {
+  position: sticky;
+  /* Below the pinned topbar, so it stays whole while the list scrolls. */
+  top: calc(var(--topbar-h) + var(--sc-space-4));
+  z-index: 1;
+  display: grid;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone-light);
+}
+.tpl-form .form-row { display: grid; gap: var(--sc-space-1); }
+.tpl-form-foot { display: flex; justify-content: flex-end; gap: var(--sc-space-2); }
+.tpl-hint {
+  margin: 0;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+}
+
+.tpl-list { display: grid; gap: var(--sc-space-2); align-content: start; }
+.tpl-list-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  margin-bottom: var(--sc-space-1);
+}
+.tpl-search { flex: 0 1 320px; }
+.tpl-search input {
+  width: 100%;
+  background: var(--sc-paper);
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  padding: 0.55rem var(--sc-space-3);
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-900);
+}
+.tpl-search input:focus { outline: none; border-color: var(--sc-ember); }
+.tpl-search input::placeholder { color: var(--sc-ink-150); }
+.tpl-count {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.tpl-item {
+  display: grid;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-paper);
+}
+.tpl-item[data-editing] { border-color: var(--sc-ink-900); box-shadow: inset 2px 0 0 var(--sc-ember); }
+.tpl-item-top { display: flex; align-items: center; gap: var(--sc-space-2); min-width: 0; }
+.tpl-item-label {
+  flex: 1 1 auto;
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  color: var(--sc-ink-900);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl-item-top .chip { flex: none; }
+.tpl-item-actions { flex: none; display: flex; gap: var(--sc-space-1); }
+.tpl-item-body {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-500);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+/* The armed Delete: the first click asks, the second is the one that drops
+   it, and the row's name rides the title attribute the whole time. */
+.tpl-armed {
+  background: var(--sc-ember-tint);
+  border-color: var(--sc-ember);
+  color: var(--sc-ember-deep);
+}
+.tpl-armed:hover:not(:disabled) { background: var(--sc-ember); border-color: var(--sc-ember); color: #0A0A0A; }
+
+/* The shelf while it reads: two bars at the row's own height, so nothing
+   shifts when the real rows land. */
+.tpl-skel { gap: var(--sc-space-3); }
+.tpl-skel-bar {
+  display: block;
+  width: 40%;
+  height: 0.8rem;
+  background: var(--sc-ink-150);
+  opacity: 0.45;
+  animation: tpl-pulse 1.2s ease-in-out infinite;
+}
+.tpl-skel-body { width: 78%; height: 0.65rem; }
+@keyframes tpl-pulse { 50% { opacity: 0.18; } }
+
+.tpl-empty {
+  margin: 0;
+  padding: var(--sc-space-5);
+  border: 1px dashed var(--sc-ink-150);
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tpl-skel-bar { animation: none; }
+}
+@media (max-width: 980px) {
+  .tpl-grid { grid-template-columns: minmax(0, 1fr); }
+  .tpl-form { position: static; }
+}
+@media (max-width: 620px) {
+  .tpl-item-top { flex-wrap: wrap; }
+  .tpl-item-label { flex-basis: 100%; }
+}
+
+/* ------------------------------------------------------------ invites
+   The app's front door (2026-10-12): the form panel and the accounts it
+   mints. Two panels side by side, one column on narrow screens. */
+.invites-grid { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: var(--sc-space-4); align-items: start; }
+@media (max-width: 1020px) { .invites-grid { grid-template-columns: 1fr; } }
+
+.invites-form { display: grid; gap: var(--sc-space-4); }
+.invites-field { display: grid; gap: var(--sc-space-2); }
+.invites-field .field { width: 100%; }
+.invites-select { width: 100%; }
+.invites-send { width: 100%; display: flex; align-items: center; justify-content: center; }
+.invites-link { display: flex; align-items: center; gap: var(--sc-space-3); flex-wrap: wrap; }
+.invites-link .sharelink { margin: 0; flex: 1 1 220px; word-break: break-all; }
+
+/* App accounts — a table (Geno, 2026-10-13): the creator's face, the account
+   email, where it stands, and the two actions that keep it alive. */
+.apptable tbody tr { cursor: default; }
+.apptable td { vertical-align: middle; }
+.apptable th:last-child, .apptable td:last-child { text-align: right; }
+.appcell-name { display: block; font-weight: 600; color: var(--sc-ink-900); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.appcell-none { font-style: normal; font-weight: 500; color: var(--sc-ink-300); }
+.appcell-email { color: var(--sc-ink-500); max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.appcell-meta { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+
+/* The single-panel and one-row forms of the invite screen (2026-10-12). */
+.invites-grid-single { grid-template-columns: minmax(320px, 560px); }
+.invites-row { display: flex; gap: var(--sc-space-3); align-items: flex-end; flex-wrap: wrap; }
+.invites-row .invites-field { flex: 1 1 220px; min-width: 180px; }
+.invites-row .invites-send { width: auto; flex: none; }
+.invites-note { display: grid; gap: var(--sc-space-2); margin-bottom: var(--sc-space-4); }

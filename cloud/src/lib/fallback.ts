@@ -31,7 +31,7 @@ export const STALE_AFTER_MIN = 90
 /** Work per invocation. A serverless function has 60 seconds; a reel's audio
  *  is small and turbo is quick, but leave room to finish cleanly. */
 const JOBS_PER_RUN = 5
-const UPLOADS_PER_RUN = 3
+const UPLOADS_PER_RUN = 20
 const TIME_BUDGET_MS = 42_000
 
 export type MacState = { seenAgoMin: number | null; stale: boolean; note: string | null }

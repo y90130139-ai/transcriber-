@@ -1,9 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-export type MenuOption = { value: string; label: string; disabled?: boolean }
+export type MenuOption = {
+  value: string
+  label: string
+  disabled?: boolean
+  /** Options sharing a group render under one small header, in order — the
+   *  maison stand-in for <optgroup> (2026-10-13). */
+  group?: string
+}
 
 /** Sentence case for every menu: first letter up, the rest untouched. */
 export const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
@@ -157,19 +164,24 @@ export default function DropSelect({ value, options, onChange, label, id, disabl
           onKeyDown={onKey}
         >
           {options.map((o, i) => (
-            <button key={o.value + o.label} type="button" role="option"
-              aria-selected={o.value === value}
-              aria-disabled={o.disabled || undefined}
-              disabled={o.disabled}
-              data-focus={i === focus || undefined}
-              data-on={o.value === value || undefined}
-              data-disabled={o.disabled || undefined}
-              className="msel-opt"
-              onClick={() => pick(i)}
-              onPointerMove={() => { if (!o.disabled) setFocus(i) }}>
-              <span>{cap(o.label)}</span>
-              {o.value === value && !o.disabled && <b className="msel-check" aria-hidden>✓</b>}
-            </button>
+            <Fragment key={o.value + o.label}>
+              {o.group && o.group !== options[i - 1]?.group && (
+                <div className="msel-group" role="presentation">{cap(o.group)}</div>
+              )}
+              <button key={o.value + o.label} type="button" role="option"
+                aria-selected={o.value === value}
+                aria-disabled={o.disabled || undefined}
+                disabled={o.disabled}
+                data-focus={i === focus || undefined}
+                data-on={o.value === value || undefined}
+                data-disabled={o.disabled || undefined}
+                className="msel-opt"
+                onClick={() => pick(i)}
+                onPointerMove={() => { if (!o.disabled) setFocus(i) }}>
+                <span>{cap(o.label)}</span>
+                {o.value === value && !o.disabled && <b className="msel-check" aria-hidden>✓</b>}
+              </button>
+            </Fragment>
           ))}
         </div>,
         document.body,

@@ -826,6 +826,7 @@
 .plan-dropoff,
 .plan-delivery,
 .plan-direction,
+.plan-card-notes,
 .plan-say,
 .plan-thread,
 .plan-group,
@@ -849,9 +850,16 @@
 .plan-face { max-width: 100%; }
 
 /* The label above the direction, which the brief was missing entirely —
-   it read as a loose wall of sentences under the buttons. */
-.plan-direction { display: flex; flex-direction: column; gap: var(--sc-space-1); }
-.plan-direction .plan-notes { padding-top: 0; border-top: 0; }
+   it read as a loose wall of sentences under the buttons. The card's own
+   Notes block (Geno, 2026-10-13) wears the same shape. */
+.plan-direction,
+.plan-card-notes { display: flex; flex-direction: column; gap: var(--sc-space-1); }
+.plan-direction .plan-notes,
+.plan-card-notes .plan-notes { padding-top: 0; border-top: 0; }
+
+/* The team's notes are said by a person, not the drafting machine — the
+   ember label is what tells the two blocks apart at a glance. */
+.plan-card-notes .plan-label { color: var(--sc-ember-deep); }
 
 /* ============================================================
    PHASE 3 — the brief, un-flattened.
@@ -1089,6 +1097,41 @@
   color: var(--sc-ember-deep);
 }
 .plan .plan-twist span { font-size: var(--sc-text-base); color: var(--sc-ink-900); }
+
+/* A format card's versions (Geno, 2026-10-13): one card, several outfits.
+   A quiet list under the directions — Version 1, Version 2… with what each
+   one wears and says. */
+.plan .plan-versions {
+  display: grid;
+  gap: 0.4rem;
+  margin: var(--sc-space-3) 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  background: var(--sc-bone-light);
+}
+.plan .plan-versions .plan-label { color: var(--sc-ink-300); }
+.plan .plan-versions ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan .plan-versions li {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--sc-space-2);
+  align-items: baseline;
+}
+.plan .plan-versions b {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+.plan .plan-versions li span { font-size: var(--sc-text-sm); color: var(--sc-ink-900); }
 
 /* Named before it is watched. "Car GRWM" reads as a job; "Video 3" reads as a
    row number, which is what the badge beside it already is. */

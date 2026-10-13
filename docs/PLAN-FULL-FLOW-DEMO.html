@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan editor — full flow (demo)</title>
+<style>
+:root {
+  --sc-ink-900: #0A0A0A;
+  --sc-ink-700: #2B2926;
+  --sc-ink-500: #45413C;
+  --sc-ink-300: #6B6660;
+  --sc-ink-150: #B8B2A8;
+  --sc-bone: #EDE9E3;
+  --sc-bone-light: #F4F1EB;
+  --sc-paper: #FBFAF8;
+  --sc-ember: #C2410C;
+  --sc-ember-deep: #9A330A;
+  --sc-ember-tint: #F3E3DA;
+  --sc-positive: #1F6F4A;
+  --sc-caution: #8A6714;
+  --sc-critical: #A32B23;
+  --sc-font-text: "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sc-space-1: 0.25rem; --sc-space-2: 0.5rem; --sc-space-3: 0.75rem; --sc-space-4: 1rem;
+  --sc-space-5: 1.25rem; --sc-space-6: 1.5rem; --sc-space-8: 2rem;
+  --sc-lift-2: 0 2px 4px rgba(43,41,38,.07), 0 10px 24px rgba(43,41,38,.10);
+  --sc-lift-3: 0 8px 16px rgba(43,41,38,.10), 0 28px 64px rgba(43,41,38,.18);
+  --r: 12px; --r-sm: 8px; --r-pill: 999px;
+  --sc-track-label: 0.16em;
+  --sc-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--sc-bone); color: var(--sc-ink-500); font-family: var(--sc-font-text); font-size: 1rem; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.label { font-family: var(--sc-font-mono); font-size: 0.68rem; letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-300); }
+.chrome { display: flex; align-items: center; gap: 12px; padding: 13px 28px; border-bottom: 1px solid var(--sc-ink-150); }
+.chrome .mark { font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); }
+.chrome .crumb { font-family: var(--sc-font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-300); }
+.chrome .note { margin-left: auto; font-size: 0.72rem; color: var(--sc-ink-300); }
+.stage { max-width: 1280px; margin: 0 auto; padding: 24px 20px 90px; }
+
+/* ------------------------------------------------------------------ the modal */
+.pane { background: var(--sc-bone); border: 1px solid var(--sc-ink-150); border-radius: var(--r); box-shadow: var(--sc-lift-3); display: flex; flex-direction: column; height: min(86vh, 940px); overflow: hidden; }
+.modalhead { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--sc-ink-150); flex: none; }
+.modalhead .who { font-weight: 700; color: var(--sc-ink-900); letter-spacing: -0.02em; }
+.modalhead .sub { font-family: var(--sc-font-mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-300); }
+.statuspill { border: 1px solid var(--sc-ink-150); border-radius: 999px; padding: 3px 10px; font-family: var(--sc-font-mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-500); background: var(--sc-bone-light); }
+.statuspill[data-sent] { border-color: var(--sc-positive); color: var(--sc-positive); }
+.modalhead .aside { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* step nav */
+.stepnav { display: flex; align-items: center; gap: 6px; padding: 10px 20px; border-bottom: 1px solid var(--sc-ink-150); background: var(--sc-bone-light); flex: none; overflow-x: auto; }
+.stepnav button { appearance: none; border: 1px solid transparent; background: transparent; border-radius: 999px; padding: 4px 12px; font-family: var(--sc-font-text); font-size: 0.74rem; color: var(--sc-ink-500); cursor: pointer; white-space: nowrap; }
+.stepnav button b { font-family: var(--sc-font-mono); font-size: 0.62rem; margin-right: 5px; color: var(--sc-ink-300); }
+.stepnav button:hover { border-color: var(--sc-ink-150); }
+.stepnav button[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.stepnav button[data-on] b { color: var(--sc-ink-150); }
+
+/* shell: main column + what-they-see column */
+.shell { display: flex; min-height: 0; flex: 1; }
+.scroll { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 24px 30px; display: grid; gap: 30px; align-content: start; }
+.heres { width: 0; overflow: hidden; border-left: 0 solid var(--sc-ink-150); transition: width 260ms var(--sc-ease); flex: none; display: flex; flex-direction: column; }
+.pane[data-preview] .heres { width: 390px; border-left-width: 1px; }
+.heres-inner { padding: 18px 20px 24px; overflow-y: auto; display: grid; gap: 18px; width: 390px; }
+
+/* week head */
+.weekhead { display: grid; gap: 12px; }
+.weekhead-top { display: flex; align-items: flex-start; gap: 12px; }
+.weekhead-title { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); }
+.weekhead-sub { margin: 2px 0 0; font-size: 0.8rem; color: var(--sc-ink-300); }
+.weeksave { font-size: 0.72rem; color: var(--sc-ink-300); display: inline-flex; align-items: center; gap: 6px; }
+.weeksave::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--sc-positive); }
+.weekstats { display: flex; gap: 28px; margin: 0; }
+.weekstat dt { font-family: var(--sc-font-mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sc-ink-300); }
+.weekstat dd { margin: 0; font-size: 1rem; font-weight: 600; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; }
+.weekstat dd small { font-weight: 400; color: var(--sc-ink-300); font-size: 0.78rem; }
+.meter { height: 3px; background: var(--sc-ink-150); position: relative; overflow: hidden; border-radius: 999px; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--sc-ember); transition: width 240ms var(--sc-ease); }
+
+/* steps */
+.planstep { display: grid; gap: 16px; scroll-margin-top: 12px; }
+.planstep-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--sc-ink-150); }
+.planstep-no { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--sc-ink-150); border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--sc-ink-700); font-variant-numeric: tabular-nums; }
+.planstep-id { display: grid; gap: 2px; min-width: 0; }
+.planstep-title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--sc-ink-900); line-height: 1.3; }
+.planstep-sub { font-size: 0.75rem; line-height: 1.45; color: var(--sc-ink-500); margin: 0; }
+.planstep-aside { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* fields */
+.field { width: 100%; background: var(--sc-bone); border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); padding: 8px 10px; font-family: var(--sc-font-text); font-size: 0.82rem; color: var(--sc-ink-900); line-height: 1.4; }
+.field:focus { outline: none; border-color: var(--sc-ember); }
+textarea.field { resize: vertical; min-height: 52px; }
+select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--sc-ink-300) 50%), linear-gradient(135deg, var(--sc-ink-300) 50%, transparent 50%); background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+.axis-name { font-size: 0.72rem; color: var(--sc-ink-500); }
+.hint { font-size: 0.72rem; color: var(--sc-ink-300); margin: 0; }
+.hint b { color: var(--sc-ink-700); }
+.form-row { display: grid; gap: 5px; }
+.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.setupgroup { display: grid; gap: 10px; padding: 12px 0; }
+.setupgroup + .setupgroup { border-top: 1px solid var(--sc-ink-150); }
+.setupgroup > .label { margin-bottom: 2px; }
+.volume-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.volume-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* buttons */
+.btn { appearance: none; border: 1px solid var(--sc-ink-900); background: var(--sc-ink-900); color: var(--sc-bone); font-family: var(--sc-font-text); font-size: 0.8rem; font-weight: 500; padding: 8px 16px; border-radius: var(--r-sm); cursor: pointer; transition: background 150ms var(--sc-ease), border-color 150ms var(--sc-ease), transform 120ms var(--sc-spring); }
+.btn:hover { background: var(--sc-ember); border-color: var(--sc-ember); }
+.btn:active { transform: scale(0.97); }
+.btn-quiet { background: transparent; color: var(--sc-ink-500); border-color: var(--sc-ink-150); }
+.btn-quiet:hover { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.btn-small { padding: 6px 12px; font-size: 0.75rem; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-danger { color: var(--sc-critical); border-color: var(--sc-ink-150); background: transparent; }
+.btn-danger:hover { background: var(--sc-critical); border-color: var(--sc-critical); color: #fff; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--sc-ink-150); border-radius: 999px; padding: 2px 8px; font-family: var(--sc-font-mono); font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-300); background: var(--sc-bone); white-space: nowrap; }
+.chip[data-tone='ember'] { color: var(--sc-ember-deep); border-color: var(--sc-ember-tint); background: var(--sc-ember-tint); }
+.chip[data-tone='ok'] { color: var(--sc-positive); border-color: var(--sc-positive); }
+button.chip { cursor: pointer; }
+button.chip[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+
+/* style board */
+.boardhead { display: flex; align-items: baseline; gap: 12px; }
+.boardhead .hint { margin-left: auto; }
+.styles-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stylecell { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone-light); padding: 14px 16px 12px; display: grid; gap: 10px; }
+.stylecell[data-state='full'] { border-color: var(--sc-ink-900); }
+.stylecell[data-state='empty'] { border-style: dashed; }
+.cel-top { display: flex; align-items: center; gap: 8px; }
+.cel-name { font-family: var(--sc-font-mono); font-size: 0.64rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sc-ink-300); }
+.cel-tick { margin-left: auto; font-family: var(--sc-font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ember-deep); display: none; }
+.stylecell[data-state='full'] .cel-tick { display: inline; }
+.cel-count { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; line-height: 1; }
+.cel-count small { font-size: 0.8rem; font-weight: 400; color: var(--sc-ink-300); }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.dots i { width: 7px; height: 7px; border: 1px solid var(--sc-ink-150); border-radius: 2px; }
+.dots i[data-on] { background: var(--sc-ember); border-color: var(--sc-ember); }
+.cel-foot { display: flex; align-items: center; gap: 8px; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); overflow: hidden; background: var(--sc-bone); }
+.stepper button { appearance: none; border: 0; background: transparent; width: 26px; height: 26px; font-size: 0.9rem; color: var(--sc-ink-500); cursor: pointer; }
+.stepper button:hover { background: var(--sc-ink-900); color: var(--sc-bone); }
+.stepper input { width: 34px; border: 0; background: transparent; text-align: center; font-family: var(--sc-font-text); font-size: 0.82rem; font-weight: 600; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; padding: 0; }
+.stepper input:focus { outline: none; }
+.cel-hint { font-size: 0.68rem; color: var(--sc-ink-300); margin-left: auto; }
+
+/* lanes */
+.lane { border: 1px solid var(--sc-ink-150); border-radius: var(--r); background: var(--sc-bone-light); overflow: hidden; }
+.lane > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 13px 16px; user-select: none; }
+.lane > summary::-webkit-details-marker { display: none; }
+.lane-title { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-900); }
+.lane-count { font-family: var(--sc-font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ink-300); }
+.lane-count b { color: var(--sc-ink-900); font-weight: 600; }
+.lane-count[data-full] b { color: var(--sc-ember-deep); }
+.lane-chev { margin-left: auto; width: 18px; height: 18px; color: var(--sc-ink-300); transition: transform 200ms var(--sc-ease); flex: none; }
+.lane[open] .lane-chev { transform: rotate(180deg); }
+.lane[open] > summary { border-bottom: 1px solid var(--sc-ink-150); }
+.lane-body { padding: 14px 16px 16px; display: grid; gap: 12px; }
+.lane-note { font-size: 0.72rem; color: var(--sc-ink-300); margin: 0; }
+.lane-note b { color: var(--sc-ink-500); font-weight: 600; }
+
+/* concept groups + rows */
+.group { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.group + .group { margin-top: 10px; }
+.group-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.group-no { font-family: var(--sc-font-mono); font-size: 0.72rem; font-weight: 700; color: var(--sc-ink-900); }
+.group-title { font-size: 0.82rem; font-weight: 600; color: var(--sc-ink-900); }
+.group-head .chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.group-note { display: flex; gap: 8px; align-items: baseline; padding: 8px 12px; border-top: 1px dashed var(--sc-ink-150); background: var(--sc-bone-light); }
+.group-note p { margin: 0; font-size: 0.74rem; color: var(--sc-ink-500); }
+.vrow2 { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 8px 12px; }
+.vrow2 + .vrow2 { border-top: 1px dashed var(--sc-ink-150); }
+.vchip { font-family: var(--sc-font-mono); font-size: 0.62rem; font-weight: 700; color: var(--sc-ink-500); letter-spacing: 0.06em; align-self: start; padding-top: 2px; }
+.vtext { font-size: 0.78rem; color: var(--sc-ink-700); line-height: 1.45; }
+.vcaption { display: block; font-size: 0.72rem; color: var(--sc-ink-300); margin-top: 2px; }
+
+/* the add bar — one line: pick, versions, add */
+.addbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px dashed var(--sc-ink-150); border-radius: var(--r-sm); padding: 10px 12px; }
+.addbar-pick { flex: 1 1 240px; min-width: 180px; }
+.addbar-x { font-family: var(--sc-font-mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-300); }
+.addbar-hint { flex-basis: 100%; }
+
+/* the lane list — one compact row per reel; the reel being filled in opens as a sheet */
+.reelrow { width: 100%; text-align: left; appearance: none; background: var(--sc-bone); border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); padding: 9px 12px; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 2px 10px; align-items: center; cursor: pointer; font-family: inherit; }
+.reelrow + .reelrow, .reelsheet + .reelrow, .reelrow + .reelsheet { margin-top: 8px; }
+.reelrow:hover { background: var(--sc-bone-light); }
+.reelrow-title { font-size: 0.84rem; font-weight: 600; color: var(--sc-ink-900); }
+.reelrow-meta { display: flex; gap: 6px; justify-self: end; }
+.reelrow-line { grid-column: 2 / -1; font-size: 0.72rem; color: var(--sc-ink-300); }
+.reelrow-chev { font-size: 0.68rem; color: var(--sc-ink-300); font-family: var(--sc-font-mono); letter-spacing: 0.06em; }
+
+/* the reel sheet — the doc's own shape, one reel at a time */
+.reelsheet { border: 1px solid var(--sc-ink-900); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.reelsheet-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); flex-wrap: wrap; }
+.reelsheet-body { padding: 12px; display: grid; gap: 10px; }
+.reelsheet .field { padding: 6px 9px; font-size: 0.78rem; }
+.reelsheet textarea.field { min-height: 52px; }
+.vreel-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; }
+
+.rowlist { display: grid; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.trow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; }
+.trow + .trow { border-top: 1px dashed var(--sc-ink-150); }
+.tno { font-family: var(--sc-font-mono); font-size: 0.64rem; color: var(--sc-ink-150); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.tmain { min-width: 0; display: grid; gap: 3px; }
+.thook { font-size: 0.8rem; font-weight: 600; color: var(--sc-ink-900); line-height: 1.4; }
+.tbody { font-size: 0.75rem; color: var(--sc-ink-300); line-height: 1.45; }
+.tlink { font-family: var(--sc-font-mono); font-size: 0.7rem; color: var(--sc-ember-deep); text-decoration: none; }
+
+.addbox { border: 1px dashed var(--sc-ink-150); border-radius: var(--r-sm); padding: 12px; display: grid; gap: 10px; }
+.addbox .addtitle { display: flex; align-items: center; gap: 8px; }
+.addgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
+.f { display: grid; gap: 4px; align-content: start; }
+.f.span3 { grid-column: span 3; } .f.span4 { grid-column: span 4; } .f.span5 { grid-column: span 5; } .f.span6 { grid-column: span 6; } .f.span7 { grid-column: span 7; } .f.span8 { grid-column: span 8; } .f.span12 { grid-column: span 12; }
+.addfoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* session card */
+.session { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.session-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.session-cols { display: grid; grid-template-columns: 1fr 1fr; }
+.session-col { padding: 10px 12px; }
+.session-col + .session-col { border-left: 1px dashed var(--sc-ink-150); }
+.session-col ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.session-col li { font-size: 0.76rem; color: var(--sc-ink-700); line-height: 1.4; }
+
+/* step 3 — cards */
+.lanegroup { display: grid; gap: 10px; }
+.lanegroup-head { display: flex; align-items: center; gap: 10px; }
+.lanegroup-head .lane-title { font-size: 0.72rem; }
+.concept-head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 0; }
+.concept-head .group-no { font-size: 0.66rem; }
+.concept-head .group-title { font-size: 0.76rem; }
+.cardlist { display: grid; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.cardrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.cardrow + .cardrow { border-top: 1px dashed var(--sc-ink-150); }
+.planrow-open { appearance: none; border: 0; background: transparent; text-align: left; cursor: pointer; display: grid; grid-template-columns: 44px 40px minmax(0, 1fr); gap: 12px; align-items: center; padding: 9px 12px; width: 100%; font-family: inherit; }
+.planrow-open:hover { background: var(--sc-bone-light); }
+.planrow-no { font-family: var(--sc-font-mono); font-size: 0.66rem; font-weight: 700; color: var(--sc-ink-500); }
+.cover { width: 40px; height: 50px; border: 1px solid var(--sc-ink-150); border-radius: 6px; background: repeating-linear-gradient(45deg, var(--sc-bone-light) 0 6px, var(--sc-bone) 6px 12px); display: grid; place-items: center; font-family: var(--sc-font-mono); font-size: 0.52rem; letter-spacing: 0.08em; color: var(--sc-ink-300); }
+.planrow-id { min-width: 0; display: grid; gap: 4px; }
+.planrow-who { font-size: 0.84rem; font-weight: 600; color: var(--sc-ink-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planrow-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.planrow-line { font-size: 0.72rem; color: var(--sc-ink-300); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planrow-tools { display: flex; align-items: center; gap: 4px; padding-right: 10px; }
+.cardtool { appearance: none; border: 1px solid var(--sc-ink-150); background: transparent; border-radius: 6px; width: 26px; height: 26px; font-size: 0.78rem; color: var(--sc-ink-500); cursor: pointer; display: grid; place-items: center; }
+.cardtool:hover { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.cardtool:disabled { opacity: 0.35; cursor: default; }
+.cardtool-danger:hover { background: var(--sc-critical); border-color: var(--sc-critical); }
+
+/* card detail */
+.carddetail { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.carddetail-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.carddetail-body { padding: 14px 14px 16px; display: grid; gap: 14px; }
+.cardhero { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; align-items: start; }
+.cardhero .cover { width: 76px; height: 95px; }
+.cardhero-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.cardhero-title { margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: var(--sc-ink-900); }
+.cardhero-sub { margin: 0; font-size: 0.74rem; color: var(--sc-ink-300); }
+.cardsec { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); overflow: hidden; }
+.cardsec-title { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--sc-bone-light); cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--sc-ink-900); list-style: none; }
+.cardsec-title::-webkit-details-marker { display: none; }
+.cardsec-title em { font-style: normal; font-family: var(--sc-font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ink-300); }
+.cardsec-body { padding: 12px; display: grid; gap: 12px; }
+.cardsec-toggles { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cardtools-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* checks */
+.checklist { display: grid; gap: 0; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); overflow: hidden; }
+.checkitem { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; padding: 11px 14px; background: var(--sc-bone); font-size: 0.8rem; color: var(--sc-ink-700); }
+.checkitem + .checkitem { border-top: 1px dashed var(--sc-ink-150); }
+.checkmark { font-family: var(--sc-font-mono); font-size: 0.7rem; padding-top: 2px; }
+.checkitem[data-tone='ok'] .checkmark { color: var(--sc-positive); }
+.checkitem[data-tone='warn'] .checkmark { color: var(--sc-caution); }
+
+/* step 5 */
+.folds { display: grid; gap: 12px; }
+.fold { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone-light); overflow: hidden; }
+.fold > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--sc-ink-900); }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold-body { padding: 12px 14px; border-top: 1px solid var(--sc-ink-150); display: grid; gap: 12px; background: var(--sc-bone); }
+.poststrip { display: flex; gap: 8px; }
+.postcard { width: 58px; display: grid; gap: 4px; }
+.postcard .cover { width: 58px; height: 72px; }
+.postcard span { font-size: 0.62rem; color: var(--sc-ink-300); text-align: center; font-variant-numeric: tabular-nums; }
+.suggestrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; }
+.suggestrow + .suggestrow { border-top: 1px dashed var(--sc-ink-150); }
+
+/* send bar */
+.sendbar { flex: none; border-top: 1px solid var(--sc-ink-150); background: var(--sc-bone-light); padding: 12px 20px; display: grid; gap: 10px; }
+.sendbar-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sendbar-top .hint { margin-right: auto; }
+.sendbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tgstate { font-family: var(--sc-font-mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-300); }
+.tgstate[data-tone='ok'] { color: var(--sc-positive); }
+.tgstate[data-tone='work'] { color: var(--sc-caution); }
+
+/* what they see */
+.heres h3 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--sc-ink-900); letter-spacing: -0.02em; }
+.heres .plan-live { font-family: var(--sc-font-mono); font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-caution); }
+.heres .plan-live[data-live] { color: var(--sc-positive); }
+.heres .block { display: grid; gap: 8px; }
+.inplan { display: grid; gap: 4px; }
+.inplan div { font-size: 0.78rem; color: var(--sc-ink-700); font-variant-numeric: tabular-nums; }
+.inplan b { color: var(--sc-ink-900); }
+.heres .sect { display: grid; gap: 8px; }
+.heres .cardmini { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); padding: 10px 12px; background: var(--sc-bone-light); display: grid; gap: 5px; }
+.heres .cardmini .t { font-size: 0.8rem; font-weight: 600; color: var(--sc-ink-900); }
+.heres .cardmini .d { font-size: 0.72rem; color: var(--sc-ink-500); }
+.heres .cardmini .v { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------- the composer (step 2)
+   Add → what style is it → template or scratch → the fields. */
+.composer-open { width: 100%; padding: 12px 16px; font-size: 0.85rem; font-weight: 600; }
+.composer { border: 1px solid var(--sc-ink-900); border-radius: var(--r); background: var(--sc-bone); overflow: hidden; box-shadow: var(--sc-lift-2); }
+.composer-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.composer-title { font-size: 0.88rem; font-weight: 700; color: var(--sc-ink-900); letter-spacing: -0.01em; }
+.composer-head .chip { margin-left: 2px; }
+.composer-x { margin-left: auto; }
+.composer-styles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 14px; }
+.stylecard { appearance: none; text-align: left; font-family: inherit; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); padding: 13px 14px; display: grid; gap: 6px; cursor: pointer; transition: border-color 150ms var(--sc-ease), background 150ms var(--sc-ease), transform 120ms var(--sc-spring); }
+.stylecard:hover { background: var(--sc-bone-light); transform: translateY(-2px); }
+.stylecard[data-on] { border-color: var(--sc-ink-900); background: var(--sc-bone-light); }
+.stylecard-ico { width: 22px; height: 22px; color: var(--sc-ember-deep); }
+.stylecard-ico svg { width: 22px; height: 22px; display: block; }
+.stylecard-name { font-size: 0.84rem; font-weight: 700; color: var(--sc-ink-900); }
+.stylecard-line { font-size: 0.72rem; color: var(--sc-ink-300); line-height: 1.45; }
+.composer-body { border-top: 1px solid var(--sc-ink-150); padding: 14px; display: grid; gap: 12px; }
+.composer-chosen { display: flex; align-items: center; gap: 10px; }
+.composer-chosen .hint { flex: 1; min-width: 0; }
+.composer-optional { margin: 0; }
+.composer-change { flex: none; }
+.cform { display: grid; gap: 12px; }
+.cform .f { display: grid; gap: 4px; }
+.cform-instruction { margin: 0; padding: 8px 10px; border-left: 2px solid var(--sc-ember); background: var(--sc-bone-light); font-size: 0.74rem; color: var(--sc-ink-500); line-height: 1.5; }
+.cform-more { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); overflow: hidden; }
+.cform-more > summary { cursor: pointer; list-style: none; padding: 9px 12px; background: var(--sc-bone-light); font-size: 0.78rem; font-weight: 600; color: var(--sc-ink-900); }
+.cform-more > summary::-webkit-details-marker { display: none; }
+.cform-more > summary em { font-style: normal; font-family: var(--sc-font-mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ink-300); margin-left: 8px; }
+.cform-more .addgrid { padding: 12px; }
+.chip[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.chipswitch { display: flex; gap: 6px; flex-wrap: wrap; }
+.chipswitch .chip { cursor: pointer; padding: 4px 10px; }
+.cf-vers { display: grid; gap: 8px; }
+.cf-ver { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr) minmax(0, 1.1fr) 26px; gap: 8px; align-items: center; }
+.cf-ver-no { font-family: var(--sc-font-mono); font-size: 0.66rem; font-weight: 700; color: var(--sc-ink-500); }
+.cf-ver .field { padding: 6px 9px; font-size: 0.78rem; }
+.cf-vers-add { justify-self: start; }
+.composer-foot { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--sc-ink-150); padding-top: 12px; }
+.composer-foot .hint { flex: 1; margin: 0; }
+.stepper .vers-count { min-width: 2.4rem; display: inline-grid; place-items: center; border-left: 1px solid var(--sc-ink-150); border-right: 1px solid var(--sc-ink-150); font-size: 0.82rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--sc-ink-900); }
+.onweek-head { border-top: 1px solid var(--sc-ink-150); padding-top: 12px; }
+
+/* toast + dialog */
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(10px); background: var(--sc-ink-900); color: var(--sc-bone); padding: 10px 16px; border-radius: var(--r-sm); font-size: 0.8rem; opacity: 0; pointer-events: none; transition: opacity 180ms var(--sc-ease), transform 180ms var(--sc-ease); max-width: 88vw; text-align: center; z-index: 60; }
+.toast[data-on] { opacity: 1; transform: translateX(-50%) translateY(0); }
+dialog.briefdlg { border: 1px solid var(--sc-ink-150); border-radius: var(--r); background: var(--sc-paper); width: min(680px, 94vw); padding: 0; box-shadow: var(--sc-lift-3); }
+dialog.briefdlg::backdrop { background: rgba(10,10,10,0.42); }
+.brief-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--sc-ink-150); }
+.brief-head h3 { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--sc-ink-900); }
+.brief-head .btn { margin-left: 0; }
+.brief-head .btn:first-of-type { margin-left: auto; }
+pre.brief-body { margin: 0; padding: 18px; max-height: 62vh; overflow: auto; white-space: pre-wrap; font-family: var(--sc-font-mono); font-size: 0.72rem; line-height: 1.7; color: var(--sc-ink-700); }
+
+@media (max-width: 1080px) {
+  .styles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .composer-styles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-pair, .session-cols { grid-template-columns: 1fr; }
+  .session-col + .session-col { border-left: 0; border-top: 1px dashed var(--sc-ink-150); }
+  .f.span3, .f.span4, .f.span5, .f.span7, .f.span8 { grid-column: span 12; }
+  .pane[data-preview] .heres { position: fixed; top: 60px; right: 0; bottom: 60px; width: min(390px, 94vw); background: var(--sc-bone); box-shadow: var(--sc-lift-3); border-left: 1px solid var(--sc-ink-150); z-index: 50; }
+  .heres-inner { width: 100%; }
+}
+@media (max-width: 620px) {
+  .composer-styles { grid-template-columns: minmax(0, 1fr); }
+  .cf-ver { grid-template-columns: 2.2rem minmax(0, 1fr) 26px; }
+  .cf-ver input:nth-of-type(2) { grid-column: 2 / -1; }
+}
+</style>
+</head>
+<body>
+
+<header class="chrome">
+  <span class="mark">GOSIAN</span>
+  <span class="crumb">models / berkeley / cw42 — full walkthrough</span>
+  <span class="note">mock — set up → add content by style → cards → check &amp; send</span>
+</header>
+
+<main class="stage">
+  <div class="pane" id="pane">
+    <header class="modalhead">
+      <span class="who">Berkeley</span>
+      <span class="sub">Week of 12 Oct 2026 · CW42</span>
+      <span class="statuspill" id="statusPill">Draft</span>
+      <span class="aside">
+        <button type="button" class="btn btn-quiet btn-small" data-action="preview-toggle">What they see</button>
+        <button type="button" class="btn btn-quiet btn-small" aria-label="Close (mock)">×</button>
+      </span>
+    </header>
+
+    <nav class="stepnav" aria-label="Steps">
+      <button type="button" data-goto="step1" data-on><b>1</b>Set up</button>
+      <button type="button" data-goto="step2"><b>2</b>Add content</button>
+      <button type="button" data-goto="step3"><b>3</b>Cards</button>
+      <button type="button" data-goto="step4"><b>4</b>Check &amp; send</button>
+      <button type="button" data-goto="step5"><b>+</b>Team, posts &amp; suggestions</button>
+    </nav>
+
+    <div class="shell">
+      <div class="scroll" id="scroll">
+
+        <!-- ========================================================== week head -->
+        <section class="weekhead">
+          <div class="weekhead-top">
+            <div>
+              <h1 class="weekhead-title">Week of 12 Oct 2026</h1>
+              <p class="weekhead-sub">Berkeley — brief due Friday 16 Oct</p>
+            </div>
+            <span class="weeksave" style="margin-left:auto">Saves as you type</span>
+          </div>
+          <dl class="weekstats">
+            <div class="weekstat"><dt>Items</dt><dd><span id="statItems">17</span><small> / <span id="statTarget">34</span></small></dd></div>
+            <div class="weekstat"><dt>Filmed</dt><dd><span id="statFilmed">0</span><small> / <span id="statItems2">17</span></small></dd></div>
+            <div class="weekstat"><dt>Due</dt><dd style="font-size:0.85rem" id="statDue">Fri 16 Oct 2026</dd></div>
+          </dl>
+          <div class="meter" role="progressbar" aria-label="Items against the week's target"><i id="meterFill" style="width:50%"></i></div>
+        </section>
+
+        <!-- ========================================================== step 1 -->
+        <section class="planstep" id="step1">
+          <header class="planstep-head">
+            <span class="planstep-no">1</span>
+            <div class="planstep-id">
+              <h2 class="planstep-title">Set up the week</h2>
+              <p class="planstep-sub">Optional — every field has a default. Edit what you need, leave the rest.</p>
+            </div>
+          </header>
+
+          <div class="setupgroup">
+            <span class="label">Basics</span>
+            <div class="form-pair">
+              <div class="form-row"><label class="axis-name" for="sTitle">Title</label><input class="field" id="sTitle" value="CW42"></div>
+              <div class="form-row"><label class="axis-name" for="sDue">Due</label><input class="field" id="sDue" value="Fri 16 Oct 2026"></div>
+            </div>
+          </div>
+
+          <div class="setupgroup">
+            <span class="label">Volume</span>
+            <div class="volume-line">
+              <span class="hint">Comes from the style board now — <b id="volLine">34 items: 12 Format · 14 Talking · 1 Omegle · 7 Posts</b></span>
+              <button type="button" class="btn btn-quiet btn-small" data-goto="step2">Open the style board →</button>
+            </div>
+          </div>
+
+          <div class="setupgroup">
+            <span class="label">Delivery</span>
+            <div class="form-row">
+              <label class="axis-name" for="sFolder">Folder — where they send the footage</label>
+              <input class="field" id="sFolder" value="https://drive.google.com/drive/folders/…">
+              <span class="hint">Their page shows it as “Where to send it”.</span>
+            </div>
+          </div>
+
+          <div class="setupgroup">
+            <span class="label">Template</span>
+            <div class="form-row">
+              <label class="axis-name" for="sTemplate">Which template drives their autodraft</label>
+              <select class="field" id="sTemplate">
+                <option>Auto — follows their winners (Winning verticals now)</option>
+                <option>The 15/4/2 ladder</option>
+                <option>Winning verticals</option>
+              </select>
+              <span class="hint">Their winning verticals: Skit (7) · Talking head (5) · Mirror (3).</span>
+            </div>
+            <span class="hint">Every change saves as you type.</span>
+          </div>
+        </section>
+
+        <!-- ========================================================== step 2 -->
+        <section class="planstep" id="step2">
+          <header class="planstep-head">
+            <span class="planstep-no">2</span>
+            <div class="planstep-id">
+              <h2 class="planstep-title">Add content</h2>
+              <p class="planstep-sub">Add → pick the style → template or from scratch → the fields and instructions change with it. Counts land on her page as the brief header.</p>
+            </div>
+            <div class="planstep-aside">
+              <button type="button" class="btn btn-quiet btn-small" data-action="brief">Copy as CD brief</button>
+            </div>
+          </header>
+
+          <div class="boardhead">
+            <span class="label">Content styles</span>
+            <span class="hint" id="boardHint"></span>
+          </div>
+          <div class="styles-grid" id="stylesGrid"></div>
+
+          <!-- ================================================= the composer -->
+          <button type="button" class="btn composer-open" id="composerOpen">+ Add content</button>
+
+          <div class="composer" id="composer" hidden>
+            <div class="composer-head">
+              <span class="composer-title">New content</span>
+              <span class="chip" id="composerStep">Step 1 — what style is it?</span>
+              <button type="button" class="cardtool composer-x" id="composerClose" aria-label="Close">×</button>
+            </div>
+
+            <div class="composer-styles" id="composerStyles"></div>
+
+            <div class="composer-body" id="composerBody" hidden>
+              <div class="composer-chosen">
+                <span class="chip" data-tone="ember" id="composerChosenName"></span>
+                <span class="hint" id="composerChosenLine"></span>
+                <button type="button" class="btn btn-quiet btn-small composer-change" id="composerChange">Change style</button>
+              </div>
+              <p class="hint composer-optional">Every field is optional — fill what you have and add it; the rest can be written on the card later. Nothing joins the week until you press <b>+ Add to the week</b>.</p>
+
+              <!-- ------------------------------------------------ format reel -->
+              <div class="cform" data-form="format" hidden>
+                <div class="addgrid">
+                  <div class="f span5">
+                    <label class="axis-name" for="cfFormat">Format</label>
+                    <input class="field" id="cfFormat" list="fmtlist" autocomplete="off" placeholder="Number or name — 69, age, bathroom…">
+                    <datalist id="fmtlist"></datalist>
+                  </div>
+                  <div class="f span4">
+                    <label class="axis-name" for="cfRef">Reference</label>
+                    <select class="field" id="cfRef">
+                      <option>Library pick — attach the reel ▶</option>
+                      <option>Paste a link…</option>
+                      <option>No reference — directions only</option>
+                    </select>
+                  </div>
+                  <div class="f span3">
+                    <label class="axis-name">Versions</label>
+                    <div class="stepper">
+                      <button type="button" data-cstep="vers" data-dir="-1" aria-label="One fewer">−</button>
+                      <span class="vers-count" id="cfVersCount">2</span>
+                      <button type="button" data-cstep="vers" data-dir="1" aria-label="One more">+</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="cform-instruction" id="cfInstruction">Pick a numbered format — its directions, versions and editor notes come in with it. Or just start writing your own.</p>
+                <div class="f">
+                  <label class="axis-name" for="cfDir">Directions — what she films</label>
+                  <textarea class="field" id="cfDir" rows="3" placeholder="Wear a baggie sweatshirt with bare legs…"></textarea>
+                </div>
+                <div class="cf-vers" id="cfVersionRows"></div>
+                <div class="f">
+                  <label class="axis-name" for="cfNotes">Editor notes</label>
+                  <input class="field" id="cfNotes" placeholder="Audio must match the reference; captions per version…">
+                </div>
+              </div>
+
+              <!-- ---------------------------------------------------- talking -->
+              <div class="cform" data-form="talking" hidden>
+                <div class="chipswitch" id="talkMode">
+                  <button type="button" class="chip" data-mode="hook" data-on>Hook + body</button>
+                  <button type="button" class="chip" data-mode="ref">Reference link</button>
+                  <button type="button" class="chip" data-mode="bulk">Paste a list</button>
+                </div>
+                <p class="cform-instruction">House rule for this style: film in the car or walking down the street — natural, like FaceTime to a friend.</p>
+                <div data-talk="hook">
+                  <div class="f">
+                    <label class="axis-name" for="cfHook">Hook — the opening line</label>
+                    <input class="field" id="cfHook" placeholder="I think people who say they don't care what they drive are lying.">
+                  </div>
+                  <div class="f">
+                    <label class="axis-name" for="cfBody">Body — the point</label>
+                    <textarea class="field" id="cfBody" rows="2" placeholder="There is no way a minivan and a Porsche create the same emotion."></textarea>
+                  </div>
+                </div>
+                <div data-talk="ref" hidden>
+                  <div class="f">
+                    <label class="axis-name" for="cfRefLink">Reference link</label>
+                    <input class="field" id="cfRefLink" placeholder="https://instagram.com/reel/…">
+                  </div>
+                </div>
+                <div data-talk="bulk" hidden>
+                  <div class="f">
+                    <label class="axis-name" for="cfBulk">One reel per line — HOOK | BODY, or a link</label>
+                    <textarea class="field" id="cfBulk" rows="6" placeholder="NFL fans love saying &quot;we won.&quot; | Babe YOU ate wings on a couch…"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ---------------------------------------------------- omegle -->
+              <div class="cform" data-form="omegle" hidden>
+                <p class="cform-instruction">Tom's fundamentals — the games and questions ride on the card. Edit them for this week.</p>
+                <div class="f">
+                  <label class="axis-name" for="cfGames">Games to play</label>
+                  <textarea class="field" id="cfGames" rows="2">Simon says — have them do dares: turn around, bend over, anything the chat will clip.</textarea>
+                </div>
+                <div class="f">
+                  <label class="axis-name" for="cfQuestions">Questions to ask</label>
+                  <textarea class="field" id="cfQuestions" rows="6">On a scale of 1–10, how would you rate yourself in bed?
+What's your worst bedroom review?
+If your last situationship rated you out of 10, what would they give you?
+Me or GTA6?
+Most chaotic 2am text you stand behind to this day?
+What ruins a 10 instantly?
+Serious question — does size actually matter?</textarea>
+                </div>
+                <div class="f">
+                  <label class="axis-name" for="cfTraining">Training — the note on the card</label>
+                  <input class="field" id="cfTraining" value="Watch Tom show you through the fundamentals — Loom in the group chat. Halloween costume optional.">
+                </div>
+              </div>
+
+              <!-- ---------------------------------------------------- posts -->
+              <div class="cform" data-form="posts" hidden>
+                <div class="addgrid">
+                  <div class="f span8">
+                    <label class="axis-name" for="cfWhat">What the set is</label>
+                    <input class="field" id="cfWhat" placeholder="Mirror set — mirror selfie, normal selfie, tripod shot">
+                  </div>
+                  <div class="f span4">
+                    <label class="axis-name">How many</label>
+                    <div class="stepper">
+                      <button type="button" data-cstep="posts" data-dir="-1" aria-label="One fewer">−</button>
+                      <span class="vers-count" id="cfPostsCount">3</span>
+                      <button type="button" data-cstep="posts" data-dir="1" aria-label="One more">+</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="cform-instruction">From shoot-day photos — three to six slides, best one first. They cost no extra filming.</p>
+              </div>
+
+              <!-- ------------------------- the fields the card itself holds -->
+              <details class="cform-more">
+                <summary>More card fields <em>optional — everything the card carries</em></summary>
+                <div class="addgrid">
+                  <div class="f span6"><label class="axis-name" for="moreTitle">Title — what the card is called</label>
+                    <input class="field" id="moreTitle" placeholder="e.g. Car GRWM"></div>
+                  <div class="f span6"><label class="axis-name" for="moreLocation">Location — groups her plan</label>
+                    <input class="field" id="moreLocation" placeholder="In the car"></div>
+                  <div class="f span6"><label class="axis-name" for="moreWardrobe">Wardrobe / outfit</label>
+                    <input class="field" id="moreWardrobe" placeholder="Baggie tee, denim shorts"></div>
+                  <div class="f span6"><label class="axis-name" for="moreCaption">Caption</label>
+                    <input class="field" id="moreCaption" placeholder="Optional — one line her card shows"></div>
+                  <div class="f span12"><label class="axis-name" for="moreEditing">Editing notes — in-house, she never sees this</label>
+                    <input class="field" id="moreEditing" placeholder="Optional"></div>
+                </div>
+              </details>
+
+              <div class="composer-foot">
+                <span class="hint" id="composerLands"></span>
+                <button type="button" class="btn" id="composerAdd">+ Add to the week</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="boardhead onweek-head">
+            <span class="label">On the week</span>
+            <span class="hint" id="onWeekHint">Click a reel to fill it in. Everything lands in step 3 as cards.</span>
+          </div>
+
+          <!-- format reels -->
+          <details class="lane" open>
+            <summary>
+              <span class="lane-title">Format reels</span>
+              <span class="lane-count" id="laneCount-format"></span>
+              <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="lane-body">
+              <div id="formatList"></div>
+            </div>
+          </details>
+
+          <!-- talking -->
+          <details class="lane" open>
+            <summary>
+              <span class="lane-title">Talking reels</span>
+              <span class="lane-count" id="laneCount-talking"></span>
+              <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="lane-body">
+              <div class="rowlist" id="talkingList"></div>
+            </div>
+          </details>
+
+          <!-- omegle -->
+          <details class="lane" open>
+            <summary>
+              <span class="lane-title">Omegle session</span>
+              <span class="lane-count" id="laneCount-omegle"></span>
+              <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="lane-body">
+              <p class="lane-note"><b>One session a week.</b> Uses Tom's training; the games and questions below are the direction the card carries.</p>
+              <div class="session">
+                <div class="session-head">
+                  <span class="group-title">Omegle session — Tom's fundamentals</span>
+                  <span class="chips" style="margin-left:auto; display:flex; gap:6px"><span class="chip" data-tone="ember">Training loom ▶</span><span class="chip">Halloween costume optional</span></span>
+                </div>
+                <div class="session-cols">
+                  <div class="session-col"><span class="label">Games to play</span>
+                    <ol><li>Simon says — dares: turn around, bend over, anything the chat will clip.</li></ol></div>
+                  <div class="session-col"><span class="label">Questions to ask</span>
+                    <ol>
+                      <li>On a scale of 1–10, how would you rate yourself in bed?</li>
+                      <li>What's your worst bedroom review?</li>
+                      <li>If your last situationship rated you out of 10, what would they give you?</li>
+                      <li>Me or GTA6?</li>
+                      <li>Most chaotic 2am text you stand behind to this day?</li>
+                      <li>What ruins a 10 instantly?</li>
+                      <li>Serious question — does size actually matter?</li>
+                    </ol></div>
+                </div>
+                <div class="group-note"><span class="label">Rule</span><p>If they're boring, skip next. Keep it moving.</p></div>
+              </div>
+            </div>
+          </details>
+
+          <!-- posts -->
+          <details class="lane" open>
+            <summary>
+              <span class="lane-title">Picture posts</span>
+              <span class="lane-count" id="laneCount-posts"></span>
+              <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="lane-body">
+              <p class="lane-note"><b>IG wall posts.</b> Photos from between outfit changes on shoot day — they cost no extra filming. Three to six slides, best one first.</p>
+              <div class="rowlist" id="postsList"></div>
+            </div>
+          </details>
+
+          <div class="boardhead" style="border-top:1px solid var(--sc-ink-150); padding-top:12px">
+            <span class="label">On her page — “In this plan” reads</span>
+            <div class="volume-chips" id="previewChips" style="margin-left:auto"></div>
+          </div>
+        </section>
+
+        <!-- ========================================================== step 3 -->
+        <section class="planstep" id="step3">
+          <header class="planstep-head">
+            <span class="planstep-no">3</span>
+            <div class="planstep-id">
+              <h2 class="planstep-title">Go through the cards</h2>
+              <p class="planstep-sub">Grouped under the same lanes, so the week is worked in the order the brief reads. Open a card to edit what they see.</p>
+            </div>
+            <div class="planstep-aside"><span class="hint" id="cardsAside"></span></div>
+          </header>
+          <div id="cardsArea"></div>
+          <div id="undoBar"></div>
+        </section>
+
+        <!-- ========================================================== step 4 -->
+        <section class="planstep" id="step4">
+          <header class="planstep-head">
+            <span class="planstep-no">4</span>
+            <div class="planstep-id">
+              <h2 class="planstep-title">Check &amp; send</h2>
+              <p class="planstep-sub">What to look at before it goes out — the send bar is right below.</p>
+            </div>
+            <div class="planstep-aside"><span class="chip" id="checkAside"></span></div>
+          </header>
+          <div class="checklist" id="checklist"></div>
+        </section>
+
+        <!-- ========================================================== step 5 -->
+        <section class="planstep" id="step5">
+          <header class="planstep-head">
+            <span class="planstep-no">+</span>
+            <div class="planstep-id">
+              <h2 class="planstep-title">Team, posts &amp; suggestions</h2>
+              <p class="planstep-sub">Who edits, what they already posted, and more videos that fit them.</p>
+            </div>
+          </header>
+          <div class="folds">
+            <details class="fold">
+              <summary>Who edits</summary>
+              <div class="fold-body">
+                <div class="form-pair">
+                  <div class="form-row"><label class="axis-name" for="editorPick">Editor for the week's editing notes</label>
+                    <select class="field" id="editorPick" data-action="editor">
+                      <option value="">Unassigned</option>
+                      <option>Dariel</option>
+                      <option>Casey</option>
+                      <option>Patricia</option>
+                    </select></div>
+                </div>
+                <p class="hint">Editing notes with no editor show up in step 4 until one is picked.</p>
+              </div>
+            </details>
+            <details class="fold">
+              <summary>Her posts <span class="chip" style="margin-left:auto">4 this month</span></summary>
+              <div class="fold-body">
+                <div class="poststrip">
+                  <div class="postcard"><span class="cover">IMG</span><span>01 Oct</span></div>
+                  <div class="postcard"><span class="cover">IMG</span><span>04 Oct</span></div>
+                  <div class="postcard"><span class="cover">IMG</span><span>08 Oct</span></div>
+                  <div class="postcard"><span class="cover">IMG</span><span>11 Oct</span></div>
+                </div>
+                <p class="hint">Tap one to bind it to a card once it is posted from this week.</p>
+              </div>
+            </details>
+            <details class="fold" open>
+              <summary>Suggested for her</summary>
+              <div class="fold-body">
+                <div id="suggestArea"></div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- what they see -->
+      <aside class="heres" aria-label="What they see">
+        <div class="heres-inner" id="heresInner"></div>
+      </aside>
+    </div>
+
+    <!-- send bar -->
+    <footer class="sendbar">
+      <div class="sendbar-top">
+        <span class="hint" id="sendHint">A draft is invisible to them until it is sent. Their Telegram group is linked — sending posts it in MARKETING.</span>
+        <span class="tgstate" id="tgState"></span>
+      </div>
+      <div class="sendbar-actions">
+        <select class="field" id="variant" style="width:auto" aria-label="Telegram wording">
+          <option>Weekly wording</option>
+          <option>Weekend wording</option>
+          <option>Short wording</option>
+        </select>
+        <span id="sendButtons"></span>
+        <span style="margin-left:auto; display:flex; gap:8px">
+          <button type="button" class="btn btn-quiet btn-small" data-action="copy-link">Copy their link</button>
+          <button type="button" class="btn btn-quiet btn-small btn-danger" data-action="delete-week">Delete week</button>
+        </span>
+      </div>
+    </footer>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="briefdlg" id="briefDlg">
+  <div class="brief-head">
+    <h3>Copy as CD brief</h3>
+    <button type="button" class="btn btn-small" data-action="copy-brief">Copy</button>
+    <button type="button" class="btn btn-quiet btn-small" data-action="close-brief">Close</button>
+  </div>
+  <pre class="brief-body" id="briefBody"></pre>
+</dialog>
+
+<script>
+'use strict';
+
+/* ================================================================== state */
+const laneMeta = {
+  format:  { name: 'Format reels',   title: 'Format reels' },
+  talking: { name: 'Talking reels',  title: 'Talking reels' },
+  omegle:  { name: 'Omegle session', title: 'Omegle session' },
+  posts:   { name: 'Picture posts',  title: 'Picture posts' },
+};
+const laneOrder = ['format', 'talking', 'omegle', 'posts'];
+
+/* the numbered playbook — picking one prefills the whole concept. In the real
+   app this file is lib/formats (the German playbook generalised, 1..N). */
+const FORMATS = [
+  { no: '69', name: 'Black top transition',
+    dir: 'Wear a baggie sweatshirt with bare legs and tug at it until the interval of the song where you transition into lingerie. Facial expression is key, along with timing to the music.',
+    editorNotes: 'Very important you keep the same audio as the reference reel.',
+    versions: [ { outfit: 'Baggie sweatshirt, bare legs' }, { outfit: 'Baggie t-shirt, bare legs' } ] },
+  { no: '70', name: 'Age',
+    dir: 'Straight to camera, four looks. The pattern of expressions is yes, no, yes, yes.',
+    editorNotes: 'Facial expression is key — pattern: yes, no, yes, yes.',
+    versions: [ { outfit: 'Low-cut top', caption: 'Captions: 55 year olds / 21 year olds / 32 year olds / 67 year olds' },
+                { outfit: 'Open cardigan, tank', caption: 'Captions: Drives a Porsche 911 / Calls his car his baby / Can fix his own car / Knows how to change a tyre' } ] },
+  { no: '71', name: 'Bathroom door skit',
+    dir: 'Film in the doorway with a tight fitted outfit; turn to the side so the silhouette reads.',
+    editorNotes: 'Body angle and expression are key — turn to the side so the silhouette reads.',
+    versions: [ { outfit: 'Light colored bodycon dress', caption: 'Captions: Mom / Sister / Step bro' },
+                { outfit: 'Tight fitted gym set', caption: 'Captions: Mom / Little brother / Step bro' } ] },
+  { no: '72', name: 'Skit',
+    dir: 'Low cut top, tying up your shoes. Facial expressions and acting are key.',
+    editorNotes: 'Film where there is depth — space behind and in front of you.',
+    versions: [ { outfit: 'On the couch, like the reference', caption: 'Caption: "3 hours of sleep doesn\u2019t affect me at all"' },
+                { outfit: 'Outside on a bench', caption: 'Caption: "I don\u2019t need 8 hours of sleep, I\u2019m built different."' } ] },
+  { no: '73', name: 'Mirror reveal',
+    dir: 'Spray the mirror, wipe to reveal, end shocked. Second clip: wink at the reflection.',
+    editorNotes: '',
+    versions: [ { outfit: 'Black bikini' }, { outfit: 'Bright bikini' } ] },
+  { no: '74', name: 'Car rant',
+    dir: 'In the car, straight to camera — one take, one point.',
+    editorNotes: '',
+    versions: [ { outfit: 'Hoodie' } ] },
+];
+
+const state = {
+  sent: false,
+  tg: null,                 // null | 'queued' | 'posted' | 'recorded'
+  targets: { format: 12, talking: 14, omegle: 1, posts: 7 },
+  cards: [],
+  nextNo: 96,
+  openCard: null,
+  openReel: null,
+  /** The composer: Add → what style is it → template or scratch → the fields. */
+  composer: { style: null, versions: [{ outfit: '', caption: '' }, { outfit: '', caption: '' }], talkMode: 'hook', posts: 3 },
+  undo: [],
+  editor: '',
+  usedSuggestions: {},
+  preview: false,
+};
+
+function card(patch) {
+  return Object.assign({
+    id: 'c' + Math.random().toString(36).slice(2, 9),
+    no: state.nextNo++,
+    lane: 'talking',
+    title: 'Card',
+    concept: null, version: null, versionsTotal: null, outfit: '',
+    hook: '', body: '', caption: '', editorNotes: '', location: '',
+    href: null, source: 'original',
+    filmed: false, filmOn: true, captionsOn: true,
+    kindLabel: 'New video',
+  }, patch);
+}
+
+/* seed — matches the Berkeley CW42 brief so the week opens half-planned */
+(function seed() {
+  const concepts = [
+    { no: '69', name: 'Black top transition', note: 'Very important you keep the same audio as the reference reel.',
+      dir: 'Wear a baggie sweatshirt with bare legs and tug at it until the interval of the song where you transition into lingerie. Facial expression is key, along with timing to the music.',
+      versions: [ { outfit: 'Baggie sweatshirt, bare legs', caption: '' }, { outfit: 'Baggie t-shirt, bare legs', caption: '' } ] },
+    { no: '70', name: 'Age', note: 'Facial expression is key — pattern: yes, no, yes, yes.',
+      dir: 'Straight to camera, four looks. The pattern of expressions is the whole reel.',
+      versions: [ { outfit: 'Low-cut top', caption: 'Captions: 55 year olds / 21 year olds / 32 year olds / 67 year olds' },
+                  { outfit: 'Open cardigan, tank', caption: 'Captions: Drives a Porsche 911 / Calls his car his baby / Can fix his own car / Knows how to change a tyre' } ] },
+    { no: '71', name: 'Bathroom door skit', note: 'Body angle and expression are key — turn to the side so the silhouette reads.',
+      dir: 'Film in the doorway with a tight fitted outfit, turn to the side on the reveal.',
+      versions: [ { outfit: 'Light colored bodycon dress', caption: 'Captions: Mom / Sister / Step bro' },
+                  { outfit: 'Tight fitted gym set', caption: 'Captions: Mom / Little brother / Step bro' } ] },
+    { no: '72', name: 'Skit', note: 'Film where there is depth — space behind and in front of you.',
+      dir: 'Low cut top, tying up your shoes. Facial expressions and acting are key.',
+      versions: [ { outfit: 'On the couch, like the reference', caption: 'Caption: "3 hours of sleep doesn\u2019t affect me at all"' },
+                  { outfit: 'Outside on a bench', caption: 'Caption: "I don\u2019t need 8 hours of sleep, I\u2019m built different."' } ] },
+  ];
+  for (const concept of concepts) {
+    concept.versions.forEach((v, i) => {
+      state.cards.push(card({
+        lane: 'format',
+        title: concept.name,
+        concept: concept.no + ' · ' + concept.name,
+        version: i + 1,
+        versionsTotal: concept.versions.length,
+        outfit: v.outfit,
+        body: concept.dir,
+        caption: v.caption,
+        editorNotes: concept.note,
+        source: 'reference',
+      }));
+    });
+  }
+  const talkRefs = ['https://instagram.com/reel/Da63spEB7OH/', 'https://instagram.com/reel/Dd-KItSNtJ/', 'https://instagram.com/reel/DeM4hjtCV9_/'];
+  talkRefs.forEach((url, i) => {
+    state.cards.push(card({ lane: 'talking', title: 'Talking reel #' + (i + 1), href: url, source: 'reference' }));
+  });
+  [
+    { hook: 'I think people who say they "don\u2019t care what they drive" are lying.', body: 'There is no way a minivan and a Porsche create the same emotion. Be so serious.' },
+    { hook: 'I don\u2019t know why getting passed on the highway feels personal.', body: 'I wasn\u2019t racing you five seconds ago, but apparently now we have beef.' },
+  ].forEach((h, i) => {
+    state.cards.push(card({ lane: 'talking', title: 'Talking reel #' + (i + 4), hook: h.hook, body: h.body }));
+  });
+  [
+    { title: 'Wall post · mirror set', body: 'Mirror selfie, normal selfie, tripod shot — 3–6 slides' },
+    { title: 'Wall post · car', body: 'Car selfies between errands, one clear face shot first' },
+    { title: 'Wall post · outfit close-ups', body: 'Detail shots of the outfit of the day' },
+    { title: 'Wall post · behind the scenes', body: 'Getting ready, setup, a blooper frame' },
+  ].forEach((p) => {
+    state.cards.push(card({ lane: 'posts', title: p.title, body: p.body, kindLabel: 'Picture post' }));
+  });
+})();
+
+/* ================================================================== helpers */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const laneCards = (lane) => state.cards.filter((c) => c.lane === lane);
+const countOf = (lane) => laneCards(lane).length;
+const plannedTotal = () => state.cards.length;
+const targetTotal = () => laneOrder.reduce((n, lane) => n + state.targets[lane], 0);
+const filmedCount = () => state.cards.filter((c) => c.filmed).length;
+
+let toastTimer = null;
+function toast(text) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.setAttribute('data-on', '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.removeAttribute('data-on'), 2600);
+}
+
+/* ================================================================== render — board */
+function renderCells() {
+  $('#stylesGrid').innerHTML = laneOrder.map((lane) => {
+    const n = countOf(lane);
+    const target = state.targets[lane];
+    const full = n >= target;
+    const empty = n === 0;
+    const dots = Array.from({ length: target }, (_, i) => `<i${i < n ? ' data-on' : ''}></i>`).join('');
+    const hint = empty ? 'none yet' : full ? 'done' : `${target - n} to go`;
+    return `<article class="stylecell" data-state="${full ? 'full' : empty ? 'empty' : 'part'}">
+      <div class="cel-top"><span class="cel-name">${esc(laneMeta[lane].name)}</span><span class="cel-tick">full</span></div>
+      <div class="cel-count">${n}<small> / ${target}</small></div>
+      <div class="dots">${dots}</div>
+      <div class="cel-foot">
+        <div class="stepper"><button type="button" data-target="${lane}" data-step="-1">−</button><input type="text" value="${target}" data-targetinput="${lane}"><button type="button" data-target="${lane}" data-step="1">+</button></div>
+        <span class="cel-hint">${hint}</span>
+      </div>
+    </article>`;
+  }).join('');
+  const planned = plannedTotal();
+  const target = targetTotal();
+  $('#boardHint').textContent = `${planned} of ${target} on the week · ${Math.max(0, target - planned)} to go`;
+  $('#volLine').textContent = `${target} items: ${state.targets.format} Format · ${state.targets.talking} Talking · ${state.targets.omegle} Omegle · ${state.targets.posts} Posts`;
+  $('#previewChips').innerHTML = laneOrder.map((lane) =>
+    `<span class="chip"><b>${state.targets[lane]}×</b>&nbsp;${esc(laneMeta[lane].name)}</span>`).join('');
+}
+
+function renderLaneCounts() {
+  for (const lane of laneOrder) {
+    const el = $('#laneCount-' + lane);
+    const n = countOf(lane);
+    el.innerHTML = `<b>${n}</b> of ${state.targets[lane]} on the week`;
+    if (n >= state.targets[lane]) el.setAttribute('data-full', ''); else el.removeAttribute('data-full');
+  }
+}
+
+function renderFormatLane() {
+  const byConcept = new Map();
+  for (const c of state.cards.filter((x) => x.lane === 'format')) {
+    if (!byConcept.has(c.concept)) byConcept.set(c.concept, []);
+    byConcept.get(c.concept).push(c);
+  }
+  const out = [];
+  Array.from(byConcept.entries()).forEach(([concept, cards], index) => {
+    if (concept === state.openReel) { out.push(reelSheet(concept, cards, index)); return; }
+    const [no, ...nameParts] = concept.split(' · ');
+    out.push(`
+      <button type="button" class="reelrow" data-action="open-reel" data-id="${esc(concept)}">
+        <span class="group-no">${esc(no)}</span>
+        <span class="reelrow-title">${esc(nameParts.join(' · '))}</span>
+        <span class="reelrow-meta"><span class="chip">x${cards.length} versions</span><span class="chip" data-tone="ember">Reference</span></span>
+        <span class="reelrow-chev">fill in ›</span>
+        <span class="reelrow-line">${esc(cards.map((c) => `V${c.version} ${c.outfit}`).join(' · '))}</span>
+      </button>`);
+  });
+  $('#formatList').innerHTML = out.join('') || '<p class="hint">Nothing here yet — + Add content above, pick Format reels, and it lands prefilled.</p>';
+}
+
+/* one reel, opened — the same fields the Google doc's block has, in the same
+   order: number + name, directions, Version #1, Version #2, editor notes. */
+function reelSheet(concept, cards, index) {
+  const [no, ...nameParts] = concept.split(' · ');
+  const first = cards[0];
+  return `
+  <div class="reelsheet">
+    <div class="reelsheet-head">
+      <span class="chip">Reel ${index + 1} of ${countOf('format') > 0 ? new Set(state.cards.filter((c) => c.lane === 'format').map((c) => c.concept)).size : 0}</span>
+      <span class="group-no">${esc(no)}</span>
+      <span class="group-title" style="text-transform:uppercase">${esc(nameParts.join(' · '))}</span>
+      <span class="chip" data-tone="ember">← Reference video</span>
+      <button type="button" class="btn btn-quiet btn-small" style="margin-left:auto" data-action="close-reel">Done</button>
+    </div>
+    <div class="reelsheet-body">
+      <div class="form-row">
+        <label class="axis-name">Directions — what she films</label>
+        <textarea class="field" rows="3" data-cgroup="${esc(concept)}" data-gfield="body">${esc(first.body)}</textarea>
+      </div>
+      ${cards.map((c) => `
+        <div class="form-row">
+          <label class="axis-name">Version #${c.version}</label>
+          <div class="vreel-row">
+            <input class="field" data-field="outfit" data-id="${c.id}" value="${esc(c.outfit)}" placeholder="Outfit — what changes for this version" aria-label="Version ${c.version} outfit">
+            <input class="field" data-field="caption" data-id="${c.id}" value="${esc(c.caption)}" placeholder="Caption — optional" aria-label="Version ${c.version} caption">
+          </div>
+        </div>`).join('')}
+      <div class="form-row">
+        <label class="axis-name">Editor notes</label>
+        <input class="field" data-cgroup="${esc(concept)}" data-gfield="editorNotes" value="${esc(first.editorNotes)}" placeholder="Audio must match the reference; captions per version…">
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTalkingLane() {
+  const rows = state.cards.filter((c) => c.lane === 'talking');
+  $('#talkingList').innerHTML = rows.map((c, i) => `
+    <div class="trow">
+      <span class="tno">${String(i + 1).padStart(2, '0')}</span>
+      <span class="tmain">${c.href
+        ? `<span class="thook">Reference</span><a class="tlink" href="${esc(c.href)}" target="_blank" rel="noreferrer">${esc(c.href.replace(/^https?:\/\//, ''))} ↗</a>`
+        : `<span class="thook">${esc(c.hook || c.title)}</span><span class="tbody">${esc(c.body)}</span>`}
+      </span>
+      <span class="chip">${c.href ? 'Reference' : 'Hook + body'}</span>
+    </div>`).join('') || '<p class="hint">Nothing in this lane yet.</p>';
+}
+
+function renderPostsLane() {
+  const rows = state.cards.filter((c) => c.lane === 'posts');
+  $('#postsList').innerHTML = rows.map((c, i) => `
+    <div class="trow">
+      <span class="tno">${String(i + 1).padStart(2, '0')}</span>
+      <span class="tmain"><span class="thook">${esc(c.title)}</span><span class="tbody">${esc(c.body)}</span></span>
+      <span class="chip">Photo set</span>
+    </div>`).join('') || '<p class="hint">Nothing on the wall yet.</p>';
+}
+
+/* ================================================================== render — step 3 */
+const flatOrder = () => {
+  const out = [];
+  for (const lane of laneOrder) {
+    const laneCardsArr = laneCards(lane);
+    if (lane === 'format') {
+      const seen = new Map();
+      laneCardsArr.forEach((c) => { if (!seen.has(c.concept)) { seen.set(c.concept, []); out.push({ concept: c.concept, cards: seen.get(c.concept) }); } seen.get(c.concept).push(c); });
+    } else {
+      out.push({ concept: null, cards: laneCardsArr });
+    }
+  }
+  return out;
+};
+
+function renderCards() {
+  if (state.openCard) { renderCardDetail(); return; }
+  const groups = flatOrder();
+  $('#cardsArea').innerHTML = groups.map((group) => {
+    if (!group.cards.length && group.concept) return '';
+    const lane = group.cards[0] ? group.cards[0].lane : null;
+    if (!lane) return '';
+    return `
+      <div class="lanegroup" style="margin-bottom:16px">
+        ${group.concept ? `
+          <div class="concept-head"><span class="group-no">${esc(group.concept.split(' · ')[0])}</span><span class="group-title">${esc(group.concept.split(' · ').slice(1).join(' · '))}</span><span class="chip" style="margin-left:6px">x${group.cards.length} versions</span></div>` : ''}
+        <div class="cardlist" style="margin-top:6px">
+          ${group.cards.map((c) => `
+            <div class="cardrow">
+              <button type="button" class="planrow-open" data-action="open-card" data-id="${c.id}">
+                <span class="planrow-no">V-${c.no}</span>
+                <span class="cover">${c.lane === 'posts' ? 'IMG' : '▶'}</span>
+                <span class="planrow-id">
+                  <span class="planrow-who">${esc(c.title)}${c.version ? ` — V${c.version}` : ''}</span>
+                  <span class="planrow-badges">
+                    <span class="chip">${esc(c.kindLabel)}</span>
+                    <span class="chip">${c.href ? 'Reference' : 'Written card'}</span>
+                    ${c.filmed ? '<span class="chip" data-tone="ok">Filmed</span>' : ''}
+                    ${c.body ? '' : '<span class="chip" data-tone="ember">No directions yet</span>'}
+                  </span>
+                  ${c.hook || c.body ? `<span class="planrow-line">${esc((c.hook || c.body).slice(0, 96))}</span>` : ''}
+                </span>
+              </button>
+              <span class="planrow-tools">
+                ${c.filmed ? '<button type="button" class="cardtool" data-action="film" data-id="' + c.id + '" title="Unmark filmed">✓</button>' : `<button type="button" class="cardtool" data-action="film" data-id="${c.id}" title="Mark filmed">◻</button>`}
+                <button type="button" class="cardtool" data-action="dup" data-id="${c.id}" title="Duplicate">⧉</button>
+                <button type="button" class="cardtool cardtool-danger" data-action="remove" data-id="${c.id}" title="Remove">×</button>
+              </span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('') || '<p class="hint">No cards yet — add content in step 2.</p>';
+
+  $('#cardsAside').textContent = `${state.cards.length} cards · ${filmedCount()} filmed · grouped by lane`;
+}
+
+function renderCardDetail() {
+  const c = state.cards.find((x) => x.id === state.openCard);
+  if (!c) { state.openCard = null; renderCards(); return; }
+  const flat = state.cards;
+  const at = flat.findIndex((x) => x.id === c.id);
+  $('#cardsArea').innerHTML = `
+    <div class="carddetail">
+      <div class="carddetail-head">
+        <button type="button" class="btn btn-quiet btn-small" data-action="close-card">← All cards</button>
+        <span class="hint">Card ${at + 1} of ${flat.length}</span>
+        <span style="margin-left:auto; display:flex; gap:6px">
+          <button type="button" class="cardtool" data-action="nav-card" data-dir="-1" ${at === 0 ? 'disabled' : ''}>‹</button>
+          <button type="button" class="cardtool" data-action="nav-card" data-dir="1" ${at === flat.length - 1 ? 'disabled' : ''}>›</button>
+        </span>
+      </div>
+      <div class="carddetail-body">
+        <div class="cardhero">
+          <span class="cover">${c.lane === 'posts' ? 'IMG' : '▶'}</span>
+          <div>
+            <div class="cardhero-tags">
+              <span class="chip">V-${c.no}</span>
+              <span class="chip">${esc(c.kindLabel)}</span>
+              ${c.version ? `<span class="chip">V${c.version} of ${c.versionsTotal}</span>` : ''}
+              ${c.filmed ? '<span class="chip" data-tone="ok">Filmed</span>' : ''}
+            </div>
+            <p class="cardhero-title">${esc(c.title)}${c.version ? ` — V${c.version}` : ''}</p>
+            <p class="cardhero-sub">${esc(laneMeta[c.lane].name)}${c.concept ? ` · ${esc(c.concept)}` : ''}${c.href ? ` · ${esc(c.href)}` : ''}</p>
+          </div>
+        </div>
+
+        <div class="cardtools-row">
+          <button type="button" class="btn btn-quiet btn-small" data-action="film" data-id="${c.id}">${c.filmed ? 'Unmark filmed' : 'Mark filmed'}</button>
+          <button type="button" class="btn btn-quiet btn-small" data-action="dup" data-id="${c.id}">⧉ Duplicate</button>
+          <button type="button" class="btn btn-quiet btn-small" data-action="remove" data-id="${c.id}">× Remove</button>
+        </div>
+
+        <details class="cardsec" open>
+          <summary class="cardsec-title">On their card <em>what they read</em></summary>
+          <div class="cardsec-body">
+            <div class="form-pair">
+              <div class="form-row"><label class="axis-name">Title — what the card is called</label>
+                <input class="field" data-field="title" data-id="${c.id}" value="${esc(c.title)}"></div>
+              <div class="form-row"><label class="axis-name">Location — groups their plan</label>
+                <input class="field" data-field="location" data-id="${c.id}" value="${esc(c.location)}" placeholder="In the car"></div>
+            </div>
+            <div class="cardsec-toggles">
+              <button type="button" class="chip" data-action="toggle-film" data-id="${c.id}" data-on="${c.filmOn ? '1' : ''}">Film it: ${c.filmOn ? 'on' : 'off'}</button>
+              <button type="button" class="chip" data-action="toggle-captions" data-id="${c.id}" data-on="${c.captionsOn ? '1' : ''}">Captions: ${c.captionsOn ? 'on' : 'off'}</button>
+            </div>
+            ${c.lane === 'talking' ? `<div class="form-row"><label class="axis-name">Hook — the opening line</label>
+              <input class="field" data-field="hook" data-id="${c.id}" value="${esc(c.hook)}"></div>` : ''}
+            ${c.concept ? `<div class="form-row"><label class="axis-name">Outfit — this version</label>
+              <input class="field" data-field="outfit" data-id="${c.id}" value="${esc(c.outfit)}"></div>` : ''}
+            <div class="form-row"><label class="axis-name">Direction — what she films</label>
+              <textarea class="field" rows="4" data-field="body" data-id="${c.id}">${esc(c.body)}</textarea></div>
+            <div class="form-row"><label class="axis-name">Caption${c.captionsOn ? ' — drafts write themselves' : ''}</label>
+              <input class="field" data-field="caption" data-id="${c.id}" value="${esc(c.caption)}" placeholder="+ Add a caption yourself"></div>
+          </div>
+        </details>
+
+        <details class="cardsec">
+          <summary class="cardsec-title">In-house <em>they never see this</em></summary>
+          <div class="cardsec-body">
+            <div class="form-row"><label class="axis-name">Editing notes</label>
+              <textarea class="field" rows="2" data-field="editorNotes" data-id="${c.id}">${esc(c.editorNotes)}</textarea></div>
+            <p class="hint">Editor: ${state.editor ? esc(state.editor) : 'unassigned — pick one in Team &amp; suggestions'}</p>
+          </div>
+        </details>
+      </div>
+    </div>`;
+  $('#cardsAside').textContent = `Card ${at + 1} of ${flat.length}`;
+}
+
+/* ================================================================== render — step 4 / 5 / send / preview */
+function issues() {
+  const list = [];
+  const target = targetTotal();
+  const short = Math.max(0, target - state.cards.length);
+  const blanks = state.cards.filter((c) => !c.body && !c.href).length;
+  const editNotes = state.cards.filter((c) => c.editorNotes).length;
+  if (state.cards.length === 0) {
+    list.push({ tone: 'warn', text: 'Nothing on the week yet — step 2 builds it.' });
+  } else {
+    list.push({ tone: 'ok', text: `${state.cards.length} cards on the week — every one is written, nothing waits on the Mac.` });
+  }
+  if (short > 0) list.push({ tone: 'warn', text: `${state.cards.length} on this week · the target is ${target} — ${short} short. Send it anyway if that is deliberate.` });
+  if (blanks > 0) list.push({ tone: 'warn', text: `${blanks} card${blanks === 1 ? ' has' : 's have'} no directions yet — they land as blanks, hidden from her until written.` });
+  if (editNotes > 0 && !state.editor) list.push({ tone: 'warn', text: `${editNotes} editing notes with no editor assigned.` });
+  const repeats = repeatsOf();
+  if (repeats.length) list.push({ tone: 'warn', text: repeats.map(([caption, n]) => `“${caption}” is on ${n} cards`).join(' · ') + ' — each card should have its own caption before this goes out.' });
+  return list;
+}
+
+function repeatsOf() {
+  const map = new Map();
+  for (const c of state.cards) {
+    const caption = (c.caption || '').trim();
+    if (!caption) continue;
+    map.set(caption, (map.get(caption) || 0) + 1);
+  }
+  return [...map.entries()].filter(([, n]) => n > 1);
+}
+
+function renderChecks() {
+  const list = issues();
+  const warnings = list.filter((x) => x.tone === 'warn').length;
+  $('#checkAside').textContent = warnings === 0 ? 'All clear' : `${warnings} to look at`;
+  $('#checkAside').setAttribute('data-tone', warnings === 0 ? 'ok' : 'ember');
+  $('#checklist').innerHTML = list.map((item) => `
+    <div class="checkitem" data-tone="${item.tone}"><span class="checkmark">${item.tone === 'ok' ? '✓' : '!'}</span><span>${item.text}</span></div>`).join('');
+}
+
+const SUGGESTIONS = [
+  { id: 's1', lane: 'talking', title: 'Talking — airport rant', hook: 'Airports bring out a version of me I do not like.', body: 'Everyone is walking like they are late to something that matters. It is a terminal.' },
+  { id: 's2', lane: 'format',  title: '73 · Mirror reveal', concept: '73 · Mirror reveal', dir: 'Spray the mirror, wipe to reveal, end shocked. Second clip: wink at the reflection.' },
+];
+
+function renderSuggest() {
+  $('#suggestArea').innerHTML = SUGGESTIONS.map((s) => `
+    <div class="suggestrow">
+      <span class="tmain"><span class="thook">${esc(s.title)}</span><span class="tbody">${esc(s.lane === 'talking' ? s.hook : s.dir)}</span></span>
+      <button type="button" class="btn btn-small" data-action="add-suggestion" data-id="${s.id}" ${state.usedSuggestions[s.id] ? 'disabled' : ''}>${state.usedSuggestions[s.id] ? 'Added' : 'Add to the week'}</button>
+    </div>`).join('');
+}
+
+function renderSend() {
+  $('#statusPill').textContent = state.sent ? 'Sent' : 'Draft';
+  $('#statusPill').toggleAttribute('data-sent', state.sent);
+  $('#sendButtons').innerHTML = state.sent
+    ? '<button type="button" class="btn btn-quiet btn-small" data-action="unsend">Unsend</button>'
+    : '<button type="button" class="btn btn-quiet btn-small" data-action="mark-sent">Mark as sent</button><button type="button" class="btn btn-small" data-action="send">Send on Telegram</button>';
+  const tg = $('#tgState');
+  if (state.tg === 'queued') { tg.textContent = 'Queued — the bot posts it in MARKETING…'; tg.setAttribute('data-tone', 'work'); }
+  else if (state.tg === 'posted') { tg.textContent = 'Posted in MARKETING ✓'; tg.setAttribute('data-tone', 'ok'); }
+  else if (state.tg === 'recorded') { tg.textContent = 'Marked as sent — the bot notes it in the day report'; tg.setAttribute('data-tone', 'ok'); }
+  else { tg.textContent = ''; tg.removeAttribute('data-tone'); }
+  $('#sendHint').textContent = state.sent
+    ? 'Sent — her link is live and the bot has it.'
+    : 'A draft is invisible to them until it is sent. Their Telegram group is linked — sending posts it in MARKETING.';
+}
+
+function renderPreview() {
+  $('#pane').toggleAttribute('data-preview', state.preview);
+  const inner = $('#heresInner');
+  const inplan = laneOrder.map((lane) => `<div><b>${state.targets[lane]}×</b> ${esc(laneMeta[lane].name)}</div>`).join('');
+  const sections = laneOrder.map((lane) => {
+    const cards = laneCards(lane);
+    if (!cards.length) return '';
+    return `<div class="sect">
+      <span class="label">${esc(laneMeta[lane].title)}</span>
+      ${cards.map((c) => `<div class="cardmini">
+        <span class="t">${esc(c.title)}${c.version ? ` — V${c.version}` : ''}</span>
+        ${c.hook ? `<span class="d">${esc(c.hook)}</span>` : c.body ? `<span class="d">${esc(c.body.slice(0, 110))}${c.body.length > 110 ? '…' : ''}</span>` : ''}
+        <span class="v">${c.version ? `<span class="chip">Version ${c.version}</span>` : ''}${c.href ? '<span class="chip">Reference</span>' : ''}<span class="chip">${esc(c.kindLabel)}</span></span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+  inner.innerHTML = `
+    <div class="block">
+      <h3>Hey Berkeley</h3>
+      <span class="plan-live" ${state.sent ? 'data-live' : ''}>${state.sent ? 'Live on her link' : 'Draft — hidden from them'}</span>
+      <p class="hint">Week of 12 Oct · due Fri 16 Oct · filming Tue &amp; Thu</p>
+    </div>
+    <div class="block">
+      <span class="label">In this plan</span>
+      <div class="inplan">${inplan}</div>
+      <p class="hint">+ 7 Stories (one a day) · 2 Carousels</p>
+    </div>
+    ${sections}
+  `;
+}
+
+/* ================================================================== render all */
+function render() {
+  renderCells();
+  renderLaneCounts();
+  renderFormatLane();
+  renderTalkingLane();
+  renderPostsLane();
+  renderCards();
+  renderChecks();
+  renderSuggest();
+  renderSend();
+  renderPreview();
+  const planned = plannedTotal();
+  const target = targetTotal();
+  $('#statItems').textContent = planned;
+  $('#statItems2').textContent = planned;
+  $('#statTarget').textContent = target;
+  $('#statFilmed').textContent = filmedCount();
+  $('#meterFill').style.width = (target > 0 ? Math.min(100, Math.round((planned / target) * 100)) : 0) + '%';
+  $('#fmtlist').innerHTML = FORMATS.map((f) => `<option value="${esc(`${f.no} · ${f.name}`)}"></option>`).join('');
+  updateComposerLands();
+}
+
+/* ================================================================== the composer
+   Add → what style is it → template or from scratch → the fields. Every style's
+   form carries the doc's own instructions, and "More card fields" holds the same
+   fields the card shows when you open it in step 3 — so adding asks for
+   everything the card can hold, not just a label. */
+const STYLE_TILES = [
+  { id: 'format', name: 'Format reels',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.2l5 2.8-5 2.8z"/></svg>',
+    line: 'Numbered formats from the playbook — reference video, x2 versions, editor notes.' },
+  { id: 'talking', name: 'Talking reels',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-5 4z"/></svg>',
+    line: 'A reference link or a HOOK + BODY — car or street, like FaceTime to a friend.' },
+  { id: 'omegle', name: 'Omegle session',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/></svg>',
+    line: "One a week — Tom's training, games to play, questions to ask." },
+  { id: 'posts', name: 'Picture posts',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>',
+    line: 'IG wall posts from the shoot-day photos — no extra filming.' },
+];
+
+function openComposer() {
+  $('#composer').hidden = false;
+  $('#composerOpen').hidden = true;
+  renderComposer();
+  $('#composer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeComposer() {
+  $('#composer').hidden = true;
+  $('#composerOpen').hidden = false;
+}
+function pickStyle(style) {
+  state.composer.style = style;
+  renderComposer();
+}
+function renderComposer() {
+  const style = state.composer.style;
+  $('#composerStep').textContent = style ? 'Step 2 — fill it in' : 'Step 1 — what style is it?';
+  $('#composerStyles').innerHTML = STYLE_TILES.map((tile) => `
+    <button type="button" class="stylecard" data-style="${tile.id}"${style === tile.id ? ' data-on' : ''}>
+      <span class="stylecard-ico">${tile.icon}</span>
+      <span class="stylecard-name">${esc(tile.name)}</span>
+      <span class="stylecard-line">${esc(tile.line)}</span>
+    </button>`).join('');
+  $('#composerBody').hidden = !style;
+  if (!style) return;
+  const tile = STYLE_TILES.find((entry) => entry.id === style);
+  $('#composerChosenName').textContent = tile.name;
+  $('#composerChosenLine').textContent = tile.line;
+  $$('#composerBody .cform').forEach((form) => { form.hidden = form.dataset.form !== style; });
+  if (style === 'format') renderCfVersions();
+  if (style === 'talking') {
+    $$('#talkMode [data-mode]').forEach((chip) => chip.toggleAttribute('data-on', chip.dataset.mode === state.composer.talkMode));
+    $$('.cform[data-form="talking"] [data-talk]').forEach((panel) => { panel.hidden = panel.dataset.talk !== state.composer.talkMode; });
+  }
+  updateComposerLands();
+}
+function renderCfVersions() {
+  const rows = state.composer.versions;
+  $('#cfVersCount').textContent = String(rows.length);
+  $('#cfVersionRows').innerHTML = rows.map((row, i) => `
+    <div class="cf-ver">
+      <span class="cf-ver-no">V${i + 1}</span>
+      <input class="field" data-cver="outfit" data-i="${i}" value="${esc(row.outfit)}" placeholder="Outfit — what changes for this version">
+      <input class="field" data-cver="caption" data-i="${i}" value="${esc(row.caption)}" placeholder="Caption — optional">
+      <button type="button" class="cardtool" data-cver-x="${i}" ${rows.length <= 1 ? 'disabled' : ''} aria-label="Remove version">×</button>
+    </div>`).join('')
+    + (rows.length < 8 ? '<button type="button" class="btn btn-quiet btn-small cf-vers-add" id="cfAddVers">+ Add version</button>' : '');
+}
+/** Typing a number (or name) that is in the playbook is the "template": its
+ *  directions, versions and editor notes come in, and every field stays yours
+ *  to edit — write over anything and it is a card of your own. */
+function applyFormatTemplate() {
+  const raw = ($('#cfFormat').value || '').trim();
+  const reel = raw ? findFormat(raw) : null;
+  if (!reel) {
+    $('#cfInstruction').textContent = 'Pick a numbered format — its directions, versions and editor notes come in with it. Or just start writing your own.';
+    updateComposerLands();
+    return;
+  }
+  $('#cfDir').value = reel.dir;
+  $('#cfNotes').value = reel.editorNotes || '';
+  state.composer.versions = reel.versions.slice(0, 8).map((v) => ({ outfit: v.outfit || '', caption: v.caption || '' }));
+  if (state.composer.versions.length < 2) state.composer.versions.push({ outfit: '', caption: '' });
+  renderCfVersions();
+  $('#cfInstruction').textContent = `Prefilled from ${reel.no} · ${reel.name} — edit anything below.`;
+  updateComposerLands();
+}
+const val = (sel) => ($(sel)?.value ?? '').trim();
+function moreFields() {
+  return { title: val('#moreTitle'), location: val('#moreLocation'), wardrobe: val('#moreWardrobe'), caption: val('#moreCaption'), editing: val('#moreEditing') };
+}
+function resetComposerFields() {
+  for (const sel of ['#cfFormat', '#cfDir', '#cfNotes', '#cfHook', '#cfBody', '#cfRefLink', '#cfBulk', '#cfWhat', '#moreTitle', '#moreLocation', '#moreWardrobe', '#moreCaption', '#moreEditing']) {
+    const el = $(sel);
+    if (el) el.value = '';
+  }
+  state.composer.versions = [{ outfit: '', caption: '' }, { outfit: '', caption: '' }];
+  state.composer.posts = 3;
+  $('#cfPostsCount').textContent = '3';
+  $('#cfInstruction').textContent = 'Pick a numbered format — its directions, versions and editor notes come in with it. Or just start writing your own.';
+}
+function updateComposerLands() {
+  const lands = $('#composerLands');
+  if (!lands) return;
+  const style = state.composer.style;
+  if (!style) { lands.textContent = 'Pick a style and the fields change with it.'; return; }
+  if (style === 'format') {
+    const reel = findFormat($('#cfFormat').value || '');
+    const count = state.composer.versions.length;
+    lands.innerHTML = `Lands as <b>${esc(reel ? `${reel.no} · ${reel.name}` : 'a format reel')} — ${Array.from({ length: count }, (_, i) => 'V' + (i + 1)).join(' / ')}</b> (${count} card${count === 1 ? '' : 's'}).`;
+    return;
+  }
+  if (style === 'talking') {
+    const mode = state.composer.talkMode;
+    if (mode === 'bulk') {
+      const count = ($('#cfBulk').value || '').split('\n').map((line) => line.trim()).filter(Boolean).length;
+      lands.textContent = count ? `Lands as ${count} Talking reel${count === 1 ? '' : 's'} — one per line.` : 'Paste one reel per line.';
+    } else {
+      lands.textContent = mode === 'ref' ? 'Lands as one Talking reel with the reference on it.' : 'Lands as one Talking reel — hook on the card, body as the direction.';
+    }
+    return;
+  }
+  if (style === 'omegle') { lands.textContent = 'Lands as one Omegle session card.'; return; }
+  lands.textContent = `Lands as ${state.composer.posts} picture post${state.composer.posts === 1 ? '' : 's'}.`;
+}
+function composerAdd() {
+  const style = state.composer.style;
+  if (!style) return;
+  const more = moreFields();
+  if (style === 'format') {
+    const raw = val('#cfFormat');
+    const reel = raw ? findFormat(raw) : null;
+    const name = reel ? reel.name : (more.title || raw || 'Format reel');
+    const concept = reel ? `${reel.no} · ${reel.name}` : name;
+    if (state.cards.some((c) => c.concept === concept)) { toast(`${concept} is already on the week.`); return; }
+    const dir = val('#cfDir') || (reel ? reel.dir : '');
+    const notes = val('#cfNotes') || (reel ? reel.editorNotes : '');
+    const rows = state.composer.versions.filter((v) => v.outfit.trim() || v.caption.trim());
+    const kept = rows.length ? rows : [{ outfit: more.wardrobe, caption: more.caption }];
+    kept.forEach((v, i) => {
+      state.cards.push(card({
+        lane: 'format', title: name, concept,
+        version: i + 1, versionsTotal: kept.length,
+        outfit: v.outfit || more.wardrobe || `Outfit for V${i + 1}`,
+        caption: v.caption || more.caption || '',
+        body: dir, editorNotes: notes || more.editing || '',
+        location: more.location || '', source: 'reference',
+      }));
+    });
+    toast(`${concept} landed — ${kept.map((_, i) => 'V' + (i + 1)).join(' / ')} on the week.`);
+  } else if (style === 'talking') {
+    const mode = state.composer.talkMode;
+    if (mode === 'bulk') {
+      const lines = ($('#cfBulk').value || '').split('\n').map((line) => line.trim()).filter(Boolean);
+      const entries = lines.length ? lines : [''];
+      entries.forEach((line) => {
+        if (/^https?:|^www\.|^instagram\.com|^tiktok\.com/i.test(line)) {
+          state.cards.push(card({ lane: 'talking', title: more.title || 'Talking reel — reference', href: line, location: more.location || '', editorNotes: more.editing || '' }));
+        } else {
+          const [hook, ...rest] = line.split('|');
+          state.cards.push(card({ lane: 'talking', title: more.title || 'Talking reel', hook: hook.trim(), body: rest.join('|').trim(), wardrobe: more.wardrobe || '', caption: more.caption || '', location: more.location || '', editorNotes: more.editing || '' }));
+        }
+      });
+      toast(lines.length ? `${lines.length} Talking reel${lines.length === 1 ? '' : 's'} landed.` : 'A blank Talking reel landed — fill it in on the card.');
+    } else if (mode === 'ref') {
+      const link = val('#cfRefLink');
+      if (link) {
+        state.cards.push(card({ lane: 'talking', title: more.title || 'Talking reel — reference', href: link, location: more.location || '', editorNotes: more.editing || '' }));
+        toast('Talking reel landed — reference on the card.');
+      } else {
+        state.cards.push(card({ lane: 'talking', title: more.title || 'Talking reel — reference', location: more.location || '', editorNotes: more.editing || '' }));
+        toast('A blank Talking reel landed — paste the reference on the card later.');
+      }
+    } else {
+      state.cards.push(card({ lane: 'talking', title: more.title || 'Talking reel', hook: val('#cfHook'), body: val('#cfBody'), wardrobe: more.wardrobe || '', caption: more.caption || '', location: more.location || '', editorNotes: more.editing || '' }));
+      toast('Talking reel landed — edit anything on the card.');
+    }
+  } else if (style === 'omegle') {
+    if (state.cards.some((c) => c.lane === 'omegle')) { toast('The session is already on the week.'); return; }
+    const body = ['GAMES TO PLAY', val('#cfGames') || '—', '', 'QUESTIONS TO ASK', val('#cfQuestions')].join('\n');
+    state.cards.push(card({
+      lane: 'omegle', title: more.title || "Omegle session — Tom's fundamentals", body,
+      editorNotes: [val('#cfTraining'), more.editing].filter(Boolean).join('\n'),
+      location: more.location || '',
+    }));
+    toast('The session card landed — games, questions and the training note inside.');
+  } else {
+    const count = state.composer.posts;
+    const what = val('#cfWhat') || more.title;
+    for (let i = 0; i < count; i += 1) {
+      state.cards.push(card({
+        lane: 'posts', kindLabel: 'Picture post',
+        title: what ? `Wall post · ${what}${count > 1 ? ` #${i + 1}` : ''}` : `Wall post #${countOf('posts') + i + 1}`,
+        body: 'From shoot-day photos — 3–6 slides, best one first.',
+        location: more.location || '', editorNotes: more.editing || '',
+      }));
+    }
+    toast(`${count} picture post${count === 1 ? '' : 's'} landed on the wall-post lane.`);
+  }
+  resetComposerFields();
+  closeComposer();
+  render();
+}
+
+function findFormat(raw) {
+  const num = raw.match(/^(\d+[a-z]?)/i);
+  if (num) {
+    const hit = FORMATS.find((f) => f.no.toLowerCase() === num[1].toLowerCase());
+    if (hit) return hit;
+  }
+  const needle = raw.toLowerCase();
+  return FORMATS.find((f) => `${f.no} · ${f.name}`.toLowerCase() === needle)
+    || FORMATS.find((f) => f.name.toLowerCase().includes(needle) || needle.includes(f.name.toLowerCase()))
+    || null;
+}
+
+/* ================================================================== events */
+document.addEventListener('click', (event) => {
+  const goto = event.target.closest('[data-goto]');
+  if (goto) {
+    document.getElementById(goto.dataset.goto).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $$('.stepnav button').forEach((b) => b.toggleAttribute('data-on', b === goto));
+    return;
+  }
+
+  const stepBtn = event.target.closest('button[data-step]');
+  if (stepBtn) {
+    const lane = stepBtn.dataset.target;
+    if (lane) {
+      state.targets[lane] = Math.max(0, Math.min(40, state.targets[lane] + Number(stepBtn.dataset.step)));
+      render();
+    }
+    return;
+  }
+
+  /* ---- the composer's own controls ---- */
+  const cstep = event.target.closest('button[data-cstep]');
+  if (cstep) {
+    const dir = Number(cstep.dataset.dir);
+    if (cstep.dataset.cstep === 'vers') {
+      const rows = state.composer.versions;
+      if (dir > 0 && rows.length < 8) rows.push({ outfit: '', caption: '' });
+      if (dir < 0 && rows.length > 1) rows.pop();
+      renderCfVersions();
+      updateComposerLands();
+    } else {
+      state.composer.posts = Math.max(1, Math.min(10, state.composer.posts + dir));
+      $('#cfPostsCount').textContent = String(state.composer.posts);
+      updateComposerLands();
+    }
+    return;
+  }
+  const versDrop = event.target.closest('[data-cver-x]');
+  if (versDrop) {
+    state.composer.versions.splice(Number(versDrop.dataset.cverX), 1);
+    renderCfVersions();
+    updateComposerLands();
+    return;
+  }
+  if (event.target.closest('#cfAddVers')) {
+    if (state.composer.versions.length < 8) state.composer.versions.push({ outfit: '', caption: '' });
+    renderCfVersions();
+    updateComposerLands();
+    return;
+  }
+  if (event.target.closest('#composerOpen')) { openComposer(); return; }
+  if (event.target.closest('#composerClose')) { closeComposer(); return; }
+  if (event.target.closest('#composerChange')) { pickStyle(null); return; }
+  if (event.target.closest('#composerAdd')) { composerAdd(); return; }
+  const styleTile = event.target.closest('.stylecard');
+  if (styleTile) { pickStyle(styleTile.dataset.style); return; }
+  const modeChip = event.target.closest('[data-mode]');
+  if (modeChip) { state.composer.talkMode = modeChip.dataset.mode; renderComposer(); return; }
+
+  const action = event.target.closest('[data-action]');
+  if (!action) return;
+  const id = action.dataset.id;
+  const find = () => state.cards.find((c) => c.id === id);
+
+  switch (action.dataset.action) {
+    case 'open-card': state.openCard = id; render(); $('#step3').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+    case 'open-reel': state.openReel = id; render(); break;
+    case 'close-reel': state.openReel = null; render(); break;
+    case 'close-card': state.openCard = null; render(); break;
+    case 'nav-card': {
+      const at = state.cards.findIndex((c) => c.id === state.openCard);
+      const next = at + Number(action.dataset.dir);
+      if (state.cards[next]) { state.openCard = state.cards[next].id; render(); }
+      break;
+    }
+    case 'dup': {
+      const c = find(); if (!c) break;
+      const siblings = c.concept ? state.cards.filter((x) => x.concept === c.concept) : [];
+      const { id: _drop, ...rest } = c;
+      const copy = card(Object.assign({}, rest, { no: state.nextNo++, filmed: false }));
+      if (c.concept) { copy.version = siblings.length + 1; copy.versionsTotal = siblings.length + 1; siblings.forEach((s) => { s.versionsTotal = siblings.length + 1; }); }
+      state.cards.push(copy);
+      render();
+      toast(c.concept ? `Added ${c.concept} — V${copy.version}.` : 'Card duplicated — edit the words for the variation.');
+      break;
+    }
+    case 'remove': {
+      const at = state.cards.findIndex((c) => c.id === id);
+      if (at < 0) break;
+      const [gone] = state.cards.splice(at, 1);
+      state.undo.push(gone);
+      if (state.openCard === id) state.openCard = null;
+      render();
+      toast(`${gone.title} removed — Undo is under step 3.`);
+      break;
+    }
+    case 'undo': {
+      const back = state.undo.pop();
+      if (!back) break;
+      state.cards.push(back);
+      render();
+      break;
+    }
+    case 'film': { const c = find(); if (c) { c.filmed = !c.filmed; render(); } break; }
+    case 'toggle-film': { const c = find(); if (c) { c.filmOn = !c.filmOn; render(); } break; }
+    case 'toggle-captions': { const c = find(); if (c) { c.captionsOn = !c.captionsOn; render(); } break; }
+    case 'add-suggestion': {
+      const s = SUGGESTIONS.find((x) => x.id === id);
+      if (!s) break;
+      state.usedSuggestions[s.id] = true;
+      if (s.lane === 'talking') state.cards.push(card({ lane: 'talking', title: s.title, hook: s.hook, body: s.body }));
+      else state.cards.push(card({ lane: 'format', title: 'Mirror reveal', concept: s.concept, version: 1, versionsTotal: 1, body: s.dir, source: 'reference' }));
+      render();
+      toast(`${s.title} added to the week.`);
+      break;
+    }
+    case 'mark-sent': state.sent = true; state.tg = 'recorded'; render(); toast('Marked as sent — the bot counts it in the end-of-day report.'); break;
+    case 'send': {
+      if (state.sent) break;
+      state.sent = true; state.tg = 'queued'; render();
+      setTimeout(() => { state.tg = 'posted'; render(); toast('Posted in MARKETING — her link is on the way to her group.'); }, 1600);
+      break;
+    }
+    case 'unsend': state.sent = false; state.tg = null; render(); break;
+    case 'copy-link': {
+      const link = 'https://transcriber.app/p/berkeley-8f2k';
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(
+        () => toast('Their link copied — it always opens her current week.'),
+        () => toast('Their link: ' + link),
+      );
+      break;
+    }
+    case 'delete-week': toast('Not in the demo — this is the real danger button.'); break;
+    case 'preview-toggle': state.preview = !state.preview; render(); break;
+    case 'brief': $('#briefBody').textContent = briefText(); $('#briefDlg').showModal(); break;
+    case 'close-brief': $('#briefDlg').close(); break;
+    case 'copy-brief': {
+      const text = briefText();
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+        () => toast('Brief copied — paste it straight into WhatsApp.'),
+        () => toast('Press Ctrl+C in the pane to copy.'),
+      );
+      break;
+    }
+  }
+});
+
+document.addEventListener('input', (event) => {
+  const targetInput = event.target.closest('input[data-targetinput]');
+  if (targetInput) {
+    const lane = targetInput.dataset.targetinput;
+    state.targets[lane] = Math.max(0, Math.min(40, Number(targetInput.value.replace(/\D/g, '')) || 0));
+    render();
+    return;
+  }
+  const cver = event.target.closest('[data-cver]');
+  if (cver) {
+    state.composer.versions[Number(cver.dataset.i)][cver.dataset.cver] = cver.value;
+    updateComposerLands();
+    return;
+  }
+  if (event.target.closest('#composer')) { updateComposerLands(); return; }
+  const groupField = event.target.closest('[data-cgroup]');
+  if (groupField) {
+    const concept = groupField.dataset.cgroup;
+    for (const c of state.cards) if (c.concept === concept) c[groupField.dataset.gfield] = groupField.value;
+    renderChecks();
+    renderPreview();
+    return;
+  }
+  const field = event.target.closest('[data-field]');
+  if (field) {
+    const c = state.cards.find((x) => x.id === field.dataset.id);
+    if (c) {
+      c[field.dataset.field] = field.value;
+      // Live bits elsewhere, without re-rendering the field being typed in.
+      renderChecks();
+      renderPreview();
+      const rowTitle = document.querySelector(`.planrow-open[data-id="${c.id}"] .planrow-who`);
+      if (rowTitle) rowTitle.textContent = c.title + (c.version ? ` — V${c.version}` : '');
+    }
+  }
+});
+
+document.addEventListener('change', (event) => {
+  if (event.target.id === 'cfFormat') applyFormatTemplate();
+  if (event.target.id === 'editorPick') { state.editor = event.target.value; render(); }
+  if (event.target.id === 'sTitle') $('#weekTitleEcho') && ($('#weekTitleEcho').textContent = event.target.value);
+  if (event.target.id === 'sFolder') toast('Folder saved — her page shows it as “Where to send it”.');
+  if (event.target.id === 'variant') toast(`Telegram wording: ${event.target.value}.`);
+});
+
+/* ================================================================== CD brief text */
+function briefText() {
+  const out = [];
+  out.push('Hey Berkeley,');
+  out.push('');
+  out.push('Date: 12 Oct 2026');
+  out.push('Calendar Week: 42');
+  out.push('');
+  out.push('Content Styles:');
+  out.push('');
+  out.push(`1. ${state.targets.format} x Format reels`);
+  out.push(`2. ${state.targets.omegle} x Omegle session`);
+  out.push(`3. ${state.targets.talking} x Talking reels`);
+  out.push(`4. ${state.targets.posts} x Picture Posts`);
+  out.push('');
+  out.push('ALL CONTENT TO BE COMPLETED BY FRIDAY 16 Oct 2026');
+  out.push('');
+  out.push('Any concerns or questions, please ask your team in the WhatsApp group chat.');
+  const byConcept = new Map();
+  for (const c of state.cards.filter((x) => x.lane === 'format')) {
+    if (!byConcept.has(c.concept)) byConcept.set(c.concept, []);
+    byConcept.get(c.concept).push(c);
+  }
+  if (byConcept.size) {
+    out.push('');
+    out.push('— — —');
+    out.push('');
+    out.push('FORMAT REELS');
+    Array.from(byConcept.entries()).forEach(([concept, cards], i) => {
+      out.push('');
+      out.push(`REEL ${i + 1} (x${cards.length})`);
+      out.push('');
+      out.push(`${concept.toUpperCase()} ← REFERENCE VIDEO`);
+      out.push('');
+      out.push(cards[0].body);
+      cards.forEach((c) => {
+        out.push(`Version #${c.version}: ${c.outfit || 'as the reference'}`);
+      });
+      if (cards[0].editorNotes) { out.push(''); out.push('EDITOR NOTES:'); out.push(cards[0].editorNotes); }
+    });
+  }
+  const talking = laneCards('talking');
+  if (talking.length) {
+    out.push('');
+    out.push('TALKING');
+    out.push('');
+    out.push('Try to film these all in the car, or walking down the street. Natural, like you are on FaceTime to a friend.');
+    talking.forEach((c, i) => {
+      out.push('');
+      out.push(`REEL #${i + 1}`);
+      if (c.href) out.push(`REFERENCE: ${c.href}`);
+      else { out.push(`HOOK: ${c.hook}`); out.push(`BODY: ${c.body}`); }
+    });
+  }
+  const omegle = laneCards('omegle');
+  if (omegle.length) {
+    out.push('');
+    out.push('OMEGLE SESSIONS');
+    out.push('');
+    out.push('Watch Tom show you through the fundamentals — Loom (training link).');
+    out.push('');
+    omegle[0].body.split('\n').forEach((line) => out.push(line));
+    if (omegle[0].editorNotes) { out.push(''); out.push(omegle[0].editorNotes); }
+  }
+  const posts = laneCards('posts');
+  if (posts.length) {
+    out.push('');
+    out.push('IG WALL POSTS');
+    posts.forEach((p) => { out.push(''); out.push(`– ${p.title} — ${p.body}`); });
+  }
+  return out.join('\n');
+}
+
+/* ================================================================== undo bar live */
+const origRender = render;
+render = function () {
+  origRender();
+  $('#undoBar').innerHTML = state.undo.length === 0 ? '' : `
+    <div class="checklist" style="margin-top:12px">
+      <div class="checkitem" data-tone="ok"><span class="checkmark">✓</span>
+        <span>${esc(state.undo[state.undo.length - 1].title)} removed${state.undo.length > 1 ? ` · ${state.undo.length} in the undo pile` : ''}.
+        <button type="button" class="btn btn-small" style="margin-left:10px" data-action="undo">Undo</button></span>
+      </div>
+    </div>`;
+};
+renderComposer();
+render();
+</script>
+</body>
+</html>

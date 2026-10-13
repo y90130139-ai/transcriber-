@@ -30,7 +30,7 @@ export async function readPlan(id: string) {
     sql.query(
       `select p.id, p.model_id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
               to_char(p.due_date, 'YYYY-MM-DD') as due_date,
-              p.title, p.intro, p.status, p.sent_at, p.target,
+              p.title, p.intro, p.status, p.sent_at, p.target, p.style_targets,
               m.name as model_name, m.access_token, m.token_revoked_at,
               m.weekly_target, m.timezone, m.filming_days, m.standing_rules,
               m.wont_do, m.plan_template,
@@ -43,16 +43,18 @@ export async function readPlan(id: string) {
       [id],
     ),
     sql.query(
-      `select i.id, i.job_id, i.position, i.notes, i.editing_notes, i.editor_id,
+      `select i.id, i.job_id, i.position, i.notes, i.notes_to_model, i.editing_notes, i.editor_id,
               i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
               -- t.title below is the reference's own title on Instagram, so the
               -- card's own name has to arrive under a different one.
-              i.card_no, i.title as item_title, i.location, i.bucket, i.source_post, i.repurposed_at, i.rating, i.made_at, i.made_url,
+              i.card_no, i.title as item_title, i.location, i.bucket, i.style, i.source_post, i.repurposed_at, i.rating, i.made_at, i.made_url,
+              i.versions,
               i.source, i.twist, i.hide_film, i.hide_captions,
               i.filmed_at, i.posted_at, i.post_url,
               i.model_note, i.model_note_at, i.seen_at,
               i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
               i.r2_key, i.r2_bytes, i.uploaded_at, i.r2_purged_at,
+              i.take_key, i.take_bytes, i.take_duration_sec, i.take_uploaded_at,
               t.author, t.title, t.webpage_url, t.duration_sec, t.folder,
               -- A card pasted a minute ago has no transcript row yet; the job's
               -- own status is what tells "still downloading" from "no video".

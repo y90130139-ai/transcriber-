@@ -175,11 +175,20 @@ export type RedditSettings = {
   /** Account-stat reads per community per pass (the expensive request). */
   requirements_profile_batch: number
   /** The daily NSFW discovery sweep: its own request allowance, spent on
-   *  /subreddits/search pages to find new communities for the board. */
+   *  /subreddits/search pages to find new communities and on content scans
+   *  that feed the topic engine. */
   discovery_enabled: boolean
   discovery_daily_cap: number
   discovery_per_pass: number
+  /** Search-result pages followed per keyword (each page is one request). */
+  discovery_pages_per_keyword: number
   discovery_min_subscribers: number
+  /** The stop-hunting point: once the board holds this many communities,
+   *  every discovery request goes to content scanning instead. 0 = no cap. */
+  discovery_max_communities: number
+  /** While still hunting, the share of each sweep's budget (0–100) that
+   *  goes to scanning board communities for topics and trends. */
+  content_scan_percent: number
 }
 
 export type RedditPreferences = {
@@ -276,6 +285,9 @@ export type DiscoveryStatus = {
   requests_today: number
   added_today: number
   checked_today: number
+  scanned_today: number
   last_run_at: string | null
   min_subscribers: number
+  max_communities: number
+  content_percent: number
 }

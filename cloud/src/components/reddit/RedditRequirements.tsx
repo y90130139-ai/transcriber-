@@ -46,15 +46,15 @@ const BOT_BOUNCER_NEXT: Record<string, 'yes' | 'no' | 'unknown'> = {
 }
 
 const COLUMN_HELP: Partial<Record<SortKey | 'sources', string>> = {
-  subscribers: 'Subscribers, as Reddit reports them',
-  min_post_karma: 'Lowest post karma seen among surviving posts',
-  min_comment_karma: 'Lowest comment karma seen among surviving posts',
-  min_age_days: 'Shortest account age at posting, among surviving posts',
-  avg_total_karma: 'Average combined karma of sampled survivors',
-  posts_per_day: 'New posts per day, from the sampled listings',
-  sources: 'The posts this estimate rests on',
-  confidence: 'How much data backs these numbers',
-  bot_bouncer: 'Bot Bouncer installed on the community',
+  subscribers: 'Subscribers on Reddit',
+  min_post_karma: 'Lowest among surviving posts',
+  min_comment_karma: 'Lowest among surviving posts',
+  min_age_days: 'Shortest among surviving posts',
+  avg_total_karma: 'Average among survivors',
+  posts_per_day: 'From the sampled listings',
+  sources: 'Evidence posts',
+  confidence: 'Sample depth',
+  bot_bouncer: 'Installed on the community',
 }
 
 /** Subreddits Requirements — the posting-gate board. Every figure is read
@@ -177,8 +177,8 @@ export default function RedditRequirements() {
       const body = await call('/api/reddit/requirements/collect', 'POST')
       const result = body?.result as { subreddits?: number; samples_new?: number; judged?: number; reason?: string } | undefined
       setNotice(result
-        ? `Collected ${result.subreddits ?? 0} communities · ${result.samples_new ?? 0} new samples · ${result.judged ?? 0} judged${result.reason ? ` (${result.reason})` : ''}`
-        : 'Collection finished')
+        ? `Collected ${result.subreddits ?? 0} · ${result.samples_new ?? 0} samples · ${result.judged ?? 0} judged${result.reason ? ` (${result.reason})` : ''}`
+        : 'Done')
       reload()
     } catch { /* notice set */ }
   }
@@ -186,10 +186,10 @@ export default function RedditRequirements() {
   async function findNew() {
     try {
       const body = await call('/api/reddit/requirements/discover', 'POST')
-      const result = body?.result as { keywords?: number; candidates?: number; added?: number; reason?: string } | undefined
+      const result = body?.result as { keywords?: number; added?: number; scanned?: number; reason?: string } | undefined
       setNotice(result
-        ? `Discovery: ${result.keywords ?? 0} searches · ${result.candidates ?? 0} candidates · ${result.added ?? 0} new communities${result.reason ? ` (${result.reason})` : ''}`
-        : 'Discovery finished')
+        ? `Discovery: ${result.keywords ?? 0} searches · ${result.added ?? 0} new · ${result.scanned ?? 0} scanned${result.reason ? ` (${result.reason})` : ''}`
+        : 'Done')
       reload()
     } catch { /* notice set */ }
   }
@@ -227,7 +227,7 @@ export default function RedditRequirements() {
         subreddits: rows.map((row) => row.id),
       })
       const list = body?.list as SubredditList | undefined
-      setNotice(`List "${name}" saved with ${list?.items.length ?? 0} communities`)
+      setNotice(`List "${name}" saved`)
       setListName('')
       setListOpen(false)
       if (list) setListId(list.id)
@@ -237,7 +237,7 @@ export default function RedditRequirements() {
 
   async function removeList() {
     if (!activeList) return
-    if (!window.confirm(`Delete the list "${activeList.name}"?`)) return
+    if (!window.confirm(`Delete list "${activeList.name}"?`)) return
     try {
       await fetch(`/api/reddit/lists?id=${encodeURIComponent(activeList.id)}`, { method: 'DELETE' })
       setListId('')
@@ -282,7 +282,7 @@ export default function RedditRequirements() {
           {meta ? `${meta.total} communities · ${meta.with_bot_bouncer} with Bot Bouncer · ${meta.without_bot_bouncer} without · ${meta.unknown_bot_bouncer} unknown` : 'loading…'}
           {meta?.last_updated ? ` · collected ${timeAgo(meta.last_updated)}` : ''}
           {meta?.next_due_at ? ` · next scan ${untilLabel(meta.next_due_at)}` : ''}
-          {discovery?.enabled ? ` · found ${discovery.added_today} today (${discovery.requests_today}/${discovery.daily_cap} requests)` : ''}
+          {discovery?.enabled ? ` · found ${discovery.added_today} today · scanned ${discovery.scanned_today} (${discovery.requests_today}/${discovery.daily_cap})` : ''}
         </p>
       </section>
 
@@ -341,7 +341,7 @@ export default function RedditRequirements() {
       {addCandidate && (
         <div className="rt-chipline">
           <button type="button" className="rt-chip" disabled={adding} onClick={() => addSubreddit(addCandidate)}>
-            + Add r/{addCandidate} to the board
+            + r/{addCandidate}
           </button>
         </div>
       )}
@@ -375,7 +375,7 @@ export default function RedditRequirements() {
           </span>
           <label className="rt-switch">
             <input type="checkbox" checked={onlyFits} onChange={(event) => setOnlyFits(event.target.checked)} />
-            Only rows this account clears
+            Only rows it clears
           </label>
           <button type="button" className="rt-mini" onClick={() => { setProfile(null); setProfileName(''); setOnlyFits(false) }}>Clear</button>
         </div>
@@ -429,7 +429,7 @@ export default function RedditRequirements() {
                   }}
                   onToggleList={() => toggleListItem(row)}
                   onRemove={async () => {
-                    if (!window.confirm(`Remove r/${row.display_name} and its samples?`)) return
+                    if (!window.confirm(`Remove r/${row.display_name}?`)) return
                     await fetch(`/api/reddit/requirements?id=${encodeURIComponent(row.id)}`, { method: 'DELETE' })
                     setNotice(`r/${row.display_name} removed`)
                     reload()
@@ -443,7 +443,7 @@ export default function RedditRequirements() {
             {!loading && !rows.length && (
               <tr>
                 <td colSpan={profile ? 12 : 11} className="rt-hint">
-                  {filtersActive ? 'No rows match. Show All clears filters.' : 'Empty board. Add a community above or run Collect now.'}
+                  {filtersActive ? 'No matches.' : 'Nothing here yet.'}
                 </td>
               </tr>
             )}
@@ -515,7 +515,7 @@ function RequirementsRowFragment({
             r/{row.display_name}
           </a>
           {row.over18 && <i className="rt-tag" data-tone="adult">18+</i>}
-          <div className="rt-dim rt-reqsub">{row.category} · sampled {row.sample_count}</div>
+          <div className="rt-dim rt-reqsub">{row.category} · {row.sample_count} samples</div>
         </td>
         <td className="rt-col-num">{number(row.subscribers)}</td>
         <td className="rt-col-num">{number(row.min_post_karma)}</td>
@@ -540,7 +540,7 @@ function RequirementsRowFragment({
         <td>
           <button type="button" className="rt-reqbadge" data-value={row.bot_bouncer} disabled={busy}
             onClick={onCycleBotBouncer}
-            title="Click to set: installed / not installed / unknown — detected by hand, Reddit exposes no install list"
+            title="Click to set: installed / no / unknown"
             aria-label={`Bot Bouncer: ${BOT_BOUNCER_LABEL[row.bot_bouncer]}. Click to change`}>
             {BOT_BOUNCER_LABEL[row.bot_bouncer]}
           </button>
@@ -568,7 +568,7 @@ function RequirementsRowFragment({
       {open && (
         <tr className="rt-reqexpand">
           <td colSpan={verdict ? 12 : 11}>
-            {sources.length === 0 && <span className="rt-dim">No samples yet.</span>}
+            {sources.length === 0 && <span className="rt-dim">No samples.</span>}
             <ul className="rt-list">
               {sources.map((source) => (
                 <li key={source.post_id} className="rt-list-row">
@@ -579,12 +579,12 @@ function RequirementsRowFragment({
                     <b>u/{source.author ?? 'deleted'}</b>
                     <span className="rt-dim">
                       {source.link_karma === null ? 'karma unknown' : `${compact(source.link_karma)} post · ${compact(source.comment_karma ?? 0)} comment karma`}
-                      {source.account_age_days === null ? '' : ` · ${source.account_age_days}d old at posting`}
+                      {source.account_age_days === null ? '' : ` · ${source.account_age_days}d old`}
                       {' · '}{timeAgo(source.post_created_utc)}
                     </span>
                   </span>
                   {source.permalink && (
-                    <a className="rt-link" href={source.permalink} target="_blank" rel="noreferrer">open post</a>
+                    <a className="rt-link" href={source.permalink} target="_blank" rel="noreferrer">post</a>
                   )}
                 </li>
               ))}

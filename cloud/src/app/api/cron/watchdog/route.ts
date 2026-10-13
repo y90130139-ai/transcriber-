@@ -16,7 +16,7 @@ import { sql } from '@/lib/db'
  *   GET /api/cron/watchdog?k=$CRON_SECRET
  */
 
-const OFMPRO_STALE_HOURS = 14   // the worker loops every ~6h
+const OFMPRO_STALE_HOURS = 30   // the daily pull; the 6h loop only mirrors between them
 const IG_STALE_HOURS = 30       // the daily read, with slack
 
 const fmt = (stamp: unknown): string =>
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
   } else if (ofmpro.status === 'failed') {
     problems.push(`OFMPro: last run FAILED at ${fmt(ofmpro.finished_at ?? ofmpro.started_at)} — ${String(ofmpro.error ?? 'no error text').slice(0, 400)}`)
   } else if (ofmproAge !== null && ofmproAge > OFMPRO_STALE_HOURS) {
-    problems.push(`OFMPro: last run ${fmt(ofmpro.started_at)} — ${ofmproAge.toFixed(0)}h ago, expected every ~6h. The ingest is not taking place.`)
+    problems.push(`OFMPro: last run ${fmt(ofmpro.started_at)} — ${ofmproAge.toFixed(0)}h ago, expected daily. The ingest is not taking place.`)
   }
 
   const igAge = ageHours(ig?.started_at)

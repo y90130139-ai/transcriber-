@@ -567,14 +567,15 @@ export type DiscoveryState = {
   day: string | null
   checked_today: number
   added_today: number
+  scanned_today: number
 }
 
 export async function getDiscoveryState(): Promise<DiscoveryState> {
   const rows = await q<DiscoveryState>(
-    `select keyword_index, last_run_at, day::text as day, checked_today, added_today
+    `select keyword_index, last_run_at, day::text as day, checked_today, added_today, scanned_today
        from reddit.discovery_state where id = 'global'`,
   )
-  return rows[0] ?? { keyword_index: 0, last_run_at: null, day: null, checked_today: 0, added_today: 0 }
+  return rows[0] ?? { keyword_index: 0, last_run_at: null, day: null, checked_today: 0, added_today: 0, scanned_today: 0 }
 }
 
 /** Record one sweep: the cursor moves, the day's tallies roll over at
@@ -583,11 +584,12 @@ export async function saveDiscoveryRun(patch: {
   keywordIndex: number
   checked: number
   added: number
+  scanned?: number
   note?: string | null
 }): Promise<void> {
   await sql.query(
-    `insert into reddit.discovery_state (id, keyword_index, last_run_at, day, checked_today, added_today, note, updated_at)
-     values ('global', $1, now(), current_date, $2, $3, $4, now())
+    `insert into reddit.discovery_state (id, keyword_index, last_run_at, day, checked_today, added_today, scanned_today, note, updated_at)
+     values ('global', $1, now(), current_date, $2, $3, $4, $5, now())
      on conflict (id) do update
        set keyword_index = $1,
            last_run_at = now(),
@@ -595,10 +597,12 @@ export async function saveDiscoveryRun(patch: {
                                 then reddit.discovery_state.checked_today + $2 else $2 end,
            added_today = case when reddit.discovery_state.day = current_date
                               then reddit.discovery_state.added_today + $3 else $3 end,
+           scanned_today = case when reddit.discovery_state.day = current_date
+                                then reddit.discovery_state.scanned_today + $4 else $4 end,
            day = current_date,
-           note = $4,
+           note = $5,
            updated_at = now()`,
-    [patch.keywordIndex, patch.checked, patch.added, patch.note ?? null],
+    [patch.keywordIndex, patch.checked, patch.added, patch.scanned ?? 0, patch.note ?? null],
   )
 }
 
@@ -626,6 +630,34 @@ export async function discoveryDue(): Promise<boolean> {
   return Boolean(row?.due)
 }
 
+/** Count one content scan against the day's tally, immediately — a long
+ *  sweep's progress is visible while it runs and survives a crash. */
+export async function addScannedProgress(count = 1): Promise<void> {
+  await sql.query(
+    `insert into reddit.discovery_state (id, scanned_today, day, updated_at)
+     values ('global', $1, current_date, now())
+     on conflict (id) do update
+       set scanned_today = case when reddit.discovery_state.day = current_date
+                                then reddit.discovery_state.scanned_today + $1 else $1 end,
+           day = current_date,
+           updated_at = now()`,
+    [count],
+  )
+}
+
+/** Stamp a sweep as running before its first request and after every
+ *  keyword. The due-guard reads this stamp, so two schedulers can never
+ *  sweep at the same time, and a long drain keeps its claim while it runs. */
+export async function beginDiscoveryRun(keywordIndex: number): Promise<void> {
+  await sql.query(
+    `insert into reddit.discovery_state (id, keyword_index, last_run_at, day, updated_at)
+     values ('global', $1, now(), current_date, now())
+     on conflict (id) do update
+       set keyword_index = $1, last_run_at = now(), updated_at = now()`,
+    [keywordIndex],
+  )
+}
+
 export type DiscoveredSubreddit = {
   name: string
   subscribers: number | null
@@ -634,14 +666,15 @@ export type DiscoveredSubreddit = {
 }
 
 /** One insert for a sweep's finds. `on conflict do nothing` so a community
- *  already on the board keeps whatever it has earned. */
+ *  already on the board keeps whatever it has earned. The search page's
+ *  subscriber count is stored up front — /about will confirm it later. */
 export async function insertDiscoveredSubreddits(candidates: DiscoveredSubreddit[]): Promise<string[]> {
   if (!candidates.length) return []
   const rows = await q<{ id: string }>(
     `insert into reddit.requirement_subreddits
-       (id, display_name, url, category, over18, status, source, discovered_via)
+       (id, display_name, url, category, over18, status, source, discovered_via, subscribers)
      select lower(name), name, 'https://www.reddit.com/r/' || name || '/',
-            'Discovered NSFW', true, 'pending', 'discovered', via
+            'Discovered NSFW', true, 'pending', 'discovered', via, subs
        from unnest($1::text[], $2::int[], $3::text[]) as t(name, subs, via)
      on conflict (id) do nothing
      returning id`,
@@ -656,7 +689,13 @@ export async function insertDiscoveredSubreddits(candidates: DiscoveredSubreddit
 
 /** Requests the discovery sweep made today, against its settings cap. The
  *  spend is bounded by the caller; this is the reading it bounds with. */
-export async function discoveryStatus(enabled: boolean, dailyCap: number, minSubscribers: number) {
+export async function discoveryStatus(
+  enabled: boolean,
+  dailyCap: number,
+  minSubscribers: number,
+  maxCommunities: number,
+  contentPercent: number,
+) {
   const [state, requests] = await Promise.all([getDiscoveryState(), countDiscoveryRequestsToday()])
   return {
     enabled,
@@ -664,9 +703,62 @@ export async function discoveryStatus(enabled: boolean, dailyCap: number, minSub
     requests_today: requests,
     added_today: Number(state.added_today ?? 0),
     checked_today: Number(state.checked_today ?? 0),
+    scanned_today: Number(state.scanned_today ?? 0),
     last_run_at: state.last_run_at,
     min_subscribers: minSubscribers,
+    max_communities: maxCommunities,
+    content_percent: contentPercent,
   }
+}
+
+/* ------------------------------------------------- content scanning */
+
+export type ContentScanTarget = {
+  id: string
+  display_name: string
+  subscribers: number | null
+}
+
+/** The next communities due a content scan: on the board, never scanned
+ *  first, then oldest scan first — a fair rotation that always prefers the
+ *  communities whose topics are most stale. */
+export async function communitiesDueForContentScan(limit: number): Promise<ContentScanTarget[]> {
+  return q<ContentScanTarget>(
+    `select id, display_name, subscribers
+       from reddit.requirement_subreddits
+      where enabled and status in ('pending','active')
+      order by content_scanned_at asc nulls first, added_at asc
+      limit $1`,
+    [Math.max(1, Math.min(50, limit))],
+  )
+}
+
+export async function markContentScanned(id: string, posts: number): Promise<void> {
+  await sql.query(
+    `update reddit.requirement_subreddits
+        set content_scanned_at = now(), content_posts = $2, updated_at = now()
+      where id = $1`,
+    [subredditKey(id), posts],
+  )
+}
+
+/** Mirror a scanned community into the trend registry so every adult-scope
+ *  read (and the topic engine) sees its posts. Disabled and paused on
+ *  purpose: the content sweep collects it, the trend queue must not. */
+export async function syncDiscoveredSubreddit(row: {
+  id: string
+  display_name: string
+  subscribers: number | null
+}): Promise<void> {
+  await sql.query(
+    `insert into reddit.tracked_subreddits
+       (id, display_name, category, url, subscribers, over18, adult, enabled, paused,
+        priority, interval_minutes, source, status)
+     values ($1, $2, 'Discovered NSFW', 'https://www.reddit.com/r/' || $2 || '/',
+             $3, true, true, false, true, 'low', 1440, 'discovered', 'active')
+     on conflict (id) do nothing`,
+    [subredditKey(row.id), row.display_name, row.subscribers],
+  )
 }
 
 /* ---------------------------------------------------------------- lists */

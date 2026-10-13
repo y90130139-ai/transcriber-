@@ -3,6 +3,7 @@ import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { currentWeekOf } from '@/lib/dates'
 import { modelsForJob } from '@/lib/match'
+import { accountsForModels } from '@/lib/model-accounts'
 import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, linkedOnlyfans, newId, newToken, readModelInput } from '@/lib/models'
 
 const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -80,11 +81,26 @@ export async function GET(request: Request) {
            from transcriber.transcripts t
           where lower(t.author) = lower(m.handle)
        ) pc on true
-      order by (m.status = 'active') desc, m.name`,
+       order by (m.status = 'active') desc, m.name`,
     [currentWeekOf()],
   )
 
-  return NextResponse.json({ models, weekOf: currentWeekOf() })
+  // Her app account rides along so the roster shows invite state and offers
+  // the button without a request per card (Geno, 2026-10-12). An unreadable
+  // account store is a normal state here, not an error: the cards simply show
+  // no app state.
+  let accounts = new Map<string, { email: string; status: string; lastLoginAt: string | null }>()
+  try {
+    accounts = await accountsForModels(models.map((model) => String(model.id)))
+  } catch {
+    /* the store is not configured or unreachable — nothing to show */
+  }
+  const withAccounts = models.map((model) => ({
+    ...model,
+    app_account: accounts.get(String(model.id)) ?? null,
+  }))
+
+  return NextResponse.json({ models: withAccounts, weekOf: currentWeekOf() })
 }
 
 /** Add a model. The share token is minted here and never accepted from a client. */

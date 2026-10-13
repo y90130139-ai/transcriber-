@@ -1,11 +1,11 @@
 /**
  * The one place that talks to Reddit.
  *
- * Rules this file exists to enforce (feature brief Â§7):
+ * Rules this file exists to enforce (feature brief §7):
  *   - OAuth, client-credentials, read scope only. No password grants, no
  *     account rotation, no proxies, no scraping.
  *   - One request at a time, paced by what Reddit's own headers say is left
- *     â€” the documented default quota is never assumed to be ours.
+ *     — the documented default quota is never assumed to be ours.
  *   - Exponential backoff with jitter for transient failures; Retry-After
  *     honoured for 429s; a circuit breaker that stops the run after
  *     repeated 429/403 instead of hammering.
@@ -97,10 +97,10 @@ export type ClientOptions = {
   budget: number
   /** Floor between requests, whatever the headers say. */
   minIntervalMs?: number
-  /** The normal throttle in requests per minute â€” a second floor the
+  /** The normal throttle in requests per minute — a second floor the
    *  header pacing can only slow further, never speed past. */
   maxRequestsPerMinute?: number
-  /** 0â€“1: the fraction of the reported quota we allow ourselves. 0.5 means
+  /** 0–1: the fraction of the reported quota we allow ourselves. 0.5 means
    *  "call at half the rate Reddit says is possible". */
   safetyRatio?: number
   /** The last rate-limit reading from a previous run (persisted in
@@ -111,7 +111,7 @@ export type ClientOptions = {
   onUsage?: (usage: RequestUsage) => void | Promise<void>
   /** A pre-flight check run before every single request (retries included).
    *  The collector uses it to re-read the real daily counter, which is what
-   *  makes the cap unbreakable by overlapping runs â€” each request is
+   *  makes the cap unbreakable by overlapping runs — each request is
    *  checked against actual usage, not an estimate taken at run start.
    *  Throwing here stops the client; failing to read fails closed. */
   guard?: () => void | Promise<void>
@@ -144,22 +144,24 @@ export function redditUserOAuthConfigured(): boolean {
 export function redditRedirectUri(): string {
   const base = (process.env.REDDIT_REDIRECT_BASE
     ?? process.env.PUBLIC_BASE_URL
-    ?? 'https://transcriber-ten-zeta.vercel.app').replace(/\/+$/, '')
+    ?? 'https://plan.gosianmedia.com').replace(/\/+$/, '')
   return `${base}/api/auth/reddit/callback`
 }
 
-/** A User-Agent that says what this is, per Reddit's API rules. */
+/** A User-Agent that says what this is and who to contact, per Reddit's API
+ *  rules. A generic UA with no contact method is the first thing Reddit's
+ *  anti-abuse blocks, so the default carries both. */
 export function userAgent(): string {
   return (
     process.env.REDDIT_USER_AGENT?.trim() ||
-    `web:social-transcriber-reddit-trends:v1.0.0 (analytics dashboard; contact ${process.env.REDDIT_CONTACT ?? 'ops@gosian.media'})`
+    `web:gosian-reddit-trends:v1.1.0 (analytics dashboard; contact ${process.env.REDDIT_CONTACT ?? 'ops@gosian.media'})`
   )
 }
 
 /* ------------------------------------------------------------------ pure
    helpers, exported so the rules above can be tested without a network. */
 
-/** Jittered exponential backoff: 2^attempt * base, Â±25%, capped. */
+/** Jittered exponential backoff: 2^attempt * base, ±25%, capped. */
 export function backoffDelay(attempt: number, baseMs = 500, capMs = 15_000, random = Math.random): number {
   const raw = Math.min(capMs, baseMs * 2 ** Math.max(0, attempt))
   const jitter = raw * 0.25 * (random() * 2 - 1)
@@ -182,7 +184,7 @@ export function parseRateLimitHeaders(get: (name: string) => string | null, at =
   }
 }
 
-/** Seconds to wait per Retry-After, capped â€” never a long passive block. */
+/** Seconds to wait per Retry-After, capped — never a long passive block. */
 export function retryAfterSeconds(header: string | null, now = Date.now(), cap = 60): number | null {
   if (!header) return null
   const seconds = Number(header)
@@ -194,7 +196,7 @@ export function retryAfterSeconds(header: string | null, now = Date.now(), cap =
 
 /**
  * How long to wait before the next request, given the last header reading.
- * The pace is `resetMs / remaining` â€” Reddit's own arithmetic â€” slowed by
+ * The pace is `resetMs / remaining` — Reddit's own arithmetic — slowed by
  * the safety ratio. When the window is nearly spent, wait it out (capped).
  */
 export function nextDelayMs(
@@ -216,9 +218,16 @@ export function nextDelayMs(
 export const CIRCUIT_THRESHOLD = 3
 
 /** Retries before giving up on one request; 429/403 are never retried
- *  aggressively â€” one more attempt, because Reddit says so via Retry-After,
+ *  aggressively — one more attempt, because Reddit says so via Retry-After,
  *  and then it is counted against the breaker. */
 export const MAX_ATTEMPTS = 3
+
+/** Upward-only jitter (0–20%): the interval can only grow, so the floor
+ *  still holds, and the gaps stop being clock-regular — machine-exact
+ *  spacing is the pattern anti-abuse looks for. */
+export function jitteredDelay(ms: number, random = Math.random): number {
+  return Math.round(ms * (1 + random() * 0.2))
+}
 
 /* --------------------------------------------------------------- runtime */
 
@@ -283,7 +292,7 @@ export function createRedditClient(options: ClientOptions): RedditClient {
   // A seeded window already sets the first gap; a blind start waits only the
   // floor.
   let nextAllowedAt = options.initialState
-    ? Date.now() + nextDelayMs(options.initialState, { minIntervalMs, safetyRatio })
+    ? Date.now() + jitteredDelay(nextDelayMs(options.initialState, { minIntervalMs, safetyRatio }))
     : 0
   const inflight = new Map<string, Promise<unknown>>()
 
@@ -308,7 +317,7 @@ export function createRedditClient(options: ClientOptions): RedditClient {
         lastState = parseRateLimitHeaders((name) => response.headers.get(name))
         // Schedule before reading the body, so the pace holds even if the
         // body is slow.
-        nextAllowedAt = Date.now() + nextDelayMs(lastState, { minIntervalMs, safetyRatio })
+        nextAllowedAt = Date.now() + jitteredDelay(nextDelayMs(lastState, { minIntervalMs, safetyRatio }))
         const text = await response.text()
         await report({ endpoint, method: 'GET', status: response.status, durationMs: Date.now() - started })
 
@@ -412,7 +421,7 @@ export function classifyAboutFailure(status: number, body = ''): {
 } {
   if (status === 404) return { status: 'unavailable', note: 'Reddit says this community does not exist (404)' }
   if (status === 403) {
-    if (/quarantin/i.test(body)) return { status: 'quarantined', note: 'Quarantined community â€” collection disabled' }
+    if (/quarantin/i.test(body)) return { status: 'quarantined', note: 'Quarantined community — collection disabled' }
     return { status: 'restricted', note: 'Reddit denied access (private, banned or forbidden)' }
   }
   if (status === 451) return { status: 'unavailable', note: 'Unavailable for legal reasons (451)' }

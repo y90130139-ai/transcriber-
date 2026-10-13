@@ -103,6 +103,10 @@ export function useReveal<T extends HTMLElement>(
     )
 
     items.forEach((el, index) => {
+      // Already arrived on an earlier pass. A re-run — a poll that brought
+      // one new row, a filter that kept this card — must not send it back to
+      // hidden and make it fade in a second time (2026-10-13).
+      if (el.dataset.reveal === 'in') return
       const top = el.getBoundingClientRect().top
       if (top < fold) {
         // Already on screen when the page opened. It animates in place, in

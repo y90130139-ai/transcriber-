@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 import type { IntakePick } from './IntakeDrop'
 import AccessTab, { type Override } from './profile/AccessTab'
+import AppAccountPanel from './profile/AppAccountPanel'
 import ProfileFigures from './profile/ProfileFigures'
 import BrandTab from './profile/BrandTab'
 import ReelsTab from './profile/ReelsTab'
@@ -426,18 +427,21 @@ export default function ModelProfile({
             </>
           )}
           {tab === 'access' && (
-            <AccessTab
-              form={form}
-              set={set}
-              shareUrl={shareUrl}
-              revoked={revoked}
-              busy={busy}
-              hasModel={Boolean(model)}
-              defaults={defaults}
-              setDefaults={setDefaults}
-              declines={declines}
-              onToken={(action) => void save(action)}
-            />
+            <>
+              {modelId && <AppAccountPanel modelId={modelId} />}
+              <AccessTab
+                form={form}
+                set={set}
+                shareUrl={shareUrl}
+                revoked={revoked}
+                busy={busy}
+                hasModel={Boolean(model)}
+                defaults={defaults}
+                setDefaults={setDefaults}
+                declines={declines}
+                onToken={(action) => void save(action)}
+              />
+            </>
           )}
         </div>
 

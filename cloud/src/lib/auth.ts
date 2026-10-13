@@ -1,17 +1,26 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
+/** Who is looking at the console (Geno, 2026-10-12).
+ *
+ * The console used to be one shared password. It now signs in with the same
+ * team accounts the ai-invoice dashboard uses — see lib/team-auth.ts for the
+ * table, the roles and the permission that opens this app. `tx_session`
+ * carries the signed session; everything below that needs "signed in" asks
+ * here, and what it means is "a signed-in teammate the transcriber is open
+ * to".
+ */
+import { timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
+import { SESSION_COOKIE, readSession, type TeamSession, type TeamRole } from './team-auth'
 
-const COOKIE = 'tx_session'
-const MAX_AGE_SEC = 60 * 60 * 24 * 60 // two months — this is a personal tool
+export type { TeamSession, TeamRole }
 
-function secret(): string {
-  const value = process.env.SESSION_SECRET
-  if (!value) throw new Error('SESSION_SECRET is not set')
-  return value
+/** The signed-in teammate, or null. */
+export async function currentSession(): Promise<TeamSession | null> {
+  const store = await cookies()
+  return readSession(store.get(SESSION_COOKIE)?.value)
 }
 
-function sign(payload: string): string {
-  return createHmac('sha256', secret()).update(payload).digest('base64url')
+export async function isSignedIn(): Promise<boolean> {
+  return Boolean(await currentSession())
 }
 
 /** Constant-time compare that never throws on a length mismatch. */
@@ -19,46 +28,6 @@ function matches(a: string, b: string): boolean {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
   return left.length === right.length && timingSafeEqual(left, right)
-}
-
-export function checkPassword(candidate: string): boolean {
-  const expected = process.env.APP_PASSWORD
-  if (!expected) throw new Error('APP_PASSWORD is not set')
-  return matches(candidate, expected)
-}
-
-export function issueToken(): string {
-  const expires = Date.now() + MAX_AGE_SEC * 1000
-  return `${expires}.${sign(String(expires))}`
-}
-
-export function tokenIsValid(token: string | undefined): boolean {
-  if (!token) return false
-  const [expires, signature] = token.split('.')
-  if (!expires || !signature) return false
-  if (Number(expires) < Date.now()) return false
-  return matches(signature, sign(expires))
-}
-
-export async function isSignedIn(): Promise<boolean> {
-  const store = await cookies()
-  return tokenIsValid(store.get(COOKIE)?.value)
-}
-
-export async function startSession(): Promise<void> {
-  const store = await cookies()
-  store.set(COOKIE, issueToken(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: MAX_AGE_SEC,
-  })
-}
-
-export async function endSession(): Promise<void> {
-  const store = await cookies()
-  store.delete(COOKIE)
 }
 
 /** The Mac worker authenticates with a bearer secret, not a browser session. */

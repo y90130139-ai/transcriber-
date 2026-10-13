@@ -90,9 +90,17 @@ export function ago(iso: string | null | undefined): string {
   return `${Math.round(hours / 24)}d ago`
 }
 
-/** The name to put on the card: the @handle if we have one, else the filename. */
+/** A playbook label — the German doc's own row name, "German #12 · Shock +
+ *  Stretch". These are written for humans and beat any filename or handle
+ *  (Geno, 2026-10-13); everything else's label is URL-derived and does not. */
+export function playbookLabel(label: string | null | undefined): string | null {
+  return label && /^German #\d/.test(label) ? label : null
+}
+
+/** The name to put on the card: a playbook label when there is one, the
+ *  @handle next, else the filename. A German reference is never "Main.mov". */
 export function displayName(item: Pick<LibraryItem, 'author' | 'author_name' | 'title' | 'label'>): string {
-  return item.author ?? item.author_name ?? item.title ?? item.label
+  return playbookLabel(item.label) ?? item.author ?? item.author_name ?? item.title ?? item.label
 }
 
 export function metaBits(item: LibraryItem): string[] {

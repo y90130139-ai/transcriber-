@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { isDateString } from '@/lib/dates'
 import { keysForPlan, trashKeys } from '@/lib/models'
 import { readPlan } from '@/lib/plan-read'
+import { pushToModel } from '@/lib/push'
+import { cleanStyleTargets } from '@/lib/styles'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -37,12 +39,26 @@ export async function PUT(request: Request, { params }: Params) {
     ? Math.max(0, Math.min(200, Math.round(body.target))) || null
     : null
 
+  // How many of each content style the week wants (2026-10-12). Cleaned so
+  // only real styles with sane counts land; the whole object replaces the
+  // stored one.
+  const styleTargets = cleanStyleTargets(body.style_targets)
+
+  // What it was, so a first send can be told from an edit — the push goes out
+  // once, the first time the link comes alive (2026-10-12).
+  const [before] = await sql.query(
+    `select p.status, p.model_id, to_char(p.week_of, 'YYYY-MM-DD') as week_of
+       from transcriber.plans p where p.id = $1`,
+    [id],
+  )
+
   const [plan] = await sql.query(
     `update transcriber.plans
         set title    = case when $2::bool then $3::text else title end,
             intro    = case when $4::bool then $5::text else intro end,
             due_date = case when $6::bool then $7::date else due_date end,
             target   = case when $9::bool then $10::int else target end,
+            style_targets = case when $11::bool then $12::jsonb else style_targets end,
             status   = coalesce($8::text, status),
             -- Stamped the first time it is sent and kept thereafter, so a later
             -- edit does not rewrite when she was actually given the week.
@@ -53,7 +69,7 @@ export async function PUT(request: Request, { params }: Params) {
       where id = $1
       returning id, to_char(week_of, 'YYYY-MM-DD') as week_of,
                 to_char(due_date, 'YYYY-MM-DD') as due_date,
-                title, intro, status, sent_at, target`,
+                title, intro, status, sent_at, target, style_targets`,
     [
       id,
       'title' in body, text(body.title),
@@ -61,9 +77,24 @@ export async function PUT(request: Request, { params }: Params) {
       'due_date' in body, isDateString(body.due_date) ? body.due_date : null,
       status,
       'target' in body, target,
+      'style_targets' in body, styleTargets === null ? null : JSON.stringify(styleTargets),
     ],
   )
   if (!plan) return notFound()
+
+  if (status === 'sent' && before && before.status !== 'sent') {
+    const week = new Date(`${String(before.week_of)}T12:00:00Z`)
+    const label = Number.isNaN(week.getTime())
+      ? 'Your week'
+      : `Your week of ${week.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`
+    after(() =>
+      pushToModel(String(before.model_id), {
+        title: `${label} is ready`,
+        body: 'Open the app to see the cards and film.',
+        data: { url: '/plan' },
+      }).catch(() => {}),
+    )
+  }
 
   const telegram = await telegramFor(id, status, body)
   if ('error' in telegram) {

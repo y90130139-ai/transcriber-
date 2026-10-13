@@ -3,6 +3,7 @@ import { personaProposal } from '@/lib/autotag'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { COMMENT_WEIGHT, IN_HOT_WINDOW } from '@/lib/hot'
+import { instagramAccounts, readSocials } from '@/lib/socials'
 
 /** How many creators one sitting is. Ten covers most of the library by volume,
  *  and ten decisions is a coffee rather than an afternoon. */
@@ -120,9 +121,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ proposals: await propose(limit) })
   }
 
-  // The rows and their faces are independent reads — one wait, not two
-  // (2026-10-09).
-  const [creators, covers] = await Promise.all([
+  // Transcript authors, tracked watchlist accounts, and the Instagram accounts
+  // on our active roster all belong in this index. Snapshot fields are the
+  // daily cookie-based reads, not hand-entered profile guesses.
+  const [authors, covers, watched, models, snapshots] = await Promise.all([
     sql.query(
       `with scored as (
          select t.author,
@@ -142,22 +144,110 @@ export async function GET(request: Request) {
          from scored s
          left join transcriber.creators c on c.handle = s.author
         group by s.author
-        order by posts desc, last_upload desc nulls last`,
+       order by posts desc, last_upload desc nulls last`,
     ),
     // A face for each card, taken from that creator's most recent post.
     sql.query(
       `select distinct on (author) author, job_id
          from transcriber.transcripts
         where author is not null and thumbnail is not null
-        order by author, upload_date desc nulls last, transcribed_at desc`,
+         order by author, upload_date desc nulls last, transcribed_at desc`,
+    ),
+    sql.query(
+      `select handle, display_name, persona
+         from transcriber.creators
+        where watch = 'watching'`,
+    ),
+    sql.query(
+      `select name, handle, socials
+         from transcriber.models
+        where status = 'active'`,
+    ),
+    sql.query(
+      `select distinct on (lower(handle)) lower(handle) as handle, followers, seen_at
+         from transcriber.creator_snapshots
+        where followers is not null
+        order by lower(handle), seen_at desc`,
     ),
   ])
-  const coverOf = new Map(covers.map((row) => [row.author as string, row.job_id as string]))
+
+  const tracked = new Set<string>()
+  const profileByHandle = new Map<string, { display_name: string | null; persona: string[] }>()
+  for (const row of watched) {
+    const handle = String(row.handle ?? '').replace(/^@+/, '').toLowerCase()
+    if (!handle) continue
+    tracked.add(handle)
+    profileByHandle.set(handle, {
+      display_name: row.display_name ? String(row.display_name) : null,
+      persona: (row.persona as string[] | null) ?? [],
+    })
+  }
+
+  const modelNameByHandle = new Map<string, string>()
+  for (const row of models) {
+    const name = String(row.name ?? '')
+    for (const handle of instagramAccounts(row.handle ? String(row.handle) : null, readSocials(row.socials))) {
+      tracked.add(handle)
+      if (name) modelNameByHandle.set(handle, name)
+    }
+  }
+
+  const latestByHandle = new Map<string, { followers: number; seen_at: string }>()
+  for (const row of snapshots) {
+    const handle = String(row.handle ?? '').toLowerCase()
+    if (!handle) continue
+    tracked.add(handle)
+    latestByHandle.set(handle, {
+      followers: Number(row.followers),
+      seen_at: String(row.seen_at),
+    })
+  }
+
+  const rowsByHandle = new Map<string, Record<string, unknown>>()
+  for (const row of authors) {
+    const handle = String(row.handle ?? '').replace(/^@+/, '').toLowerCase()
+    if (!handle) continue
+    const snapshot = latestByHandle.get(handle)
+    const profile = profileByHandle.get(handle)
+    rowsByHandle.set(handle, {
+      ...row,
+      handle,
+      display_name: row.display_name ? String(row.display_name) : profile?.display_name ?? modelNameByHandle.get(handle) ?? null,
+      persona: (row.persona as string[] | null) ?? profile?.persona ?? [],
+      tracked: tracked.has(handle),
+      followers: snapshot?.followers ?? null,
+      follower_checked_at: snapshot?.seen_at ?? null,
+    })
+  }
+  for (const handle of tracked) {
+    if (rowsByHandle.has(handle)) continue
+    const profile = profileByHandle.get(handle)
+    const snapshot = latestByHandle.get(handle)
+    rowsByHandle.set(handle, {
+      handle,
+      display_name: profile?.display_name ?? modelNameByHandle.get(handle) ?? null,
+      persona: profile?.persona ?? [],
+      posts: 0,
+      recent_posts: 0,
+      median_score: null,
+      last_upload: null,
+      tracked: true,
+      followers: snapshot?.followers ?? null,
+      follower_checked_at: snapshot?.seen_at ?? null,
+    })
+  }
+
+  const coverOf = new Map(covers.map((row) => [String(row.author).toLowerCase(), row.job_id as string]))
+  const creators = [...rowsByHandle.values()].sort((a, b) =>
+    Number(b.posts ?? 0) - Number(a.posts ?? 0) ||
+    String(b.last_upload ?? '').localeCompare(String(a.last_upload ?? '')) ||
+    String(a.handle).localeCompare(String(b.handle)),
+  )
 
   return NextResponse.json({
     creators: creators.map((creator) => ({
       ...creator,
-      cover_id: coverOf.get(creator.handle as string) ?? null,
+      cover_id: coverOf.get(String(creator.handle).toLowerCase()) ?? null,
     })),
     windowNote: IN_HOT_WINDOW ? '90 days' : null,
   })

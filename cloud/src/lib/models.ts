@@ -11,6 +11,7 @@ import { isCreatorType, type CreatorType } from './creator-type'
 import { sql } from './db'
 import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { isDateString, mondayOf } from './dates'
+import { playbookLabel } from './format'
 import { readSocials, type Social } from './socials'
 import { isValidTag, labelOf } from './taxonomy'
 import { isKnownPlace } from './timezones'
@@ -498,6 +499,16 @@ export async function appendItems(
     )).map((row) => String(row.job_id)),
   )
 
+  // The playbook names, one read for the batch. A German reference's card is
+  // called "German #41 · Mirror Reward", never the drafted shape "German
+  // format" (Geno, 2026-10-13) — the number is how the team talks about it.
+  const labels = new Map(
+    (await sql.query(
+      `select id, label from transcriber.jobs where id = any($1::text[])`,
+      [jobIds],
+    )).map((row) => [String(row.id), String(row.label)]),
+  )
+
   for (const [index, jobId] of jobIds.entries()) {
     const reason: SkipReason | null = already.has(jobId) ? 'already'
       : declined.has(jobId) ? 'declined'
@@ -559,7 +570,8 @@ export async function appendItems(
         fields?.wardrobe ?? null, fields?.camera ?? null, fields?.takes ?? null,
         fields?.sound ?? null, fields?.hook ?? null, fields?.caption ?? null,
         input ? draftLocation(input.formats) : null,
-        input ? draftTitle(input.formats, (tag) => labelOf('format', tag)) : null,
+        playbookLabel(labels.get(jobId))
+          ?? (input ? draftTitle(input.formats, (tag) => labelOf('format', tag)) : null),
         modelId,
         extras.bucket ?? null, extras.axis ?? null,
         extras.source_post ?? null, extras.source_url ?? null,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { handlesIn } from '@/lib/handles'
+import { loadWatchlist } from '@/lib/watchlist'
 
 /**
  * The watchlist itself: who the sweep reads every week.
@@ -11,33 +12,13 @@ import { handlesIn } from '@/lib/handles'
  * for its *format* even though nothing about it is this business. And the
  * sweep proposes accounts that collaborated on a winner, which land as
  * `suggested` and cost nothing until someone says watch.
+ *
+ * The read itself lives in `loadWatchlist` — the page renders from the same
+ * function on the server, so its first paint never waits on this route.
  */
 export async function GET() {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const suggested = await sql.query(
-    `select c.handle, c.found_via, c.updated_at,
-            (select count(*)::int from transcriber.sightings s where s.handle = c.handle) as seen
-       from transcriber.creators c
-      where c.watch = 'suggested'
-      order by c.updated_at desc
-      limit 60`,
-  )
-  // The watched side of the page: what the sweep actually reads, newest
-  // first. Capped — the counts row carries the real total.
-  const watching = await sql.query(
-    `select handle, access, updated_at
-       from transcriber.creators
-      where watch = 'watching'
-      order by updated_at desc nulls last
-      limit 300`,
-  )
-  const [counts] = await sql.query(
-    `select count(*) filter (where watch = 'watching')::int as watching,
-            count(*) filter (where watch = 'suggested')::int as suggested,
-            count(*) filter (where watch = 'watching' and access = 'gated')::int as gated
-       from transcriber.creators`,
-  )
-  return NextResponse.json({ suggested, watching, counts })
+  return NextResponse.json(await loadWatchlist())
 }
 
 export async function POST(request: Request) {

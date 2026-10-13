@@ -189,7 +189,10 @@ export default function LibraryCard({
   const verdict = item.badges && item.badges.length > 0 ? item.badges[0] : null
 
   return (
-    <article className={`card${feature ? ' card-feature' : ''}`} data-picked={picked}>
+    /* `data-reveal` renders EMPTY on purpose — LibraryGrid's useReveal is the
+       only writer, and only after it has confirmed it may. Broken or absent
+       JS leaves every card visible. */
+    <article className={`card${feature ? ' card-feature' : ''}`} data-picked={picked} data-reveal="">
       <button
         type="button"
         className="card-open"

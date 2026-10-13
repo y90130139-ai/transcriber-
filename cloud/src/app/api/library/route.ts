@@ -85,9 +85,12 @@ export async function GET(request: Request) {
 
   if (query) {
     params.push(`%${query}%`)
+    // j.label is in the search too, so "german #41" or "mirror reward"
+    // finds the playbook reference by the name the team gave it.
     where.push(`(t.plain ilike $${params.length} or t.author ilike $${params.length}
                   or t.author_name ilike $${params.length}
                   or t.title ilike $${params.length} or t.caption ilike $${params.length}
+                  or j.label ilike $${params.length}
                   or j.source ilike $${params.length})`)
   }
   if (creator) {

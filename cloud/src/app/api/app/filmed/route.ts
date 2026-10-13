@@ -1,0 +1,42 @@
+import { NextResponse, after } from 'next/server'
+import { sql } from '@/lib/db'
+import { logEvent } from '@/lib/events'
+import { modelSessionFrom } from '@/lib/model-auth'
+import { itemForModel, modelById } from '@/lib/plans'
+import { rateLimit } from '@/lib/ratelimit'
+
+/** Every refusal looks the same from outside: a 404 confirms nothing. */
+const notFound = () => NextResponse.json({ error: 'not_found' }, { status: 404 })
+
+/** She ticks one item off as filmed, or un-ticks it — the app's session
+ *  version of `/api/plan/[token]/filmed`. Same write, different door. */
+export async function POST(request: Request) {
+  const session = await modelSessionFrom(request)
+  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!rateLimit(`app-filmed:${session.accountId}`, 90)) {
+    return NextResponse.json({ error: 'slow_down' }, { status: 429 })
+  }
+
+  const body = await request.json().catch(() => null)
+  if (!body) return NextResponse.json({ error: 'bad_request' }, { status: 400 })
+
+  const model = await modelById(session.modelId)
+  if (!model) return notFound()
+
+  const owned = await itemForModel(model, body.item_id)
+  if (!owned) return notFound()
+
+  const filmed = body.filmed === true
+  const [item] = await sql.query(
+    `update transcriber.plan_items
+        set filmed_at = case when $2::bool then coalesce(filmed_at, now()) else null end
+      where id = $1
+      returning (filmed_at is not null) as filmed`,
+    [owned.id, filmed],
+  )
+  // Only a change is an act; a repeated tick is the same tick.
+  if (filmed !== owned.filmed) {
+    after(() => logEvent({ modelId: owned.modelId, planId: owned.planId, itemId: owned.id, kind: filmed ? 'film' : 'unfilm' }))
+  }
+  return NextResponse.json({ ok: true, filmed: Boolean(item?.filmed) })
+}

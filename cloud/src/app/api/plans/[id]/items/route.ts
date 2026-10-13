@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { appendItems, draftBothFor, isUntouchedDraft, newId, trashKeys, type SkipReason } from '@/lib/models'
+import { pushToModel } from '@/lib/push'
 import { isSource } from '@/lib/source'
+import { cleanVersions, isContentStyle } from '@/lib/styles'
 import { isValidTag } from '@/lib/taxonomy'
 
 type Params = { params: Promise<{ id: string }> }
@@ -46,8 +48,50 @@ function restorable(row: Record<string, unknown>, planId: string): unknown[] | n
     stamp(row.made_at), text(row.made_url, 500), stamp(row.filmed_at), stamp(row.posted_at), text(row.post_url, 500),
     text(row.model_note), stamp(row.model_note_at), text(row.editor_id, 64),
     isSource(row.source) ? row.source : null, text(row.twist),
+    text(row.style, 32),
+    text(row.notes_to_model),
     stamp(row.created_at),
   ]
+}
+
+/** A card on this plan that is nothing but the machine's own output for one
+ *  reel: the thin paste before anyone wrote it, or its auto-drafted brief.
+ *  When the composer lands a real card on the same reel, such a card is
+ *  absorbed — removed — instead of blocking the new one: two cards never
+ *  share one reel, and the card being written is the intended one (Geno,
+ *  2026-10-13: composing around a link that had already landed as a husk
+ *  silently lost the video). Any human mark — words, a switch, her answer,
+ *  her thumbs, a filmed tick, a message — keeps the card where it is.
+ *  Returns false when a card that must keep its reel holds it. */
+async function freeMachineCard(planId: string, modelId: string, jobId: string): Promise<boolean> {
+  const [card] = await sql.query(
+    `select i.id, i.notes, i.r2_key, i.filmed_at, i.accepted_at, i.declined_at,
+            i.rating, i.made_at, i.hide_film, i.hide_captions,
+            exists (select 1 from transcriber.plan_messages m where m.item_id = i.id) as has_messages
+       from transcriber.plan_items i
+      where i.plan_id = $1 and i.job_id = $2 and i.source_post is null
+      order by i.created_at
+      limit 1`,
+    [planId, jobId],
+  )
+  if (!card) return true
+  if (card.filmed_at || card.accepted_at || card.declined_at || card.rating || card.made_at
+      || card.hide_film || card.hide_captions || card.has_messages) return false
+  const notes = card.notes === null || card.notes === undefined ? '' : String(card.notes)
+  if (notes) {
+    const { blob, fields, standingRules, priorBlob, priorDirection } =
+      await draftBothFor(jobId, modelId)
+    if (!isUntouchedDraft(notes, { blob, direction: fields.direction, standingRules, priorBlob, priorDirection })) {
+      return false
+    }
+  }
+  const [gone] = await sql.query(
+    `delete from transcriber.plan_items where id = $1 and plan_id = $2 returning id`,
+    [String(card.id), planId],
+  )
+  if (!gone) return false
+  await trashKeys([card.r2_key as string | null])
+  return true
 }
 
 /** Put one or more library items on this plan, each with a drafted brief. */
@@ -68,19 +112,19 @@ export async function POST(request: Request, { params }: Params) {
     const back = restorable(body.restore as Record<string, unknown>, id)
     if (!back) return NextResponse.json({ error: 'nothing restorable in that' }, { status: 400 })
     const [row] = await sql.query(
-      `insert into transcriber.plan_items
+       `insert into transcriber.plan_items
          (id, plan_id, job_id, position, notes, editing_notes, title, location, card_no,
           bucket, axis, source_post, source_url, hold, slot_day, slot_time,
           wardrobe, camera, takes, sound, hook, caption, brief_short, caption_options,
           accepted_at, declined_at, decline_reason, decline_code,
           rating, made_at, made_url, filmed_at, posted_at, post_url,
-          model_note, model_note_at, editor_id, source, twist, created_at)
+          model_note, model_note_at, editor_id, source, twist, style, notes_to_model, created_at)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9,
                $10, $11, $12, $13, $14, $15, $16,
                $17, $18, $19, $20, $21, $22, $23, $24::jsonb,
                $25::timestamptz, $26::timestamptz, $27, $28,
                $29::smallint, $30::timestamptz, $31, $32::timestamptz, $33::timestamptz, $34,
-               $35, $36::timestamptz, $37, $38, $39, coalesce($40::timestamptz, now()))
+               $35, $36::timestamptz, $37, $38, $39, $40, $41, coalesce($42::timestamptz, now()))
        on conflict do nothing
        returning id`,
       back,
@@ -131,7 +175,8 @@ export async function POST(request: Request, { params }: Params) {
         `insert into transcriber.plan_items
            (id, plan_id, job_id, position, notes, editing_notes, title, location, card_no,
             bucket, axis, source_post, source_url, hold, slot_day, slot_time,
-            wardrobe, camera, takes, sound, hook, caption, brief_short, source, twist)
+            wardrobe, camera, takes, sound, hook, caption, brief_short, source, twist, style,
+            notes_to_model)
          select $1, i.plan_id,
                 case when i.source_post is not null then i.job_id else null end,
                 $4::int,
@@ -144,7 +189,7 @@ export async function POST(request: Request, { params }: Params) {
                 i.axis, i.source_post, i.source_url, i.hold, i.slot_day, i.slot_time,
                 i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption, i.brief_short,
                 case when i.source_post is null and i.job_id is not null then 'original' else i.source end,
-                i.twist
+                i.twist, i.style, i.notes_to_model
            from transcriber.plan_items i
            join transcriber.plans pl on pl.id = i.plan_id
           where i.id = $2 and i.plan_id = $3
@@ -175,23 +220,61 @@ export async function POST(request: Request, { params }: Params) {
     const custom = body.custom as {
       label?: unknown; format?: unknown; body?: unknown; source?: unknown; count?: unknown
       job_id?: unknown; cards?: unknown
+      /** The Add content composer's lane (2026-10-12) — format / talking /
+       *  omegle / posts. Applied to every card of the ask. */
+      style?: unknown
+      /** The structured fields the composer's forms write. All optional. */
+      hook?: unknown; caption?: unknown; wardrobe?: unknown
+      editing_notes?: unknown; location?: unknown
+      /** A format card's versions as fields (lib/styles.ts). */
+      versions?: unknown
     }
     const format = typeof custom.format === 'string' && isValidTag('format', custom.format) ? custom.format : null
+    const style = isContentStyle(custom.style) ? custom.style : null
     const sharedBody = typeof custom.body === 'string' ? custom.body.trim().slice(0, 4000) : ''
     const sharedSource = isSource(custom.source) ? custom.source : null
+    /** One optional field, trimmed and clipped — empty stays null so a blank
+     *  input never lands as an empty string. */
+    const field = (value: unknown, max = 4000) =>
+      typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null
+    const sharedHook = field(custom.hook)
+    const sharedWardrobe = field(custom.wardrobe)
+    const sharedCaption = field(custom.caption)
+    const sharedEditing = field(custom.editing_notes)
+    const sharedLocation = field(custom.location, 200)
 
-    type CardAsk = { label: string; jobId: string | null; text: string }
+    type CardAsk = {
+      label: string
+      jobId: string | null
+      text: string
+      hook: string | null
+      wardrobe: string | null
+      caption: string | null
+      editing: string | null
+      location: string | null
+      versions: ReturnType<typeof cleanVersions>
+    }
     const asks: CardAsk[] = []
     if (Array.isArray(custom.cards)) {
       for (const raw of custom.cards.slice(0, MAX_BATCH)) {
         if (!raw || typeof raw !== 'object') continue
-        const row = raw as { label?: unknown; job_id?: unknown; body?: unknown }
+        const row = raw as {
+          label?: unknown; job_id?: unknown; body?: unknown
+          hook?: unknown; wardrobe?: unknown; caption?: unknown
+          editing_notes?: unknown; location?: unknown; versions?: unknown
+        }
         const label = typeof row.label === 'string' ? row.label.trim().slice(0, 120) : ''
         if (!label) continue
         asks.push({
           label,
           jobId: typeof row.job_id === 'string' && row.job_id.trim() ? row.job_id.trim().slice(0, 64) : null,
           text: typeof row.body === 'string' ? row.body.trim().slice(0, 4000) : sharedBody,
+          hook: field(row.hook) ?? sharedHook,
+          wardrobe: field(row.wardrobe) ?? sharedWardrobe,
+          caption: field(row.caption) ?? sharedCaption,
+          editing: field(row.editing_notes) ?? sharedEditing,
+          location: field(row.location, 200) ?? sharedLocation,
+          versions: cleanVersions(row.versions ?? custom.versions),
         })
       }
     } else {
@@ -205,8 +288,14 @@ export async function POST(request: Request, { params }: Params) {
         : typeof custom.count === 'number' && Number.isFinite(custom.count)
           ? Math.max(1, Math.min(MAX_COPIES, Math.round(custom.count)))
           : 1
+      const versions = cleanVersions(custom.versions)
       for (let copy = 0; copy < count; copy += 1) {
-        asks.push({ label, jobId, text: sharedBody })
+        asks.push({
+          label, jobId, text: sharedBody,
+          hook: sharedHook, wardrobe: sharedWardrobe, caption: sharedCaption,
+          editing: sharedEditing, location: sharedLocation,
+          versions,
+        })
       }
     }
     if (asks.length === 0) return NextResponse.json({ error: 'nothing to add' }, { status: 400 })
@@ -249,21 +338,37 @@ export async function POST(request: Request, { params }: Params) {
 
     for (const ask of asks) {
       if (ask.jobId && already.has(ask.jobId)) {
-        skipped.push(ask.jobId)
-        continue
+        // The reel is on the week already. If the card holding it is only the
+        // machine's own (a bare paste, or its auto-drafted brief), it is
+        // absorbed so this card carries the reel; a card a person wrote into
+        // — or she has touched — keeps its place and this ask is skipped.
+        if (!(await freeMachineCard(id, modelId, ask.jobId))) {
+          skipped.push(ask.jobId)
+          continue
+        }
+        already.delete(ask.jobId)
       }
       const text = ask.text
-      const source = sharedSource ?? (text ? 'original' : 'blank')
+      // A reel rides this card, so it is a reference to copy — not a "made
+      // for you" written card, and never a blank. A blank is a card with
+      // nothing behind it AND nothing written; one with a video was landing
+      // invisible on her page (13 such cards sat hidden, 2026-10-13).
+      const source = sharedSource ?? (ask.jobId ? 'reference' : text ? 'original' : 'blank')
       const notes = [format ? `Format: ${format}` : null, text || null].filter(Boolean).join('\n\n') || null
       position += 1
       cardNo += 1
       const itemId = newId()
       const [item] = await sql.query(
         `insert into transcriber.plan_items
-           (id, plan_id, job_id, position, notes, title, bucket, source, card_no)
-         values ($1, $2, $3, $4, $5, $6, 'custom', $7, $8)
-         returning id, job_id, position, notes, title as item_title, bucket, source, card_no`,
-        [itemId, id, ask.jobId, position, notes, ask.label, source, cardNo],
+           (id, plan_id, job_id, position, notes, title, bucket, source, card_no,
+            style, hook, wardrobe, caption, editing_notes, location, versions)
+         values ($1, $2, $3, $4, $5, $6, 'custom', $7, $8,
+                 $9, $10, $11, $12, $13, $14, $15::jsonb)
+         returning id, job_id, position, notes, title as item_title, bucket, source, card_no,
+                   style, hook, wardrobe, caption, editing_notes, location, versions`,
+        [itemId, id, ask.jobId, position, notes, ask.label, source, cardNo,
+         style, ask.hook, ask.wardrobe, ask.caption, ask.editing, ask.location,
+         ask.versions && ask.versions.length > 0 ? JSON.stringify(ask.versions) : null],
       )
       if (!item) continue
       if (ask.jobId) already.add(ask.jobId)
@@ -355,18 +460,22 @@ export async function PUT(request: Request, { params }: Params) {
 
   if (typeof body.reply === 'string' && body.reply.trim()) {
     const [owned] = await sql.query(
-      `select id from transcriber.plan_items where id = $1 and plan_id = $2`,
+      `select i.id, i.card_no, p.model_id
+         from transcriber.plan_items i
+         join transcriber.plans p on p.id = i.plan_id
+        where i.id = $1 and i.plan_id = $2`,
       [itemId, id],
     )
     if (!owned) return notFound()
 
+    const replyText = body.reply.trim().slice(0, MAX_TEXT)
     const [message] = await sql.query(
       `insert into transcriber.plan_messages (id, item_id, author, body)
        values ($1, $2, 'operator', $3)
        returning id, author, body,
                  to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as at,
                  false as seen`,
-      [newId(), itemId, body.reply.trim().slice(0, MAX_TEXT)],
+      [newId(), itemId, replyText],
     )
     await sql.query(
       `update transcriber.plan_messages
@@ -377,6 +486,15 @@ export async function PUT(request: Request, { params }: Params) {
     await sql.query(
       `update transcriber.plan_items set seen_at = now() where id = $1 and seen_at is null`,
       [itemId],
+    )
+    // Her phone is told (2026-10-12). Silent if she has no device registered.
+    const cardLabel = owned.card_no === null || owned.card_no === undefined ? 'your card' : `V-${owned.card_no}`
+    after(() =>
+      pushToModel(String(owned.model_id), {
+        title: `The team replied on ${cardLabel}`,
+        body: replyText.slice(0, 140),
+        data: { url: `/card/${itemId}` },
+      }).catch(() => {}),
     )
     return NextResponse.json({ ok: true, message })
   }
@@ -478,11 +596,18 @@ export async function PUT(request: Request, { params }: Params) {
             -- The per-card switches (2026-10-08): filming directions and
             -- automated captions, each hideable before the week goes out.
             hide_film     = case when $33::bool then $34::bool else hide_film end,
-            hide_captions = case when $35::bool then $36::bool else hide_captions end
+            hide_captions = case when $35::bool then $36::bool else hide_captions end,
+            -- A format card's versions as fields (2026-10-13). Passing null
+            -- clears them; omitting the key leaves them alone.
+            versions      = case when $37::bool then $38::jsonb else versions end,
+            -- The Notes they read on their card (Geno, 2026-10-13): free
+            -- words of the team's own, separate from the Direction.
+            notes_to_model = case when $39::bool then $40::text else notes_to_model end
       where id = $1 and plan_id = $2
-      returning id, notes, editing_notes, post_url, posted_at, filmed_at, seen_at,
+      returning id, notes, notes_to_model, editing_notes, post_url, posted_at, filmed_at, seen_at,
                 wardrobe, camera, takes, sound, hook, caption,
-                card_no, title as item_title, location, source, twist, hide_film, hide_captions`,
+                card_no, title as item_title, location, source, twist, hide_film, hide_captions,
+                versions`,
     [
       itemId, id,
       'notes' in body, text(body.notes),
@@ -503,6 +628,8 @@ export async function PUT(request: Request, { params }: Params) {
       'twist' in body, text(body.twist),
       'hide_film' in body, body.hide_film === true,
       'hide_captions' in body, body.hide_captions === true,
+      'versions' in body, Array.isArray(body.versions) ? JSON.stringify(cleanVersions(body.versions)) : null,
+      'notes_to_model' in body, text(body.notes_to_model),
     ],
   )
   if (!item) return notFound()

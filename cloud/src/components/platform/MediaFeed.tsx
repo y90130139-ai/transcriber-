@@ -17,8 +17,11 @@ import {
  * handle and numbers over the floor.
  *
  * Saved media streams from Cloudflare R2 first. Unmirrored rows use their
- * recorded source links until the R2 backlog reaches them. Media is only
- * removed after both the saved copy and source fallbacks fail verification.
+ * recorded source links until the R2 backlog reaches them. A preview the
+ * player cannot open is tagged `unavailable_at` and left on screen; nothing
+ * is deleted until the feed's own "Delete unavailable" button. A handful of
+ * videos download at a time so the row in front of you paints first. The
+ * handle, date and counts stay on the card while that frame arrives.
  * X rows are not all video: pictures and slideshows draw as stills (the
  * slideshow wears its slide count). Re-run `scripts/import-ofmpro.mjs
  * <platform>` with a fresh export to refresh the data.
@@ -53,12 +56,14 @@ type Feed = {
   rows: number
   unique: number
   duplicates: number
+  /** Rows tagged unavailable, still in the table until someone deletes them. */
+  unavailable?: number
   totals: { views: number; likes: number; comments: number; creators: number; scored: number }
   items: MediaItem[]
 }
 export type { Feed }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 16
 
 const SORTS = [
   { id: 'score', label: 'Score' },
@@ -69,6 +74,29 @@ const SORTS = [
 type SortId = (typeof SORTS)[number]['id']
 
 const exact = (value: number) => value.toLocaleString('en-US')
+
+/** How many previews may download at once. More than this and the cards on
+ *  screen sit black while off-screen ones occupy every connection. */
+const MAX_VIDEO_LOADS = 4
+let activeVideoLoads = 0
+const videoLoadQueue: Array<() => void> = []
+
+function requestVideoSlot(): Promise<() => void> {
+  return new Promise((resolve) => {
+    const grant = () => {
+      activeVideoLoads += 1
+      let released = false
+      resolve(() => {
+        if (released) return
+        released = true
+        activeVideoLoads -= 1
+        videoLoadQueue.shift()?.()
+      })
+    }
+    if (activeVideoLoads < MAX_VIDEO_LOADS) grant()
+    else videoLoadQueue.push(grant)
+  })
+}
 
 /* ---------------------------------------------------------------- card */
 
@@ -85,12 +113,21 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
   /** The active source: null until the card approaches the viewport. */
   const [src, setSrc] = useState<string | null>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(item.image)
+  const [imageReady, setImageReady] = useState(false)
   const [failed, setFailed] = useState(false)
   /** The first frame has actually painted — until then, a shimmer holds the
    *  frame instead of a black hole. */
   const [loaded, setLoaded] = useState(false)
   const [muted, setMuted] = useState(true)
   const [hovering, setHovering] = useState(false)
+  /** One report per post. A refresh must not send the same id again. */
+  const reportedUnavailable = useRef(false)
+  /** The post this instance has already painted. A new signed URL for the
+   *  same id must not restart the frame. */
+  const paintedId = useRef<string | null>(null)
+  const srcRef = useRef<string | null>(null)
+  const releaseSlot = useRef<(() => void) | null>(null)
+  srcRef.current = src
 
   const primary = item.video ? `${item.video}#t=0.001` : null
   const fallbackUrl = item.fallback ?? (item.mirror !== item.video ? item.mirror : null)
@@ -98,26 +135,37 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
   const firstVideoSource = primary ?? fallback
   const fileUrl = item.video ?? item.image ?? item.mirror ?? item.fallback
 
-  // Only videos arm lazily; pictures let the browser's own lazy loading do it.
+  function freeSlot() {
+    releaseSlot.current?.()
+    releaseSlot.current = null
+  }
+
+  // Only videos arm lazily, and only a few at a time. Pictures let the
+  // browser's own lazy loading do it.
   useEffect(() => {
     const node = frame.current
-    if (!node || !firstVideoSource || src !== null || failed) return
+    if (!node || !firstVideoSource || failed) return
+    let cancel = false
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
+      if (cancel || srcRef.current || !entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      void requestVideoSlot().then((done) => {
+        if (cancel || srcRef.current) {
+          done()
+          return
+        }
+        releaseSlot.current = done
         setLoaded(false)
         setSrc(firstVideoSource)
-        observer.disconnect()
-      }
-    }, { rootMargin: '600px 0px' })
+      })
+    }, { rootMargin: '480px 0px' })
     observer.observe(node)
-    return () => observer.disconnect()
-  }, [firstVideoSource, src, failed])
-
-  useEffect(() => {
-    if (!firstVideoSource || src === null || src === primary || src === fallback || video.current?.paused === false) return
-    setLoaded(false)
-    setSrc(firstVideoSource)
-  }, [fallback, firstVideoSource, primary, src])
+    return () => {
+      cancel = true
+      observer.disconnect()
+      freeSlot()
+    }
+  }, [failed, firstVideoSource])
 
   // Hover can arrive before the lazy video element mounts. Retry when its
   // source is attached, and again when the browser says it can play.
@@ -127,8 +175,11 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
   }, [hovering, src])
 
   useEffect(() => {
+    if (paintedId.current === item.id) return
+    paintedId.current = item.id
+    reportedUnavailable.current = false
     setImageSrc(item.image)
-  }, [item.image])
+  }, [item.id, item.image])
 
   function tryPlay() {
     if (!window.matchMedia('(hover: hover)').matches) return
@@ -154,15 +205,21 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
       return
     }
     setFailed(true)
+    freeSlot()
+    if (reportedUnavailable.current) return
+    reportedUnavailable.current = true
     onUnavailable?.(item.id)
   }
 
   function onImageError() {
     if (imageSrc === item.image && fallbackUrl && fallbackUrl !== item.image) {
+      setImageReady(false)
       setImageSrc(fallbackUrl)
       return
     }
     setFailed(true)
+    if (reportedUnavailable.current) return
+    reportedUnavailable.current = true
     onUnavailable?.(item.id)
   }
 
@@ -178,7 +235,8 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
   const nothingToShow = !item.video && !item.image && !item.mirror && !item.fallback
 
   useEffect(() => {
-    if (!nothingToShow) return
+    if (!nothingToShow || reportedUnavailable.current) return
+    reportedUnavailable.current = true
     setFailed(true)
     onUnavailable?.(item.id)
   }, [item.id, nothingToShow, onUnavailable])
@@ -201,6 +259,8 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
             alt=""
             loading="lazy"
             decoding="async"
+            referrerPolicy={platform === 'x' ? 'no-referrer' : undefined}
+            onLoad={() => setImageReady(true)}
             onError={onImageError}
           />
         ) : src ? (
@@ -211,15 +271,22 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
             muted={muted}
             loop
             playsInline
+            /* React's video props do not type referrerPolicy though every
+               browser honours it; the spread keeps the attribute and the
+               type check green. */
+            {...(platform === 'x' ? { referrerPolicy: 'no-referrer' } : {})}
             data-loaded={loaded || undefined}
             onLoadedData={(event) => {
               setLoaded(true)
+              freeSlot()
               if (hovering) void event.currentTarget.play().catch(() => null)
             }}
             onError={onError}
           />
         ) : null}
-        {!isPicture && src && !loaded && !failed && <span className="pl-loading" aria-hidden />}
+        {((!isPicture && !loaded && !failed && !nothingToShow) || (isPicture && !imageReady && !failed && !nothingToShow)) && (
+          <span className="pl-loading" aria-hidden />
+        )}
         <span className="pl-scrim" aria-hidden />
 
         <a
@@ -231,78 +298,80 @@ export function MediaCard({ item, platform, selected, onToggle, onUnavailable, s
           title={item.caption ?? undefined}
         />
 
-        <span className="pl-topline">
-          <span className="pl-when">
-            <Icon name="calendar" size={12} />
-            {ago(item.created)}
-          </span>
-          {item.slides !== null && item.slides > 1 && (
-            <span className="pl-slides">{item.slides} slides</span>
-          )}
-        </span>
+        <>
+            <span className="pl-topline">
+              <span className="pl-when">
+                <Icon name="calendar" size={12} />
+                {ago(item.created)}
+              </span>
+              {item.slides !== null && item.slides > 1 && (
+                <span className="pl-slides">{item.slides} slides</span>
+              )}
+            </span>
 
-        <span className="pl-tools">
-          {!isPicture && (
-            <button
-              type="button"
-              className="pl-tool"
-              data-on={!muted || undefined}
-              onClick={toggleMute}
-              aria-pressed={!muted}
-              title={muted ? 'Unmute' : 'Mute'}
-            >
-              {muted ? <MuteGlyph /> : <SoundGlyph />}
-            </button>
-          )}
-          {fileUrl && (
-            <a
-              className="pl-tool"
-              href={fileUrl}
-              target="_blank"
-              rel="noreferrer"
-              title={isPicture ? 'Open the image' : 'Open the video file'}
-            >
-              <DownloadGlyph />
-            </a>
-          )}
-          <a
-            className="pl-tool"
-            href={item.url ?? '#'}
-            target="_blank"
-            rel="noreferrer"
-            title="Open the post"
-          >
-            <OpenGlyph />
-          </a>
-          <button
-            type="button"
-            className="pl-tool"
-            data-on={selected || undefined}
-            onClick={() => onToggle(item.id)}
-            disabled={!selectable}
-            aria-pressed={selected}
-            title={selected ? 'Deselect' : 'Select'}
-          >
-            <CheckGlyph />
-          </button>
-        </span>
+            <span className="pl-tools">
+              {!isPicture && (
+                <button
+                  type="button"
+                  className="pl-tool"
+                  data-on={!muted || undefined}
+                  onClick={toggleMute}
+                  aria-pressed={!muted}
+                  title={muted ? 'Unmute' : 'Mute'}
+                >
+                  {muted ? <MuteGlyph /> : <SoundGlyph />}
+                </button>
+              )}
+              {fileUrl && (
+                <a
+                  className="pl-tool"
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={isPicture ? 'Open the image' : 'Open the video file'}
+                >
+                  <DownloadGlyph />
+                </a>
+              )}
+              <a
+                className="pl-tool"
+                href={item.url ?? '#'}
+                target="_blank"
+                rel="noreferrer"
+                title="Open the post"
+              >
+                <OpenGlyph />
+              </a>
+              <button
+                type="button"
+                className="pl-tool"
+                data-on={selected || undefined}
+                onClick={() => onToggle(item.id)}
+                disabled={!selectable}
+                aria-pressed={selected}
+                title={selected ? 'Deselect' : 'Select'}
+              >
+                <CheckGlyph />
+              </button>
+            </span>
 
-        <span className="pl-foot">
-          <span className="pl-user" title={item.nickname ?? undefined}>@{handle}</span>
-          <span className="pl-subline">
-            {hasSize ? `${compact(item.followers)} followers` : item.nickname ?? '—'}
-            {item.audio ? ` · ${item.audio}` : ''}
-          </span>
-          {item.score !== null && (
-            <span className="pl-score" title={`Outer score ${item.score}`}>{item.score.toFixed(1)}</span>
-          )}
-        </span>
+            <span className="pl-foot">
+              <span className="pl-user" title={item.nickname ?? undefined}>@{handle}</span>
+              <span className="pl-subline">
+                {hasSize ? `${compact(item.followers)} followers` : item.nickname ?? '—'}
+                {item.audio ? ` · ${item.audio}` : ''}
+              </span>
+              {item.score !== null && (
+                <span className="pl-score" title={`Outer score ${item.score}`}>{item.score.toFixed(1)}</span>
+              )}
+            </span>
 
-        <span className="pl-stats">
-          <span className="pl-stat" title={`${exact(item.views)} views`}><PlayGlyph />{compact(item.views)}</span>
-          <span className="pl-stat" title={`${exact(item.likes)} likes`}><HeartGlyph />{compact(item.likes)}</span>
-          <span className="pl-stat" title={`${exact(item.comments)} comments`}><CommentGlyph />{compact(item.comments)}</span>
-        </span>
+            <span className="pl-stats">
+              <span className="pl-stat" title={`${exact(item.views)} views`}><PlayGlyph />{compact(item.views)}</span>
+              <span className="pl-stat" title={`${exact(item.likes)} likes`}><HeartGlyph />{compact(item.likes)}</span>
+              <span className="pl-stat" title={`${exact(item.comments)} comments`}><CommentGlyph />{compact(item.comments)}</span>
+            </span>
+          </>
       </div>
     </article>
   )
@@ -322,7 +391,11 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
 }) {
   const [feed, setFeed] = useState<Feed | null>(null)
   const [failed, setFailed] = useState(false)
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
+  /** Posts whose preview cannot play. Hidden only after an explicit delete. */
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set())
+  const [taggedIds, setTaggedIds] = useState<Set<string>>(() => new Set())
+  const [taggedCount, setTaggedCount] = useState(0)
+  const [purging, setPurging] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortId>('score')
   const [shown, setShown] = useState(PAGE_SIZE)
@@ -343,6 +416,7 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
       })
       .then((body) => {
         setFeed(body)
+        setTaggedCount(body.unavailable ?? 0)
         // Nothing scored in this window — Score is not a sort here, say Views.
         if (body.totals.scored === 0) setSort('views')
       })
@@ -365,19 +439,44 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
   }, [load])
 
   const onUnavailable = useCallback((id: string) => {
-    setHiddenIds((current) => new Set(current).add(id))
+    setTaggedIds((current) => {
+      if (current.has(id)) return current
+      const next = new Set(current)
+      next.add(id)
+      setTaggedCount((count) => count + 1)
+      return next
+    })
     setSelected((current) => {
+      if (!current.has(id)) return current
       const next = new Set(current)
       next.delete(id)
       return next
     })
-    void fetch(`${dataUrl}?mediaId=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
+    // Tag the row. Deleting here is what stalled the scroll.
+    void fetch(dataUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaId: id }),
       cache: 'no-store',
-    }).then((response) => {
-      if (response.ok) void load()
     }).catch(() => null)
-  }, [dataUrl, load])
+  }, [dataUrl])
+
+  async function deleteUnavailable() {
+    if (purging || taggedCount === 0) return
+    setPurging(true)
+    const response = await fetch(`${dataUrl}?unavailable=1`, { method: 'DELETE', cache: 'no-store' })
+    if (response.ok) {
+      const ids = taggedIds
+      setHiddenIds((current) => {
+        const next = new Set(current)
+        for (const id of ids) next.add(id)
+        return next
+      })
+      setTaggedIds(new Set())
+      setTaggedCount(0)
+    }
+    setPurging(false)
+  }
 
   useEffect(() => setShown(PAGE_SIZE), [query, sort])
 
@@ -410,7 +509,8 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
     })
   }
 
-  /** Everything currently drawn — ten posts at a time as the user scrolls. */
+  /** Everything currently drawn. The next page mounts before it reaches the
+   *  viewport, so a scroll lands on frames that have already settled. */
   const visible = items.slice(0, shown)
 
   useEffect(() => {
@@ -421,7 +521,7 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
       if (!entries.some((entry) => entry.isIntersecting)) return
       observer.disconnect()
       setShown((count) => Math.min(items.length, count + PAGE_SIZE))
-    }, { rootMargin: '360px 0px' })
+    }, { rootMargin: '900px 0px' })
 
     observer.observe(node)
     return () => observer.disconnect()
@@ -553,6 +653,17 @@ export default function MediaFeed({ platform, label, dataUrl, unit }: {
                 </button>
               ))}
             </div>
+            {taggedCount > 0 && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => void deleteUnavailable()}
+                disabled={purging}
+                title="Remove every preview tagged unavailable from the database"
+              >
+                {purging ? 'Deleting…' : `Delete ${exact(taggedCount)} unavailable`}
+              </button>
+            )}
             {items.length > 0 && (
               <button
                 type="button"

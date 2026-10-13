@@ -105,9 +105,9 @@ export async function POST(request: Request) {
   }
 
   const need = await sql.query(
-    `select platform, media_id, raw_url, media_type
+    `select platform, media_id, raw_url, mirror_url, media_type
        from transcriber.ofmpro_media
-      where platform = $1 and r2_key is null and raw_url is not null
+      where platform = $1 and r2_key is null and (raw_url is not null or mirror_url is not null)
         and media_id = any($2::text[])
       order by posted_at desc nulls last
       limit 60`,

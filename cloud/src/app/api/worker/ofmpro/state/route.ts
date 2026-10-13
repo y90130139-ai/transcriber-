@@ -11,8 +11,8 @@ import { sql } from '@/lib/db'
  * back through here.
  *
  * GET answers three things in one read:
- *   - where each platform's coverage currently ends (`max(posted_at)`), so the
- *     next fetch window starts there rather than at a guess;
+ *   - each platform's date coverage, so the regular window can continue at the
+ *     latest date and a one-time rescan can restart at the earliest date;
  *   - what still has no R2 copy and a live-enough source URL to fetch;
  *   - the last run, so a quiet console day has an explanation.
  */
@@ -21,21 +21,22 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const wanted = Number(url.searchParams.get('downloads'))
-  const downloadLimit = Number.isFinite(wanted) && wanted > 0 ? Math.min(Math.trunc(wanted), 200) : 40
+  const downloadLimit = Number.isFinite(wanted) && wanted > 0 ? Math.min(Math.trunc(wanted), 1_000) : 40
 
   const [coverage, pending, lastRun, totals] = await Promise.all([
     sql.query(
       `select platform,
-              to_char(max(posted_at), 'YYYY-MM-DD') as latest,
+              to_char(min(posted_at)::date, 'YYYY-MM-DD') as earliest,
+              to_char(max(posted_at)::date, 'YYYY-MM-DD') as latest,
               count(*)::int as held
          from transcriber.ofmpro_media
         group by platform
         order by platform`,
     ),
     sql.query(
-      `select platform, media_id, raw_url, media_type
+      `select platform, media_id, raw_url, mirror_url, media_type
          from transcriber.ofmpro_media
-        where r2_key is null and raw_url is not null
+        where r2_key is null and (raw_url is not null or mirror_url is not null)
         order by posted_at desc nulls last
         limit ${downloadLimit}`,
     ),

@@ -22,7 +22,7 @@ import { isScheduler } from '@/lib/cron'
  */
 export const maxDuration = 60
 
-const REQUIREMENTS_CRON_BUDGET = 20
+const REQUIREMENTS_CRON_BUDGET = 350
 
 export async function GET(request: Request) {
   if (!isScheduler(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })

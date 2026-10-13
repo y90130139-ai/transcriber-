@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 import Queue from './Queue'
+import DropSelect from './dashboard/DropSelect'
 import { StuckList, WaitingList } from './QueueHeld'
 import { GERMAN_FORMAT_TAG, GERMAN_TYPES, findGerman } from '@/lib/german'
 import { queueState } from '@/lib/queue-state'
@@ -180,14 +181,23 @@ export default function QueueTab({
     >
       {dragging && <div className="dropveil"><span>Drop it</span></div>}
 
-      <header className="dash-head dash-head-flush">
+      <header className="dash-head">
         <div>
+          <p className="dash-kicker">Workspace</p>
           <h2 className="dash-title">Queue</h2>
           <p className="dash-sub">
             {pending.length === 0
               ? 'Nothing waiting'
               : `${inFlight.length} in flight · ${waiting.length} waiting · ${stuck.length} stuck`}
           </p>
+        </div>
+        {/* The worker's state, up beside the title (2026-10-13 redesign): it
+            used to live only in the composer's hint, where a glance never
+            found it. */}
+        <div className="dash-head-tools">
+          <span className="queue-worker" data-on={workerOnline ? 'true' : undefined}>
+            {workerOnline ? 'Worker online' : 'Will run when the Mac wakes'}
+          </span>
         </div>
       </header>
 
@@ -198,32 +208,26 @@ export default function QueueTab({
             a plain paste works exactly as it always did. */}
         <div className="queue-composer-grid">
           <div className="queue-composer-col">
-            <label className="axis-name" htmlFor="queue-format">Format</label>
-            <select
-              id="queue-format"
-              className="field"
+            <span className="axis-name">Format</span>
+            {/* The house dropdown, not a native select (2026-10-13): the
+                picker's menu carries the grouped options — our own formats
+                under their own header — which a browser select cannot. */}
+            <DropSelect
+              label="Format"
               value={format}
-              onChange={(event) => {
-                const chosen = event.target.value
+              onChange={(chosen) => {
                 if (chosen === '__new') { setNewFormat(''); return }
                 setFormat(chosen)
                 setKind('')
                 setNewKind(null)
               }}
-            >
-              <option value="">No format — label later</option>
-              {taxonomy.format.tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>{tag.label}</option>
-              ))}
-              {customFormats.length > 0 && (
-                <optgroup label="Our own">
-                  {customFormats.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.label}</option>
-                  ))}
-                </optgroup>
-              )}
-              <option value="__new">+ Make a new format…</option>
-            </select>
+              options={[
+                { value: '', label: 'No format — label later' },
+                ...taxonomy.format.tags.map((tag) => ({ value: tag.id, label: tag.label })),
+                ...customFormats.map((entry) => ({ value: entry.id, label: entry.label, group: 'Our own' })),
+                { value: '__new', label: '+ Make a new format…' },
+              ]}
+            />
             {newFormat !== null && (
               <span className="queue-newformat">
                 <input
@@ -241,39 +245,34 @@ export default function QueueTab({
           </div>
 
           <div className="queue-composer-col">
-            <label className="axis-name" htmlFor="queue-kind">What it is</label>
-            <select
-              id="queue-kind"
-              className="field"
+            <span className="axis-name">What it is</span>
+            <DropSelect
+              label="What it is"
               value={kind}
-              onChange={(event) => {
-                const chosen = event.target.value
+              onChange={(chosen) => {
                 if (chosen === '__new') { setNewKind(''); return }
                 setKind(chosen)
               }}
-            >
-              <option value="">Optional — names every row</option>
-              {format === GERMAN_FORMAT_TAG && GERMAN_TYPES.map((type) => (
-                <optgroup key={type.id} label={type.label}>
-                  {type.formats.map((entry) => (
-                    <option key={entry.no} value={entry.no}>#{entry.no} · {entry.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-              {/* The picked format's own kinds, and the general ones that
-                  belong to no format — both always offered, so this box is
-                  never locked behind the one beside it. */}
-              {kinds.some((entry) => entry.format === format || entry.format === '') && (
-                <optgroup label="Our own">
-                  {kinds
-                    .filter((entry) => entry.format === format || entry.format === '')
-                    .map((entry) => (
-                      <option key={entry.id} value={`k:${entry.id}`}>{entry.label}</option>
-                    ))}
-                </optgroup>
-              )}
-              <option value="__new">+ Add what it is…</option>
-            </select>
+              options={[
+                { value: '', label: 'Optional — names every row' },
+                /* The German playbook keeps its type groups: one small header
+                   per type, its entries under it. */
+                ...(format === GERMAN_FORMAT_TAG
+                  ? GERMAN_TYPES.flatMap((type) => type.formats.map((entry) => ({
+                      value: String(entry.no),
+                      label: `#${entry.no} · ${entry.name}`,
+                      group: type.label,
+                    })))
+                  : []),
+                /* The picked format's own kinds, and the general ones that
+                   belong to no format — both always offered, so this box is
+                   never locked behind the one beside it. */
+                ...kinds
+                  .filter((entry) => entry.format === format || entry.format === '')
+                  .map((entry) => ({ value: `k:${entry.id}`, label: entry.label, group: 'Our own' })),
+                { value: '__new', label: '+ Add what it is…' },
+              ]}
+            />
             {newKind !== null && (
               <span className="queue-newformat">
                 <input
@@ -332,20 +331,27 @@ export default function QueueTab({
         </div>
       </section>
 
-      <section className="dash-panel" aria-labelledby="queue-flight">
-        <header className="dash-panel-head">
-          <h2 id="queue-flight">In flight</h2>
-          <p>{inFlight.length} item{inFlight.length === 1 ? '' : 's'} downloading or listening</p>
-        </header>
-        {inFlight.length > 0 ? (
-          <Queue items={inFlight} onOpen={onOpen} onChanged={onChanged} />
-        ) : (
-          <p className="dash-empty">Nothing downloading right now.</p>
-        )}
-      </section>
+      {/* A queue with nothing in it shows no sections at all (2026-10-13
+          redesign) — the panel's "0 items / nothing downloading" was two
+          lines of filler under the composer's own "Nothing waiting". */}
+      {pending.length > 0 && (
+        <section className="dash-panel" aria-labelledby="queue-flight">
+          <header className="dash-panel-head">
+            <h2 id="queue-flight">In flight</h2>
+            <p>{inFlight.length} item{inFlight.length === 1 ? '' : 's'} downloading or listening</p>
+          </header>
+          {inFlight.length > 0 ? (
+            <Queue items={inFlight} onOpen={onOpen} onChanged={onChanged} />
+          ) : (
+            <p className="dash-empty">Nothing downloading right now.</p>
+          )}
+        </section>
+      )}
 
-      <WaitingList items={waiting} onOpen={onOpen} />
+      {/* Needs a person first, then the parked ones (2026-10-13 redesign):
+          a stuck row is the only thing here that cannot clear itself. */}
       <StuckList items={stuck} onOpen={onOpen} onChanged={onChanged} />
+      <WaitingList items={waiting} onOpen={onOpen} />
     </div>
   )
 }

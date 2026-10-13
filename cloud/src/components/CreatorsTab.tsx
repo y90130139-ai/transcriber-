@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CreatorSheet from './CreatorSheet'
 import PersonaBackfill, { BATCH } from './PersonaBackfill'
+import { useReveal } from '@/hooks/useReveal'
 import DropMulti from './dashboard/DropMulti'
 import DropSelect from './dashboard/DropSelect'
-import { compact, thumbUrl } from '@/lib/format'
+import { ago, compact, thumbUrl } from '@/lib/format'
 import { labelOf, taxonomy } from '@/lib/taxonomy'
 
 export type Creator = {
@@ -17,6 +18,9 @@ export type Creator = {
   median_score: number | null
   last_upload: string | null
   cover_id: string | null
+  tracked: boolean
+  followers: number | null
+  follower_checked_at: string | null
 }
 
 type Sort = 'posts' | 'active' | 'normal' | 'recent' | 'name'
@@ -53,7 +57,20 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
     setLoading(false)
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const timer = window.setInterval(refresh, 5 * 60_000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [load])
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -77,6 +94,9 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
   }, [creators, needsPersona, persona, query, sort])
 
   const active = persona.length + (query.trim() ? 1 : 0) + (needsPersona ? 1 : 0)
+
+  // Four hundred covers arrive as a run, not a wall (2026-10-13).
+  const cards = useReveal<HTMLDivElement>([shown.length])
 
   const tally = loading
     ? 'Loading'
@@ -151,12 +171,12 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
       ) : shown.length === 0 ? (
         <div className="empty"><p>No creator matches that.</p></div>
       ) : (
-        <div className="creators">
+        <div className="creators" ref={cards}>
           {shown.map((creator) => {
             const tags = creator.persona.slice(0, 2)
             const extra = creator.persona.length - tags.length
             return (
-              <button key={creator.handle} className="creator-card" onClick={() => setOpen(creator.handle)}>
+              <button key={creator.handle} className="creator-card" data-reveal="" onClick={() => setOpen(creator.handle)}>
                 <span className="creator-card-frame">
                   {creator.cover_id ? (
                     <img src={thumbUrl(creator.cover_id)} alt="" width={420} height={525} loading="lazy" />
@@ -175,6 +195,20 @@ export default function CreatorsTab({ onFilterTo }: { onFilterTo: (handle: strin
                         <span aria-hidden="true">·</span>
                         <b>{compact(creator.median_score)}</b> normal
                       </>
+                    )}
+                    {creator.followers !== null && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <b>{compact(creator.followers)}</b> followers
+                        {creator.follower_checked_at && (
+                          <span title={`Instagram profile read ${creator.follower_checked_at}`}>
+                            · IG {ago(creator.follower_checked_at)}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {creator.tracked && creator.followers === null && (
+                      <><span aria-hidden="true">·</span> IG waiting for first read</>
                     )}
                   </span>
                   <span className="creator-card-tags">

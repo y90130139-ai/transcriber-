@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { EMPTY_FILTERS, toQuery, type Filters } from '../FilterBar'
 import type { LibraryItem } from '@/lib/format'
 
@@ -48,6 +49,12 @@ export function useConsole(): ConsoleState {
  *  the counts the top bar wears, and the open reader. The layout holds this,
  *  so switching pages never loses a search or restarts a poll. */
 export function ConsoleProvider({ children }: { children: React.ReactNode }) {
+  // The inbox is its own world (Geno, 2026-10-13): it never reads the
+  // library, so on /inbox the provider stays quiet instead of hammering
+  // /api/library and /api/creators under the inbox's own fetches.
+  const pathname = usePathname()
+  const libraryOff = pathname === '/inbox' || pathname?.startsWith('/inbox/') || false
+
   const [items, setItems] = useState<LibraryItem[]>([])
   const [pending, setPending] = useState<LibraryItem[]>([])
   const [counts, setCounts] = useState<Counts>({ queued: 0, running: 0, done: 0, failed: 0 })
@@ -60,40 +67,70 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
   const [total, setTotal] = useState(0)
   const [span, setSpan] = useState(PAGE)
 
+  /** A fingerprint of the last response, secondsAgo aside. A poll that
+   *  changes nothing must not re-render ninety cards (2026-10-13), and the
+   *  heartbeat age is the one field that ticks on every response by design —
+   *  nothing displays it, so it is normalised out before the compare. */
+  const lastBody = useRef('')
+
   const refresh = useCallback(async (current: Filters, search: string, want: number) => {
     const response = await fetch(`/api/library?${toQuery(current, search)}&limit=${want}`)
     if (!response.ok) return
     const body = await response.json()
+    const worker = body.worker ?? { online: false, secondsAgo: null, video: false }
+    const stamp = JSON.stringify({ ...body, worker: { ...worker, secondsAgo: 0 } })
+    if (stamp === lastBody.current) return
+    lastBody.current = stamp
     setItems(body.items ?? [])
     setTotal(Number(body.total ?? 0))
     setPending(body.pending ?? [])
     setCounts(body.counts ?? { queued: 0, running: 0, done: 0, failed: 0 })
-    setWorker(body.worker ?? { online: false, secondsAgo: null, video: false })
+    setWorker(worker)
     setLoading(false)
   }, [])
 
   // Search and filter changes are debounced so typing does not hammer the
   // database. `span` is in here too: growing it is what "Load more" does.
   useEffect(() => {
+    if (libraryOff) {
+      setLoading(false)
+      return
+    }
     const timer = setTimeout(() => { void refresh(filters, query, span) }, query ? SEARCH_DEBOUNCE_MS : 0)
     return () => clearTimeout(timer)
-  }, [filters, query, span, refresh])
+  }, [filters, query, span, refresh, libraryOff])
 
   useEffect(() => {
+    if (libraryOff) return
     const active = counts.queued + counts.running > 0
     const timer = setInterval(
-      () => { void refresh(filters, query, span) },
+      () => {
+        // A hidden tab keeps its state but stops asking (2026-10-13): nothing
+        // is being looked at, and the visibility listener below catches up
+        // the moment it is.
+        if (document.hidden) return
+        void refresh(filters, query, span)
+      },
       active ? POLL_BUSY_MS : POLL_IDLE_MS,
     )
     return () => clearInterval(timer)
-  }, [counts.queued, counts.running, filters, query, span, refresh])
+  }, [counts.queued, counts.running, filters, query, span, refresh, libraryOff])
+
+  // Coming back to the tab is a reason to look right now, not at the next tick.
+  useEffect(() => {
+    if (libraryOff) return
+    const onVisible = () => { if (!document.hidden) void refresh(filters, query, span) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [filters, query, span, refresh, libraryOff])
 
   useEffect(() => {
+    if (libraryOff) return
     fetch('/api/creators')
       .then((response) => (response.ok ? response.json() : { creators: [] }))
       .then((body) => setCreators(body.creators ?? []))
       .catch(() => setCreators([]))
-  }, [counts.done])
+  }, [counts.done, libraryOff])
 
   const reload = () => { void refresh(filters, query, span) }
 

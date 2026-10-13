@@ -24,8 +24,12 @@ from pathlib import Path
 
 from . import config, media, mediaserv, pipeline, r2, tunnel
 
-POLL_IDLE_SEC = 6.0
+POLL_IDLE_SEC = 2.0
 POLL_ERROR_SEC = 30.0
+# How long the app may hold a claim open while the queue is empty. It returns
+# the instant a job arrives, so this is pickup latency, not a wait: paste in
+# the browser, claimed within about a second.
+WAIT_SEC = 25.0
 # Between two Instagram downloads, a person's pause rather than a burst. Every
 # download leaves from this Mac's connection — the same one Geno's phone is on —
 # and 62 back to back is what got his own account warned for automated
@@ -70,8 +74,13 @@ class Cloud:
             return json.loads(body)
 
     def claim(self, note: str) -> dict:
-        """One poll, which carries both the transcribe queue and the R2 errands."""
-        return self.post("/api/worker/claim", {"limit": 1, "note": note})
+        """One poll, which carries both the transcribe queue and the R2 errands.
+
+        The app holds the request open for a few seconds when the queue is
+        empty (wait_sec), so a link pasted in the browser is picked up in about
+        a second instead of waiting out a poll interval.
+        """
+        return self.post("/api/worker/claim", {"limit": 1, "note": note, "wait_sec": WAIT_SEC})
 
     def report_r2(self, payload: dict) -> None:
         self._quietly("/api/worker/r2", payload)
@@ -474,8 +483,11 @@ def serve(*, model: str = "best") -> None:
     idle_notice = True
     try:
         while True:
+            held = 0.0
             try:
+                started = time.monotonic()
                 work = cloud.claim(note)
+                held = time.monotonic() - started
             except ProtectedError as exc:
                 print(f"  {exc}\n  retrying in {POLL_ERROR_SEC:g}s…")
                 time.sleep(POLL_ERROR_SEC)
@@ -498,7 +510,10 @@ def serve(*, model: str = "best") -> None:
                 if not moved and idle_notice:
                     print("  waiting for links…")
                     idle_notice = False
-                if not moved:
+                if not moved and held < 2.0:
+                    # A server that holds the claim open (wait_sec) has already
+                    # waited; one that does not returns at once, so keep a
+                    # short fallback sleep rather than spinning on it.
                     time.sleep(POLL_IDLE_SEC)
                 continue
 

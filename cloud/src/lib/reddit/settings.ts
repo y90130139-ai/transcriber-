@@ -66,12 +66,18 @@ export const DEFAULT_SETTINGS: RedditSettings = {
   requirements_sample_size: 25,
   requirements_profile_batch: 20,
   // The daily hunt for new NSFW communities: up to 1,000 requests a day,
-  // every one of them a subreddit search page, paced by the shared client
-  // and counted against the same daily cap as everything else.
+  // every one of them a subreddit search page or a content scan, paced by
+  // the shared client and counted against the same daily cap as everything
+  // else. While hunting, half the budget scans board communities for topics
+  // and trends; once the board holds `discovery_max_communities`, hunting
+  // stops and every request scans.
   discovery_enabled: true,
   discovery_daily_cap: 1000,
   discovery_per_pass: 25,
+  discovery_pages_per_keyword: 2,
   discovery_min_subscribers: 500,
+  discovery_max_communities: 500,
+  content_scan_percent: 50,
 }
 
 export const DEFAULT_PREFERENCES: RedditPreferences = {
@@ -152,31 +158,31 @@ export const SETUP_CHECKS: SetupCheck[] = [
   {
     id: 'app_registered',
     label: 'Reddit application registered and API access approved',
-    detail: 'An app of type "script" or "web app" in your Reddit account, with its client id and secret.',
+    detail: 'App type script or web app, with client id and secret.',
     verifiable: false,
   },
   {
     id: 'oauth_scopes',
     label: 'OAuth credentials configured with read scope only',
-    detail: 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET reach the server; the token exchange succeeds.',
+    detail: 'Verified by Test connection.',
     verifiable: true,
   },
   {
     id: 'analytics_permitted',
     label: 'Permission for this analytics use case',
-    detail: 'Reddit\'s terms and your app approval cover trend analytics of public posts.',
+    detail: 'Terms and app approval cover trend analytics of public posts.',
     verifiable: false,
   },
   {
     id: 'commercial_written',
     label: 'Written commercial-use authorization, where required',
-    detail: 'If this collects data for a commercial product, keep the written authorization on file.',
+    detail: 'Keep it on file if this is a commercial product.',
     verifiable: false,
   },
   {
     id: 'adult_authorized',
     label: 'Authorization for any adult/restricted community data',
-    detail: 'Required before adult-category tracking can be enabled; the API must also grant access.',
+    detail: 'Required before adult-category tracking.',
     verifiable: false,
   },
 ]

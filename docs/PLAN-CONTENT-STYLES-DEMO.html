@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan editor — Add content by style (demo)</title>
+<style>
+/* Sinaura tokens, lifted from cloud/src/app/tokens.css so the demo reads like the real pane. */
+:root {
+  --sc-ink-900: #0A0A0A;
+  --sc-ink-700: #2B2926;
+  --sc-ink-500: #45413C;
+  --sc-ink-300: #6B6660;
+  --sc-ink-150: #B8B2A8;
+  --sc-bone: #EDE9E3;
+  --sc-bone-light: #F4F1EB;
+  --sc-paper: #FBFAF8;
+  --sc-ember: #C2410C;
+  --sc-ember-deep: #9A330A;
+  --sc-ember-tint: #F3E3DA;
+  --sc-positive: #1F6F4A;
+  --sc-critical: #A32B23;
+  --sc-font-text: "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sc-text-xs: 0.75rem;
+  --sc-text-sm: 0.875rem;
+  --sc-space-1: 0.25rem; --sc-space-2: 0.5rem; --sc-space-3: 0.75rem; --sc-space-4: 1rem;
+  --sc-space-5: 1.25rem; --sc-space-6: 1.5rem; --sc-space-8: 2rem;
+  --sc-lift-2: 0 2px 4px rgba(43,41,38,.07), 0 10px 24px rgba(43,41,38,.10);
+  --sc-lift-3: 0 8px 16px rgba(43,41,38,.10), 0 28px 64px rgba(43,41,38,.18);
+  --r: 12px; --r-sm: 8px; --r-pill: 999px;
+  --sc-track-label: 0.16em;
+  --sc-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--sc-bone);
+  color: var(--sc-ink-500);
+  font-family: var(--sc-font-text);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: var(--sc-font-mono); }
+.label { font-family: var(--sc-font-mono); font-size: 0.68rem; letter-spacing: var(--sc-track-label); text-transform: uppercase; color: var(--sc-ink-300); }
+
+/* ------------------------------------------------------------------ chrome */
+.chrome {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 28px; border-bottom: 1px solid var(--sc-ink-150);
+  background: var(--sc-bone);
+}
+.chrome .mark { font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); }
+.chrome .crumb { font-family: var(--sc-font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-300); }
+.chrome .note { margin-left: auto; font-size: 0.72rem; color: var(--sc-ink-300); }
+.stage { max-width: 1120px; margin: 0 auto; padding: 28px 24px 96px; }
+
+/* ------------------------------------------------------------------ the pane */
+.pane {
+  background: var(--sc-bone);
+  border: 1px solid var(--sc-ink-150);
+  border-radius: var(--r);
+  box-shadow: var(--sc-lift-2);
+  padding: 22px 24px 26px;
+  display: grid; gap: 26px;
+}
+
+/* week head */
+.weekhead { display: grid; gap: 12px; }
+.weekhead-top { display: flex; align-items: flex-start; gap: 12px; }
+.weekhead-title { margin: 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); }
+.weekhead-sub { margin: 2px 0 0; font-size: 0.8rem; color: var(--sc-ink-300); }
+.weekhead-aside { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.weeksave { font-size: 0.72rem; color: var(--sc-ink-300); display: inline-flex; align-items: center; gap: 6px; }
+.weeksave::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--sc-positive); }
+.statuspill { border: 1px solid var(--sc-ink-150); border-radius: 999px; padding: 3px 10px; font-family: var(--sc-font-mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sc-ink-500); background: var(--sc-bone-light); }
+.weekstats { display: flex; gap: 28px; margin: 0; }
+.weekstat { display: grid; gap: 2px; }
+.weekstat dt { font-family: var(--sc-font-mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sc-ink-300); }
+.weekstat dd { margin: 0; font-size: 1rem; font-weight: 600; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; }
+.weekstat dd small { font-weight: 400; color: var(--sc-ink-300); font-size: 0.78rem; }
+.meter { height: 3px; background: var(--sc-ink-150); position: relative; overflow: hidden; border-radius: 999px; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--sc-ember); transition: width 240ms var(--sc-ease); }
+
+/* steps */
+.planstep { display: grid; gap: 16px; }
+.planstep-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--sc-ink-150); }
+.planstep-no { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--sc-ink-150); border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--sc-ink-700); font-variant-numeric: tabular-nums; }
+.planstep-id { display: grid; gap: 2px; min-width: 0; }
+.planstep-title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--sc-ink-900); line-height: 1.3; }
+.planstep-sub { font-size: 0.75rem; line-height: 1.45; color: var(--sc-ink-500); margin: 0; }
+.planstep-aside { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.stepghost { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--sc-ink-150); opacity: 0.62; }
+.stepghost .planstep-no { border-style: dashed; color: var(--sc-ink-300); }
+.stepghost p { margin: 0; font-size: 0.78rem; color: var(--sc-ink-300); }
+
+/* buttons */
+.btn {
+  appearance: none; border: 1px solid var(--sc-ink-900); background: var(--sc-ink-900); color: var(--sc-bone);
+  font-family: var(--sc-font-text); font-size: 0.8rem; font-weight: 500; padding: 8px 16px; border-radius: var(--r-sm);
+  cursor: pointer; transition: background 150ms var(--sc-ease), border-color 150ms var(--sc-ease), transform 120ms var(--sc-spring);
+}
+.btn:hover { background: var(--sc-ember); border-color: var(--sc-ember); }
+.btn:active { transform: scale(0.97); }
+.btn-quiet { background: transparent; color: var(--sc-ink-500); border-color: var(--sc-ink-150); }
+.btn-quiet:hover { background: var(--sc-ink-900); color: var(--sc-bone); border-color: var(--sc-ink-900); }
+.btn-small { padding: 6px 12px; font-size: 0.75rem; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ------------------------------------------------------- the style board */
+.boardhead { display: flex; align-items: baseline; gap: 12px; }
+.boardhead .hint { font-size: 0.75rem; color: var(--sc-ink-300); margin-left: auto; }
+.styles-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stylecell {
+  border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone-light);
+  padding: 14px 16px 12px; display: grid; gap: 10px; transition: border-color 150ms var(--sc-ease);
+}
+.stylecell[data-state='full'] { border-color: var(--sc-ink-900); }
+.stylecell[data-state='empty'] { border-style: dashed; }
+.cel-top { display: flex; align-items: center; gap: 8px; }
+.cel-name { font-family: var(--sc-font-mono); font-size: 0.64rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sc-ink-300); }
+.cel-tick { margin-left: auto; font-family: var(--sc-font-mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ember-deep); display: none; }
+.stylecell[data-state='full'] .cel-tick { display: inline; }
+.cel-count { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; line-height: 1; }
+.cel-count small { font-size: 0.8rem; font-weight: 400; color: var(--sc-ink-300); }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.dots i { width: 7px; height: 7px; border: 1px solid var(--sc-ink-150); border-radius: 2px; }
+.dots i[data-on] { background: var(--sc-ember); border-color: var(--sc-ember); }
+.cel-foot { display: flex; align-items: center; gap: 8px; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); overflow: hidden; background: var(--sc-bone); }
+.stepper button { appearance: none; border: 0; background: transparent; width: 26px; height: 26px; font-size: 0.9rem; color: var(--sc-ink-500); cursor: pointer; }
+.stepper button:hover { background: var(--sc-ink-900); color: var(--sc-bone); }
+.stepper input { width: 34px; border: 0; background: transparent; text-align: center; font-family: var(--sc-font-text); font-size: 0.82rem; font-weight: 600; color: var(--sc-ink-900); font-variant-numeric: tabular-nums; padding: 0; }
+.stepper input:focus { outline: none; }
+.cel-hint { font-size: 0.68rem; color: var(--sc-ink-300); margin-left: auto; }
+
+/* lanes */
+.lane { border: 1px solid var(--sc-ink-150); border-radius: var(--r); background: var(--sc-bone-light); overflow: hidden; }
+.lane > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 13px 16px; user-select: none; }
+.lane > summary::-webkit-details-marker { display: none; }
+.lane-title { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-900); }
+.lane-count { font-family: var(--sc-font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sc-ink-300); }
+.lane-count b { color: var(--sc-ink-900); font-weight: 600; }
+.lane-count[data-full] b { color: var(--sc-ember-deep); }
+.lane-chev { margin-left: auto; width: 18px; height: 18px; color: var(--sc-ink-300); transition: transform 200ms var(--sc-ease); flex: none; }
+.lane[open] .lane-chev { transform: rotate(180deg); }
+.lane[open] > summary { border-bottom: 1px solid var(--sc-ink-150); }
+.lane-body { padding: 14px 16px 16px; display: grid; gap: 12px; }
+.lane-note { font-size: 0.72rem; color: var(--sc-ink-300); margin: 0; }
+.lane-note b { color: var(--sc-ink-500); font-weight: 600; }
+
+/* concept groups (format reels) */
+.group { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.group + .group { margin-top: 10px; }
+.group-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.group-no { font-family: var(--sc-font-mono); font-size: 0.72rem; font-weight: 700; color: var(--sc-ink-900); }
+.group-title { font-size: 0.82rem; font-weight: 600; color: var(--sc-ink-900); }
+.group-head .chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--sc-ink-150); border-radius: 999px;
+  padding: 2px 8px; font-family: var(--sc-font-mono); font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-300); background: var(--sc-bone); white-space: nowrap;
+}
+.chip[data-tone='ember'] { color: var(--sc-ember-deep); border-color: var(--sc-ember-tint); background: var(--sc-ember-tint); }
+.vrow { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 8px 12px; }
+.vrow + .vrow { border-top: 1px dashed var(--sc-ink-150); }
+.vchip { font-family: var(--sc-font-mono); font-size: 0.62rem; font-weight: 700; color: var(--sc-ink-500); letter-spacing: 0.06em; align-self: start; padding-top: 2px; }
+.vtext { font-size: 0.78rem; color: var(--sc-ink-700); line-height: 1.45; }
+.vcaption { display: block; font-size: 0.72rem; color: var(--sc-ink-300); margin-top: 2px; }
+.group-note { display: flex; gap: 8px; align-items: baseline; padding: 8px 12px; border-top: 1px dashed var(--sc-ink-150); background: var(--sc-bone-light); }
+.group-note .label { flex: none; }
+.group-note p { margin: 0; font-size: 0.74rem; color: var(--sc-ink-500); }
+
+/* rows (talking / posts) */
+.rowlist { display: grid; gap: 0; border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.trow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; }
+.trow + .trow { border-top: 1px dashed var(--sc-ink-150); }
+.tno { font-family: var(--sc-font-mono); font-size: 0.64rem; color: var(--sc-ink-150); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.tmain { min-width: 0; display: grid; gap: 3px; }
+.thook { font-size: 0.8rem; font-weight: 600; color: var(--sc-ink-900); line-height: 1.4; }
+.tbody { font-size: 0.75rem; color: var(--sc-ink-300); line-height: 1.45; }
+.tlink { font-family: var(--sc-font-mono); font-size: 0.7rem; color: var(--sc-ember-deep); text-decoration: none; }
+.tlink:hover { text-decoration: underline; }
+
+/* add blocks */
+.addbox { border: 1px dashed var(--sc-ink-150); border-radius: var(--r-sm); padding: 12px; display: grid; gap: 10px; }
+.addbox .addtitle { display: flex; align-items: center; gap: 8px; }
+.addgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
+.f { display: grid; gap: 4px; align-content: start; }
+.f.span3 { grid-column: span 3; } .f.span4 { grid-column: span 4; } .f.span5 { grid-column: span 5; } .f.span6 { grid-column: span 6; } .f.span7 { grid-column: span 7; } .f.span8 { grid-column: span 8; } .f.span12 { grid-column: span 12; }
+.demo-field {
+  width: 100%; background: var(--sc-bone); border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm);
+  padding: 7px 10px; font-family: var(--sc-font-text); font-size: 0.8rem; color: var(--sc-ink-900); line-height: 1.4;
+}
+.demo-field:focus { outline: none; border-color: var(--sc-ember); }
+textarea.demo-field { resize: vertical; min-height: 54px; }
+select.demo-field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--sc-ink-300) 50%), linear-gradient(135deg, var(--sc-ink-300) 50%, transparent 50%); background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+.addfoot { display: flex; align-items: center; gap: 10px; }
+.addfoot .hint { font-size: 0.7rem; color: var(--sc-ink-300); }
+
+/* omegle preview */
+.session { border: 1px solid var(--sc-ink-150); border-radius: var(--r-sm); background: var(--sc-bone); overflow: hidden; }
+.session-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--sc-bone-light); border-bottom: 1px solid var(--sc-ink-150); }
+.session-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.session-col { padding: 10px 12px; }
+.session-col + .session-col { border-left: 1px dashed var(--sc-ink-150); }
+.session-col ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.session-col li { font-size: 0.76rem; color: var(--sc-ink-700); line-height: 1.4; }
+
+/* her-page preview */
+.preview { border-top: 1px solid var(--sc-ink-150); padding-top: 14px; display: grid; gap: 8px; }
+.preview-lines { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.preview-lines span { border: 1px solid var(--sc-ink-150); border-radius: 999px; padding: 3px 10px; background: var(--sc-bone-light); font-size: 0.72rem; color: var(--sc-ink-700); }
+.preview-lines b { color: var(--sc-ink-900); font-variant-numeric: tabular-nums; }
+
+/* toast + dialog */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(10px);
+  background: var(--sc-ink-900); color: var(--sc-bone); padding: 10px 16px; border-radius: var(--r-sm);
+  font-size: 0.8rem; opacity: 0; pointer-events: none; transition: opacity 180ms var(--sc-ease), transform 180ms var(--sc-ease);
+  max-width: 88vw; text-align: center; z-index: 40;
+}
+.toast[data-on] { opacity: 1; transform: translateX(-50%) translateY(0); }
+dialog.briefdlg { border: 1px solid var(--sc-ink-150); border-radius: var(--r); background: var(--sc-paper); width: min(680px, 94vw); padding: 0; box-shadow: var(--sc-lift-3); }
+dialog.briefdlg::backdrop { background: rgba(10,10,10,0.42); }
+.brief-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--sc-ink-150); }
+.brief-head h3 { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--sc-ink-900); }
+.brief-head .btn { margin-left: auto; }
+pre.brief-body { margin: 0; padding: 18px; max-height: 62vh; overflow: auto; white-space: pre-wrap; font-family: var(--sc-font-mono); font-size: 0.72rem; line-height: 1.7; color: var(--sc-ink-700); }
+
+@media (max-width: 980px) {
+  .styles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .session-cols { grid-template-columns: 1fr; }
+  .session-col + .session-col { border-left: 0; border-top: 1px dashed var(--sc-ink-150); }
+  .f.span3, .f.span4, .f.span5, .f.span7, .f.span8 { grid-column: span 12; }
+}
+</style>
+</head>
+<body>
+
+<header class="chrome">
+  <span class="mark">GOSIAN</span>
+  <span class="crumb">models / berkeley / week of 12 oct — step 2 demo</span>
+  <span class="note">mock only — nothing here is wired to the app</span>
+</header>
+
+<main class="stage">
+  <div class="pane">
+
+    <!-- ============================================================ week head -->
+    <section class="weekhead">
+      <div class="weekhead-top">
+        <div>
+          <h1 class="weekhead-title">Week of 12 Oct 2026 · CW42</h1>
+          <p class="weekhead-sub">Berkeley — brief due Friday 16 Oct</p>
+        </div>
+        <div class="weekhead-aside">
+          <span class="weeksave">Saves as you type</span>
+          <span class="statuspill">Draft</span>
+        </div>
+      </div>
+      <dl class="weekstats">
+        <div class="weekstat"><dt>Items</dt><dd><span id="statItems">17</span><small> / <span id="statTarget">34</span></small></dd></div>
+        <div class="weekstat"><dt>Filmed</dt><dd>0<small> / <span id="statItems2">17</span></small></dd></div>
+        <div class="weekstat"><dt>Due</dt><dd style="font-size:0.85rem">Fri 16 Oct 2026</dd></div>
+      </dl>
+      <div class="meter" role="progressbar" aria-label="Items against the week's target"><i id="meterFill" style="width:50%"></i></div>
+    </section>
+
+    <!-- ============================================================ step 1 -->
+    <section class="planstep stepghost">
+      <span class="planstep-no">1</span>
+      <p>Set up the week — title, due date, folder, template. Unchanged.</p>
+    </section>
+
+    <!-- ============================================================ step 2 — the style board -->
+    <section class="planstep">
+      <header class="planstep-head">
+        <span class="planstep-no">2</span>
+        <div class="planstep-id">
+          <h2 class="planstep-title">Add content — plan by style</h2>
+          <p class="planstep-sub">The CD brief's own structure: set the week's counts, then add each style in its own shape. Counts and references land on her page as the brief header.</p>
+        </div>
+        <div class="planstep-aside">
+          <button type="button" class="btn btn-quiet btn-small" id="briefBtn">Copy as CD brief</button>
+        </div>
+      </header>
+
+      <div class="boardhead">
+        <span class="label">Content styles</span>
+        <span class="hint" id="boardHint">17 of 34 on the week · 17 to go</span>
+      </div>
+
+      <div class="styles-grid" id="stylesGrid"></div>
+
+      <!-- ==================================================== lane: format reels -->
+      <details class="lane" id="lane-format" open>
+        <summary>
+          <span class="lane-title">Format reels</span>
+          <span class="lane-count" id="laneCount-format"></span>
+          <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="lane-body">
+          <p class="lane-note"><b>Numbered formats from the playbook.</b> One concept lands as V1…Vn — a card per version, the outfit variation written per version, editor notes once.</p>
+          <div id="formatList"></div>
+
+          <div class="addbox">
+            <div class="addtitle"><span class="label">Add a format reel</span><span class="chip" data-tone="ember">x2 versions</span></div>
+            <div class="addgrid">
+              <div class="f span4">
+                <label class="label" for="fNo">Format</label>
+                <select class="demo-field" id="fNo">
+                  <option>69 · Black top transition</option>
+                  <option>70 · Age</option>
+                  <option>71 · Bathroom door skit</option>
+                  <option>72 · Skit</option>
+                  <option>73 · New concept</option>
+                </select>
+              </div>
+              <div class="f span4">
+                <label class="label" for="fRef">Reference</label>
+                <select class="demo-field" id="fRef">
+                  <option>Library pick — Black top transition (▶)</option>
+                  <option>Paste a link…</option>
+                  <option>No reference — directions only</option>
+                </select>
+              </div>
+              <div class="f span4">
+                <label class="label">Versions</label>
+                <div class="stepper" aria-label="How many versions">
+                  <button type="button" data-step="-1" aria-label="One fewer">−</button>
+                  <input type="text" id="fVers" value="2" inputmode="numeric" aria-label="Versions">
+                  <button type="button" data-step="1" aria-label="One more">+</button>
+                </div>
+              </div>
+              <div class="f span7">
+                <label class="label" for="fDir">Directions</label>
+                <textarea class="demo-field" id="fDir" rows="2">Wear a baggie sweatshirt with bare legs and tug at it until the interval of the song where you transition into lingerie. Facial expression is key, along with timing to the music.</textarea>
+              </div>
+              <div class="f span5">
+                <label class="label" for="fNotes">Editor notes</label>
+                <textarea class="demo-field" id="fNotes" rows="2">Very important you keep the same audio as the reference reel.</textarea>
+              </div>
+              <div class="f span6"><label class="label">V1 — outfit</label><input class="demo-field" id="fV1" value="Baggie sweatshirt, bare legs"></div>
+              <div class="f span6"><label class="label">V2 — outfit</label><input class="demo-field" id="fV2" value="Baggie t-shirt, bare legs"></div>
+            </div>
+            <div class="addfoot">
+              <button type="button" class="btn" id="addFormat">+ Add 2 cards</button>
+              <span class="hint">Lands as <b>69 · Black top transition — V1 / V2</b> under this lane. 4 cards still wanted.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ==================================================== lane: talking -->
+      <details class="lane" id="lane-talking" open>
+        <summary>
+          <span class="lane-title">Talking reels</span>
+          <span class="lane-count" id="laneCount-talking"></span>
+          <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="lane-body">
+          <p class="lane-note"><b>House rule for this lane:</b> film in the car or walking down the street — natural, like a FaceTime to a friend. A reference link or a HOOK + BODY, pasted in bulk.</p>
+          <div class="rowlist" id="talkingList"></div>
+
+          <div class="addbox">
+            <div class="addtitle"><span class="label">Paste the lane</span><span class="chip">One reel per line</span></div>
+            <div class="addgrid">
+              <div class="f span12">
+                <label class="label" for="tBulk">HOOK | BODY — or just a reference link</label>
+                <textarea class="demo-field" id="tBulk" rows="7">NFL fans love saying "we won." | Babe YOU ate wings on a couch. Let's distribute the credit correctly.
+I think having a headset changes people. | You put that thing on and suddenly you're giving tactical commands to Brad from Nebraska.
+Why does getting gas always feel offensive? | Like I just paid you yesterday. Why are you hungry again?
+NFL fans really love saying "we need to lock in." | Sir, you are sitting on a couch holding nachos. YOU are not on the roster.
+I hate when people say "it's not that deep." | Because now I have to make it deeper out of principle.
+My emotional support kitten is actually kind of toxic. | She ignores me all day and then wants affection exclusively when I'm trying to sleep.</textarea>
+              </div>
+            </div>
+            <div class="addfoot">
+              <button type="button" class="btn" id="addTalking">+ Add 6 Talking reels</button>
+              <span class="hint">Each line becomes a card — hook on the card, body as the direction. 9 still wanted.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ==================================================== lane: omegle -->
+      <details class="lane" id="lane-omegle" open>
+        <summary>
+          <span class="lane-title">Omegle session</span>
+          <span class="lane-count" id="laneCount-omegle"></span>
+          <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="lane-body">
+          <p class="lane-note"><b>One session a week.</b> Uses Tom's training; the games and questions below are the direction the card carries.</p>
+
+          <div class="session" id="omegleCard">
+            <div class="session-head">
+              <span class="group-title">Omegle session — Tom's fundamentals</span>
+              <span class="chips" style="margin-left:auto; display:flex; gap:6px">
+                <span class="chip" data-tone="ember">Training loom ▶</span>
+                <span class="chip">Halloween costume optional</span>
+              </span>
+            </div>
+            <div class="session-cols">
+              <div class="session-col">
+                <span class="label">Games to play</span>
+                <ol>
+                  <li>Simon says — have them do dares: turn around, bend over, anything the chat will clip.</li>
+                </ol>
+              </div>
+              <div class="session-col">
+                <span class="label">Questions to ask</span>
+                <ol>
+                  <li>On a scale of 1–10, how would you rate yourself in bed?</li>
+                  <li>What's your worst bedroom review?</li>
+                  <li>If your last situationship rated you out of 10, what would they give you?</li>
+                  <li>Me or GTA6?</li>
+                  <li>Most chaotic 2am text you stand behind to this day?</li>
+                  <li>What ruins a 10 instantly?</li>
+                  <li>Serious question — does size actually matter?</li>
+                </ol>
+              </div>
+            </div>
+            <div class="group-note"><span class="label">Rule</span><p>If they're boring, skip next. Keep it moving.</p></div>
+          </div>
+
+          <div class="addfoot">
+            <button type="button" class="btn" id="addOmegle">+ Add the session card</button>
+            <span class="hint">Lands as one card with the games, questions and training link inside.</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- ==================================================== lane: picture posts -->
+      <details class="lane" id="lane-posts" open>
+        <summary>
+          <span class="lane-title">Picture posts</span>
+          <span class="lane-count" id="laneCount-posts"></span>
+          <svg class="lane-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="lane-body">
+          <p class="lane-note"><b>IG wall posts.</b> Photos from between outfit changes on shoot day — they cost no extra filming. Three to six slides, best one first.</p>
+          <div class="rowlist" id="postsList"></div>
+          <div class="addbox">
+            <div class="addgrid">
+              <div class="f span8">
+                <label class="label" for="pWhat">What the set is</label>
+                <input class="demo-field" id="pWhat" placeholder="e.g. Mirror set — mirror selfie, normal selfie, tripod shot">
+              </div>
+              <div class="f span4">
+                <label class="label">How many</label>
+                <div class="stepper" aria-label="How many picture posts">
+                  <button type="button" data-step="-1" aria-label="One fewer">−</button>
+                  <input type="text" id="pCount" value="3" inputmode="numeric" aria-label="Posts">
+                  <button type="button" data-step="1" aria-label="One more">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="addfoot">
+              <button type="button" class="btn" id="addPosts">+ Add 3 picture posts</button>
+              <span class="hint">3 still wanted.</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ==================================================== her-page preview -->
+      <div class="preview">
+        <span class="label">On her page — &ldquo;In this plan&rdquo; reads</span>
+        <div class="preview-lines" id="previewLines"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ step 3 -->
+    <section class="planstep stepghost">
+      <span class="planstep-no">3</span>
+      <p>Go through the cards — the list groups under these same lanes, so the week is worked in the order the brief reads.</p>
+    </section>
+
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="briefdlg" id="briefDlg">
+  <div class="brief-head">
+    <h3>Copy as CD brief</h3>
+    <button type="button" class="btn btn-small" id="copyBtn">Copy</button>
+    <button type="button" class="btn btn-quiet btn-small" id="closeBtn">Close</button>
+  </div>
+  <pre class="brief-body" id="briefBody"></pre>
+</dialog>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ state */
+const state = {
+  styles: {
+    format:  { name: 'Format reels',   target: 12 },
+    talking: { name: 'Talking reels',  target: 14 },
+    omegle:  { name: 'Omegle session', target: 1  },
+    posts:   { name: 'Picture posts',  target: 7  },
+  },
+  formatGroups: [
+    {
+      no: '69', name: 'Black top transition', ref: true,
+      note: 'Very important you keep the same audio as the reference reel.',
+      versions: [
+        { outfit: 'Baggie sweatshirt, bare legs — tug until the transition beat', caption: '' },
+        { outfit: 'Baggie t-shirt, bare legs', caption: '' },
+      ],
+    },
+    {
+      no: '70', name: 'Age', ref: true,
+      note: 'Facial expression is key — pattern: yes, no, yes, yes.',
+      versions: [
+        { outfit: 'Low-cut top', caption: 'Captions: 55 year olds / 21 year olds / 32 year olds / 67 year olds' },
+        { outfit: 'Open cardigan, tank', caption: 'Captions: Drives a Porsche 911 / Calls his car his baby / Can fix his own car / Knows how to change a tyre' },
+      ],
+    },
+    {
+      no: '71', name: 'Bathroom door skit', ref: true,
+      note: 'Body angle and expression are key — turn to the side so the silhouette reads.',
+      versions: [
+        { outfit: 'Light colored bodycon dress', caption: 'Captions: Mom / Sister / Step bro' },
+        { outfit: 'Tight fitted gym set', caption: 'Captions: Mom / Little brother / Step bro' },
+      ],
+    },
+    {
+      no: '72', name: 'Skit', ref: true,
+      note: 'Film where there is depth — space behind and in front of you.',
+      versions: [
+        { outfit: 'Low cut top, couch like the reference', caption: 'Caption: "3 hours of sleep doesn\u2019t affect me at all"' },
+        { outfit: 'Low cut top, outside on a bench', caption: 'Caption: "I don\u2019t need 8 hours of sleep, I\u2019m built different."' },
+      ],
+    },
+  ],
+  talking: [
+    { kind: 'ref', url: 'instagram.com/reel/Da63spEB7OH/' },
+    { kind: 'ref', url: 'instagram.com/reel/Dd-KItSNHtJ/' },
+    { kind: 'ref', url: 'instagram.com/reel/DeM4hjtCV9_/' },
+    { kind: 'hook', hook: 'I think people who say they "don\u2019t care what they drive" are lying.', body: 'There is no way a minivan and a Porsche create the same emotion. Be so serious.' },
+    { kind: 'hook', hook: 'I don\u2019t know why getting passed on the highway feels personal.', body: 'I wasn\u2019t racing you five seconds ago, but apparently now we have beef.' },
+  ],
+  omegle: null,
+  posts: [
+    { title: 'Wall post · mirror set', detail: 'Mirror selfie, normal selfie, tripod shot — 3–6 slides' },
+    { title: 'Wall post · car', detail: 'Car selfies between errands, one clear face shot first' },
+    { title: 'Wall post · outfit close-ups', detail: 'Detail shots of the outfit of the day' },
+    { title: 'Wall post · behind the scenes', detail: 'Getting ready, setup, a blooper frame' },
+  ],
+};
+
+const OMEGLE_ADDED = {
+  title: "Omegle session — Tom's fundamentals",
+  games: 'Simon says — have them do dares: turn around, bend over, anything the chat will clip.',
+  questions: [
+    'On a scale of 1–10, how would you rate yourself in bed?',
+    "What's your worst bedroom review?",
+    'If your last situationship rated you out of 10, what would they give you?',
+    'Me or GTA6?',
+    'Most chaotic 2am text you stand behind to this day?',
+    'What ruins a 10 instantly?',
+    'Serious question — does size actually matter?',
+  ],
+};
+
+/* ------------------------------------------------------------------ counts */
+const countOf = (id) => {
+  if (id === 'format') return state.formatGroups.reduce((n, g) => n + g.versions.length, 0);
+  if (id === 'talking') return state.talking.length;
+  if (id === 'omegle') return state.omegle ? 1 : 0;
+  if (id === 'posts') return state.posts.length;
+  return 0;
+};
+const plannedTotal = () => Object.keys(state.styles).reduce((n, id) => n + countOf(id), 0);
+const targetTotal = () => Object.keys(state.styles).reduce((n, id) => n + state.styles[id].target, 0);
+
+/* ------------------------------------------------------------------ render */
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderCells() {
+  const grid = $('#stylesGrid');
+  grid.innerHTML = Object.entries(state.styles).map(([id, style]) => {
+    const n = countOf(id);
+    const full = n >= style.target;
+    const empty = n === 0;
+    const dots = Array.from({ length: style.target }, (_, i) => `<i${i < n ? ' data-on' : ''}></i>`).join('');
+    const hint = n === 0 ? `none yet` : full ? 'done' : `${style.target - n} to go`;
+    return `
+      <article class="stylecell" data-state="${full ? 'full' : empty ? 'empty' : 'part'}">
+        <div class="cel-top">
+          <span class="cel-name">${esc(style.name)}</span>
+          <span class="cel-tick">full</span>
+        </div>
+        <div class="cel-count" data-id="${id}">${n}<small> / ${style.target}</small></div>
+        <div class="dots">${dots}</div>
+        <div class="cel-foot">
+          <div class="stepper" aria-label="${esc(style.name)} target">
+            <button type="button" data-target="${id}" data-step="-1" aria-label="One fewer">−</button>
+            <input type="text" value="${style.target}" inputmode="numeric" data-targetinput="${id}" aria-label="${esc(style.name)} target">
+            <button type="button" data-target="${id}" data-step="1" aria-label="One more">+</button>
+          </div>
+          <span class="cel-hint">${hint}</span>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function renderHead() {
+  const planned = plannedTotal();
+  const target = targetTotal();
+  $('#statItems').textContent = planned;
+  $('#statItems2').textContent = planned;
+  $('#statTarget').textContent = target;
+  const pct = target > 0 ? Math.min(100, Math.round((planned / target) * 100)) : 0;
+  $('#meterFill').style.width = pct + '%';
+  const togo = Math.max(0, target - planned);
+  $('#boardHint').textContent = `${planned} of ${target} on the week · ${togo} to go`;
+}
+
+function renderLaneCounts() {
+  for (const id of Object.keys(state.styles)) {
+    const n = countOf(id);
+    const t = state.styles[id].target;
+    const el = $('#laneCount-' + id);
+    el.innerHTML = `<b>${n}</b> of ${t} on the week`;
+    if (n >= t) el.setAttribute('data-full', ''); else el.removeAttribute('data-full');
+  }
+}
+
+function renderFormatList() {
+  $('#formatList').innerHTML = state.formatGroups.map((g) => `
+    <div class="group">
+      <div class="group-head">
+        <span class="group-no">${esc(g.no)}</span>
+        <span class="group-title">${esc(g.name)}</span>
+        <span class="chips">
+          <span class="chip">x${g.versions.length} versions</span>
+          ${g.ref ? '<span class="chip" data-tone="ember">Reference video</span>' : ''}
+        </span>
+      </div>
+      ${g.versions.map((v, i) => `
+        <div class="vrow">
+          <span class="vchip">V${i + 1}</span>
+          <span class="vtext">${esc(v.outfit)}${v.caption ? `<span class="vcaption">${esc(v.caption)}</span>` : ''}</span>
+        </div>`).join('')}
+      ${g.note ? `<div class="group-note"><span class="label">Editor notes</span><p>${esc(g.note)}</p></div>` : ''}
+    </div>`).join('');
+}
+
+function renderTalkingList() {
+  $('#talkingList').innerHTML = state.talking.map((row, i) => {
+    const main = row.kind === 'ref'
+      ? `<span class="thook">Reference</span><a class="tlink" href="#" onclick="return false">${esc(row.url)} ↗</a>`
+      : `<span class="thook">${esc(row.hook)}</span><span class="tbody">${esc(row.body)}</span>`;
+    const tag = row.kind === 'ref' ? 'Reference' : 'Hook + body';
+    return `<div class="trow">
+      <span class="tno">${String(i + 1).padStart(2, '0')}</span>
+      <span class="tmain">${main}</span>
+      <span class="chip">${tag}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderPostsList() {
+  $('#postsList').innerHTML = state.posts.map((p, i) => `
+    <div class="trow">
+      <span class="tno">${String(i + 1).padStart(2, '0')}</span>
+      <span class="tmain"><span class="thook">${esc(p.title)}</span><span class="tbody">${esc(p.detail)}</span></span>
+      <span class="chip">Photo set</span>
+    </div>`).join('');
+}
+
+function renderPreview() {
+  const lines = Object.entries(state.styles).map(([id, s]) =>
+    `<span><b>${s.target}×</b> ${esc(s.name)}</span>`).join('');
+  $('#previewLines').innerHTML = lines + '<span><b>7×</b> Stories — one a day</span>';
+}
+
+function render() {
+  renderCells();
+  renderHead();
+  renderLaneCounts();
+  renderFormatList();
+  renderTalkingList();
+  renderPostsList();
+  renderPreview();
+}
+
+/* ------------------------------------------------------------------ toast */
+let toastTimer = null;
+function toast(text) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.setAttribute('data-on', '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.removeAttribute('data-on'), 2400);
+}
+
+/* ------------------------------------------------------------------ actions */
+document.addEventListener('click', (event) => {
+  const stepBtn = event.target.closest('button[data-step]');
+  if (stepBtn) {
+    const dir = Number(stepBtn.dataset.step);
+    const targetId = stepBtn.dataset.target;
+    if (targetId) {
+      state.styles[targetId].target = Math.max(0, Math.min(40, state.styles[targetId].target + dir));
+      render();
+      return;
+    }
+    // Versions / how-many steppers inside the add blocks.
+    const input = stepBtn.parentElement.querySelector('input');
+    const next = Math.max(1, Math.min(10, (Number(input.value) || 1) + dir));
+    input.value = String(next);
+    if (input.id === 'fVers') syncFormatAddFoot();
+    return;
+  }
+});
+
+document.addEventListener('input', (event) => {
+  const targetInput = event.target.closest('input[data-targetinput]');
+  if (targetInput) {
+    const id = targetInput.dataset.targetinput;
+    const value = Math.max(0, Math.min(40, Number(targetInput.value.replace(/\D/g, '')) || 0));
+    state.styles[id].target = value;
+    render();
+    return;
+  }
+  if (event.target.id === 'fVers') { event.target.value = event.target.value.replace(/\D/g, ''); syncFormatAddFoot(); }
+});
+
+function syncFormatAddFoot() {
+  const n = Math.max(1, Math.min(10, Number($('#fVers').value) || 1));
+  $('#addFormat').textContent = n === 1 ? '+ Add the card' : `+ Add ${n} cards`;
+  const style = state.styles.format;
+  const left = Math.max(0, style.target - countOf('format'));
+  $('#addFormat').nextElementSibling.innerHTML = `Lands as <b>${esc($('#fNo').value)} — ${Array.from({ length: n }, (_, i) => 'V' + (i + 1)).join(' / ')}</b> under this lane. ${left} card${left === 1 ? '' : 's'} still wanted.`;
+}
+
+$('#addFormat').addEventListener('click', () => {
+  const selected = $('#fNo').value;
+  const [no, ...rest] = selected.split(' · ');
+  const n = Math.max(1, Math.min(10, Number($('#fVers').value) || 1));
+  const outfits = [];
+  if ($('#fV1').value.trim()) outfits.push($('#fV1').value.trim());
+  if ($('#fV2').value.trim()) outfits.push($('#fV2').value.trim());
+  while (outfits.length < n) outfits.push('Outfit for V' + (outfits.length + 1));
+  const versions = outfits.slice(0, n).map((outfit, i) => ({
+    outfit,
+    caption: i === 0 ? '' : '',
+  }));
+  state.formatGroups.push({
+    no, name: rest.join(' · ') || 'New concept', ref: true,
+    note: $('#fNotes').value.trim(),
+    versions,
+  });
+  render();
+  toast(`Landed as ${no} — ${versions.map((_, i) => 'V' + (i + 1)).join(' / ')} on the week.`);
+});
+
+$('#addTalking').addEventListener('click', () => {
+  const lines = $('#tBulk').value.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return;
+  for (const line of lines) {
+    if (/^https?:|^www\.|^instagram\.com|^tiktok\.com/i.test(line)) {
+      state.talking.push({ kind: 'ref', url: line.replace(/^https?:\/\//, '') });
+    } else {
+      const [hook, ...body] = line.split('|');
+      state.talking.push({ kind: 'hook', hook: hook.trim(), body: body.join('|').trim() });
+    }
+  }
+  $('#tBulk').value = '';
+  render();
+  toast(`${lines.length} talking reels landed — hook on the card, body as the direction.`);
+});
+
+$('#addOmegle').addEventListener('click', () => {
+  if (state.omegle) return;
+  state.omegle = OMEGLE_ADDED;
+  $('#addOmegle').disabled = true;
+  $('#addOmegle').textContent = 'Session card added';
+  render();
+  toast('The Omegle session card landed — games, questions and Tom\u2019s training link inside.');
+});
+
+$('#addPosts').addEventListener('click', () => {
+  const n = Math.max(1, Math.min(10, Number($('#pCount').value) || 1));
+  const what = $('#pWhat').value.trim();
+  for (let i = 0; i < n; i += 1) {
+    state.posts.push({
+      title: what ? (n > 1 ? `Wall post · ${what} #${i + 1}` : `Wall post · ${what}`) : `Wall post #${state.posts.length + 1}`,
+      detail: 'From shoot-day photos — 3–6 slides, best one first',
+    });
+  }
+  $('#pWhat').value = '';
+  render();
+  toast(`${n} picture post${n === 1 ? '' : 's'} landed on the wall-post lane.`);
+});
+
+/* ------------------------------------------------------------------ CD brief */
+function briefText() {
+  const s = state.styles;
+  const out = [];
+  out.push(`Hey Berkeley,`);
+  out.push('');
+  out.push(`Date: 12 Oct 2026`);
+  out.push(`Calendar Week: 42`);
+  out.push('');
+  out.push(`Content Styles:`);
+  out.push('');
+  out.push(`1. ${s.format.target} x Format reels`);
+  out.push(`2. ${s.omegle.target} x Omegle session`);
+  out.push(`3. ${s.talking.target} x Talking reels`);
+  out.push(`4. ${s.posts.target} x Picture Posts`);
+  out.push('');
+  out.push(`ALL CONTENT TO BE COMPLETED BY FRIDAY 16 Oct 2026`);
+  out.push('');
+  out.push(`Any concerns or questions, please ask your team in the WhatsApp group chat.`);
+  out.push('');
+  out.push('— — —');
+  out.push('');
+  out.push('FORMAT REELS');
+  out.push('');
+  state.formatGroups.forEach((g, i) => {
+    out.push(`REEL ${i + 1} (x${g.versions.length})`);
+    out.push('');
+    out.push(`${g.no}. ${g.name.toUpperCase()} ← REFERENCE VIDEO`);
+    out.push('');
+    g.versions.forEach((v, vi) => {
+      out.push(`Version #${vi + 1}: ${v.outfit}`);
+      if (v.caption) out.push(v.caption);
+    });
+    out.push('');
+    if (g.note) { out.push('EDITOR NOTES:'); out.push(g.note); out.push(''); }
+  });
+  out.push('OMEGLE SESSIONS');
+  out.push('');
+  if (state.omegle) {
+    out.push(`Watch Tom show you through the fundamentals — Loom (training link)`);
+    out.push('');
+    out.push('GAMES TO PLAY');
+    out.push(state.omegle.games);
+    out.push('');
+    out.push('QUESTIONS TO ASK');
+    state.omegle.questions.forEach((q) => out.push(q));
+  } else {
+    out.push('(not added yet)');
+  }
+  out.push('');
+  out.push('TALKING');
+  out.push('');
+  state.talking.forEach((row, i) => {
+    out.push(`REEL #${i + 1}`);
+    if (row.kind === 'ref') {
+      out.push(`REFERENCE: https://${row.url}`);
+    } else {
+      out.push(`HOOK: ${row.hook}`);
+      out.push(`BODY: ${row.body}`);
+    }
+    out.push('');
+  });
+  out.push('IG WALL POSTS');
+  out.push('');
+  state.posts.forEach((p) => out.push(`– ${p.title} — ${p.detail}`));
+  return out.join('\n');
+}
+
+const dlg = $('#briefDlg');
+$('#briefBtn').addEventListener('click', () => {
+  $('#briefBody').textContent = briefText();
+  dlg.showModal();
+});
+$('#closeBtn').addEventListener('click', () => dlg.close());
+$('#copyBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(briefText());
+    toast('Brief copied — paste it straight into WhatsApp.');
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents($('#briefBody'));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    toast('Selected — press Ctrl+C to copy.');
+  }
+});
+
+/* First paint. The Omegle foot label starts disabled-looking until added. */
+syncFormatAddFoot();
+render();
+</script>
+</body>
+</html>

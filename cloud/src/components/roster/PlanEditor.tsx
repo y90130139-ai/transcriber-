@@ -1,18 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { upload } from '@vercel/blob/client'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
 import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { KIND_TEXT, cardKind } from '@/lib/card'
-import { clock, thumbUrl } from '@/lib/format'
+import { clock, playbookLabel, thumbUrl } from '@/lib/format'
 import { CARD_SOURCES, SOURCE_TEXT, isSource, sourceOf } from '@/lib/source'
 import { PLAN_TEMPLATES, TEMPLATE_TEXT, WINNING_MIN, isTemplate, type PlanTemplate } from '@/lib/template'
 import { labelOf, taxonomy } from '@/lib/taxonomy'
-import CardComposer, { draftCount, type AddedCard } from './CardComposer'
+import { STYLE_LABEL, conceptStem, isContentStyle, versionOf } from '@/lib/styles'
+import type { AddedCard } from './CardComposer'
+import ContentStyles from './ContentStyles'
 import AutoField from './AutoField'
+import CardVersions from './CardVersions'
 import CoverThumb from './CoverThumb'
 import DueDateField from './DueDateField'
 import VolumeStepper from './VolumeStepper'
@@ -109,15 +112,15 @@ function stubCard(card: AddedCard): PlanItemRow {
     position: card.position,
     card_no: card.card_no,
     item_title: card.item_title,
-    location: null,
+    location: card.location ?? null,
     notes: card.notes,
-    editing_notes: null,
-    wardrobe: null,
+    editing_notes: card.editing_notes ?? null,
+    wardrobe: card.wardrobe ?? null,
     camera: null,
     takes: null,
     sound: null,
-    hook: null,
-    caption: null,
+    hook: card.hook ?? null,
+    caption: card.caption ?? null,
     filmed_at: null,
     posted_at: null,
     post_url: null,
@@ -135,6 +138,10 @@ function stubCard(card: AddedCard): PlanItemRow {
     r2_bytes: null,
     uploaded_at: null,
     r2_purged_at: null,
+    take_key: null,
+    take_bytes: null,
+    take_duration_sec: null,
+    take_uploaded_at: null,
     author: null,
     title: null,
     webpage_url: null,
@@ -143,6 +150,7 @@ function stubCard(card: AddedCard): PlanItemRow {
     has_thumb: Boolean(card.has_thumb ?? card.job_id),
     preview: null,
     bucket: 'custom',
+    style: card.style ?? null,
     source: card.source,
     source_post: null,
   }
@@ -169,6 +177,11 @@ export default function PlanEditor({
   const [suggested, setSuggested] = useState<Suggestion[]>([])
   const [posts, setPosts] = useState<HerPost[]>([])
   const [pasting, setPasting] = useState('')
+  /** The Add content step's link box — a reel found on Instagram, landed on
+   *  the week as a thin card the Mac then fetches (Geno, 2026-10-13). */
+  const [linkPaste, setLinkPaste] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkNote, setLinkNote] = useState<string | null>(null)
   /** Which of her posts is mid-action, and what the last one said. */
   const [postBusy, setPostBusy] = useState<string | null>(null)
   const [postNote, setPostNote] = useState<string | null>(null)
@@ -188,9 +201,8 @@ export default function PlanEditor({
   const [undone, setUndone] = useState<{ label: string; row: Record<string, unknown> }[]>([])
   /** The format chips over the suggestions rail. Empty = everything. */
   const [formatFilter, setFormatFilter] = useState<string[]>([])
-  /** The week's own intake: pasted links or dropped files, straight onto
-   *  this plan. */
-  const [intake, setIntake] = useState('')
+  /** The week's own intake: files dropped on the pane, and what the last
+   *  one said. */
   const [intakeBusy, setIntakeBusy] = useState(false)
   const [intakeNote, setIntakeNote] = useState<string | null>(null)
   /** Saves in flight, the last one that landed, and whether the last failed. */
@@ -199,19 +211,47 @@ export default function PlanEditor({
   const [saveFailed, setSaveFailed] = useState(false)
   /** Edits kept on this device that never reached the server, offered back. */
   const [restorable, setRestorable] = useState<{ planId: string; entries: { field: string; value: string; at: number }[] } | null>(null)
-  /** The left wall is browse-only until the card composer asks for library
-   *  videos; what is ticked there is held here so the composer can use it. */
+  /** The left wall is browse-only until the Add card panel asks for library
+   *  videos; what is ticked there is held here so the panel can use it. */
   const [picking, setPicking] = useState(false)
-  const [composerOpen, setComposerOpen] = useState(false)
   const [selection, setSelection] = useState<Selection>(() => new Map())
-  /** Unfinished cards saved for the open week — read when the week changes
-   *  and when the composer closes, shown on the Add tile. */
-  const [draftsWaiting, setDraftsWaiting] = useState(0)
-  useEffect(() => setDraftsWaiting(planId ? draftCount(planId) : 0), [planId])
   const weekJobIds = useMemo(
     () => new Set(items.map((item) => item.job_id).filter((id): id is string => Boolean(id))),
     [items],
   )
+  /** Everything ticked on the wall, minus what the week already holds — the
+   *  Add content panel wears them as references, one per card (or version). */
+  const styleReferences = useMemo(() => {
+    const out: { jobId: string; name: string | null; thumb: string | null }[] = []
+    for (const [, pick] of selection) {
+      if (pick.kind === 'library' && pick.jobId && !weekJobIds.has(pick.jobId)) {
+        out.push({ jobId: pick.jobId, name: pick.name ?? null, thumb: pick.thumb ?? null })
+      }
+    }
+    return out
+  }, [selection, weekJobIds])
+  /** The card list, with neighbouring versions of one concept folded under a
+   *  single heading (Geno, 2026-10-13): "German #14 · Viral Clip Format" once,
+   *  then Version 1, Version 2 under it — so a run of versions reads as one
+   *  idea instead of unrelated cards. Only runs of two or more group; a lone
+   *  version stays the card it is. */
+  const cardRuns = useMemo(() => {
+    type Run = { key: string; stem: string; grouped: boolean; rows: { item: PlanItemRow; index: number }[] }
+    const runs: Run[] = []
+    items.forEach((item, index) => {
+      const version = versionOf(item.item_title)
+      const stem = conceptStem(item.item_title)
+      const last = runs[runs.length - 1]
+      if (version !== null && last && last.grouped && last.stem === stem) {
+        last.rows.push({ item, index })
+        return
+      }
+      runs.push({ key: item.id, stem, grouped: version !== null, rows: [{ item, index }] })
+    })
+    for (const run of runs) if (run.rows.length < 2) run.grouped = false
+    return runs
+  }, [items])
+
   /** A wall card is being dragged over the week. Counted, because every
    *  child the pointer crosses fires its own enter/leave pair. */
   const [dropOver, setDropOver] = useState(false)
@@ -257,8 +297,16 @@ export default function PlanEditor({
   /** The card whose editor is open. Null shows the compact list — the week
    *  is a scan, not a wall of twenty open forms (Geno, 2026-10-09). */
   const [openCard, setOpenCard] = useState<string | null>(null)
-  /** The paste-links box, folded behind its button. */
-  const [intakeOpen, setIntakeOpen] = useState(false)
+  /** The Add content panel — "+ Add card" on the step's heading opens it. */
+  const [addOpen, setAddOpen] = useState(false)
+  /** Copying the week onto another creator's week — the dialog's own state. */
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [copyModels, setCopyModels] = useState<{ id: string; name: string }[]>([])
+  const [copyTarget, setCopyTarget] = useState('')
+  const [copyWeeks, setCopyWeeks] = useState<string[]>([])
+  const [copyWeek, setCopyWeek] = useState('')
+  const [copyBusy, setCopyBusy] = useState(false)
+  const [copyNote, setCopyNote] = useState<string | null>(null)
 
   const thisWeek = currentWeekOf()
   /** The nothing-to-open case creates this week's plan exactly once per
@@ -512,6 +560,66 @@ export default function PlanEditor({
     await patchPlan({ status: 'sent', telegram, variant })
   }
 
+  /* ---------------------------------------------------------------- copy */
+  /** The Copy plan dialog (Geno, 2026-10-12): pick a creator, pick their
+   *  week, and every card of this week lands on theirs as a fresh draft. */
+  async function openCopy() {
+    setCopyOpen(true)
+    setCopyNote(null)
+    setCopyTarget('')
+    setCopyWeeks([])
+    setCopyWeek('')
+    if (copyModels.length > 0) return
+    const response = await fetch('/api/models').catch(() => null)
+    const body = await response?.json().catch(() => ({})) ?? {}
+    const models = Array.isArray(body.models)
+      ? (body.models as { id?: unknown; name?: unknown }[])
+        .map((model) => ({ id: String(model.id ?? ''), name: String(model.name ?? '') }))
+        .filter((model) => Boolean(model.id))
+      : []
+    setCopyModels(models)
+  }
+
+  async function pickCopyTarget(modelId: string) {
+    setCopyTarget(modelId)
+    setCopyWeeks([])
+    setCopyWeek('')
+    if (!modelId) return
+    // Their weeks, so an existing one can be chosen; this week is always
+    // offered too — the copy creates it when it does not exist yet.
+    const body = await fetchModel(modelId).catch(() => null)
+    const weeks = [...new Set((body?.plans ?? []).map((week) => week.week_of))]
+    setCopyWeeks(weeks)
+    setCopyWeek(weeks.includes(thisWeek) ? thisWeek : weeks[0] ?? thisWeek)
+  }
+
+  async function copyPlanTo() {
+    if (!planId || !copyTarget || !copyWeek || copyBusy) return
+    setCopyBusy(true)
+    setCopyNote(null)
+    const response = await fetch(`/api/plans/${planId}/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: copyTarget, week_of: copyWeek }),
+    }).catch(() => null)
+    const body = await response?.json().catch(() => ({})) ?? {}
+    setCopyBusy(false)
+    if (!response?.ok) {
+      setCopyNote(body.error ?? 'That did not copy — try again.')
+      return
+    }
+    const name = copyModels.find((model) => model.id === copyTarget)?.name ?? 'their week'
+    const added = Number(body.added ?? 0)
+    const skipped = Number(body.skipped ?? 0)
+    setCopyNote(
+      `Copied ${added} card${added === 1 ? '' : 's'} into ${name} — week of ${formatDate(copyWeek)}`
+      + (skipped > 0 ? ` · ${skipped} already on that week` : '') + '.',
+    )
+    // Warm the week they just received, so opening it there paints instantly.
+    if (body.plan?.id) void fetchPlan(String(body.plan.id)).catch(() => null)
+    void loadWeeks()
+  }
+
   async function patchItem(id: string, patch: Record<string, unknown>): Promise<boolean> {
     if (!planId) return false
     const response = await tracked(() => fetch(`/api/plans/${planId}/items`, {
@@ -598,6 +706,39 @@ export default function PlanEditor({
       setPostNote('No longer marked to repost.')
     }
     await loadPosts()
+  }
+
+  /** A reel found on Instagram or TikTok, straight onto the open week
+   *  (Geno, 2026-10-13). The composer's rewrite had folded this box away;
+   *  it is the queue's own door — paste, land, the Mac fetches it next. */
+  async function addLink() {
+    const text = linkPaste.trim()
+    if (!text || !planId || linkBusy) return
+    setLinkBusy(true)
+    setLinkNote(null)
+    const response = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, plan_id: planId }),
+    }).catch(() => null)
+    const body = await response?.json().catch(() => ({})) ?? {}
+    setLinkBusy(false)
+    if (!response?.ok) {
+      setLinkNote(body.error ?? 'That link did not go in — try again.')
+      return
+    }
+    const cards: { id?: unknown; card_no?: unknown }[] = Array.isArray(body.cards) ? body.cards : []
+    if (cards.length > 0) {
+      setJustLanded(new Set(cards.map((card) => String(card.id))))
+      window.setTimeout(() => setJustLanded(new Set()), 8000)
+    }
+    const landed = cards.map((card) => (card.card_no ? `V-${card.card_no}` : 'a card')).join(' · ')
+    setLinkNote(cards.length > 0
+      ? `On the week as ${landed} — the Mac fetches it next, nothing to do.`
+      : 'Nothing landed — it is already on this week, or they have turned it down.')
+    setLinkPaste('')
+    await loadPlan()
+    void loadWeeks()
   }
 
   /** Her recent posts, metadata only. `transcribe: false` is the whole point:
@@ -717,46 +858,6 @@ export default function PlanEditor({
     void loadWeeks()
   }
 
-  /** Paste links straight onto this week: they join the queue AND land here
-   *  as cards in one move, thin until the Mac fetches the videos. */
-  async function addLinks() {
-    if (!planId || !intake.trim()) return
-    setIntakeBusy(true)
-    setIntakeNote(null)
-    const response = await fetch('/api/links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: intake, plan_id: planId }),
-    })
-    const body = await response.json().catch(() => ({}))
-    setIntakeBusy(false)
-    if (!response.ok) {
-      setIntakeNote(body.error ?? 'That did not go in.')
-      return
-    }
-    setIntake('')
-    dropDraft(planId, 'intake')
-    const attached = Number(body.attached ?? 0)
-    const cards: { id: string; card_no: number | null }[] = Array.isArray(body.cards) ? body.cards : []
-    const names = cards.map((card) => (card.card_no ? `V-${card.card_no}` : 'new card')).join(' · ')
-    setIntakeNote(
-      attached > 0
-        ? `On the week as ${names || `${attached} card${attached === 1 ? '' : 's'}`} — downloading now, the video appears on the card by itself.`
-        : 'Nothing landed — already on this week, declined by them, or not theirs to film.',
-    )
-    await loadPlan()
-    void loadWeeks()
-    if (cards.length > 0) {
-      const ids = new Set(cards.map((card) => card.id))
-      setJustLanded(ids)
-      // The list just re-rendered; point the screen at where they went.
-      setTimeout(() => {
-        document.getElementById(`planrow-${cards[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 150)
-      setTimeout(() => setJustLanded(new Set()), 8000)
-    }
-  }
-
   /** Drop the files: browser → Blob, and the completion callback lays each
    *  one on this week. The attach is Blob's callback, so give it a beat. */
   async function takeFiles(files: FileList | null) {
@@ -823,7 +924,6 @@ export default function PlanEditor({
     if (field === 'plan:due_date') return plan.due_date ?? ''
     if (field === 'plan:target') return plan.target == null ? '' : String(plan.target)
     if (field === 'model:drive') return delivery
-    if (field === 'intake') return ''
     const [kind, id, column] = field.split(':')
     if (kind !== 'item' || !column || !(column in ITEM_FIELD_TEXT)) return null
     const item = items.find((entry) => entry.id === id)
@@ -836,7 +936,6 @@ export default function PlanEditor({
     if (field === 'plan:due_date') return 'Due date'
     if (field === 'plan:target') return 'Videos wanted'
     if (field === 'model:drive') return 'Delivery folder'
-    if (field === 'intake') return 'Pasted links'
     const [, id, column] = field.split(':')
     const at = items.findIndex((entry) => entry.id === id)
     return `Card ${at + 1} · ${ITEM_FIELD_TEXT[column] ?? column}`
@@ -850,7 +949,7 @@ export default function PlanEditor({
     const entries = Object.entries(held)
       .filter(([field, entry]) => {
         const current = serverValue(field)
-        return current !== null && entry.value !== current && (field !== 'intake' || entry.value.trim() !== '')
+        return current !== null && entry.value !== current
       })
       .map(([field, entry]) => ({ field, value: entry.value, at: entry.at }))
     // Anything that already matches the server, or whose card is gone, is
@@ -867,11 +966,7 @@ export default function PlanEditor({
     setRestorable(null)
     for (const { field, value } of entries) {
       let ok = true
-      if (field === 'intake') {
-        setIntake(value)
-        setIntakeOpen(true)
-        continue
-      } else if (field === 'plan:target') {
+      if (field === 'plan:target') {
         ok = await patchPlan({ target: value === '' ? 0 : Number(value) })
       } else if (field.startsWith('plan:')) {
         ok = await patchPlan({ [field.slice(5)]: value })
@@ -1195,6 +1290,11 @@ export default function PlanEditor({
                     {plan.title && <p className="weekhead-sub">{plan.title}</p>}
                   </div>
                   <div className="weekhead-aside">
+                    <button
+                      type="button"
+                      className="btn btn-small btn-quiet"
+                      onClick={() => void openCopy()}
+                    >Copy plan</button>
                     <span
                       className="weekhead-save"
                       data-state={saving > 0 ? 'saving' : saveFailed ? 'failed' : savedAt ? 'saved' : 'idle'}
@@ -1455,105 +1555,72 @@ export default function PlanEditor({
                   <span className="planstep-no" aria-hidden="true">2</span>
                   <span className="planstep-id">
                     <span className="planstep-title" role="heading" aria-level={4}>Add content</span>
-                    <span className="planstep-sub">Add a card from library videos or write one, paste links, or upload files — or drop files on this pane.</span>
+                    <span className="planstep-sub">Paste a link straight from Instagram — or add by style.</span>
+                  </span>
+                  <span className="planstep-aside">
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      aria-expanded={addOpen}
+                      onClick={() => setAddOpen((open) => !open)}
+                    >{addOpen ? 'Close' : '+ Add card'}</button>
                   </span>
                 </header>
-                <div className="planadd-actions">
+
+                {/* Found it on Instagram? One box, one card (Geno, 2026-10-13).
+                    The same door a paste takes in the queue: a thin card until
+                    the Mac fetches, then the video is on it by itself. */}
+                <div className="planadd-link" role="group" aria-label="Add a reel by link">
+                  <input
+                    className="field"
+                    type="url"
+                    value={linkPaste}
+                    placeholder="Paste an Instagram or TikTok link — it lands on the week and the Mac fetches it"
+                    aria-label="Paste a reel link"
+                    onChange={(event) => { setLinkPaste(event.target.value); setLinkNote(null) }}
+                    onKeyDown={(event) => { if (event.key === 'Enter') void addLink() }}
+                  />
                   <button
                     type="button"
-                    className="planadd-tile planadd-pick"
-                    data-on={composerOpen || undefined}
-                    data-draft={!composerOpen && draftsWaiting > 0 ? 'true' : undefined}
-                    aria-expanded={composerOpen}
-                    onClick={() => {
-                      if (composerOpen && planId) setDraftsWaiting(draftCount(planId))
-                      setComposerOpen((open) => !open)
-                    }}
-                    title="Cards from library videos or written ones — templates and settings for both, saved as you go"
+                    className="btn btn-small"
+                    disabled={linkBusy || !linkPaste.trim() || !planId}
+                    onClick={() => void addLink()}
                   >
-                    {composerOpen
-                      ? 'Adding cards…'
-                      : draftsWaiting > 0
-                        ? `+ Add cards · ${draftsWaiting} draft${draftsWaiting === 1 ? '' : 's'} saved`
-                        : '+ Add a card'}
+                    {linkBusy ? 'Adding…' : 'Add link'}
                   </button>
-                  <button
-                    type="button"
-                    className="planadd-tile"
-                    data-on={intakeOpen || undefined}
-                    aria-expanded={intakeOpen}
-                    onClick={() => setIntakeOpen((open) => !open)}
-                  >
-                    + Paste links
-                  </button>
-                  <label className="planadd-tile planadd-file" aria-disabled={intakeBusy || undefined}>
-                    + Upload files
-                    <input
-                      type="file"
-                      hidden
-                      multiple
-                      accept="video/*,audio/*"
-                      disabled={intakeBusy}
-                      onChange={(event) => { void takeFiles(event.target.files); event.target.value = '' }}
-                    />
-                  </label>
                 </div>
-                {/* One way to add a card: library videos or none, with the
-                    templates and settings either way. See CardComposer. */}
-                {composerOpen && planId && (
-                  <CardComposer
-                    key={planId}
+                {linkNote && <p className="hint planadd-note" role="status">{linkNote}</p>}
+
+                {/* The CD brief's flow (Geno, 2026-10-12): ask what style it
+                    is, open that style's form, and land the card on the week
+                    with its style as a tag — the older tiles stay below. */}
+                {addOpen && planId && (
+                  <ContentStyles
                     planId={planId}
-                    selection={selection}
-                    setSelection={setSelection}
-                    weekJobIds={weekJobIds}
+                    items={items}
+                    taken={weekJobIds}
+                    references={styleReferences}
                     onPickingChange={setPicking}
-                    onAdded={(fresh) => {
-                      if (fresh && fresh.length > 0) {
-                        const rows = fresh.map(stubCard)
-                        setItems((current) => [...current, ...rows])
-                        setJustLanded(new Set(rows.map((row) => row.id)))
-                        window.setTimeout(() => setJustLanded(new Set()), 8000)
-                      }
-                      // Quiet reconcile — UI already has the cards.
+                    onClearReference={() => setSelection(new Map())}
+                    onCardsAdded={(fresh) => {
+                      const rows = fresh.map(stubCard)
+                      setItems((current) => [...current, ...rows])
+                      setJustLanded(new Set(rows.map((row) => row.id)))
+                      window.setTimeout(() => setJustLanded(new Set()), 8000)
+                      // The ticked video was consumed by the card that just
+                      // landed — the next card starts from a clean wall.
+                      setSelection(new Map())
+                      // Quiet reconcile — the cards already painted.
                       void loadPlan()
                       void loadWeeks()
                     }}
-                    onClose={() => { setComposerOpen(false); setDraftsWaiting(draftCount(planId)) }}
+                    onClose={() => setAddOpen(false)}
                   />
                 )}
-                {intakeOpen && (
-                  <div className="planadd-intake">
-                    <label className="axis-name" htmlFor="plan-intake">Links — as many as you like</label>
-                    <textarea
-                      id="plan-intake"
-                      className="field"
-                      rows={3}
-                      autoFocus
-                      value={intake}
-                      placeholder="https://instagram.com/reel/…  https://tiktok.com/@…/video/…"
-                      onChange={(event) => {
-                        setIntake(event.target.value)
-                        setIntakeNote(null)
-                        if (planId) putDraft(planId, 'intake', event.target.value)
-                      }}
-                    />
-                    <div className="planadd-row">
-                      <button
-                        className="btn btn-small"
-                        disabled={intakeBusy || !intake.trim()}
-                        onClick={() => void addLinks()}
-                      >
-                        {intakeBusy ? 'Adding…' : 'Add to the week'}
-                      </button>
-                      <button className="btn btn-small btn-quiet" onClick={() => setIntakeOpen(false)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+
                 {intakeNote && <p className="hint planadd-note" role="status">{intakeNote}</p>}
               </section>
+
 
               <section className="planstep plancards" aria-label="Cards on this week">
                 <header className="planstep-head">
@@ -1574,8 +1641,19 @@ export default function PlanEditor({
                 </div>
               ) : (
                 <ol className="planlist">
-                  {items.map((item, index) => {
+                  {cardRuns.map((run) => (
+                    <Fragment key={run.key}>
+                      {run.grouped && (
+                        <li className="plangroup">
+                          <span className="plangroup-stem">{run.stem}</span>
+                          <span className="plangroup-count">{run.rows.length} versions</span>
+                        </li>
+                      )}
+                      {run.rows.map(({ item, index }) => {
                     const state = uploadStateOf(item)
+                    // Inside a group the heading already says the concept, so
+                    // the row is just its version number.
+                    const version = run.grouped ? versionOf(item.item_title) : null
                     return (
                       <li
                         key={item.id}
@@ -1584,6 +1662,7 @@ export default function PlanEditor({
                         data-state={state}
                         data-compact={openCard === item.id ? undefined : true}
                         data-new={justLanded.has(item.id) || undefined}
+                        data-grouped={run.grouped || undefined}
                       >
                         {openCard === item.id ? (
                           <>
@@ -1628,8 +1707,22 @@ export default function PlanEditor({
                               <span className="planrow-kind" data-kind={cardKind(item.bucket ?? null, item.source_post ?? null)}>
                                 {KIND_TEXT[cardKind(item.bucket ?? null, item.source_post ?? null)].label}
                               </span>
+                              {item.style && isContentStyle(item.style) && (
+                                <span className="chip planrow-style">{STYLE_LABEL[item.style]}</span>
+                              )}
                               <span className="planrow-state" data-state={state}>{UPLOAD_LABEL[state]}</span>
                               {item.filmed_at && <span className="planrow-state" data-state="filmed">Filmed</span>}
+                              {item.take_uploaded_at && (
+                                <a
+                                  className="planrow-made"
+                                  href={`/api/items/${item.id}/take`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="The take she filmed on her phone, uploaded to Cloudflare"
+                                >
+                                  Take ↗
+                                </a>
+                              )}
                               {item.duration_sec ? <span className="cardhero-dur">{clock(item.duration_sec)}</span> : null}
                               {item.rating === 1 && <span className="planrow-rate" title="They rated this a good reference">👍</span>}
                               {item.rating === -1 && <span className="planrow-rate" title="They rated this a poor reference">👎</span>}
@@ -1644,7 +1737,11 @@ export default function PlanEditor({
                                       onClick={() => void patchItem(item.id, { repurposed: true })}>Needs repurposing · mark done</button>
                               )}
                             </div>
-                            <p className="cardhero-title">{item.item_title || item.author || item.title || item.job_id || 'Untitled card'}</p>
+                            <p className="cardhero-title">
+                              {version !== null
+                                ? `Version ${version}`
+                                : item.item_title || item.author || item.title || item.job_id || 'Untitled card'}
+                            </p>
                             <p className="cardhero-sub">
                               {[
                                 item.author,
@@ -1846,6 +1943,40 @@ export default function PlanEditor({
                             onCommit={(value) => patchItem(item.id, { notes: value })}
                           />
                         </div>
+
+                        {/* Free words for the card itself (Geno, 2026-10-13):
+                            whatever the team wants them to read — typed here,
+                            shown on the content plan as its own Notes block. */}
+                        <div className="form-row">
+                          <label className="axis-name" htmlFor={`card-notes-${item.id}`}>
+                            Notes — shown on their card
+                          </label>
+                          <AutoField
+                            multiline
+                            id={`card-notes-${item.id}`}
+                            className="field"
+                            rows={3}
+                            planId={planId}
+                            field={`item:${item.id}:notes_to_model`}
+                            value={item.notes_to_model}
+                            placeholder="Anything they should read on this one — this one is quick, use the window light…"
+                            onCommit={(value) => patchItem(item.id, { notes_to_model: value })}
+                          />
+                        </div>
+
+                        {/* The format's versions as fields (Geno, 2026-10-13):
+                            what changes each time — V1's outfit and caption
+                            live on the card, these are the rest. Her page
+                            shows the same list under the directions. */}
+                        {item.versions && item.versions.length > 0 && (
+                          <div className="form-row">
+                            <span className="axis-name">Versions — what changes each time</span>
+                            <CardVersions
+                              versions={item.versions}
+                              onSave={(next) => patchItem(item.id, { versions: next })}
+                            />
+                          </div>
+                        )}
                         </div>
                         </details>
 
@@ -1991,14 +2122,45 @@ export default function PlanEditor({
                               />
                               <span className="planrow-id">
                                 <span className="planrow-who">
-                                  {item.item_title ?? item.author ?? item.title ?? item.job_id}
+                                  {version !== null
+                                    ? `Version ${version}`
+                                    : item.item_title ?? item.author ?? item.title ?? item.job_id}
                                 </span>
                                 <span className="planrow-badges">
                                   <span className="planrow-kind" data-kind={cardKind(item.bucket ?? null, item.source_post ?? null)}>
                                     {KIND_TEXT[cardKind(item.bucket ?? null, item.source_post ?? null)].label}
                                   </span>
+                                  {item.style && isContentStyle(item.style) && (
+                                    <span className="chip planrow-style">{STYLE_LABEL[item.style]}</span>
+                                  )}
+                                  {/* The versions, on the row (Geno, 2026-10-13):
+                                      "V1 · V2 · V3", each with its outfit and
+                                      caption on hover — open the card for the
+                                      fields. */}
+                                  {item.versions && item.versions.length > 1 && (
+                                    <span
+                                      className="chip planrow-vers"
+                                      title={item.versions
+                                        .map((v, at) => `Version ${at + 1} — ${[v.outfit, v.caption].filter(Boolean).join(' · ')}`)
+                                        .join('\n')}
+                                    >
+                                      {item.versions.map((_, at) => `V${at + 1}`).join(' · ')}
+                                    </span>
+                                  )}
                                   <span className="planrow-state" data-state={state}>{UPLOAD_LABEL[state]}</span>
                                   {item.filmed_at && <span className="planrow-state" data-state="filmed">Filmed</span>}
+                                  {item.take_uploaded_at && (
+                                    <a
+                                      className="planrow-made"
+                                      href={`/api/items/${item.id}/take`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="The take she filmed on her phone, uploaded to Cloudflare"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      Take ↗
+                                    </a>
+                                  )}
                                   {item.unread > 0 && <span className="planrow-state" data-state="unread">{item.unread} new</span>}
                                   {item.duration_sec ? <span className="planrow-meta">{clock(item.duration_sec)}</span> : null}
                                 </span>
@@ -2022,7 +2184,9 @@ export default function PlanEditor({
                         )}
                       </li>
                     )
-                  })}
+                      })}
+                    </Fragment>
+                  ))}
                 </ol>
               )}
 
@@ -2287,7 +2451,7 @@ export default function PlanEditor({
                       )}
                       <div className="suggestrow-id">
                         <p className="suggestrow-who">
-                          {item.author ?? item.id}
+                          {playbookLabel(item.label) ?? item.author ?? item.id}
                           {item.is_hot && <span className="flame"> 🔥</span>}
                         </p>
                         <p className="suggestrow-meta">
@@ -2323,8 +2487,7 @@ export default function PlanEditor({
                   <div className="plansend-status">
                     {plan.status !== 'sent' && (
                       <span className="hint">
-                        A draft is invisible to them until it is sent.
-                        {!plan.telegram_title && ' No Telegram group linked — link one in their Week tab to send it there.'}
+                        A draft is invisible to them until it is sent — Telegram is its own button.
                       </span>
                     )}
                     <TelegramStatus plan={plan} onRetry={() => void send('post')} />
@@ -2350,36 +2513,49 @@ export default function PlanEditor({
                     {plan.status === 'sent' ? (
                       <button className="btn" onClick={() => patchPlan({ status: 'draft' })}>Unsend</button>
                     ) : (
-                      <>
-                        <DropSelect
-                          label="Telegram wording"
-                          value={variant}
-                          onChange={(next) => setVariant(next as typeof variant)}
-                          options={[
-                            { value: 'weekly', label: 'Weekly wording' },
-                            { value: 'weekend', label: 'Weekend wording' },
-                            { value: 'short', label: 'Short wording' },
-                          ]}
-                        />
-                        <span className="plansend-go">
+                      <span className="plansend-start">
                         <button
                           className="btn btn-quiet"
-                          title="Mark sent — I sent it myself"
+                          title="Mark sent — I sent it myself. The bot only records it in the day report; nothing is posted."
                           onClick={() => void send('manual')}
                         >
                           Mark as sent
                         </button>
                         <button
                           className="btn plansend-primary"
-                          disabled={!plan.telegram_title || Boolean(plan.telegram_skips)}
-                          title={!plan.telegram_title ? 'Link their Telegram group in the Week tab first' : undefined}
-                          onClick={() => void send('post')}
+                          disabled={busy}
+                          title="Make the week live for her. Nothing goes to Telegram — that is its own button."
+                          onClick={() => void patchPlan({ status: 'sent' })}
                         >
-                          Send on Telegram
+                          Send the week
                         </button>
-                        </span>
-                      </>
+                      </span>
                     )}
+                    {/* Telegram is never part of sending the week (Geno,
+                        2026-10-12): it only goes to the group from this
+                        button, on purpose, whoever and whenever. */}
+                    <span className="plansend-go">
+                      <DropSelect
+                        label="Telegram wording"
+                        value={variant}
+                        onChange={(next) => setVariant(next as typeof variant)}
+                        options={[
+                          { value: 'weekly', label: 'Weekly wording' },
+                          { value: 'weekend', label: 'Weekend wording' },
+                          { value: 'short', label: 'Short wording' },
+                        ]}
+                      />
+                      <button
+                        className="btn"
+                        disabled={busy || !plan.telegram_title || Boolean(plan.telegram_skips) || plan.telegram_state === 'queued'}
+                        title={!plan.telegram_title
+                          ? 'Link their Telegram group in the Week tab first'
+                          : 'Post this week in their Telegram group — sends the week too if it is still a draft'}
+                        onClick={() => void send('post')}
+                      >
+                        {plan.telegram_state === 'queued' ? 'Queued for Telegram' : 'Send on Telegram'}
+                      </button>
+                    </span>
                   </div>
                 </div>
               </footer>
@@ -2442,6 +2618,70 @@ export default function PlanEditor({
           </div>
         </div>
       </div>
+
+      {/* Copy the week onto another creator's week — a dialog on top of the
+          pane, week options read from their own plans. */}
+      {plan && copyOpen && (
+        <div className="plancopy-overlay" role="dialog" aria-modal="true" aria-label="Copy this plan">
+          <div className="plancopy">
+            <div className="plancopy-head">
+              <span className="plancopy-title">Copy this plan</span>
+              <span className="hint">
+                {items.length} card{items.length === 1 ? '' : 's'} from the week of {formatDate(plan.week_of)}
+              </span>
+              <button type="button" className="cardtool" aria-label="Close" onClick={() => setCopyOpen(false)}>×</button>
+            </div>
+            <div className="plancopy-body">
+              <div className="form-row">
+                <label className="axis-name" htmlFor="plancopy-model">Creator</label>
+                <DropSelect
+                  id="plancopy-model"
+                  label="Creator"
+                  value={copyTarget}
+                  onChange={(next) => void pickCopyTarget(next)}
+                  options={[
+                    { value: '', label: copyModels.length > 0 ? 'Pick a creator' : 'Loading the roster…' },
+                    ...copyModels.map((model) => ({ value: model.id, label: model.name })),
+                  ]}
+                />
+              </div>
+              {copyTarget && (
+                <div className="form-row">
+                  <label className="axis-name" htmlFor="plancopy-week">Week</label>
+                  <DropSelect
+                    id="plancopy-week"
+                    label="Week"
+                    value={copyWeek}
+                    onChange={setCopyWeek}
+                    options={(() => {
+                      const weeks = new Set(copyWeeks)
+                      weeks.add(thisWeek)
+                      return [...weeks]
+                        .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+                        .map((week) => ({
+                          value: week,
+                          label: copyWeeks.includes(week) ? formatDate(week) : `${formatDate(week)} — new week`,
+                        }))
+                    })()}
+                  />
+                </div>
+              )}
+              {copyNote && <p className="hint" role="status">{copyNote}</p>}
+            </div>
+            <div className="plancopy-foot">
+              <button type="button" className="btn btn-small btn-quiet" onClick={() => setCopyOpen(false)}>Close</button>
+              <button
+                type="button"
+                className="btn btn-small"
+                disabled={!copyTarget || !copyWeek || copyBusy || items.length === 0}
+                onClick={() => void copyPlanTo()}
+              >
+                {copyBusy ? 'Copying…' : `Copy ${items.length} card${items.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

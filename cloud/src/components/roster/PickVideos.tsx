@@ -6,7 +6,7 @@ import { MediaCard, type Feed, type MediaItem } from '@/components/platform/Medi
 import PlatformIcon from '@/components/roster/PlatformIcon'
 import DropMulti, { type MultiSection } from '@/components/dashboard/DropMulti'
 import { EMPTY_FILTERS, SORTS, WINDOWS, toQuery, type Filters } from '../FilterBar'
-import { thumbUrl, type LibraryItem } from '@/lib/format'
+import { displayName, thumbUrl, type LibraryItem } from '@/lib/format'
 import type { Platform } from '@/lib/socials'
 import { AXES, taxonomy } from '@/lib/taxonomy'
 
@@ -28,7 +28,9 @@ import { AXES, taxonomy } from '@/lib/taxonomy'
 const PAGE_SIZE = 10
 const LIBRARY_LIMIT = 90
 const LIBRARY_TTL_MS = 5 * 60_000
-const DEFAULT_LIBRARY_FILTERS: Filters = { ...EMPTY_FILTERS, sort: 'hot' }
+/** The wall always opens on the latest posts (Geno, 2026-10-12) — the same
+ *  default the Library page has. Anything else is one tap away in Sort. */
+const DEFAULT_LIBRARY_FILTERS: Filters = { ...EMPTY_FILTERS, sort: 'recent' }
 type FeedSort = 'score' | 'views' | 'likes' | 'newest'
 type FeedFilters = { creator: string; window: Filters['window']; sort: FeedSort; scoredOnly: boolean }
 const DEFAULT_FEED_FILTERS: FeedFilters = { creator: '', window: '', sort: 'score', scoredOnly: false }
@@ -61,7 +63,10 @@ export type Selection = Map<string, Pick>
 const libraryPick = (item: LibraryItem): Pick => ({
   kind: 'library',
   jobId: item.id,
-  name: item.title ?? item.author ?? item.author_name ?? undefined,
+  // The same name the card wears: a German playbook label first, so a pick
+  // reads "German #41 · Mirror Reward" in the composer and names the card
+  // that way when it lands (Geno, 2026-10-13).
+  name: displayName(item),
   // Always keep the cover URL — the thumb route 404s cleanly when missing.
   thumb: thumbUrl(item.id),
 })
@@ -263,7 +268,7 @@ function libraryFiltersFromValues(values: string[]): Filters {
 
   const creator = valueAfter('creator:', '__all__')
   const window = valueAfter('window:', 'all')
-  const sort = valueAfter('sort:', 'hot')
+  const sort = valueAfter('sort:', 'recent')
   const shelf = valueAfter('shelf:', 'all')
   return {
     ...DEFAULT_LIBRARY_FILTERS,
@@ -361,8 +366,6 @@ export default function PickVideos({
   const [libraryFilters, setLibraryFilters] = useState<Filters>(DEFAULT_LIBRARY_FILTERS)
   const [feedFilters, setFeedFilters] = useState<FeedFilters>(DEFAULT_FEED_FILTERS)
   const [libraryCreators, setLibraryCreators] = useState<{ handle: string; posts: number }[]>([])
-  const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
 
   const libraryKey = libraryRequestKey(libraryFilters, settledQuery)
   const library = libraryResult?.key === libraryKey ? libraryResult.items : null
@@ -637,7 +640,6 @@ export default function PickVideos({
 
   function toggle(key: string, pick: Pick) {
     if (locked) return
-    setNote(null)
     setSelection((current) => {
       const next = new Map(current)
       if (next.has(key)) next.delete(key)
@@ -648,7 +650,6 @@ export default function PickVideos({
 
   function toggleShown() {
     if (locked) return
-    setNote(null)
     setSelection((current) => {
       const next = new Map(current)
       for (const item of visible) {
@@ -661,28 +662,16 @@ export default function PickVideos({
     })
   }
 
-  async function addToWeek() {
-    if (!planId || selection.size === 0) return
-    setBusy(true)
-    setNote(null)
-    const result = await addPicksToWeek(planId, [...selection.values()])
-    setNote({ text: result.text, bad: result.bad })
-    if (!result.bad) setSelection(new Map())
-    if (result.landed > 0) onAdded()
-    setBusy(false)
-  }
-
   // Turned off from the week pane: whatever was ticked goes with it, so a
   // pile from last time cannot be added by accident later.
   useEffect(() => {
     if (!enabled) setSelection(new Map())
   }, [enabled, setSelection])
 
-  /** The card being dragged — or, when it is one of the ticked ones, the
-   *  whole pile, so a selection can be dropped onto the week in one move. */
+  /** The card being dragged. The selection belongs to the card being written
+   *  in the panel, not to the drag — one card goes where it is dropped. */
   function startDrag(event: DragEvent, key: string, pick: Pick) {
-    const picks = selection.has(key) ? [...selection.values()] : [pick]
-    event.dataTransfer.setData(PICK_MIME, JSON.stringify(picks))
+    event.dataTransfer.setData(PICK_MIME, JSON.stringify([pick]))
     event.dataTransfer.effectAllowed = 'copy'
   }
 
@@ -747,15 +736,12 @@ export default function PickVideos({
           />
         </div>
 
-        {note && (
-          <p className="hint" role="status" data-tone={note.bad ? 'bad' : undefined}>{note.text}</p>
-        )}
         {failed && <p className="hint" data-tone="bad">One of the sources could not be read — try again in a moment.</p>}
       </header>
 
       {planId && !enabled && (
         <p className="planpicker-lock" role="note">
-          <b>Browsing only.</b> Press <em>+ Add a card</em> on the right and choose a library video to pick or drag from here.
+          <b>Browsing only.</b> Press <em>+ Add card</em> on the right to pick or drag from here.
         </p>
       )}
 
@@ -844,17 +830,8 @@ export default function PickVideos({
       {selection.size > 0 && !locked && (
         <div className="planpicker-foot" role="status">
           <span className="planpicker-count">{selection.size} selected</span>
-          <button
-            type="button"
-            className="pill"
-            data-primary="true"
-            disabled={busy}
-            title="Add them as they are — or set a template, label and directions in the card on the right first"
-            onClick={() => void addToWeek()}
-          >
-            {busy ? 'Adding' : 'Add as they are'}
-          </button>
-          <button type="button" className="chip" onClick={() => { setSelection(new Map()); setNote(null) }}>
+          <span className="hint planpicker-foot-note">Used by the card on the right.</span>
+          <button type="button" className="chip" onClick={() => setSelection(new Map())}>
             Clear
           </button>
         </div>

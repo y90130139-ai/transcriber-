@@ -5,6 +5,7 @@ import { linksFor, mediaBase } from './media'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
 import { hiddenFromModel, sourceOf, type CardSource } from './source'
 import { spoken } from './sql'
+import { cleanVersions, isContentStyle } from './styles'
 import { shapeRows } from './week-load'
 import type { Measured } from './shotlist'
 
@@ -65,6 +66,9 @@ export type PlanItem = {
    *  sound". Null when the sweep has nothing true to say about it. */
   headline: string | null
   id: string
+  /** The library job behind this card — the app reads its thumbnail through
+   *  it (`/api/app/thumb/<job>`), so the cover is the real poster frame. */
+  job_id: string | null
   position: number
   /** Phase 4. Assigned once per model and never reassigned, so a conversation
    *  about "V-7" survives the week being reordered. Null only on a row written
@@ -75,6 +79,9 @@ export type PlanItem = {
   location: string | null
   notes: string | null
   editing_notes: string | null
+  /** Free words the team wrote for the model — shown on her card, its own
+   *  block near the top (Geno, 2026-10-13). Never machine-written. */
+  notes_to_model: string | null
   /** Who on the editing team this card is pointed at (console only). */
   editor_id: string | null
   /** Phase 3. The same brief as discrete facts. Any of them null falls the card
@@ -106,6 +113,10 @@ export type PlanItem = {
    *  not move, and when it goes out. All null on cards drafted before the split
    *  existed, which render exactly as they always did. */
   bucket: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
+  /** The content style the Add card panel tagged it with (lib/styles.ts).
+   *  Null on every card added before the panel — those weeks group the way
+   *  they always did. */
+  style: 'format' | 'talking' | 'omegle' | 'posts' | null
   /** Her own reel's shortcode when the card is one of her videos. */
   source_post: string | null
   /** Where the card came from — the mixed-source tag (lib/source.ts). Derived
@@ -114,6 +125,9 @@ export type PlanItem = {
   source: CardSource
   /** A reskin's one line: what changes from the reference. */
   twist: string | null
+  /** A format card's versions as fields — what changes each time. Rendered
+   *  as the card's Versions block; null/empty on cards without any. */
+  versions: { outfit: string; caption: string }[] | null
   /** Per-card switches: the filming directions, and the automated captions,
    *  each hideable before the week goes out. */
   hide_film: boolean
@@ -154,6 +168,11 @@ export type PlanItem = {
    *  audio (true) or a named track anyone can use (false). */
   sound_title: string | null
   original_audio: boolean | null
+  /** Her filmed take, uploaded from the app to R2. Null until she sends one. */
+  take_uploaded_at: string | null
+  take_duration_sec: number | null
+  /** What the take is: a filmed clip or a photo (2026-10-12). */
+  take_kind: string | null
 }
 
 /** One caption from the engine: which formula, the line, and the comment it
@@ -179,6 +198,11 @@ export type Plan = {
 const isPlausibleToken = (token: unknown): token is string =>
   typeof token === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(token)
 
+/** The columns every PlanModel is read with — one place, so the token path and
+ *  the app's session path can never drift apart. */
+const MODEL_COLUMNS = `id, name, photo_url, filming_days, timezone, weekly_target, standing_rules,
+            drive_url, delivery_note, (telegram_chat_id is not null) as in_group, portal_style`
+
 /**
  * Resolve a token to its model. Unknown, malformed and revoked tokens all come
  * back null, and callers turn every null into a 404 — a 403 would confirm that
@@ -187,11 +211,25 @@ const isPlausibleToken = (token: unknown): token is string =>
 export async function modelForToken(token: unknown): Promise<PlanModel | null> {
   if (!isPlausibleToken(token)) return null
   const [model] = await sql.query(
-    `select id, name, photo_url, filming_days, timezone, weekly_target, standing_rules,
-            drive_url, delivery_note, (telegram_chat_id is not null) as in_group, portal_style
+    `select ${MODEL_COLUMNS}
        from transcriber.models
       where access_token = $1 and token_revoked_at is null`,
     [token],
+  )
+  return (model as PlanModel | undefined) ?? null
+}
+
+/**
+ * The same model, by id — how the app's session resolves her (lib/model-auth).
+ *
+ * No status filter on purpose: a paused model still opens her app and reads
+ * her weeks; pausing stops new plans, not the door.
+ */
+export async function modelById(id: unknown): Promise<PlanModel | null> {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 64) return null
+  const [model] = await sql.query(
+    `select ${MODEL_COLUMNS} from transcriber.models where id = $1`,
+    [id],
   )
   return (model as PlanModel | undefined) ?? null
 }
@@ -292,15 +330,16 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   // above, and do not move an authorization check in here: the point of this
   // function is that it is the same query for both callers.
   const rows = await sql.query(
-    `select i.id as item_id, i.position, i.notes, i.editing_notes, i.editor_id,
+    `select i.id as item_id, i.position, i.notes, i.notes_to_model, i.editing_notes, i.editor_id,
             i.wardrobe, i.camera, i.takes, i.sound, i.hook, i.caption,
             i.card_no, i.title, i.location,
             (i.filmed_at is not null) as filmed, i.model_note,
             i.accepted_at, i.declined_at, i.decline_reason, i.decline_code,
             i.r2_key, i.uploaded_at,
-            i.bucket, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
-            i.source, i.twist, i.hide_film, i.hide_captions,
+            i.bucket, i.style, i.axis, i.hold, i.slot_day, i.slot_time, i.source_post, i.repurposed_at,
+            i.source, i.twist, i.hide_film, i.hide_captions, i.versions,
             i.brief_short, i.caption_options, i.job_id, i.rating, i.made_at, i.made_url, t.shots,
+            i.take_key, i.take_bytes, i.take_duration_sec, i.take_uploaded_at, i.take_kind,
             snd.audio_title as sound_title, snd.original_audio,
             -- Her own accounts only: the plan's model, and nobody else's posts.
             (select to_char(cp.posted_at, 'YYYY-MM-DD')
@@ -365,11 +404,13 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
   const items: PlanItem[] = rows.map((row) => ({
     headline: headlineFor(signalsFrom(row)),
     id: String(row.item_id),
+    job_id: row.job_id ? String(row.job_id) : null,
     position: Number(row.position ?? 0),
     card_no: row.card_no === null || row.card_no === undefined ? null : Number(row.card_no),
     title: (row.title as string | null) ?? null,
     location: (row.location as string | null) ?? null,
     notes: (row.notes as string | null) ?? null,
+    notes_to_model: (row.notes_to_model as string | null) ?? null,
     editing_notes: (row.editing_notes as string | null) ?? null,
     editor_id: (row.editor_id as string | null) ?? null,
     wardrobe: (row.wardrobe as string | null) ?? null,
@@ -391,9 +432,11 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     transcript: String(row.transcript ?? '').trim(),
     media: mediaFor(row, mac, instagram),
     bucket: isBucket(row.bucket) ? row.bucket : null,
+    style: isContentStyle(row.style) ? row.style : null,
     source_post: (row.source_post as string | null) ?? null,
     source: sourceOf(row.source, typeof row.bucket === 'string' ? row.bucket : null),
     twist: (row.twist as string | null) ?? null,
+    versions: cleanVersions(row.versions),
     hide_film: Boolean(row.hide_film),
     hide_captions: Boolean(row.hide_captions),
     repurposed_at: row.repurposed_at ? String(row.repurposed_at) : null,
@@ -418,6 +461,9 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
     shots: row.shots && Array.isArray((row.shots as Measured).shots) ? (row.shots as Measured) : null,
     sound_title: (row.sound_title as string | null) ?? null,
     original_audio: typeof row.original_audio === 'boolean' ? row.original_audio : null,
+    take_uploaded_at: row.take_uploaded_at ? String(row.take_uploaded_at) : null,
+    take_duration_sec: row.take_duration_sec === null || row.take_duration_sec === undefined ? null : Number(row.take_duration_sec),
+    take_kind: row.take_kind ? String(row.take_kind) : null,
   }))
 
   // Her week, tidied for reading: junk screen text off the hook, captions on
@@ -452,22 +498,29 @@ function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'r
   return value === 'reskin' || value === 'iteration' || value === 'test' || value === 'repurpose' || value === 'custom'
 }
 
+/** Everything her page renders, for one model. The token route and the app's
+ *  session route both come through here — her week is assembled once, never
+ *  twice, or the two surfaces drift.
+ *
+ *  Editing notes are in-house (Geno, 2026-10-07): stripped here — not just
+ *  unrendered — so they are not sitting in her page's payload either. */
+export async function loadPlanForModel(model: PlanModel): Promise<
+  { model: PlanModel; plan: Plan; items: PlanItem[] } | null
+> {
+  const plan = await currentPlanFor(model)
+  if (!plan) return null
+
+  const items = await planItemsFor(plan.id)
+  return { model, plan, items: items.map((item) => ({ ...item, editing_notes: null })) }
+}
+
 /** Everything her page renders, for one token. */
 export async function loadPlan(token: unknown): Promise<
   { model: PlanModel; plan: Plan; items: PlanItem[] } | null
 > {
   const model = await modelForToken(token)
   if (!model) return null
-
-  const plan = await currentPlanFor(model)
-  if (!plan) return null
-
-  const items = await planItemsFor(plan.id)
-
-  // Editing notes are in-house (Geno, 2026-10-07): for the editing team's
-  // page, never hers. Stripped here — not just unrendered — so they are not
-  // sitting in her page's payload either.
-  return { model, plan, items: items.map((item) => ({ ...item, editing_notes: null })) }
+  return loadPlanForModel(model)
 }
 
 /**
@@ -489,17 +542,16 @@ export async function markOpened(planId: string): Promise<void> {
   )
 }
 
-/** One item, proven to belong to this token's model before anything writes to
- *  it. Returns null on any mismatch, which the routes turn into a flat 404. */
-export async function itemForToken(
-  token: unknown,
+/** One item, proven to belong to this model before anything writes to it.
+ *  Returns null on any mismatch, which the routes turn into a flat 404. */
+export async function itemForModel(
+  model: PlanModel,
   itemId: unknown,
 ): Promise<{
   id: string; filmed: boolean; planId: string; modelId: string
   verdict: 'accepted' | 'declined' | 'open'
 } | null> {
-  const model = await modelForToken(token)
-  if (!model || typeof itemId !== 'string' || itemId.length === 0) return null
+  if (typeof itemId !== 'string' || itemId.length === 0) return null
 
   const [item] = await sql.query(
     `select i.id, i.plan_id, (i.filmed_at is not null) as filmed,
@@ -516,4 +568,17 @@ export async function itemForToken(
         verdict: item.verdict as 'accepted' | 'declined' | 'open',
       }
     : null
+}
+
+/** The token path's wrapper around itemForModel — one query, two doors. */
+export async function itemForToken(
+  token: unknown,
+  itemId: unknown,
+): Promise<{
+  id: string; filmed: boolean; planId: string; modelId: string
+  verdict: 'accepted' | 'declined' | 'open'
+} | null> {
+  const model = await modelForToken(token)
+  if (!model) return null
+  return itemForModel(model, itemId)
 }

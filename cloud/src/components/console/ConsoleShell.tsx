@@ -1,84 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { compact } from '@/lib/format'
-import type { Platform } from '@/lib/socials'
 import PlatformIcon from '../roster/PlatformIcon'
 import ItemView from '../ItemView'
 import { useConsole } from './ConsoleProvider'
-import { Icon, type IconName } from './ConsoleIcons'
+import { Icon } from './ConsoleIcons'
+import NavSearch from './NavSearch'
+import { LABELS, SETTINGS_LEAF, TABS, isOn, tabOf, type NavTabId } from './nav'
 
-/** The console's navigation, as the rail lays it out (2026-10-07). Home stands
- *  on its own; everything else lives under a group that opens on the page it
- *  contains — the disclosure the reference's platform list uses. */
-type NavLeaf = { href: string; label: string; icon: IconName }
-type NavGroup = { id: string; label: string; icon: IconName; mark?: Platform; items: NavLeaf[] }
+/** Which side of the rail the reader last chose, for the pages outside both
+ *  (Settings). The route itself outranks this whenever it belongs to a side. */
+const SIDE_KEY = 'sinaura-console-side'
 
-const GROUPS: NavGroup[] = [
-  {
-    id: 'content', label: 'Content', icon: 'layers',
-    items: [
-      { href: '/library', label: 'Library', icon: 'layers' },
-      { href: '/queue', label: 'Queue', icon: 'list' },
-      { href: '/video-batcher', label: 'Video Batcher', icon: 'film' },
-    ],
-  },
-  {
-    id: 'research', label: 'Research', icon: 'trending',
-    items: [
-      { href: '/trends', label: 'Trends', icon: 'trending' },
-      { href: '/reddit-trends', label: 'Reddit Trends', icon: 'reddit' },
-      { href: '/sounds', label: 'Sounds', icon: 'music' },
-    ],
-  },
-  /* The platform rail (Geno, 2026-10-07): each platform opens the way the
-     reference's list does, holding its own pages. Instagram ships with the
-     imported media feed; TikTok and X are the same shell, waiting on data. */
-  {
-    id: 'instagram', label: 'Instagram', icon: 'layers', mark: 'instagram',
-    items: [{ href: '/instagram', label: 'Media', icon: 'layers' }],
-  },
-  {
-    id: 'tiktok', label: 'TikTok', icon: 'music', mark: 'tiktok',
-    items: [{ href: '/tiktok', label: 'Media', icon: 'music' }],
-  },
-  {
-    id: 'twitter', label: 'Twitter / X', icon: 'trending', mark: 'x',
-    items: [{ href: '/twitter', label: 'Media', icon: 'trending' }],
-  },
-  {
-    id: 'roster', label: 'Roster', icon: 'users',
-    items: [
-      { href: '/models', label: 'Models', icon: 'userCheck' },
-      { href: '/creators', label: 'Creators', icon: 'users' },
-      { href: '/watchlist', label: 'Watchlist', icon: 'eye' },
-    ],
-  },
-  {
-    id: 'standup', label: 'Standup', icon: 'calendarCheck',
-    items: [
-      { href: '/today', label: 'Today', icon: 'calendarCheck' },
-      { href: '/week', label: 'Week', icon: 'calendar' },
-    ],
-  },
-]
-
-/** The label the top bar's crumb wears for each route. */
-const LABELS: Record<string, string> = { '/': 'Home' }
-for (const group of GROUPS) for (const item of group.items) LABELS[item.href] = item.label
-// A platform's crumb is the platform, not the sub-item every platform repeats.
-LABELS['/instagram'] = 'Instagram'
-LABELS['/tiktok'] = 'TikTok'
-LABELS['/twitter'] = 'Twitter / X'
-
-/** Which groups start open: the ones holding the page being looked at. */
-function groupsFor(pathname: string): Record<string, boolean> {
-  const open: Record<string, boolean> = {}
-  for (const group of GROUPS) open[group.id] = group.items.some((item) => item.href === pathname)
-  return open
-}
+/** The switcher menu's width, mirrored in shell.css — keep them in step. */
+const MENU_W = 240
 
 /** The console chrome — rail, top bar, reader — around every page. Phase 6:
  *  every console rule that differs from the maison default hangs off the one
@@ -86,26 +24,95 @@ function groupsFor(pathname: string): Record<string, boolean> {
  *  is shell.css's. */
 export default function ConsoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { counts, creators, openItem, setOpenItem, reload } = useConsole()
   const [navOpen, setNavOpen] = useState(true)
   const [mobileNav, setMobileNav] = useState(false)
   const [narrow, setNarrow] = useState(false)
-  const [openGroups, setOpenGroups] = useState(() => groupsFor(pathname))
+  /** The side the reader picked by hand; the route wins wherever it can. */
+  const [side, setSide] = useState<NavTabId>('marketing')
+  /** The switcher menu under the mark, open while picking a side. */
+  const [sideMenu, setSideMenu] = useState(false)
+  /** The menu outlives its own close so the fade runs both ways. */
+  const [menuMounted, setMenuMounted] = useState(false)
+  /** Where the menu sits — measured off the button, since the rail clips and
+   *  the menu drops below it, extending right over the page. */
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  const updateMenuPos = useCallback(() => {
+    const trigger = triggerRef.current
+    if (!trigger) return
+    const t = trigger.getBoundingClientRect()
+    setMenuPos({
+      top: t.bottom + 6,
+      left: Math.max(8, Math.min(t.left - 10, window.innerWidth - MENU_W - 8)),
+    })
+  }, [])
+  /** The signed-in teammate, for the foot of the rail. */
+  const [me, setMe] = useState<{ name: string | null; role: string; email: string } | null>(null)
+  useEffect(() => {
+    fetch('/api/auth')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setMe(data?.user ?? null))
+      .catch(() => null)
+  }, [])
+
+  // The stored pick seeds the pages outside both sides (Settings). Read on
+  // mount, never during render, so the first paint is deterministic.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDE_KEY)
+      if (stored === 'marketing' || stored === 'client') setSide(stored)
+    } catch { /* private window: marketing is the default anyway */ }
+  }, [])
+
+  /** The side the rail draws: whichever side owns the page you are on, else
+   *  the side you last chose. */
+  const shownSide = tabOf(pathname) ?? side
+  const shownTab = TABS.find((tab) => tab.id === shownSide) ?? TABS[0]
+
+  function chooseSide(next: NavTabId) {
+    setSideMenu(false)
+    setSide(next)
+    try { localStorage.setItem(SIDE_KEY, next) } catch { /* storage blocked: this visit still switches */ }
+    // A switch is also a move: picking a side your current page is not on —
+    // the other side, or Settings — lands on that side's first page instead
+    // of leaving you on a page the rail cannot show.
+    if (tabOf(pathname) !== next) router.push(TABS.find((tab) => tab.id === next)?.home ?? '/')
+  }
+
+  function toggleMenu() {
+    if (!sideMenu) {
+      updateMenuPos()
+      setMenuMounted(true)
+    }
+    setSideMenu((open) => !open)
+  }
+
+  // The switcher menu closes on Escape and on any click that is not the
+  // switch or the menu itself — the menu is detached from the rail, so both
+  // count as "inside".
+  useEffect(() => {
+    if (!sideMenu) return undefined
+    const onDown = (event: MouseEvent) => {
+      if (!(event.target as Element | null)?.closest('.side-switch, .side-switch-menu')) setSideMenu(false)
+    }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSideMenu(false) }
+    window.addEventListener('resize', updateMenuPos)
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('resize', updateMenuPos)
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [sideMenu, updateMenuPos])
 
   // The console is dark, always. Her plan page is the only writer of
   // `data-theme`; if a stray poke ever leaves one on <html>, the ground
   // silently stops matching. Strip it on mount.
   useEffect(() => { document.documentElement.removeAttribute('data-theme') }, [])
-
-  // Landing on a page in a closed group opens that group, so the page being
-  // looked at is never hidden from the rail that led to it.
-  useEffect(() => {
-    setOpenGroups((current) => {
-      const active = GROUPS.find((group) => group.items.some((item) => item.href === pathname))
-      if (!active || current[active.id]) return current
-      return { ...current, [active.id]: true }
-    })
-  }, [pathname])
 
   // Below the rail's breakpoint it is a drawer. Tracked here, not read in the
   // click handler, so the menu can describe what it is toggling — and so
@@ -122,7 +129,7 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
   }, [])
 
   // The drawer closes with the page it led to, and with Escape.
-  useEffect(() => { setMobileNav(false) }, [pathname])
+  useEffect(() => { setMobileNav(false); setSideMenu(false) }, [pathname])
   useEffect(() => {
     if (!mobileNav) return
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileNav(false) }
@@ -150,63 +157,72 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="console shell" data-nav={navOpen} data-mnav={mobileNav}>
+    <div className="console shell" data-nav={navOpen} data-mnav={mobileNav} data-side={shownSide} data-flush={pathname === '/inbox' || undefined}>
       <aside className="side" id="console-nav">
         <div className="side-inner">
-          <Link href="/" className="side-brand" aria-label="Gosian Media — console home">
-            <img src="/gosian-logo.png" alt="Gosian Media" width={76} height={30} />
-          </Link>
-
-          <nav className="side-nav" aria-label="Sections">
-            <Link href="/" className="nav-row" data-on={pathname === '/'}
-              aria-current={pathname === '/' ? 'page' : undefined}
-              onClick={() => setMobileNav(false)}>
-              <span className="nav-icon"><Icon name="home" /></span>
-              <span className="nav-label">Home</span>
+          <div className="side-top">
+            <Link href="/" className="side-brand" aria-label="Gosian Media — console home">
+              <img src="/gosian-logo.png" alt="Gosian Media" width={76} height={30} />
             </Link>
 
-            {GROUPS.map((group) => {
-              const open = openGroups[group.id] === true
-              const on = group.items.some((item) => item.href === pathname)
-              return (
-                <div className="nav-group" data-open={open} key={group.id}>
-                  <button type="button" className="nav-row nav-group-head" data-on={on}
-                    aria-expanded={open}
-                    onClick={() => setOpenGroups((current) => ({ ...current, [group.id]: !open }))}>
-                    <span className="nav-icon">
-                      {group.mark ? <PlatformIcon platform={group.mark} size={17} /> : <Icon name={group.icon} />}
-                    </span>
-                    <span className="nav-label">{group.label}</span>
-                    <span className="nav-chev"><Icon name="chevron" size={14} /></span>
-                  </button>
+            <div className="side-switch" data-open={sideMenu || undefined}>
+              <button type="button" className="side-switch-trigger" ref={triggerRef}
+                aria-haspopup="menu" aria-expanded={sideMenu}
+                onClick={toggleMenu}>
+                <span>Switch</span>
+                <span className="side-switch-chev"><Icon name="swap" size={13} /></span>
+              </button>
+            </div>
+          </div>
 
-                  {open && (
-                    <div className="nav-sub">
-                      {group.items.map((item) => {
-                        const itemOn = item.href === pathname
-                        return (
-                          <Link key={item.href} href={item.href} className="nav-row nav-sub-row"
-                            data-on={itemOn} aria-current={itemOn ? 'page' : undefined}
-                            onClick={() => setMobileNav(false)}>
-                            <span className="nav-icon"><Icon name={item.icon} size={16} /></span>
-                            <span className="nav-label">{item.label}</span>
-                            {item.href === '/queue' && queued > 0 && <b className="nav-badge">{queued}</b>}
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div className="side-find">
+            <NavSearch />
+          </div>
+
+          <nav className="side-nav" aria-label="Sections">
+            {shownTab.sections.map((section) => (
+              <div className="side-sect" key={section.id}>
+                <span className="side-sect-label">{section.label}</span>
+                {section.items.map((item) => {
+                  const on = isOn(item.href, pathname)
+                  return (
+                    <Link key={item.href} href={item.href} className="nav-row"
+                      data-on={on} aria-current={on ? 'page' : undefined}
+                      onClick={() => setMobileNav(false)}>
+                      <span className="nav-icon">
+                        {item.mark
+                          ? <PlatformIcon platform={item.mark} size={15} />
+                          : item.icon ? <Icon name={item.icon} size={16} /> : null}
+                      </span>
+                      <span className="nav-label">{item.label}</span>
+                      {item.href === '/queue' && queued > 0 && <b className="nav-badge">{queued}</b>}
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
+
+            <div className="side-sect side-sect-tail">
+              <Link href={SETTINGS_LEAF.href} className="nav-row"
+                data-on={pathname === SETTINGS_LEAF.href}
+                aria-current={pathname === SETTINGS_LEAF.href ? 'page' : undefined}
+                onClick={() => setMobileNav(false)}>
+                <span className="nav-icon"><Icon name={SETTINGS_LEAF.icon ?? 'settings'} size={16} /></span>
+                <span className="nav-label">{SETTINGS_LEAF.label}</span>
+              </Link>
+            </div>
           </nav>
 
           <div className="side-foot">
             <div className="side-user">
-              <span className="side-user-avatar" aria-hidden>GM</span>
+              <span className="side-user-avatar" aria-hidden>
+                {(me?.name ?? me?.email ?? 'GM').slice(0, 2).toUpperCase()}
+              </span>
               <span className="side-user-copy">
-                <span className="side-user-name">Gosian</span>
-                <span className="side-user-role">Console</span>
+                <span className="side-user-name">{me?.name ?? me?.email ?? 'Gosian'}</span>
+                <span className="side-user-role">
+                  {me?.role ? (me.role === 'ceo' ? 'CEO' : me.role.replace(/^./, (letter) => letter.toUpperCase())) : 'Console'}
+                </span>
               </span>
             </div>
 
@@ -221,6 +237,28 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
       {mobileNav && (
         <button type="button" className="side-scrim" aria-label="Close navigation"
           onClick={() => setMobileNav(false)} />
+      )}
+
+      {/* The switcher menu lives outside the rail (Geno, 2026-10-13): the
+          rail clips its children, and this one drops below the button,
+          extending right over the page. Kept mounted after the first open so
+          the close fade can run; position is measured off the button. */}
+      {menuMounted && (
+        <div className="side-switch-menu" role="menu" aria-label="Switch console side"
+          data-open={sideMenu || undefined}
+          style={{ top: menuPos.top, left: menuPos.left }}>
+          {TABS.map((tab) => (
+            <button key={tab.id} type="button" role="menuitem"
+              className="side-switch-option" data-on={tab.id === shownSide || undefined}
+              onClick={() => chooseSide(tab.id)}>
+              <img src="/gosian-logo.png" alt="" className="side-switch-logo" />
+              <span className="side-switch-body">
+                <span className="side-switch-tag">{tab.label}</span>
+                <span className="side-switch-note">{tab.note}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="shell-main">
@@ -272,7 +310,12 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
           </div>
         </header>
 
-        <main className="page">
+        {/* Keyed to the route so the page-in animation runs on navigation —
+            the element remounts, everything inside it is the new page anyway
+            (2026-10-13). The Video Batcher's tools share one key: its layout
+            must stay mounted between them, or the loaded files and the queue
+            would die with every tool switch (2026-10-13). */}
+        <main key={pathname.startsWith('/video-batcher') ? 'video-batcher' : pathname} className={pathname === '/inbox' ? 'page page-flush' : 'page'}>
           {children}
         </main>
       </div>

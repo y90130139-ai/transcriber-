@@ -6,7 +6,7 @@ const others = ['Blair Banks', 'Nina Dolci', 'Rey Rey Marie', 'Ivy Fox', 'Sophia
 
 test('an ordinary reminder passes', () => {
   assert.deepEqual(draftProblems("Hi Magnus! Quick reminder to film today's 3 cards from your plan 🎬", 'Magnus', others), [])
-  assert.deepEqual(draftProblems('Your plan: https://transcriber-ten-zeta.vercel.app/p/abc', 'Magnus', others), [])
+  assert.deepEqual(draftProblems('Your plan: https://plan.gosianmedia.com/p/abc', 'Magnus', others), [])
 })
 
 test('never says we edit her videos', () => {

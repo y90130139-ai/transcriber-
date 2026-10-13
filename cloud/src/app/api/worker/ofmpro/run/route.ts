@@ -60,23 +60,37 @@ export async function POST(request: Request) {
   }
 
   // ------------------------------------------------------- mirrored files
-  const updates = Array.isArray(body.updates) ? body.updates.slice(0, 200) : []
-  let marked = 0
+  const updates = Array.isArray(body.updates) ? body.updates.slice(0, 1_000) : []
+  const unique = new Map<string, { platform: string; media_id: string; r2_key: string; bytes: number | null }>()
   for (const update of updates) {
     const platform = typeof update.platform === 'string' && RESP.has(update.platform) ? update.platform : null
     const mediaId = typeof update.media_id === 'string' ? update.media_id : null
     const key = typeof update.r2_key === 'string' && update.r2_key.length > 0 ? update.r2_key.slice(0, 400) : null
     if (!platform || !mediaId || !key) continue
     const bytes = typeof update.bytes === 'number' && Number.isFinite(update.bytes) ? Math.trunc(update.bytes) : null
-    const done = await sql.query(
-      `update transcriber.ofmpro_media
-          set r2_key = coalesce(r2_key, $3), r2_bytes = coalesce(r2_bytes, $4), downloaded_at = now()
-        where platform = $1 and media_id = $2
-        returning media_id`,
-      [platform, mediaId, key, bytes],
-    )
-    if (done.length > 0) marked += 1
+    unique.set(`${platform}\0${mediaId}`, { platform, media_id: mediaId, r2_key: key, bytes })
   }
 
-  return NextResponse.json({ marked })
+  const normalized = [...unique.values()]
+  if (normalized.length === 0) return NextResponse.json({ marked: 0 })
+  const marked = await sql.query(
+    `with uploaded as (
+       select x.platform, x.media_id, x.r2_key, x.bytes
+         from jsonb_to_recordset($1::jsonb) as x(
+           platform text, media_id text, r2_key text, bytes bigint
+         )
+     )
+     update transcriber.ofmpro_media as media
+        set r2_key = coalesce(media.r2_key, uploaded.r2_key),
+            r2_bytes = coalesce(media.r2_bytes, uploaded.bytes),
+            downloaded_at = now()
+       from uploaded
+      where media.platform = uploaded.platform
+        and media.media_id = uploaded.media_id
+        and media.r2_key is null
+      returning media.media_id`,
+    [JSON.stringify(normalized)],
+  )
+
+  return NextResponse.json({ marked: marked.length })
 }

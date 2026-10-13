@@ -175,11 +175,11 @@ export const CONFIDENCE_LABEL: Record<RequirementConfidence, string> = {
 }
 
 export const CONFIDENCE_NOTE: Record<RequirementConfidence, string> = {
-  verified: 'The same bounds held across three or more collection passes',
-  high: 'Thirty or more surviving posters sampled',
-  medium: 'Fifteen or more surviving posters sampled',
-  low: 'A few surviving posters — a hint, not a gate',
-  insufficient: 'Fewer than five profiled survivors; nothing estimated yet',
+  verified: 'Bounds held across 3+ passes',
+  high: '30+ survivors sampled',
+  medium: '15+ survivors sampled',
+  low: 'Few survivors',
+  insufficient: 'Not enough samples',
 }
 
 /** Days the estimator wants between a post being sampled and its survival

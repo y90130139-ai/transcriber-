@@ -10,6 +10,7 @@ import { groupBySetup } from '@/lib/effort'
 import MakeItYours from './MakeItYours'
 import SetupProfile from './SetupProfile'
 import { cleanStyle } from '@/lib/portal-style'
+import { STYLE_LABEL, type ContentStyle } from '@/lib/styles'
 import { bucketOf, type PlanBucket } from '@/lib/plan-buckets'
 import { CAROUSEL_PLAN, STORY_PROMPTS } from '@/lib/card'
 import { contentLines } from '@/lib/plan-contents'
@@ -259,6 +260,21 @@ export default function PlanView({
   // in one sitting returns null and keeps the shape it always had.
   const setups = useMemo(() => groupBySetup(visible), [visible])
 
+  // The CD brief's own sections (Geno, 2026-10-12): cards the Add card panel
+  // tagged with a content style read in the brief's order — Format reels,
+  // Omegle, Talking, Picture posts — first card to last, exactly as planned.
+  // A pile with no tagged cards keeps the setup/location shape it had.
+  const styleSections = useMemo(() => {
+    if (!visible.some((item) => item.style)) return null
+    const order: ContentStyle[] = ['format', 'omegle', 'talking', 'posts']
+    const sections: { key: string; label: string; items: PlanItem[] }[] = order
+      .map((key) => ({ key, label: STYLE_LABEL[key], items: visible.filter((item) => item.style === key) }))
+      .filter((section) => section.items.length > 0)
+    const rest = visible.filter((item) => !item.style)
+    if (rest.length > 0) sections.push({ key: 'more', label: 'More', items: rest })
+    return sections
+  }, [visible])
+
   // Grouping only turns on once somewhere has actually been named. A pile with
   // no locations set renders exactly the flat list it always has.
   const groups = useMemo(() => groupByLocation(visible), [visible])
@@ -267,7 +283,7 @@ export default function PlanView({
   // Cards arrive as she scrolls to them. The ref goes on the body rather than
   // on each list, so a grouped week staggers across its groups in reading
   // order instead of restarting the count at every location bar.
-  const body = useReveal<HTMLDivElement>([items.length, grouped, setups !== null, view])
+  const body = useReveal<HTMLDivElement>([items.length, grouped, setups !== null, styleSections !== null, view])
 
   function moveToCantDo(item: PlanItem, code: DeclineCode, reason: string) {
     setCantDo((current) => new Map(current).set(item.id, { code, reason: reason || null }))
@@ -607,6 +623,25 @@ export default function PlanView({
               <span>Tap &ldquo;I&rsquo;ll do this&rdquo; on the ideas you like and they land here.</span>
             </div>
           )
+        ) : styleSections ? (
+          /* The week in the plan's own format: one section per content style
+             in the brief's order, cards first to last. */
+          styleSections.map((section, sectionIndex) => (
+            <section className="plan-group" key={section.key} aria-label={section.label}>
+              <h2 className="plan-group-bar">
+                <span className="plan-group-name">
+                  <span className="plan-group-no">{String(sectionIndex + 1).padStart(2, '0')}</span>
+                  {section.label}
+                </span>
+                <span className="plan-group-count">
+                  {section.items.length} video{section.items.length === 1 ? '' : 's'}
+                </span>
+              </h2>
+              <ol className="plan-items">
+                {section.items.map((item) => card(item, ideas.indexOf(item) + 1))}
+              </ol>
+            </section>
+          ))
         ) : setups ? (
           /* Batched by how it gets filmed: one phone setup, several videos.
              The first sitting is the quickest and says so — the fastest way

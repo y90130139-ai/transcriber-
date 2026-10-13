@@ -393,6 +393,16 @@ export default function PlanItemCard({
         </div>
       )}
 
+      {/* The team's own words for this card (Geno, 2026-10-13): a Notes block
+          near the top, before the steps — whatever was typed shows here,
+          exactly as written. */}
+      {item.notes_to_model && (
+        <div className="plan-card-notes">
+          <span className="plan-label">Notes</span>
+          <p className="plan-notes">{item.notes_to_model}</p>
+        </div>
+      )}
+
       {item.slot_time && item.slot_day !== null && (
         <p className="plan-when">
           <span>Post {DAYS[item.slot_day % DAYS.length]} at {item.slot_time}</span>
@@ -513,6 +523,18 @@ export default function PlanItemCard({
         </Step>
       )}
 
+      {/* Film it off, the Direction stays (2026-10-13): the switch hides the
+          filming steps, never her instructions — the console promises "the
+          Direction box below is what she reads", and on a written card (a
+          talking reel above all) that box IS the whole assignment. Without
+          this the switch silently sent her an empty card. */}
+      {filming && !film && item.notes && (
+        <div className="plan-direction">
+          <span className="plan-label">Direction</span>
+          <p className="plan-notes">{item.notes}</p>
+        </div>
+      )}
+
       {film && !shotList && (
         <Step no={++step} title="Film it">
           {/* The brief is the loud part. What she keeps, what she changes and
@@ -553,6 +575,22 @@ export default function PlanItemCard({
             </div>
           </details>
         </Step>
+      )}
+
+      {/* A format card's versions as fields (Geno, 2026-10-13): her one card,
+          several outfits — what changes each time, in her own list. */}
+      {item.versions && item.versions.length > 1 && (
+        <div className="plan-versions">
+          <span className="plan-label">Versions</span>
+          <ul>
+            {item.versions.map((version, at) => (
+              <li key={at}>
+                <b>Version {at + 1}</b>
+                <span>{[version.outfit, version.caption].filter(Boolean).join(' · ')}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {film && !shotList && (item.hook || hasWords || (scaffold && scaffold.beats.length > 1)) && (

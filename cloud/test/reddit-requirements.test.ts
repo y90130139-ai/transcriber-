@@ -134,7 +134,7 @@ const row = (patch: Partial<RequirementRow>): RequirementRow => ({
   avg_total_karma: null, confirmations: 0, confidence: 'insufficient',
   bot_bouncer: 'unknown', bot_bouncer_source: null, bot_bouncer_checked_at: null,
   first_collected_at: null, last_collected_at: null, about_at: null, next_due_at: null,
-  last_error: null, consecutive_failures: 0, source: 'seed',
+  last_error: null, consecutive_failures: 0, source: 'seed', discovered_via: null,
   ...patch,
 })
 

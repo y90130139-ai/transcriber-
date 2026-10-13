@@ -77,6 +77,10 @@ export type RosterModel = Model & {
    *  columns existed; her sheet's own reads replace them a moment later. */
   readings: CardReading[] | null
   posts_count: number
+  /** Her app account, carried so the grid can say "app · invited/active"
+   *  without a request per card (2026-10-12). Null when she has none, or when
+   *  the account store could not be read — both render as no line at all. */
+  app_account?: { email: string; status: 'invited' | 'active' | 'disabled'; lastLoginAt: string | null } | null
 }
 
 export type PlanSummary = {
@@ -103,6 +107,9 @@ export type PlanHead = {
   sent_at: string | null
   /** How many reels THIS week wants; null falls back to `weekly_target`. */
   target?: number | null
+  /** How many of each content style the week wants (lib/styles.ts). Null on
+   *  every week planned before the Add content composer existed. */
+  style_targets?: Record<string, number> | null
   model_name: string
   access_token: string
   token_revoked_at: string | null
@@ -146,12 +153,18 @@ export type PlanMessageRow = {
 export type PlanItemRow = {
   /** What kind of job it is on her card — see cardKind in lib/card.ts. */
   bucket?: 'reskin' | 'iteration' | 'test' | 'repurpose' | 'custom' | null
+  /** The content-style lane it was added under — format / talking / omegle /
+   *  posts (lib/styles.ts). Null on cards added before the composer. */
+  style?: string | null
   source_post?: string | null
   /** Where the card came from — the mixed-source tag (lib/source.ts). Null
    *  derives from the bucket, so render through `sourceOf`. */
   source?: string | null
   /** A reskin's one line: what changes from the reference. */
   twist?: string | null
+  /** A format card's versions as fields (lib/styles.ts) — what changes each
+   *  time. Null on cards written before versions became a column. */
+  versions?: { outfit: string; caption: string }[] | null
   /** Per-card switches: filming directions and automated captions, each
    *  hideable from her card before the week goes out. */
   hide_film?: boolean | null
@@ -176,6 +189,9 @@ export type PlanItemRow = {
   item_title: string | null
   location: string | null
   notes: string | null
+  /** Free words for the model's card (Geno, 2026-10-13) — its own block on
+   *  her page, separate from the Direction. Never machine-written. */
+  notes_to_model?: string | null
   editing_notes: string | null
   editor_id?: string | null
   /** Phase 3. The brief as discrete fields; null falls back to `notes`. */
@@ -204,6 +220,11 @@ export type PlanItemRow = {
   r2_bytes: number | null
   uploaded_at: string | null
   r2_purged_at: string | null
+  /** Her filmed take, uploaded from the app to R2 (2026-10-12). */
+  take_key: string | null
+  take_bytes: number | null
+  take_duration_sec: number | null
+  take_uploaded_at: string | null
   author: string | null
   title: string | null
   webpage_url: string | null
@@ -221,9 +242,12 @@ export type UploadState = 'ready' | 'waiting' | 'fetching' | 'no-video' | 'purge
 /** Whether this item is actually available on her phone, which is the one thing
  *  worth knowing before a link is sent. */
 export function uploadStateOf(item: PlanItemRow): UploadState {
-  // A written / custom card — directions ARE the card. A cover job_id may
-  // still sit on it for the frame in the console; that is not a Mac upload.
-  if (!item.job_id || item.bucket === 'custom') return 'written'
+  // A written card with nothing behind it — directions ARE the card. A card
+  // WITH a job_id now carries a real reference video (the composer attaches
+  // the German playbook's own video, 2026-10-13) and the worker uploads it to
+  // R2 like any other, so it is read like any other: "On R2", "Waiting on the
+  // Mac" — not "nothing to watch" while a video sits on it.
+  if (!item.job_id) return 'written'
   if (item.uploaded_at) return 'ready'
   if (item.r2_purged_at) return 'purged'
   if (!item.folder) {
@@ -276,6 +300,9 @@ export type ModelFit = {
 export type Suggestion = {
   id: string
   author: string | null
+  /** The job's label — a German playbook reference's own name, shown when
+   *  there is no author to show instead. */
+  label?: string | null
   duration_sec: number | null
   upload_date: string | null
   outperformance: number | null

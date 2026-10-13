@@ -19,17 +19,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
   const { platform } = await params
   if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
 
-  const rows = await sql.query(
-    `select media_id, shortcode, post_url, posted_at, caption, media_type, slides,
-            view_count, like_count, comment_count, score, username, nickname, followers,
-            audio, raw_url, mirror_url, r2_key,
-            to_char((min(posted_at) over ())::date, 'YYYY-MM-DD') as win_from,
-            to_char((max(posted_at) over ())::date, 'YYYY-MM-DD') as win_to
-       from transcriber.ofmpro_media
-      where platform = $1
-      order by score desc nulls last, posted_at desc`,
-    [platform],
-  )
+  const [rows, [tagged]] = await Promise.all([
+    sql.query(
+      `select media_id, shortcode, post_url, posted_at, caption, media_type, slides,
+              view_count, like_count, comment_count, score, username, nickname, followers,
+              audio, raw_url, mirror_url, r2_key,
+              to_char((min(posted_at) over ())::date, 'YYYY-MM-DD') as win_from,
+              to_char((max(posted_at) over ())::date, 'YYYY-MM-DD') as win_to
+         from transcriber.ofmpro_media
+        where platform = $1
+          and unavailable_at is null
+        order by score desc nulls last, posted_at desc`,
+      [platform],
+    ),
+    sql.query(
+      `select count(*)::int as unavailable
+         from transcriber.ofmpro_media
+        where platform = $1
+          and unavailable_at is not null`,
+      [platform],
+    ),
+  ])
 
   const config = ofmproR2Config()
   const mirrored = (key: unknown): string | null =>
@@ -85,6 +95,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       rows: items.length,
       unique: items.length,
       duplicates: 0,
+      unavailable: Number(tagged?.unavailable ?? 0),
       totals,
       items,
     },
@@ -119,8 +130,35 @@ async function probeMedia(url: string, platform: string): Promise<ProbeResult> {
   }
 }
 
+/** Mark a preview the player could not open. No probe, no delete — scrolling
+ *  stays on the feed instead of waiting on a database cleanup. */
+export async function PATCH(request: Request, { params }: { params: Promise<{ platform: string }> }) {
+  if (!(await isSignedIn()) && !isWorker(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+  const { platform } = await params
+  if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
+
+  const body = await request.json().catch(() => null) as { mediaId?: unknown } | null
+  const mediaId = typeof body?.mediaId === 'string' ? body.mediaId.trim() : ''
+  if (!mediaId || mediaId.length > 256) {
+    return NextResponse.json({ error: 'mediaId is required' }, { status: 400 })
+  }
+
+  const tagged = await sql.query(
+    `update transcriber.ofmpro_media
+        set unavailable_at = coalesce(unavailable_at, now()),
+            updated_at = now()
+      where platform = $1 and media_id = $2
+      returning media_id`,
+    [platform, mediaId],
+  )
+  return NextResponse.json({ tagged: tagged.length > 0 })
+}
+
 /** Remove a row only after its saved R2 copy and every recorded source fail a
- *  small range probe. Transient/ambiguous network failures are retained. */
+ *  small range probe. Transient/ambiguous network failures are retained.
+ *  `?unavailable=1` is the explicit purge of rows already tagged unavailable. */
 export async function DELETE(request: Request, { params }: { params: Promise<{ platform: string }> }) {
   if (!(await isSignedIn()) && !isWorker(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -128,7 +166,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ p
   const { platform } = await params
   if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
 
-  const mediaId = new URL(request.url).searchParams.get('mediaId')?.trim()
+  const url = new URL(request.url)
+  if (url.searchParams.get('unavailable') === '1') {
+    const deleted = await sql.query(
+      `delete from transcriber.ofmpro_media
+        where platform = $1 and unavailable_at is not null
+        returning media_id`,
+      [platform],
+    )
+    return NextResponse.json({ deleted: deleted.length })
+  }
+
+  const mediaId = url.searchParams.get('mediaId')?.trim()
   if (!mediaId || mediaId.length > 256) {
     return NextResponse.json({ error: 'mediaId is required' }, { status: 400 })
   }

@@ -30,12 +30,16 @@ import { topicsForTitle, recurringBigrams } from './keywords'
 import { alertCollector, computeTopicMetrics, detectSubredditSpikes } from './engine'
 import { getSettings, saveSettings } from './settings'
 import { estimateRequirements, postsPerDay, JUDGE_AFTER_HOURS, type SamplePoint } from './requirements'
-import { acceptCandidate, nextKeywords } from './discovery'
+import { acceptCandidate, nextKeywords, splitDiscoveryBudget } from './discovery'
 import {
+  addScannedProgress,
   applySampleOutcomes,
   authorsMissingProfiles,
+  beginDiscoveryRun,
   claimRequirementJobs,
+  communitiesDueForContentScan,
   countDiscoveryRequestsToday,
+  countRequirementSubreddits,
   enqueueDueRequirementJobs,
   existingSampleIds,
   fillSampleProfiles,
@@ -45,6 +49,7 @@ import {
   getProfiles,
   getRequirementSubreddit,
   insertDiscoveredSubreddits,
+  markContentScanned,
   markRequirementAbout,
   markRequirementCollected,
   markRequirementFailure,
@@ -57,6 +62,7 @@ import {
   saveDiscoveryRun,
   saveProfile,
   seedRequirementSubreddits,
+  syncDiscoveredSubreddit,
   type SampleInsert,
 } from './requirementStore'
 import {
@@ -809,13 +815,17 @@ async function collectRequirementOne(
     })
   }
 
-  await judgeSamples(client, subreddit, state)
   const sampled = await sampleNewPosts(client, settings, subreddit, state)
   state.samples_new += sampled.inserted
+  // Judging after sampling means a community's newest page can both produce
+  // samples and pass judgement in one pass: the posts already older than the
+  // judge window are resolved before the run closes, so a FIRST pass can
+  // estimate instead of every community waiting an interval for its second.
+  // Anything too young for AutoMod's queue is judged on the next pass.
+  await judgeSamples(client, subreddit, state)
   // A profile fetched for this pass's authors may have been missing for
   // samples taken in earlier passes; their rows get the stats now.
   await fillSampleProfiles(subreddit).catch(() => 0)
-
   const fresh = await getRequirementSubreddit(subreddit)
   const points: SamplePoint[] = (await samplesForEstimate(subreddit, settings.retention_days))
     .map((sample) => ({
@@ -963,7 +973,10 @@ export type DiscoveryRunSummary = {
   keywords: number
   candidates: number
   added: number
+  scanned: number
+  posts: number
   requests: number
+  errors: number
   remaining: number | null
 }
 
@@ -979,7 +992,8 @@ export async function collectDiscovery(
   opts: { trigger?: 'cron' | 'manual'; budget?: number } = {},
 ): Promise<DiscoveryRunSummary> {
   const empty: DiscoveryRunSummary = {
-    run_id: null, state: 'skipped', keywords: 0, candidates: 0, added: 0, requests: 0, remaining: null,
+    run_id: null, state: 'skipped', keywords: 0, candidates: 0, added: 0,
+    scanned: 0, posts: 0, requests: 0, errors: 0, remaining: null,
   }
 
   if (!redditConfigured()) return { ...empty, reason: 'not-configured' }
@@ -1033,32 +1047,64 @@ export async function collectDiscovery(
   })
 
   let cursor = (await getDiscoveryState()).keyword_index
+  const pagesPerKeyword = Math.min(10, Math.max(1, settings.discovery_pages_per_keyword))
+  // Stamp before the first request: the due-guard reads this, so a scheduler
+  // firing mid-drain cannot start a second sweep.
+  await beginDiscoveryRun(cursor)
   try {
-    while (client.stats().requests < budget) {
-      const { keywords, nextCursor } = nextKeywords(cursor, 1)
-      const keyword = keywords[0]
-      cursor = nextCursor
+    // The budget splits between hunting and scanning; once the board reaches
+    // the operator's cap, hunting stops and every request scans content.
+    const boardCount = await countRequirementSubreddits()
+    const split = splitDiscoveryBudget(
+      budget,
+      boardCount,
+      settings.discovery_max_communities,
+      settings.content_scan_percent,
+    )
+    if (split.content > 0) {
+      await contentSweep(client, settings, state, split.content)
+    }
+    if (split.search > 0) {
+      while (client.stats().requests < budget) {
+        const step = nextKeywords(cursor, 1)
+        const keyword = step.keywords[0]
+        let after: string | null = null
+        for (let page = 0; page < pagesPerKeyword && client.stats().requests < budget; page += 1) {
+          const payload: { data: { children: SubredditChild[]; after?: string | null } } =
+            await client.get<{ data: { children: SubredditChild[]; after?: string | null } }>(
+            '/subreddits/search',
+            {
+              q: keyword,
+              include_over_18: 'on',
+              limit: LISTING_LIMIT,
+              raw_json: 1,
+              ...(after ? { after, count: page * LISTING_LIMIT } : {}),
+            },
+          )
+          state.keywords += 1
 
-      const payload = await client.get<{ data: { children: SubredditChild[] } }>(
-        '/subreddits/search',
-        { q: keyword, include_over_18: 'on', limit: LISTING_LIMIT, raw_json: 1 },
-      )
-      state.keywords += 1
+          const found: { name: string; subscribers: number | null; over18: boolean; via: string }[] = []
+          for (const child of payload.data?.children ?? []) {
+            if (child.kind !== 't5' || !child.data?.display_name) continue
+            const candidate = {
+              name: child.data.display_name,
+              subscribers: typeof child.data.subscribers === 'number' ? child.data.subscribers : null,
+              over18: Boolean(child.data.over18),
+              description: typeof child.data.public_description === 'string' ? child.data.public_description : null,
+            }
+            if (!acceptCandidate(candidate, settings.discovery_min_subscribers)) continue
+            found.push({ name: candidate.name, subscribers: candidate.subscribers, over18: candidate.over18, via: keyword })
+          }
+          state.candidates += found.length
+          if (found.length) state.added += (await insertDiscoveredSubreddits(found.slice(0, 200))).length
 
-      const found: { name: string; subscribers: number | null; over18: boolean; via: string }[] = []
-      for (const child of payload.data?.children ?? []) {
-        if (child.kind !== 't5' || !child.data?.display_name) continue
-        const candidate = {
-          name: child.data.display_name,
-          subscribers: typeof child.data.subscribers === 'number' ? child.data.subscribers : null,
-          over18: Boolean(child.data.over18),
-          description: typeof child.data.public_description === 'string' ? child.data.public_description : null,
+          after = payload.data?.after ?? null
+          if (!after) break
         }
-        if (!acceptCandidate(candidate, settings.discovery_min_subscribers)) continue
-        found.push({ name: candidate.name, subscribers: candidate.subscribers, over18: candidate.over18, via: keyword })
+        cursor = step.nextCursor
+        // Progress stamp: the cursor survives a crash and the claim stays held.
+        await beginDiscoveryRun(cursor)
       }
-      state.candidates += found.length
-      if (found.length) state.added += (await insertDiscoveredSubreddits(found.slice(0, 200))).length
     }
   } catch (error) {
     if (error instanceof RedditCircuitError) {
@@ -1084,22 +1130,132 @@ export async function collectDiscovery(
 
   state.requests = client.stats().requests
   state.remaining = client.stats().remaining
+  if (state.state === 'done' && state.errors > 0) state.state = 'partial'
   await saveDiscoveryRun({
     keywordIndex: cursor,
     checked: state.requests,
     added: state.added,
+    // Scans were already counted one by one (addScannedProgress); passing 0
+    // keeps the day's tally from double-counting this pass.
+    scanned: 0,
     note: state.reason ?? null,
   }).catch(() => null)
   await finishRun(runId, {
     state: state.state === 'skipped' ? 'done' : state.state,
     requests: state.requests,
     mentions: 0,
-    errors: state.state === 'failed' ? 1 : 0,
+    errors: state.errors,
     remaining: state.remaining,
     note: state.reason ?? null,
-    detail: { budget, keywords: state.keywords, candidates: state.candidates, added: state.added },
+    detail: {
+      budget, keywords: state.keywords, candidates: state.candidates,
+      added: state.added, scanned: state.scanned, posts: state.posts,
+    },
   })
   return state
+}
+
+/**
+ * The content phase: scan board communities' /new pages so their posts feed
+ * the topic engine (and, through it, Topics and Trending Now). Each scanned
+ * community is mirrored into the trend registry as a disabled row — the
+ * adult-scope reads and the engine see it; the trend queue does not.
+ */
+async function contentSweep(
+  client: RedditClient,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  state: DiscoveryRunSummary,
+  contentBudget: number,
+): Promise<void> {
+  const titles: string[] = []
+  while (client.stats().requests < contentBudget) {
+    const remaining = contentBudget - client.stats().requests
+    const targets = await communitiesDueForContentScan(Math.min(8, remaining))
+    if (!targets.length) break
+
+    for (const target of targets) {
+      if (client.stats().requests >= contentBudget) break
+      try {
+        const payload = await client.get<{ data: { children: ListingChild[] } }>(
+          `/r/${target.id}/new`,
+          { limit: LISTING_LIMIT, raw_json: 1 },
+        )
+        const seen: PostUpsert[] = []
+        const seenIds = new Set<string>()
+        for (const child of payload.data?.children ?? []) {
+          if (child.kind !== 't3' || !child.data?.id || seenIds.has(child.data.id)) continue
+          seenIds.add(child.data.id)
+          const mapped = mapPost(child, target.id, 'new')
+          seen.push(mapped)
+          titles.push(mapped.title)
+        }
+
+        const capturedAt = new Date().toISOString()
+        if (seen.length) {
+          const result = await upsertPosts(seen)
+          await writePostSnapshots(capturedAt, seen.map((post) => ({
+            id: post.id, score: post.score, comments: post.comments,
+          })))
+          const mentions: MentionUpsert[] = []
+          for (const post of seen) {
+            for (const hit of topicsForTitle(post.title)) {
+              mentions.push({
+                topic_id: hit.topic_id,
+                post_id: post.id,
+                subreddit: target.id,
+                author: post.author,
+                matched: hit.matched,
+                weight: hit.weight,
+                mentioned_at: capturedAt,
+              })
+            }
+          }
+          await recordMentions(mentions)
+          state.posts += seen.length
+          await writeSubredditSnapshot({
+            subreddit: target.id,
+            capturedAt,
+            subscribers: target.subscribers,
+            activeUsers: null,
+            postsSeen: seen.length,
+            postsNew: result.inserted.length,
+            engagement: seen.reduce((total, post) => total + (post.score ?? 0) + (post.comments ?? 0), 0),
+          }).catch(() => null)
+        }
+
+        await syncDiscoveredSubreddit(target)
+        await markContentScanned(target.id, seen.length)
+        state.scanned += 1
+        // The day's tally moves with every scan, not just at pass end.
+        await addScannedProgress(1).catch(() => null)
+      } catch (error) {
+        if (error instanceof RedditCircuitError || error instanceof RedditAuthError
+          || error instanceof RedditBudgetError || error instanceof RedditQuotaError
+          || error instanceof RedditCapError) {
+          throw error
+        }
+        state.errors += 1
+        if (error instanceof RedditHttpError) {
+          const verdict = classifyAboutFailure(error.status, error.body)
+          await markRequirementFailure(target.id, verdict).catch(() => null)
+        }
+      }
+    }
+  }
+
+  // Derived topics and the trend maths, once per sweep that scanned
+  // anything — the same bookkeeping the trend collector runs.
+  if (state.scanned > 0) {
+    try {
+      const phrases = recurringBigrams(titles, 4, 12)
+      if (phrases.length) await upsertDerivedTopics(phrases)
+      await computeTopicMetrics()
+      await detectSubredditSpikes()
+    } catch {
+      // Bookkeeping must never fail a sweep; the readings that landed are
+      // still worth keeping.
+    }
+  }
 }
 
 /* ------------------------------------------------------ profile lookup */

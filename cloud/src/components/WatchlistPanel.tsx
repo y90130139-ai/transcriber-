@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import type { WatchlistData, WatchlistCounts, WatchlistSuggested, WatchlistWatched } from '@/lib/watchlist'
 
 /**
  * The watchlist, as a page you can run.
@@ -19,10 +20,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
  * rows with real buttons and a search, the add box in a side rail, and the
  * watched accounts finally visible below — the page used to be one flat wall
  * of seventy-five handles with no way to see what was actually being read.
+ *
+ * Now server-fed (2026-10-13): the page hands in `initial` from the same
+ * loadWatchlist() the route uses, so the first paint is the real list.
  */
-type Suggested = { handle: string; found_via: string | null; seen: number }
-type Watching = { handle: string; access: string | null; updated_at: string | null }
-type Counts = { watching: number; suggested: number; gated: number }
 
 const dateOf = (value: string | null) => {
   if (!value) return null
@@ -32,26 +33,25 @@ const dateOf = (value: string | null) => {
     : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function WatchlistPanel() {
-  const [suggested, setSuggested] = useState<Suggested[]>([])
-  const [watching, setWatching] = useState<Watching[]>([])
-  const [counts, setCounts] = useState<Counts | null>(null)
+export default function WatchlistPanel({ initial }: { initial: WatchlistData }) {
+  const [suggested, setSuggested] = useState<WatchlistSuggested[]>(initial.suggested)
+  const [watching, setWatching] = useState<WatchlistWatched[]>(initial.watching)
+  const [counts, setCounts] = useState<WatchlistCounts>(initial.counts)
   const [paste, setPaste] = useState('')
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [find, setFind] = useState('')
   const [findWatched, setFindWatched] = useState('')
 
+  /** After a mutation only — first paint never waits on this. */
   const load = useCallback(async () => {
     const response = await fetch('/api/creators/watchlist')
     if (!response.ok) return
     const body = await response.json()
     setSuggested(body.suggested ?? [])
     setWatching(body.watching ?? [])
-    setCounts(body.counts ?? null)
+    if (body.counts) setCounts(body.counts)
   }, [])
-
-  useEffect(() => { void load() }, [load])
 
   const send = useCallback(
     async (payload: { add?: string; dismiss?: string[] }) => {
@@ -91,25 +91,25 @@ export default function WatchlistPanel() {
     void send({ add: shownSuggested.map((one) => one.handle).join('\n') })
   }
 
-  const suggestedTotal = counts?.suggested ?? suggested.length
-  const watchingTotal = counts?.watching ?? watching.length
+  const suggestedTotal = counts.suggested
+  const watchingTotal = counts.watching
 
   return (
     <>
       <section className="dash-stats watch-stats" aria-label="Watchlist at a glance">
         <article className="dash-stat">
           <h3>Watching</h3>
-          <p className="dash-stat-value">{counts?.watching ?? '–'}</p>
+          <p className="dash-stat-value">{counts.watching}</p>
           <p className="dash-stat-note">read by the sweep every week</p>
         </article>
-        <article className="dash-stat" data-warn={counts && counts.gated > 0 ? 'true' : undefined}>
+        <article className="dash-stat" data-warn={counts.gated > 0 ? 'true' : undefined}>
           <h3>Need the burner</h3>
-          <p className="dash-stat-value">{counts?.gated ?? '–'}</p>
+          <p className="dash-stat-value">{counts.gated}</p>
           <p className="dash-stat-note">gated accounts the sweep cannot read yet</p>
         </article>
         <article className="dash-stat">
           <h3>Suggested</h3>
-          <p className="dash-stat-value">{counts?.suggested ?? '–'}</p>
+          <p className="dash-stat-value">{counts.suggested}</p>
           <p className="dash-stat-note">picked up from reels — say watch or no</p>
         </article>
       </section>

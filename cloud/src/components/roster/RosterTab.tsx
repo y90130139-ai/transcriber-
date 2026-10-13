@@ -267,6 +267,11 @@ export default function RosterTab({
                 </span>
               )}
               {model.handle && <span className="model-name">@{model.handle}</span>}
+              {model.app_account ? (
+                <span className="model-name" title={`App account: ${model.app_account.email}`}>
+                  App · {model.app_account.status === 'active' ? 'active' : model.app_account.status === 'disabled' ? 'disabled' : 'invited'}
+                </span>
+              ) : null}
 
               <SweepFlags row={sweepFor(model.id)} />
 

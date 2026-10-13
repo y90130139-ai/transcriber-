@@ -118,8 +118,17 @@ export async function PUT(request: Request) {
     if (body.discovery_per_pass !== undefined) {
       patch.discovery_per_pass = clamp(Number(body.discovery_per_pass), 1, 500, DEFAULT_SETTINGS.discovery_per_pass)
     }
+    if (body.discovery_pages_per_keyword !== undefined) {
+      patch.discovery_pages_per_keyword = clamp(Number(body.discovery_pages_per_keyword), 1, 10, DEFAULT_SETTINGS.discovery_pages_per_keyword)
+    }
     if (body.discovery_min_subscribers !== undefined) {
       patch.discovery_min_subscribers = clamp(Number(body.discovery_min_subscribers), 0, 1_000_000, DEFAULT_SETTINGS.discovery_min_subscribers)
+    }
+    if (body.discovery_max_communities !== undefined) {
+      patch.discovery_max_communities = clamp(Number(body.discovery_max_communities), 0, 100_000, DEFAULT_SETTINGS.discovery_max_communities)
+    }
+    if (body.content_scan_percent !== undefined) {
+      patch.content_scan_percent = clamp(Number(body.content_scan_percent), 0, 100, DEFAULT_SETTINGS.content_scan_percent)
     }
     if (body.rate_cooldown_until !== undefined) {
       const value = body.rate_cooldown_until

@@ -18,7 +18,7 @@ const TRACKING_PARAMS = new Set([
   'utm_campaign', 'utm_content', 'utm_term', 'ig_mid', 'img_index',
 ])
 
-const SUPPORTED_HOSTS = /(instagram\.|tiktok\.|youtube\.|youtu\.be|facebook\.|twitter\.|x\.com|vimeo\.)/i
+const SUPPORTED_HOSTS = /(instagram\.|tiktok\.|youtube\.|youtu\.be|facebook\.|twitter\.|x\.com|vimeo\.|threads\.)/i
 
 // Instagram serves one post at several paths — /reel/, /reels/, /p/ and /tv/ —
 // and a shortcode belongs to exactly one post, so they all collapse to /reel/.
@@ -73,6 +73,7 @@ export function platformOf(url: string): string {
   if (lowered.includes('tiktok.')) return 'tiktok'
   if (lowered.includes('youtube.') || lowered.includes('youtu.be')) return 'youtube'
   if (lowered.includes('facebook.')) return 'facebook'
+  if (lowered.includes('threads.')) return 'threads'
   if (lowered.includes('x.com') || lowered.includes('twitter.')) return 'x'
   return 'web'
 }

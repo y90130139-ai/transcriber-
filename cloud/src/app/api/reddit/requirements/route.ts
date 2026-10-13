@@ -48,6 +48,8 @@ export async function GET(request: Request) {
         settings.discovery_enabled,
         settings.discovery_daily_cap,
         settings.discovery_min_subscribers,
+        settings.discovery_max_communities,
+        settings.content_scan_percent,
       ),
       settings: {
         requirements_enabled: settings.requirements_enabled,

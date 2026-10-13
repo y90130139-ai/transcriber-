@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (username.length < 2) return NextResponse.json({ error: 'Enter a username' }, { status: 400 })
     const profile = await fetchRequirementProfile(username)
     if (!profile) {
-      return NextResponse.json({ error: `No data for u/${username} — the account may not exist` }, { status: 404 })
+      return NextResponse.json({ error: `No data for u/${username}` }, { status: 404 })
     }
     return NextResponse.json({ profile })
   } catch (error) {

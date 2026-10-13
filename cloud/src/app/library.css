@@ -565,6 +565,11 @@
   text-align: left;
   cursor: pointer;
   font: inherit;
+  /* Four hundred covers: only the rows near the viewport are rendered
+     (2026-10-13). `auto` remembers a seen card's height so scrolling does
+     not shift as the grid fills in. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
   color: inherit;
 }
 .creator-card-frame {
@@ -2754,6 +2759,36 @@ button.wk-pat-row:hover .wk-pat-label { color: var(--sc-ember-deep); }
   font-size: 0.75rem;
   color: #A8A29A;
 }
+
+/* Add-to-plan on a top performer (Geno, 2026-10-13): one quiet button that
+   opens the same two questions the assign rail asks, right where the winning
+   reel was found — no trip to the Library and the plan editor. */
+.creatordialog .addplan-open {
+  margin-top: var(--sc-space-2);
+  border: 1px solid #33302C;
+  border-radius: 8px;
+  background: transparent;
+  color: #EDE9E3;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+.creatordialog .addplan-open:hover { border-color: var(--sc-ember); color: var(--sc-ember-light); }
+.creatordialog .addplan { margin-top: var(--sc-space-2); display: grid; gap: 6px; }
+.creatordialog .addplan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.creatordialog .addplan-row .msel-trigger { min-width: 8.5rem; }
+.creatordialog .addplan-x {
+  border: 0;
+  background: transparent;
+  color: #6B6660;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.creatordialog .addplan-x:hover { color: #EDE9E3; }
 .creatordialog-make {
   display: grid;
   gap: var(--sc-space-3);

@@ -36,7 +36,7 @@ anywhere — the phone included — and dump links into. It holds a queue; this 
 does the transcribing.
 
 ```bash
-./bin/setup-cloud https://your-app.vercel.app   # once
+./bin/setup-cloud https://plan.gosianmedia.com   # once
 ./bin/worker                                    # leave running
 ```
 

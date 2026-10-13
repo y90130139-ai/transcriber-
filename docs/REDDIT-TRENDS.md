@@ -19,7 +19,6 @@ route handler; the console reads only cached database aggregates.
 | `REDDIT_CLIENT_SECRET` | yes | Reddit app secret — server-side only |
 | `REDDIT_USER_AGENT` | no | Descriptive UA; a safe default is built from `REDDIT_CONTACT` |
 | `REDDIT_CONTACT` | no | Contact string used in the default User-Agent |
-| `REDDIT_REDIRECT_URI` | no | Enables the optional "connect a Reddit account" flow on the requirements board (must exactly match the redirect URI registered on the Reddit app; the app already answers both `<origin>/api/auth/reddit/callback` — what this deployment names today — and `/api/reddit/oauth?action=callback`) |
 
 Nothing else changes. Without the credentials the collector reports
 `not-configured` and the Settings page shows the setup checklist; the rest
@@ -192,18 +191,47 @@ AutoMod-filtered ones after — each linking to the real post.
 
 **Bot Bouncer.** Bot Bouncer is a mod tool — a Reddit Dev Platform app that
 bans bot-like accounts from the communities where it is installed. Reddit
-exposes no install list; the only public signal is the app's own account in
-the community's moderator list, so that is what the check reads. Reddit
-refuses `/about/moderators` to app-only tokens (403 even with `*` scope,
-verified live), and scraping is off the table. The honest path is the
-optional **Connect Reddit account** flow (authorization code, `read` scope,
-`permanent` for a refresh token; stored server-side in
-`reddit.oauth_account`): the requirements pass then reads each due
-community's mod list, up to 10 per pass, TTL 7 days, writing
-`bot_bouncer = yes|no` with its source. No account connected → **Unknown**,
-and the "With / Without Bot Bouncer" filters exclude unknowns — they never
-guess. The consent URL lives in `client.ts` with the other endpoints, so the
-centralized-gateway test still holds.
+exposes no install list to app-only tokens (the moderator-list endpoint
+returns 403 even with `*` scope, verified live; the public moderator page is
+a JavaScript shell; the mod log is mod-only). The board therefore never
+guesses: the Bot Bouncer badge starts as **Unknown** and is set by the
+operator with a click (unknown → installed → no), from what they see in
+practice or from their own sources. The With / Without filters act on set
+values only — unknowns stay out of both.
+
+**The daily NSFW discovery sweep.** The board expands itself: every day
+(when due, at most once per 20 hours from any scheduler) a sweep spends up
+to **1,000 requests** — its own allowance (`discovery_daily_cap`) — on two
+jobs, split by the settings:
+
+1. **Hunting** — `/subreddits/search` pages over a rotating ~150-keyword
+   list (`lib/reddit/discovery.ts`), always `include_over_18=on`, following
+   up to `discovery_pages_per_keyword` pages per keyword. A result is
+   accepted only when it is genuinely adult-facing (Reddit's own over-18
+   flag, or an unmistakable adult token in the name/description) and has at
+   least `discovery_min_subscribers` subscribers; accepted communities land
+   as `source = 'discovered'` with the keyword that found them, `pending`,
+   and the requirements queue samples them from there.
+2. **Scanning** — the same posts fetch the trend collector uses (`/new`),
+   run per board community in a fair rotation (oldest scan first), upserted
+   into `reddit_posts`, topics extracted into `topic_mentions`, snapshots
+   written — so the topics and trends pages read from every community the
+   board knows. Each scanned community is mirrored into
+   `tracked_subreddits` as a **disabled** `discovered` row: every
+   adult-scope read and the topic engine see it, the trend queue does not
+   (the content sweep is its collector).
+
+While the board is below `discovery_max_communities` (default 500), only
+`content_scan_percent` (default 50) of each sweep goes to scanning and the
+rest hunts. **Once the cap is reached, hunting stops entirely and every
+discovery request becomes a content scan** — the operator's "stop finding
+subreddits, focus on topics and trends" point. The allowance is counted from
+the usage log (a restart cannot reset it), every request still passes the
+shared client's pacing and the global daily cap, and the sweep stops cleanly
+on the circuit breaker. `Find new` on the board runs one sweep on demand;
+`?job=discover`, `npm run reddit:pull -- --discover` and
+`npm run reddit:pull -- --drain` (passes until the day's allowance is spent)
+do the same from a scheduler.
 
 **The board's own controls.** u/ search reads one account and flags, per row,
 whether it clears the measured bounds (pure `eligibility()` in the browser;
@@ -261,8 +289,9 @@ phrases from adult communities use the same adult-creator topic category.
 | Engine | `cloud/src/lib/reddit/engine.ts`, `metrics.ts` |
 | Reads for pages | `cloud/src/lib/reddit/queries.ts`, `store.ts` |
 | Requirements estimator (pure) | `cloud/src/lib/reddit/requirements.ts` |
+| NSFW discovery planning (pure) | `cloud/src/lib/reddit/discovery.ts` |
 | Requirements tables + queue | `cloud/src/lib/reddit/requirementStore.ts` |
-| Requirements API | `cloud/src/app/api/reddit/requirements/*`, `cloud/src/app/api/reddit/lists`, `cloud/src/app/api/reddit/oauth` |
+| Requirements API | `cloud/src/app/api/reddit/requirements/*`, `cloud/src/app/api/reddit/lists` |
 | API routes | `cloud/src/app/api/reddit/*`, `cloud/src/app/api/cron/reddit` |
 | UI | `cloud/src/components/reddit/*`, `cloud/src/app/(console)/reddit-trends/*`, `cloud/src/app/reddit.css` |
 | Tests | `cloud/test/reddit-*.test.ts` |
@@ -270,17 +299,11 @@ phrases from adult communities use the same adult-creator topic category.
 ## Remaining external steps
 
 1. Register the Reddit app and record the credentials in Vercel.
-2. For the requirements board's Bot Bouncer column: make sure the Reddit
-   app registers the redirect URI `REDDIT_REDIRECT_URI` names (this
-   deployment: `<origin>/api/auth/reddit/callback`; the app answers it and
-   `/api/reddit/oauth?action=callback` identically), then click **Connect
-   Reddit account** on the Requirements page (or in Settings). Read scope
-   only; without it the column honestly reads *unknown*.
-3. Tick the attestations in Settings; run **Validate queue** to prove each
+2. Tick the attestations in Settings; run **Validate queue** to prove each
    community actually exists and is readable (18 starter communities, one
    request each).
-4. Decide the adult-category question explicitly: the gate stays closed
+3. Decide the adult-category question explicitly: the gate stays closed
    until the attestation is ticked.
-5. Point a frequent scheduler at `/api/cron/reddit?k=$CRON_SECRET` for the
+4. Point a frequent scheduler at `/api/cron/reddit?k=$CRON_SECRET` for the
    sub-daily cadence (optional but recommended); each pass also advances the
-   requirements board under its own budget.
+   requirements board and fires the daily discovery sweep when due.

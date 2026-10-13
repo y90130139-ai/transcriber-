@@ -12,8 +12,8 @@ import { r2KeyFor } from './r2'
  *  models at a time is then about 720 MB, permanently inside R2's free tier. */
 export const R2_RETENTION_DAYS = 21
 
-/** Few enough that a poll stays quick; the queue drains over a minute or two. */
-const UPLOAD_BATCH = 3
+/** Library/plan copies are the priority over exploratory platform-feed mirrors. */
+const UPLOAD_BATCH = 50
 const DELETE_BATCH = 20
 
 export type PendingUpload = { id: string; folder: string; key: string }

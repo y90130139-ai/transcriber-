@@ -6,6 +6,7 @@
 //   npm run reddit:pull -- 20                  # collect with an explicit request budget
 //   npm run reddit:pull -- --requirements      # requirements board pass only
 //   npm run reddit:pull -- --discover          # NSFW discovery sweep only
+//   npm run reddit:pull -- --drain             # discovery passes until the daily allowance is spent
 //   npm run reddit:pull -- --no-requirements --no-discovery   # trend collection only
 //
 // The collector itself enforces the rate-limit rules (one request at a
@@ -39,6 +40,23 @@ if (wants('test')) {
 }
 
 const settings = await getSettings()
+
+if (wants('drain')) {
+  // Back-to-back sweeps until the day's discovery allowance is spent or the
+  // rate guards stop the run. Each pass re-reads the allowance from the
+  // usage log, so a restart cannot overspend; pacing is the shared client's.
+  let totalRequests = 0
+  let totalAdded = 0
+  for (let pass = 1; pass <= 12; pass += 1) {
+    const result = await collectDiscovery({ trigger: 'cron', budget: 200 })
+    totalRequests += result.requests ?? 0
+    totalAdded += result.added ?? 0
+    console.log(`pass ${pass}: state=${result.state}${result.reason ? ` reason=${result.reason}` : ''} requests=${result.requests ?? 0} added=${result.added ?? 0} scanned=${result.scanned ?? 0} posts=${result.posts ?? 0} · totals ${totalRequests} requests, ${totalAdded} added`)
+    if ((result.requests ?? 0) === 0) break
+    if (['discovery-cap', 'daily-cap', 'hourly-cap', 'guard-failed', 'rate-cooldown', 'paused', 'emergency-stop', 'discovery-disabled', 'not-configured'].includes(result.reason)) break
+  }
+  process.exit(0)
+}
 
 if (wants('discover') && !wants('requirements') && !wants('validate')) {
   const result = await collectDiscovery({ trigger: 'cron', budget: budget ?? settings.discovery_per_pass })

@@ -1,7 +1,7 @@
 // node --import ./cloud/test/ts-resolve.mjs --test cloud/test/german.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanBrief } from '../src/lib/german'
+import { GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanBrief, germanVersionRows } from '../src/lib/german'
 
 test('six types, 57 formats, matching the source doc', () => {
   assert.equal(GERMAN_TYPES.length, 6)
@@ -52,4 +52,35 @@ test('the brief reads as directions, versions, caption', () => {
 test('the doubled source number survives as 58b', () => {
   assert.ok(findGerman('58'))
   assert.ok(findGerman('58b'))
+})
+
+test('the doc versions string becomes one row per version, marker stripped', () => {
+  const rows = germanVersionRows('V1 bra · V2 tight low-cut top · V3 bikini top')
+  assert.deepEqual(rows.map((row) => row.outfit), ['bra', 'tight low-cut top', 'bikini top'])
+  const ranges = germanVersionRows('V1–4 bedroom · V5–7 bathroom, back to camera, over-shoulder top removal')
+  assert.equal(ranges.length, 2)
+  assert.equal(ranges[0].outfit, 'bedroom')
+  assert.match(ranges[1].outfit, /^bathroom/)
+})
+
+test('a versions line that names no outfit does not become a wardrobe', () => {
+  for (const none of ['Single version', 'Two takes', 'V1 / V2 same as reference']) {
+    const rows = germanVersionRows(none)
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].outfit, '')
+  }
+  // A combo line is the doc's own words and stays whole.
+  const combos = germanVersionRows('7 combos: shower or bedroom selfie × dishes / shaker')
+  assert.deepEqual(combos, [{ outfit: '7 combos: shower or bedroom selfie × dishes / shaker', caption: '' }])
+  // "as reference" among real versions reads as a wardrobe line, not a gap.
+  const mixed = germanVersionRows('V1 as reference · V2 couch, new outfit · V3 in bed')
+  assert.deepEqual(mixed.map((row) => row.outfit), ['Same as the reference', 'couch, new outfit', 'in bed'])
+})
+
+test('every german format yields rows the composer can land', () => {
+  for (const format of GERMAN_FORMATS) {
+    const rows = germanVersionRows(format.versions)
+    assert.ok(rows.length >= 1 && rows.length <= 8, `#${format.no}`)
+    for (const row of rows) assert.equal(row.caption, '')
+  }
 })

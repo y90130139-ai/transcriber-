@@ -5,7 +5,8 @@ the existing cloud fallback route. It does not scrape Instagram by default.
 When explicitly enabled after a one-account Railway egress test, it runs the
 same browser reader on the existing daily/weekly cadence only.
 
-Required Railway variables: CLOUD_URL, WORKER_SECRET. Optional: DISCORD_WEBHOOK,
+Required Railway variables: WORKER_SECRET. CLOUD_URL defaults to the
+canonical origin, https://plan.gosianmedia.com. Optional: DISCORD_WEBHOOK,
 ENABLE_INSTAGRAM_SCRAPING (defaults false), SCRAPE_TIMEZONE (defaults New York).
 """
 from __future__ import annotations
@@ -115,10 +116,10 @@ def _run_scrape(now: dt.datetime) -> None:
 
 
 def main() -> None:
-    base = os.environ.get("CLOUD_URL", "").strip()
+    base = os.environ.get("CLOUD_URL", "https://plan.gosianmedia.com").strip()
     secret = os.environ.get("WORKER_SECRET", "").strip()
     if not base or not secret:
-        raise SystemExit("Railway requires CLOUD_URL and WORKER_SECRET")
+        raise SystemExit("Railway requires WORKER_SECRET")
 
     _prepare_runtime()
 

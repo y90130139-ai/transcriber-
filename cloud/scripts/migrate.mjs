@@ -1353,6 +1353,11 @@ const statements = [
      on transcriber.ofmpro_media (platform, posted_at desc)`,
   `create index if not exists ofmpro_media_platform_score
      on transcriber.ofmpro_media (platform, score desc nulls last)`,
+  // A preview the player could not open. Tagged here, deleted only when
+  // someone asks — never while the feed is scrolling.
+  `alter table transcriber.ofmpro_media add column if not exists unavailable_at timestamptz`,
+  `create index if not exists ofmpro_media_unavailable
+     on transcriber.ofmpro_media (platform) where unavailable_at is not null`,
 
   // One row per worker pass: the window it asked for and what came back, so a
   // quiet day on the feeds has an answer in the data rather than a shrug.
@@ -1699,6 +1704,15 @@ const statements = [
   `alter table reddit.requirement_subreddits add constraint requirement_subreddits_source_check
      check (source in ('seed','manual','discovered'))`,
   `alter table reddit.requirement_subreddits add column if not exists discovered_via text`,
+  `alter table reddit.requirement_subreddits add column if not exists content_scanned_at timestamptz`,
+  `alter table reddit.requirement_subreddits add column if not exists content_posts integer`,
+  // The trend registry learned a third source: communities the discovery
+  // sweep found. They are synced in disabled (the content sweep collects
+  // them; the trend queue stays out of their way) but visible to every
+  // adult-scope read, which is what lets their posts feed the topic engine.
+  `alter table reddit.tracked_subreddits drop constraint if exists tracked_subreddits_source_check`,
+  `alter table reddit.tracked_subreddits add constraint tracked_subreddits_source_check
+     check (source in ('seed','manual','discovered'))`,
   `create index if not exists reddit_reqsub_due_idx
      on reddit.requirement_subreddits (enabled, next_due_at)`,
   `create index if not exists reddit_reqsub_category_idx
@@ -1795,15 +1809,138 @@ const statements = [
      day           date,
      checked_today integer not null default 0,
      added_today   integer not null default 0,
+     scanned_today integer not null default 0,
      note          text,
      updated_at    timestamptz not null default now()
    )`,
+  `alter table reddit.discovery_state add column if not exists scanned_today integer not null default 0`,
 
   // The requirements collector records its runs in the same table as the
   // trend collector, under its own trigger values.
   `alter table reddit.collector_runs drop constraint if exists collector_runs_trigger_check`,
   `alter table reddit.collector_runs add constraint collector_runs_trigger_check
      check (trigger in ('cron','manual','validation','requirements','discovery'))`,
+
+  // The CD brief's content styles (2026-10-12): which lane a card belongs to
+  // (format / talking / omegle / posts) and how many of each the week wants.
+  // Additive — cards added before the composer keep a null style, count as
+  // none of the lanes, and every older screen reads exactly as it did.
+  `alter table transcriber.plan_items add column if not exists style text`,
+  `alter table transcriber.plans add column if not exists style_targets jsonb`,
+
+  // Her take, filmed on the phone and landed in Cloudflare R2 (2026-10-12).
+  // One take per card at a stable key; a re-record replaces it in place.
+  `alter table transcriber.plan_items
+     add column if not exists take_key text,
+     add column if not exists take_bytes bigint,
+     add column if not exists take_duration_sec real,
+     add column if not exists take_uploaded_at timestamptz`,
+  // …and what kind of take it was (2026-10-12): a filmed clip or a photo.
+  `alter table transcriber.plan_items add column if not exists take_kind text`,
+
+  // Her app's push tokens (2026-10-12): one row per device, the token is the
+  // identity, so signing in again on the same phone updates in place.
+  `create table if not exists transcriber.model_devices (
+     id          text primary key,
+     model_id    text not null,
+     token       text not null unique,
+     platform    text,
+     created_at  timestamptz not null default now(),
+     last_seen_at timestamptz not null default now()
+   )`,
+  `create index if not exists model_devices_model_idx on transcriber.model_devices (model_id)`,
+
+  // The team inbox (2026-10-12): threads between the team and their models,
+  // plus group chats mixing both. Team member ids live in Supabase;
+  // `member_type` says which world an id belongs to, and `seen_at` is what
+  // unread counts from.
+  `create table if not exists transcriber.threads (
+     id              text primary key,
+     title           text,
+     created_by      text,
+     created_at      timestamptz not null default now(),
+     updated_at      timestamptz not null default now(),
+     last_message_at timestamptz
+   )`,
+  `create table if not exists transcriber.thread_members (
+     thread_id    text not null references transcriber.threads(id) on delete cascade,
+     member_type  text not null check (member_type in ('model','team')),
+     member_id    text not null,
+     display_name text,
+     seen_at      timestamptz,
+     added_at     timestamptz not null default now(),
+     primary key (thread_id, member_type, member_id)
+   )`,
+  `create index if not exists thread_members_member_idx on transcriber.thread_members (member_type, member_id)`,
+  `create table if not exists transcriber.thread_messages (
+     id              text primary key,
+     thread_id       text not null references transcriber.threads(id) on delete cascade,
+     author_type     text not null check (author_type in ('model','team')),
+     author_id       text,
+     author_name     text,
+     body            text not null default '',
+     attachment_key  text,
+     attachment_type text,
+     attachment_name text,
+     created_at      timestamptz not null default now()
+   )`,
+  `create index if not exists thread_messages_thread_idx on transcriber.thread_messages (thread_id, created_at)`,
+  // Mute is per thread - the team shares one seen state (lib/inbox.ts), so
+  // muting is a property of the thread, not of one seat. `edited_at` lets
+  // the console mark an edited message without a second table (2026-10-13).
+  `alter table transcriber.threads add column if not exists muted boolean not null default false`,
+  `alter table transcriber.thread_messages add column if not exists edited_at timestamptz`,
+  // Deleted messages stay as a tombstone ("You deleted this message") — the
+  // body and attachment go, the place in the timeline stays (2026-10-13).
+  `alter table transcriber.thread_messages add column if not exists deleted_at timestamptz`,
+  // Deleting a chat is per seat: a hide, never a real delete. A message
+  // newer than hidden_at brings the thread back for that seat (2026-10-13).
+  `create table if not exists transcriber.thread_hides (
+     thread_id   text not null references transcriber.threads(id) on delete cascade,
+     member_type text not null check (member_type in ('model','team')),
+     member_id   text not null,
+     hidden_at   timestamptz not null default now(),
+     primary key (thread_id, member_type, member_id)
+   )`,
+  // Groups (Geno, 2026-10-13): a name and a picture of their own, system
+  // notes in the stream ("Geno has been added"), and mute per model seat.
+  `alter table transcriber.threads add column if not exists photo_key text`,
+  `alter table transcriber.thread_messages add column if not exists kind text not null default 'user'`,
+  `alter table transcriber.thread_members add column if not exists muted boolean not null default false`,
+  // A format card's versions as fields, not prose (Geno, 2026-10-13): one
+  // entry per version — { outfit, caption } — shown on the card row, editable
+  // in the editor, and rendered on her page. Cards written before this keep
+  // their bullets in `notes`; scripts/backfill-versions.mjs lifts them in.
+  `alter table transcriber.plan_items add column if not exists versions jsonb`,
+  // Reactions on a message (2026-10-13): one per member per message — a tap
+  // again removes it, a different emoji replaces it, WhatsApp-style. The
+  // bubble shows the tally; `mine` is computed per viewer.
+  `create table if not exists transcriber.thread_reactions (
+     message_id  text not null references transcriber.thread_messages(id) on delete cascade,
+     thread_id   text not null references transcriber.threads(id) on delete cascade,
+     member_type text not null check (member_type in ('model','team')),
+     member_id   text not null,
+     emoji       text not null,
+     created_at  timestamptz not null default now(),
+     primary key (message_id, member_type, member_id)
+   )`,
+  `create index if not exists thread_reactions_thread_idx on transcriber.thread_reactions (thread_id)`,
+  // Reply and forward (2026-10-13): a message may quote the one it answers,
+  // and a forwarded copy keeps the original's words and its "Forwarded" mark.
+  `alter table transcriber.thread_messages add column if not exists reply_to_id text`,
+  `alter table transcriber.thread_messages add column if not exists forwarded boolean not null default false`,
+  // A card with a video is a reference, never a blank (2026-10-13): the
+  // custom-card route sourced anything without written directions 'blank',
+  // and blanks are hidden from the model — so link/wall cards sat invisible
+  // on live weeks. Same rule the route now writes, applied to what is
+  // already there. Truly blank cards (no video behind them) stay hidden.
+  `update transcriber.plan_items set source = 'reference'
+    where source = 'blank' and job_id is not null`,
+  // A Notes field per card, read by the model (Geno, 2026-10-13): free words
+  // the team wants on their card — separate from the drafted Direction and
+  // from the in-house editing notes, and shown on the content plan as they
+  // are typed. Never written by the drafter.
+  `alter table transcriber.plan_items add column if not exists notes_to_model text`,
 ]
 
 for (const statement of statements) {

@@ -302,7 +302,9 @@ export async function suggestionsFor(
     sql.query(
       `with ${SCORING_CTE}, ${ITEM_TAGS}
        select ranked.* from (
-         select j.id, t.author, t.duration_sec, t.upload_date,
+         -- j.label rides along so a German playbook reference reads as
+         -- "German #41 · Mirror Reward" in the rail, not as its job id.
+         select j.id, j.label, t.author, t.duration_sec, t.upload_date,
                 (t.thumbnail is not null) as has_thumb,
                 ${preview('t.plain', 150, 't.on_screen_text')} as preview,
                 round((s.score / nullif(b.median_score, 0))::numeric, 2)::float as outperformance,

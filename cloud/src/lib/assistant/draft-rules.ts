@@ -12,7 +12,7 @@ type Rule = { test: (text: string) => boolean; why: string }
 /** Links a draft may carry: a reel or post on Instagram, a TikTok video, her
  *  plan page. Anything else that looks like a link - with or without
  *  https:// (Telegram links bare domains too) - is refused. */
-const ALLOWED_LINK = /^(?:https?:\/\/)?(?:www\.)?(?:instagram\.com\/(?:reel|reels|p)\/[\w-]+\/?|tiktok\.com\/@[\w.]+\/video\/\d+\/?|transcriber-ten-zeta\.vercel\.app\/p\/[\w-]+(?:\/[\w-]*)?)$/i
+const ALLOWED_LINK = /^(?:https?:\/\/)?(?:www\.)?(?:instagram\.com\/(?:reel|reels|p)\/[\w-]+\/?|tiktok\.com\/@[\w.]+\/video\/\d+\/?|plan\.gosianmedia\.com\/p\/[\w-]+(?:\/[\w-]*)?)$/i
 const LINKISH = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/gi
 
 function badLink(t: string): boolean {

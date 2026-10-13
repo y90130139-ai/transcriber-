@@ -5,6 +5,7 @@ import { addDays, mondayOf, todayIn } from '@/lib/dates'
 import { sql } from '@/lib/db'
 import { archiveExpired } from '@/lib/expiry'
 import { collect } from '@/lib/reddit/collect'
+import { instagramAttentionAlerts } from '@/lib/performance/attention-job'
 import { ingestTrends } from '@/lib/trends'
 
 export const maxDuration = 60
@@ -16,6 +17,8 @@ export const maxDuration = 60
  * call carries both standing jobs and decides by weekday which is due:
  *
  *   Sunday   → draft every active model's week
+ *   Monday   → the week's Instagram cards for MODEL PERFORMANCE, one per
+ *               creator who needs attention
  *   Every day → archive library reels past 90 days (lib/expiry.ts)
  *
  * Both were launchd jobs on the Mac. They are the parts that must not miss a
@@ -40,6 +43,17 @@ export async function GET(request: Request) {
 
   if (force === 'autodraft' || (!force && day === 0)) {
     did.autodraft = await draftNextWeek()
+  }
+
+  // Monday: one Instagram card per creator who needs attention, slipped from
+  // Top performer or let her stories go — packed per creator, not per signal
+  // (Geno, 2026-10-11). Keyed by the Monday, so a retry writes nothing twice.
+  if (force === 'stories' || (!force && day === 1)) {
+    try {
+      did.instagram = await instagramAttentionAlerts()
+    } catch (error) {
+      did.instagram = { error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   // Every day: reels past 90 days leave the library, unless a model's own or

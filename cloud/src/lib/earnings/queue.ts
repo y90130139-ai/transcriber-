@@ -36,11 +36,13 @@ export async function botQueue() {
       where e.status = 'approved' and e.decided_at < now() - interval '${RETRY_AFTER_MIN} minutes'
       order by e.created_at limit 20`,
   )
-  const alerts = await sql.query(`select id, body from transcriber.earnings_alerts where posted_at is null order by created_at limit 20`)
+  // `audience` tells the bot who to tag in MODEL PERFORMANCE: 'money' (Paige,
+  // Geno, Marinko) or 'social' (Geno, Iona). Geno, 2026-10-10.
+  const alerts = await sql.query(`select id, body, audience from transcriber.earnings_alerts where posted_at is null order by created_at limit 20`)
   return {
     drafts: drafts.map(item),
     sends: sends.map(item),
-    alerts: alerts.map((a) => ({ id: String(a.id), body: String(a.body) })),
+    alerts: alerts.map((a) => ({ id: String(a.id), body: String(a.body), audience: a.audience === 'social' ? 'social' : 'money' })),
   }
 }
 

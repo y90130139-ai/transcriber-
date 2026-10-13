@@ -69,22 +69,37 @@ export function pickQuiet(fans: QuietFan[]): QuietFan[] {
   return out
 }
 
-/** The OPS post. Grouped by creator, biggest spenders first. */
-export function winbackText(fans: QuietFan[], monday: string): string | null {
-  if (fans.length === 0) return null
+const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+/** The OPS posts (Geno, 2026-10-09): one message per creator - a 💸 header
+ *  with her fans under it, so a chatter works one creator, then the next -
+ *  behind a short cover that says what the list is. Biggest spenders first.
+ *  Each message carries its own alert key, so a week that half-posted picks
+ *  up where it stopped instead of repeating. */
+export function winbackMessages(fans: QuietFan[], monday: string): { key: string; body: string }[] {
+  if (fans.length === 0) return []
   const byModel = new Map<string, QuietFan[]>()
   for (const f of fans) byModel.set(f.model_name, [...(byModel.get(f.model_name) ?? []), f])
   const order = [...byModel.entries()].sort((a, b) => b[1][0].spent - a[1][0].spent)
-  const lines = [
-    `💸 Win-back list, week of ${monday}`,
-    `Fans who spent ${money(WINBACK.minCents)}+ in the last ${WINBACK.lookbackDays} days and have gone quiet ${WINBACK.quietDays}+ days. Open the chat logged in as that creator.`,
-  ]
+  const out = [{
+    key: `winback:${monday}`,
+    body: [
+      `💸 Win-back list, week of ${monday}`,
+      `Fans who spent ${money(WINBACK.minCents)}+ in the last ${WINBACK.lookbackDays} days and have gone quiet ${WINBACK.quietDays}+ days — one message per creator below. Open each chat logged in as that creator.`,
+      '',
+      'Internal only. Never forward this to a creator.',
+    ].join('\n'),
+  }]
   for (const [name, list] of order) {
-    lines.push('', `${name}`)
-    for (const f of list) {
-      lines.push(`• ${tierOf(f.spent)} · ${money(f.spent)} · quiet ${f.quiet_days}d · fan ${f.fan_id} · https://onlyfans.com/my/chats/chat/${f.fan_id}`)
-    }
+    out.push({
+      key: `winback:${monday}:${slug(name)}`,
+      body: [
+        `💸 ${name}`,
+        ...list.map((f) => `• ${tierOf(f.spent)} · ${money(f.spent)} · quiet ${f.quiet_days}d · fan ${f.fan_id} · https://onlyfans.com/my/chats/chat/${f.fan_id}`),
+        '',
+        'Internal only. Never forward this to a creator.',
+      ].join('\n'),
+    })
   }
-  lines.push('', 'Internal only. Never forward this to a creator.')
-  return lines.join('\n')
+  return out
 }

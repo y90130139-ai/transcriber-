@@ -178,10 +178,19 @@ export async function winsInWeek(modelId: string, monday: string, sunday: string
   return Number(row?.n ?? 0)
 }
 
-export async function alert(key: string, body: string) {
+/**
+ * One OPS line for the bot, deduplicated by `key`.
+ *
+ * `audience` decides who the bot tags in MODEL PERFORMANCE (Geno, 2026-10-10):
+ * 'money' is Paige + Geno + Marinko and is what every earnings line is, while
+ * 'social' is Geno + Iona and carries the Instagram reads. The table is shared
+ * because the bot drains one queue; the column is what splits the tag lines.
+ */
+export async function alert(key: string, body: string, audience: 'money' | 'social' = 'money') {
   await sql.query(
-    `insert into transcriber.earnings_alerts (id, key, body) values ($1, $2, $3) on conflict (key) do nothing`,
-    [newId(), key, body],
+    `insert into transcriber.earnings_alerts (id, key, body, audience) values ($1, $2, $3, $4)
+       on conflict (key) do nothing`,
+    [newId(), key, body, audience],
   )
 }
 

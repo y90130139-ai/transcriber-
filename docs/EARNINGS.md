@@ -57,27 +57,45 @@ draft was made voids that draft.
 `earnings_accounts`, `earnings_days`, `earnings_messages`, `earnings_alerts` —
 see the end of `cloud/scripts/migrate.mjs`.
 
-## Added 2026-09-30 (second round)
+`earnings_alerts.audience` (2026-10-10) decides who the bot tags in its MODEL
+PERFORMANCE topic: `money` (Paige, Geno, Marinko) for everything out of
+Infloww, `social` (Geno, Iona) for the Instagram reads. It defaults to `money`,
+so every earlier row behaves exactly as it did. The table is shared because the
+bot drains one queue; the column is all that splits the tag lines.
 
-- **Monthly recap** (#6) on the 1st (retried the 2nd/3rd) and **milestones** (#5)
-  the morning after: beat her best month, a round figure no earlier month
-  reached, a new-subs count none did. "On record" = whole months we hold, never
-  fewer than two. `lib/earnings/monthly.ts`. OPS-approved like the rest.
-- **Reels and money** (#1), internal only: each posting day's best reel vs her
-  usual views, against her net that day and the next vs her usual two days.
-  Model → Earnings tab, and "Reels that moved money" on Dashboard → Earnings.
-  Timing, not proof. `lib/earnings/reels.ts`.
-- **Win-back list** (#11): Monday (retried Tue/Wed) OPS-only post of fans who
-  spent $500+ in 90 days and went quiet 14+ days, 5 per creator, 30 total.
-  **Fan IDs only** — `earnings_fan_days` has no name column; names (where chatters
-  write notes) are dropped in `infloww.ts`. Only accounts pulled cleanly that day
-  are listed. `lib/earnings/winback.ts`.
+## One card per creator, per division (2026-10-11)
 
-## Inactive models
+Geno's rule: everything the team needs about ONE creator arrives in ONE
+message. The only thing that splits her across two cards is the division,
+because different people act on them.
 
-Profile header → **Deactivate** (Unresponsive / Left / Other + note) or
-**Reactivate**. Sets `models.status = 'paused'` plus `inactive_reason`,
-`inactive_note`, `inactive_since`; the roster greys her out in an Inactive group.
-Everything portal-side already skips paused models, and the Gosian bot reads
-`/api/bot/inactive` to stop its marketing messages (invoices and birthdays
-continue). `lib/inactive.ts`, `api/models/[id]/active`.
+| Card | When | Tags |
+| --- | --- | --- |
+| **Instagram** | Monday, from `/api/cron/daily` (or `?job=stories`) | Geno + Iona (`social`) |
+| **OnlyFans** | Daily, from the earnings job | Geno + Paige + Marinko (`money`) |
+
+**Instagram** (`cloud/src/lib/performance/attention.ts`, job in
+`attention-job.ts`). A creator gets a card when any of these hold, and the card
+carries all of them at once:
+
+- the dashboard's own **Needs attention** tag — quiet 14+ days, trending down,
+  or posting under a quarter of her weekly target. Her reasons are
+  `attentionReasons()`'s own words, so the card and the portal never disagree
+- **slipped from Top performer** — she was `top` last week and is not now. No
+  single week's numbers show this, so last week's tag is kept in
+  `transcriber.model_standing` and read back
+- **stories under 50%** of the days Scout looked at (3 readings minimum)
+
+Cards are ordered slipped-from-top, then needs-attention, then the rest. Who
+kept stories up at 80%+ is one line of good news at the end — nobody to chase,
+so no card. A creator who is fine appears nowhere, and a week where nobody
+needs anything sends nothing.
+
+**OnlyFans** (`cloud/src/lib/earnings/job.ts`). Her lines collect through the
+per-model loop and go out as one `of:<model_id>:<date>` alert: accounts gone
+from Infloww, a failed pull, no Telegram group linked, a day down 25%+, a week
+down 25%+. These were five separate messages before.
+
+Thresholds and wording are pure and tested in `cloud/test/attention.test.ts`;
+`attention.ts` has no database import.
+

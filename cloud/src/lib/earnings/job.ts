@@ -16,7 +16,7 @@
  * EARNINGS_AUTOSEND=1.
  */
 import { addDays, dayOf, foldDays, startOfDay } from './days'
-import { foldFans, pickQuiet, winbackText } from './winback'
+import { foldFans, pickQuiet, winbackMessages } from './winback'
 import { firstOfMonth, lastOfMonth, milestoneText, milestonesFor, recapFor, recapText } from './monthly'
 import { BACKFILL_DAYS, isCurrent, nextWindow, windowEnd } from './window'
 import { listCreators, OutOfTime, transactions } from './infloww'
@@ -95,26 +95,33 @@ async function draftAll(today: string, result: RunResult) {
   // Monday (or Tue/Wed if Monday's run did not finish): big spenders gone
   // quiet, one OPS-only post per week. Never to a creator.
   if (weekday >= 1 && weekday <= 3) {
-    const text = winbackText(pickQuiet(await quietFans(today)), thisMonday)
-    if (text) {
-      await alert(`winback:${thisMonday}`, text)
-      result.alerts++
-    }
+    const winbacks = winbackMessages(pickQuiet(await quietFans(today)), thisMonday)
+    for (const m of winbacks) await alert(m.key, m.body)
+    result.alerts += winbacks.length
   }
 
   for (const r of await reportables()) {
     // Every account behind her must be connected and freshly, cleanly pulled,
     // or her numbers are partial — and partial numbers are never sent.
+    // Geno, 2026-10-11: everything about ONE creator arrives in ONE card, not
+    // a message per signal. Her lines collect here and go out together below.
+    const lines: string[] = []
+    const card = async () => {
+      if (!lines.length) return
+      await alert(`of:${r.model_id}:${today}`, [`💸 ${r.model_name} — OnlyFans`, ...lines].join('\n'))
+      result.alerts++
+    }
+
     const gone = r.accounts.filter((a) => a.missing_since)
     if (gone.length) {
-      await alert(`partial:${r.model_id}:${today}`, `⏸ ${r.model_name}: ${gone.map((a) => a.name).join(', ')} is gone from Infloww, so her reports are paused rather than sent on part of her money.`)
-      result.alerts++
+      lines.push(`   • ${gone.map((a) => a.name).join(', ')} is gone from Infloww, so her reports are paused rather than sent on part of her money.`)
+      await card()
       continue
     }
     const stale = r.accounts.filter((a) => !isCurrent(a, today))
     if (stale.length) {
-      await alert(`stale:${r.model_id}:${today}`, `⏸ ${r.model_name}: today's pull failed for ${stale.map((a) => a.name).join(', ')}${stale[0].pull_error ? ` (${stale[0].pull_error.slice(0, 120)})` : ''}. Nothing was drafted for her today.`)
-      result.alerts++
+      lines.push(`   • Today's pull failed for ${stale.map((a) => a.name).join(', ')}${stale[0].pull_error ? ` (${stale[0].pull_error.slice(0, 120)})` : ''}. Nothing was drafted for her today.`)
+      await card()
       continue
     }
     const historyStart = r.accounts.map((a) => a.first_day ?? today).sort().at(-1)!
@@ -124,15 +131,13 @@ async function draftAll(today: string, result: RunResult) {
     const floor = Math.max(...r.accounts.map((a) => a.win_floor_cents ?? RULES.winFloorCents))
 
     if (!r.chat_id) {
-      await alert(`nochat:${r.model_id}:${thisMonday}`, `📭 ${r.model_name} has earnings but no Telegram group linked, so nothing can be sent. Link her group in the portal.`)
-      result.alerts++
+      lines.push('   • 📭 She has earnings but no Telegram group linked, so nothing can be sent. Link her group in the portal.')
     }
 
     // Internal: a day down more than 25%.
     const drop = dayDrop(history, yesterday)
     if (drop) {
-      await alert(`daydrop:${r.model_id}:${yesterday}`, `📉 ${r.model_name}: ${money(drop.net)} net yesterday vs ${money(drop.prevNet)} the day before (${drop.change}%).`)
-      result.alerts++
+      lines.push(`   • 📉 ${money(drop.net)} net yesterday vs ${money(drop.prevNet)} the day before (${drop.change}%).`)
     }
 
     // Win note for yesterday, at most two a week.
@@ -183,9 +188,10 @@ async function draftAll(today: string, result: RunResult) {
         if (made) result.drafted.push(`weekly ${r.model_name}`)
       }
       if (n.dropAlert) {
-        await alert(`weekdrop:${r.model_id}:${lastMonday}`, `📉 ${r.model_name}: ${money(n.net)} net last week vs ${money(n.prevNet)} the week before (${n.change}%).`)
-        result.alerts++
+        lines.push(`   • 📉 ${money(n.net)} net last week vs ${money(n.prevNet)} the week before (${n.change}%).`)
       }
     }
+
+    await card()
   }
 }

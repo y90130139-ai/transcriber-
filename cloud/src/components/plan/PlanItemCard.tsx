@@ -403,6 +403,13 @@ export default function PlanItemCard({
         </div>
       )}
 
+      {item.editing_notes && (
+        <p className="plan-editing">
+          <span className="plan-label">Editing notes</span>
+          {item.editing_notes}
+        </p>
+      )}
+
       {item.slot_time && item.slot_day !== null && (
         <p className="plan-when">
           <span>Post {DAYS[item.slot_day % DAYS.length]} at {item.slot_time}</span>
@@ -481,9 +488,7 @@ export default function PlanItemCard({
       </Step>
       )}
 
-      {/* Editing notes are in-house now (Geno, 2026-10-07) — they live on
-          the editing team's page, never on hers. The payload strips them
-          too; this comment marks where they used to render. */}
+      {/* Editing notes appear on her card and the editor's worksheet. */}
 
       {/* Checked before she presses record, not after she has posted — the
           only moment any of it can still change the video. Folded (Geno,
@@ -546,13 +551,6 @@ export default function PlanItemCard({
             </div>
           ) : (
             <p className="plan-direction-lead">{rule.label}</p>
-          )}
-
-          {item.editing_notes && (
-            <p className="plan-editing">
-              <span className="plan-label">Editing</span>
-              {item.editing_notes}
-            </p>
           )}
 
           <details className="plan-transcript plan-tips">

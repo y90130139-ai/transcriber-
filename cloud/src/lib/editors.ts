@@ -1,8 +1,8 @@
 /**
- * The editing team (Geno, 2026-10-07): editing notes are in-house — the
- * model never sees them, the editors do. Each editor gets a token link,
+ * The editing team (Geno, 2026-10-07): each editor gets a token link,
  * exactly like a model's plan link: everything assigned to them, with the
- * notes and the files, no console login. Notifying is email when a Resend
+ * notes and the files, no console login. Editing notes are also visible on
+ * the creator's plan. Notifying is email when a Resend
  * key is on Vercel; without one, the console still hands over the link to
  * paste into Telegram — the ecosystem degrades, never blocks.
  */

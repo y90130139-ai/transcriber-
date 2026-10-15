@@ -4,10 +4,10 @@ import { cardsForEditor } from '@/lib/editors'
 export const dynamic = 'force-dynamic'
 
 /**
- * An editor's page (Geno, 2026-10-07): everything assigned to them that
- * carries an editing note — the note, the file, the model's folder —
+ * An editor's page (Geno, 2026-10-07): everything assigned to them — the
+ * editing note, the file, the model's folder —
  * behind a token link like a model's plan, no login. In-house notes live
- * here and only here; her page never shows them.
+ * here and on the creator-facing plan.
  */
 export default async function EditorPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params

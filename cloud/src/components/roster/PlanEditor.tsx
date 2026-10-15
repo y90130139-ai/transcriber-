@@ -2026,9 +2026,9 @@ export default function PlanEditor({
                         </div>
                         </details>
 
-                        <section className="cardsec cardsec-inhouse" aria-label="In-House for the Editor [NOT FOR THE MODEL]">
+                        <section className="cardsec cardsec-inhouse" aria-label="In-House for the Editor [EDITING NOTES SHOWN TO THE MODEL]">
                           <h4 className="cardsec-title cardsec-title-static">
-                            In-House for the Editor <em>[NOT FOR THE MODEL]</em>
+                            In-House for the Editor <em>[EDITING NOTES SHOWN TO THE MODEL]</em>
                           </h4>
                         <div className="cardsec-body">
                         <div className="form-row">

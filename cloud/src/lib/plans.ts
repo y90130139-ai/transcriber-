@@ -500,10 +500,8 @@ function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'r
 
 /** Everything her page renders, for one model. The token route and the app's
  *  session route both come through here — her week is assembled once, never
- *  twice, or the two surfaces drift.
- *
- *  Editing notes are in-house (Geno, 2026-10-07): stripped here — not just
- *  unrendered — so they are not sitting in her page's payload either. */
+ *  twice, or the two surfaces drift. Editing notes appear on her card and the
+ *  editor's worksheet; the editor assignment itself stays internal. */
 export async function loadPlanForModel(model: PlanModel): Promise<
   { model: PlanModel; plan: Plan; items: PlanItem[] } | null
 > {
@@ -511,7 +509,7 @@ export async function loadPlanForModel(model: PlanModel): Promise<
   if (!plan) return null
 
   const items = await planItemsFor(plan.id)
-  return { model, plan, items: items.map((item) => ({ ...item, editing_notes: null })) }
+  return { model, plan, items: items.map((item) => ({ ...item, editor_id: null })) }
 }
 
 /** Everything her page renders, for one token. */

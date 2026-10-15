@@ -39,13 +39,14 @@ export function EditorAssign({ itemId, editors, value, onChanged }: {
   value: string | null
   onChanged: () => void
 }) {
-  if (editors.length === 0) return null
+  const assigned = editors.some((editor) => editor.id === value) ? value ?? '' : ''
   return (
     <label className="editorassign">
       <span className="axis-name">Editor</span>
       <DropSelect
         label="Editor"
-        value={value ?? ''}
+        value={assigned}
+        disabled={editors.length === 0}
         onChange={(next) => {
           void fetch('/api/editors', {
             method: 'POST',

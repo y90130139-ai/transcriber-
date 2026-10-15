@@ -2026,8 +2026,10 @@ export default function PlanEditor({
                         </div>
                         </details>
 
-                        <details className="cardsec" aria-label="In-house">
-                          <summary className="cardsec-title">In-house <em>they never see this</em></summary>
+                        <section className="cardsec cardsec-inhouse" aria-label="In-House for the Editor [NOT FOR THE MODEL]">
+                          <h4 className="cardsec-title cardsec-title-static">
+                            In-House for the Editor <em>[NOT FOR THE MODEL]</em>
+                          </h4>
                         <div className="cardsec-body">
                         <div className="form-row">
                           <label className="axis-name" htmlFor={`editing-${item.id}`}>Editing notes</label>
@@ -2046,7 +2048,7 @@ export default function PlanEditor({
                         <EditorAssign itemId={item.id} editors={editors}
                           value={item.editor_id ?? null} onChanged={reloadEditors} />
                         </div>
-                        </details>
+                        </section>
 
                         {(item.post_url || unbound.length > 0 || item.webpage_url) && (
                         <details className="cardsec" aria-label="Delivery">

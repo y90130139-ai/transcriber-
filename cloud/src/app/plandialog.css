@@ -2128,6 +2128,8 @@
   font-size: 0.85rem;
   transition: transform var(--sc-dur-fast) var(--sc-ease);
 }
+.planmodal .cardsec-title-static { cursor: default; }
+.planmodal .cardsec-title-static::after { content: none; display: none; }
 .planmodal .cardsec:not([open]) .cardsec-title::after { transform: rotate(-90deg); }
 .planmodal .cardsec-title em,
 .planmodal .cardsec-hint {

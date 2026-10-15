@@ -34,7 +34,7 @@ export default async function EditorPage({ params }: { params: Promise<{ token: 
             <span>week of {card.week_of}</span>
           </h2>
           {card.title && <p className="editor-title">{card.title}</p>}
-          <p className="editor-notes">{card.notes}</p>
+          <p className="editor-notes">{card.notes || 'No editing notes yet.'}</p>
           {card.video && (
             <video controls playsInline preload="metadata" src={card.video} />
           )}
@@ -53,7 +53,12 @@ export default async function EditorPage({ params }: { params: Promise<{ token: 
         <details className="editor-done">
           <summary>Done · {done.length}</summary>
           {done.map((card) => (
-            <p key={card.id}>{card.card} · {card.model} · week of {card.week_of}</p>
+            <p key={card.id}>
+              {card.card} · {card.model} · week of {card.week_of}
+              {card.creatorPlan && (
+                <> · <a href={card.creatorPlan} target="_blank" rel="noreferrer">Creator plan</a></>
+              )}
+            </p>
           ))}
         </details>
       )}

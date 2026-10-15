@@ -4,8 +4,8 @@
  * The editing team in the plan editor (Geno, 2026-10-07).
  *
  * Editing notes are in-house: her page never renders them any more; this
- * is where they go instead. Each card with a note can be pointed at an
- * editor; "Tell them" emails the editor everything newly assigned (when
+ * is where they go instead. Each card can be pointed at an editor, even
+ * while its note is still being prepared; "Tell them" emails newly assigned work (when
  * Resend is configured) and always hands over their token link to paste
  * into Telegram — same idea as a model's plan link, no login.
  */

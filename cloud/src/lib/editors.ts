@@ -27,7 +27,7 @@ export async function listEditors(): Promise<Editor[]> {
             count(i.id)::int as assigned,
             count(i.id) filter (where i.editor_notified_at is null)::int as waiting
        from transcriber.editors e
-       left join transcriber.plan_items i on i.editor_id = e.id and i.editing_notes is not null
+       left join transcriber.plan_items i on i.editor_id = e.id
       where e.revoked_at is null
       group by e.id
       order by e.is_head desc, lower(e.name)`,
@@ -63,8 +63,8 @@ export async function updateEditor(id: string, patch: { name?: string; email?: s
   )
 }
 
-/** One editor's worksheet: every card assigned to them that carries an
- *  editing note, newest week first. Fan-facing fields only — the editor
+/** One editor's worksheet: every card assigned to them, newest week first.
+ *  Fan-facing fields only — the editor
  *  sees the work and the creator's public plan link, never notes to her
  *  or her money. */
 export async function cardsForEditor(token: string) {
@@ -81,7 +81,7 @@ export async function cardsForEditor(token: string) {
        from transcriber.plan_items i
        join transcriber.plans p on p.id = i.plan_id
        join transcriber.models m on m.id = p.model_id
-      where i.editor_id = $1 and i.editing_notes is not null
+       where i.editor_id = $1
       order by p.week_of desc, i.position`,
     [editor.id],
   )
@@ -97,7 +97,7 @@ export async function cardsForEditor(token: string) {
         id: String(row.id),
         card: no ? `V-${no}` : String(row.id).slice(0, 6),
         title: row.title ? String(row.title) : null,
-        notes: String(row.editing_notes),
+        notes: row.editing_notes ? String(row.editing_notes) : '',
         model: String(row.model_name),
         week_of: String(row.week_of).slice(0, 10),
         folder: row.drive_url ? String(row.drive_url) : null,
@@ -127,7 +127,7 @@ export async function notifyEditor(editorId: string, origin: string): Promise<{ 
        from transcriber.plan_items i
        join transcriber.plans p on p.id = i.plan_id
        join transcriber.models m on m.id = p.model_id
-      where i.editor_id = $1 and i.editing_notes is not null and i.editor_notified_at is null`,
+       where i.editor_id = $1 and i.editor_notified_at is null`,
     [editorId],
   )
   if (rows.length === 0) return { sent: false, why: 'Nothing new to tell them about.', url, waiting: 0 }
@@ -148,7 +148,7 @@ export async function notifyEditor(editorId: string, origin: string): Promise<{ 
       from,
       to: [String(editor.email)],
       subject: `${rows.length} edit${rows.length === 1 ? '' : 's'} ready for you`,
-      text: `Hey ${editor.name},\n\nNew pieces with editing notes:\n\n${lines.join('\n')}\n\nEverything, with the notes and the files, is on your page:\n${url}\n\n— Gosian Media`,
+      text: `Hey ${editor.name},\n\nNew pieces assigned to you:\n\n${lines.join('\n')}\n\nThe creator plan links, notes and files are on your page:\n${url}\n\n— Gosian Media`,
     }),
   }).catch(() => null)
   if (!response?.ok) {

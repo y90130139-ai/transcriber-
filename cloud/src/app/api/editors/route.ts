@@ -13,8 +13,8 @@ export async function POST(request: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const body = await request.json().catch(() => ({}))
 
-  // Point one card at one editor (or at nobody). The card must carry an
-  // editing note first — an assignment with nothing to read is noise.
+  // Point one card at one editor (or at nobody). Notes can still be in
+  // progress; the assignment already gives the editor its creator plan link.
   if (typeof body.assign === 'object' && body.assign) {
     const itemId = typeof body.assign.item_id === 'string' ? body.assign.item_id : ''
     const editorId = typeof body.assign.editor_id === 'string' ? body.assign.editor_id : null

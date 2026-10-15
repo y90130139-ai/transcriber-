@@ -65,7 +65,8 @@ export async function updateEditor(id: string, patch: { name?: string; email?: s
 
 /** One editor's worksheet: every card assigned to them that carries an
  *  editing note, newest week first. Fan-facing fields only — the editor
- *  sees the work, never the model's token, notes to her, or her money. */
+ *  sees the work and the creator's public plan link, never notes to her
+ *  or her money. */
 export async function cardsForEditor(token: string) {
   const [editor] = await sql.query(
     `select id, name from transcriber.editors where access_token = $1 and revoked_at is null`,
@@ -75,7 +76,8 @@ export async function cardsForEditor(token: string) {
 
   const rows = await sql.query(
     `select i.id, i.card_no, i.title, i.editing_notes, i.r2_key, i.uploaded_at, i.editor_notified_at,
-            i.repurposed_at, p.week_of::text as week_of, m.name as model_name, m.drive_url
+            i.repurposed_at, p.week_of::text as week_of, m.name as model_name, m.drive_url,
+            m.access_token, m.token_revoked_at
        from transcriber.plan_items i
        join transcriber.plans p on p.id = i.plan_id
        join transcriber.models m on m.id = p.model_id
@@ -99,6 +101,9 @@ export async function cardsForEditor(token: string) {
         model: String(row.model_name),
         week_of: String(row.week_of).slice(0, 10),
         folder: row.drive_url ? String(row.drive_url) : null,
+        creatorPlan: row.access_token && !row.token_revoked_at
+          ? `/p/${String(row.access_token)}`
+          : null,
         video: media?.video ?? null,
         download: media?.download ?? null,
         done: Boolean(row.repurposed_at),

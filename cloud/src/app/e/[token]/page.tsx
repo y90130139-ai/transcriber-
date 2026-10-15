@@ -41,6 +41,9 @@ export default async function EditorPage({ params }: { params: Promise<{ token: 
           <p className="editor-links">
             {card.download && <a href={card.download}>Download the file</a>}
             {card.folder && <a href={card.folder} target="_blank" rel="noreferrer">Her folder</a>}
+            {card.creatorPlan && (
+              <a href={card.creatorPlan} target="_blank" rel="noreferrer">Creator plan</a>
+            )}
             {!card.video && !card.folder && <em>The file is not uploaded yet — it lands here when it is.</em>}
           </p>
         </section>

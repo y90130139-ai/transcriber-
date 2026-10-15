@@ -103,6 +103,7 @@ export async function cardsForEditor(token: string) {
     })),
     cards: rows.map((row) => {
       const no = row.card_no === null || row.card_no === undefined ? null : Number(row.card_no)
+      const weekOf = String(row.week_of).slice(0, 10)
       const media = config && row.r2_key && row.uploaded_at
         ? planMediaFor(config, String(row.r2_key), no ? `V-${no} edit.mp4` : `${String(row.id).slice(0, 12)}.mp4`)
         : null
@@ -112,10 +113,10 @@ export async function cardsForEditor(token: string) {
         title: row.title ? String(row.title) : null,
         notes: row.editing_notes ? String(row.editing_notes) : '',
         model: String(row.model_name),
-        week_of: String(row.week_of).slice(0, 10),
+        week_of: weekOf,
         folder: row.drive_url ? String(row.drive_url) : null,
         creatorPlan: row.access_token && !row.token_revoked_at
-          ? `/p/${String(row.access_token)}`
+          ? `/p/${String(row.access_token)}?week=${weekOf}`
           : null,
         video: media?.video ?? null,
         download: media?.download ?? null,

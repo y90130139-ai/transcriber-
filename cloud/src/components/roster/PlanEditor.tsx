@@ -1098,7 +1098,7 @@ export default function PlanEditor({
   const filmed = items.filter((item) => item.filmed_at).length
   const shareUrl =
     plan && !plan.token_revoked_at && typeof window !== 'undefined'
-      ? `${window.location.origin}/p/${plan.access_token}`
+      ? `${window.location.origin}/p/${plan.access_token}?week=${plan.week_of}`
       : null
 
   // Posts not yet claimed by a card. Offering a bound one again would move the

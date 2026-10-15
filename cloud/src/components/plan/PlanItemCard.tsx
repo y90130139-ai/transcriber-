@@ -405,7 +405,7 @@ export default function PlanItemCard({
 
       {item.editing_notes && (
         <p className="plan-editing">
-          <span className="plan-label">Editing notes</span>
+          <span className="plan-label">In-house for the editor</span>
           {item.editing_notes}
         </p>
       )}

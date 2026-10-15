@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragE
 import { upload } from '@vercel/blob/client'
 import CollisionFlag from './CollisionFlag'
 import PlanPreview from './PlanPreview'
-import { carryTarget, isPastWeek, openingWeek } from '@/lib/carry'
+import { carryTarget, isPastWeek } from '@/lib/carry'
 import { addDays, currentWeekOf, formatDate } from '@/lib/dates'
 import { KIND_TEXT, cardKind } from '@/lib/card'
 import { clock, playbookLabel, thumbUrl } from '@/lib/format'
@@ -85,22 +85,22 @@ function fetchPlan(planId: string, fresh = false): Promise<PlanPayload> {
   return request
 }
 
-/** After a model's row lands, warm the plan the dialog will open on. */
-function warmOpeningPlan(body: ModelPayload): void {
-  const week = openingWeek(body.plans ?? [], currentWeekOf())
+/** After a model's row lands, warm the selected week if it already exists. */
+function warmOpeningPlan(body: ModelPayload, weekOf: string): void {
+  const week = (body.plans ?? []).find((plan) => plan.week_of === weekOf)
   if (week) void fetchPlan(week.id).catch(() => null)
 }
 
 /** Warm a model's weeks — and its opening week's cards — before the dialog
  *  opens. The roster hovers call this; clicking Plan then paints instantly. */
-export function prefetchPlan(modelId: string): void {
+export function prefetchPlan(modelId: string, weekOf = currentWeekOf()): void {
   const held = modelCache.get(modelId)
   if (held && Date.now() - held.at <= MODEL_TTL_MS) {
-    warmOpeningPlan(held.body)
+    warmOpeningPlan(held.body, weekOf)
     return
   }
   void fetchModel(modelId)
-    .then((body) => warmOpeningPlan(body))
+    .then((body) => warmOpeningPlan(body, weekOf))
     .catch(() => null)
 }
 
@@ -161,10 +161,12 @@ function stubCard(card: AddedCard): PlanItemRow {
 export default function PlanEditor({
   modelId,
   modelName,
+  initialWeekOf,
   onClose,
 }: {
   modelId: string
   modelName: string
+  initialWeekOf: string
   onClose: () => void
 }) {
   const [weeks, setWeeks] = useState<PlanSummary[]>([])
@@ -309,7 +311,8 @@ export default function PlanEditor({
   const [copyNote, setCopyNote] = useState<string | null>(null)
 
   const thisWeek = currentWeekOf()
-  /** The nothing-to-open case creates this week's plan exactly once per
+  const openingWeekOf = initialWeekOf || thisWeek
+  /** The nothing-to-open case creates the selected week's plan exactly once per
    *  mount, from the fresh read only — see `applyModel` in loadWeeks. */
   const autoOpen = useRef(false)
   /** True until the dialog's one opening read lands — the pane shows a
@@ -329,15 +332,15 @@ export default function PlanEditor({
 
   const loadWeeks = useCallback(async () => {
     /** Paint one read of her row: the weeks, the delivery folder, and — when
-     *  there is nothing at all to open — this week, created the same way the
-     *  rail's "+ This week" button creates it. */
+     *  the selected week does not exist yet — that week, created the same way
+     *  the rail's week buttons create it. */
     function applyModel(payload: ModelPayload, fresh: boolean) {
       const list: PlanSummary[] = payload.plans ?? []
       setWeeks(list)
       // Same response carries her row — the delivery folder rides along
       // rather than costing the editor a second fetch.
       setDelivery(payload.model?.drive_url ?? '')
-      const open = openingWeek(list, thisWeek)
+      const open = list.find((week) => week.week_of === openingWeekOf)
       if (open) {
         setPlanId((current) => current ?? open.id)
         return
@@ -349,7 +352,7 @@ export default function PlanEditor({
       // server answers either way.
       if (!fresh || autoOpen.current) return
       autoOpen.current = true
-      void openWeek(thisWeek)
+      void openWeek(openingWeekOf)
     }
 
     // Whatever the roster warmed paints first; the fresh copy replaces it
@@ -358,7 +361,7 @@ export default function PlanEditor({
     if (held) applyModel(held.body, false)
     const body = await fetchModel(modelId, true).catch(() => null)
     if (body) applyModel(body, true)
-  }, [modelId, thisWeek])
+  }, [modelId, openingWeekOf])
 
   const loadPlan = useCallback(async () => {
     if (!planId) { setPlan(null); setItems([]); setPlanFor(null); return }
@@ -400,9 +403,9 @@ export default function PlanEditor({
     if (response.ok) setPosts((await response.json()).posts ?? [])
   }, [modelId])
 
-  // The opening read: weeks, delivery folder and the opening week's cards in
-  // one request (POST /api/models/:id/open), which also creates this week
-  // when she has none. Whatever the roster hover warmed paints underneath it
+  // The opening read: weeks, delivery folder and the selected week's cards in
+  // one request (POST /api/models/:id/open), which also creates that week when
+  // she has none. Whatever the roster hover warmed paints underneath it
   // first. Falls back to the old model-then-plan walk if it fails.
   useEffect(() => {
     let gone = false
@@ -411,13 +414,13 @@ export default function PlanEditor({
       const list = held.body.plans ?? []
       setWeeks(list)
       setDelivery(held.body.model?.drive_url ?? '')
-      const open = openingWeek(list, thisWeek)
+      const open = list.find((week) => week.week_of === openingWeekOf)
       if (open) setPlanId((current) => current ?? open.id)
     }
     fetch(`/api/models/${modelId}/open`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_of: thisWeek }),
+      body: JSON.stringify({ week_of: openingWeekOf }),
     })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
       .then((body: ModelPayload & PlanPayload) => {
@@ -449,7 +452,7 @@ export default function PlanEditor({
     return () => { gone = true }
     // Once per dialog: later refreshes go through loadWeeks/loadPlan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelId])
+  }, [modelId, openingWeekOf])
 
   useEffect(() => { if (primed) void loadPosts() }, [primed, loadPosts])
   useEffect(() => { if (primed) void loadWinning() }, [primed, loadWinning])

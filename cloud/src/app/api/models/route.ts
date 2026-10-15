@@ -4,7 +4,7 @@ import { sql } from '@/lib/db'
 import { currentWeekOf } from '@/lib/dates'
 import { modelsForJob } from '@/lib/match'
 import { accountsForModels } from '@/lib/model-accounts'
-import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, linkedOnlyfans, newId, newToken, readModelInput } from '@/lib/models'
+import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, linkedOnlyfans, newId, newToken, readModelInput, readWeekOf } from '@/lib/models'
 
 const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   // the roster grid already expects.
   const job = new URL(request.url).searchParams.get('job')
   if (job) return NextResponse.json({ models: await modelsForJob(job) })
+  const weekOf = readWeekOf(new URL(request.url).searchParams.get('week'), currentWeekOf())
 
   const models = await sql.query(
     `select ${MODEL_COLUMNS_ALIASED}, ${linkedOnlyfans('m')},
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
           where lower(t.author) = lower(m.handle)
        ) pc on true
        order by (m.status = 'active') desc, m.name`,
-    [currentWeekOf()],
+     [weekOf],
   )
 
   // Her app account rides along so the roster shows invite state and offers
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
     app_account: accounts.get(String(model.id)) ?? null,
   }))
 
-  return NextResponse.json({ models: withAccounts, weekOf: currentWeekOf() })
+  return NextResponse.json({ models: withAccounts, weekOf })
 }
 
 /** Add a model. The share token is minted here and never accepted from a client. */

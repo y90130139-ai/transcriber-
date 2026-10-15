@@ -10,7 +10,9 @@ import TrendChip from './TrendChip'
 import SweepFlags from './SweepFlags'
 import { useStanding } from './useStanding'
 import { warmProfile } from './profile/warm'
-import { formatDate } from '@/lib/dates'
+import { assignableWeeks } from './ModelWeekPicker'
+import DropSelect from '../dashboard/DropSelect'
+import { currentWeekOf, formatDate } from '@/lib/dates'
 import { reasonLabel } from '@/lib/inactive'
 import type { RosterModel } from './types'
 import type { Standing } from '@/lib/standing'
@@ -67,8 +69,9 @@ export default function RosterTab({
 } = {}) {
   const [models, setModels] = useState<RosterModel[]>([])
   const [sweep, setSweep] = useState<Sweep | null>(null)
-  const [weekOf, setWeekOf] = useState('')
+  const [weekOf, setWeekOf] = useState(() => currentWeekOf())
   const [loading, setLoading] = useState(true)
+  const modelsRequest = useRef(0)
   const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
   const [editingTab, setEditingTab] = useState<ProfileTab>('profile')
   const [planning, setPlanning] = useState<RosterModel | null>(null)
@@ -104,9 +107,9 @@ export default function RosterTab({
       warmTimer.current = null
       warmProfile(id)
       // Her weeks ride along, so Plan opens on the week already painted.
-      prefetchPlan(id)
+      prefetchPlan(id, weekOf)
     }, WARM_AFTER_MS)
-  }, [])
+  }, [weekOf])
   const cool = useCallback(() => {
     if (!warmTimer.current) return
     clearTimeout(warmTimer.current)
@@ -119,14 +122,15 @@ export default function RosterTab({
   useEffect(() => cool, [cool])
 
   const load = useCallback(async () => {
-    const response = await fetch('/api/models')
-    if (response.ok) {
-      const body = await response.json()
-      setModels(body.models ?? [])
-      setWeekOf(body.weekOf ?? '')
-    }
+    const request = ++modelsRequest.current
+    const response = await fetch(`/api/models?week=${encodeURIComponent(weekOf)}`)
+    if (!response.ok) { if (request === modelsRequest.current) setLoading(false); return }
+    const body = await response.json()
+    if (request !== modelsRequest.current) return
+    setModels(body.models ?? [])
+    setWeekOf(body.weekOf ?? weekOf)
     setLoading(false)
-  }, [])
+  }, [weekOf])
 
   // The same read the Today tab does. Fetched separately rather than widened
   // into /api/models, so nothing the roster already renders can change shape.
@@ -146,10 +150,10 @@ export default function RosterTab({
     if (!openPlanFor) return
     const wanted = models.find((model) => model.id === openPlanFor)
     if (!wanted) return
-    prefetchPlan(wanted.id)
+    prefetchPlan(wanted.id, weekOf)
     setPlanning(wanted)
     onOpened?.()
-  }, [openPlanFor, models, onOpened])
+  }, [openPlanFor, models, onOpened, weekOf])
 
   useEffect(() => {
     if (!openProfileFor) return
@@ -176,6 +180,10 @@ export default function RosterTab({
       questions: flagged(sweep.questions, id),
     }
   }
+  const weekOptions = assignableWeeks().map((week, index) => ({
+    value: week,
+    label: `${index === 0 ? 'This week' : 'Next week'} · ${formatDate(week)}`,
+  }))
 
   return (
     <>
@@ -190,6 +198,12 @@ export default function RosterTab({
         </div>
         <div className="dash-head-tools">
           <div className="dash-head-controls">
+            <DropSelect
+              label="Plan week"
+              value={weekOf}
+              onChange={setWeekOf}
+              options={weekOptions}
+            />
             <button
               className="pill"
               aria-pressed={activeFirst}
@@ -277,7 +291,9 @@ export default function RosterTab({
 
               <span className="roster-actions">
                 <button className="btn btn-small"
-                  onClick={(event) => { event.stopPropagation(); setPlanning(model) }}>
+                  title={`Open plan for week of ${formatDate(weekOf)}`}
+                  aria-label={`Open ${model.name}'s plan for week of ${formatDate(weekOf)}`}
+                  onClick={(event) => { event.stopPropagation(); prefetchPlan(model.id, weekOf); setPlanning(model) }}>
                   {model.plan_status === 'sent' ? 'Plan · sent' : 'Plan'}
                 </button>
                 <button className="btn btn-quiet btn-small"
@@ -307,6 +323,7 @@ export default function RosterTab({
         <PlanEditor
           modelId={planning.id}
           modelName={planning.name}
+          initialWeekOf={weekOf}
           onClose={() => { setPlanning(null); void load(); void loadStanding() }}
         />
       )}

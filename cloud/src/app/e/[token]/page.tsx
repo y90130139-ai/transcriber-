@@ -27,6 +27,27 @@ export default async function EditorPage({ params }: { params: Promise<{ token: 
         </p>
       </header>
 
+      <section className="editor-card" aria-labelledby="editor-creators-title">
+        <h2 id="editor-creators-title">
+          Creator plan links
+          <span>{sheet.creatorPlans.length}</span>
+        </h2>
+        {sheet.creatorPlans.length > 0 ? (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
+            {sheet.creatorPlans.map((creator) => (
+              <li key={creator.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <span>{creator.name}</span>
+                <a href={creator.url} target="_blank" rel="noreferrer" style={{ color: 'var(--sc-ember-deep)', fontSize: 'var(--sc-text-sm)' }}>
+                  Open creator plan
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="editor-title">No creator plan links are available.</p>
+        )}
+      </section>
+
       {open.map((card) => (
         <section className="editor-card" key={card.id}>
           <h2>

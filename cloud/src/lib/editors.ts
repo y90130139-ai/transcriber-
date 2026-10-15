@@ -82,12 +82,25 @@ export async function cardsForEditor(token: string) {
        join transcriber.plans p on p.id = i.plan_id
        join transcriber.models m on m.id = p.model_id
        where i.editor_id = $1
-      order by p.week_of desc, i.position`,
+       order by p.week_of desc, i.position`,
     [editor.id],
+  )
+  // Every editor can reach every creator's public plan link from their sheet,
+  // even before a card has been assigned to them.
+  const creatorRows = await sql.query(
+    `select id, name, access_token
+       from transcriber.models
+      where token_revoked_at is null
+      order by lower(name)`,
   )
   const config = r2Config()
   return {
     editor: { id: String(editor.id), name: String(editor.name) },
+    creatorPlans: creatorRows.map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      url: `/p/${String(row.access_token)}`,
+    })),
     cards: rows.map((row) => {
       const no = row.card_no === null || row.card_no === undefined ? null : Number(row.card_no)
       const media = config && row.r2_key && row.uploaded_at

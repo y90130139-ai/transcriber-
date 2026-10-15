@@ -187,6 +187,7 @@ export default function RosterTab({
 
   return (
     <>
+      <div className="models-roster">
       <header className="dash-head dash-head-flush">
         <div>
           <h2 className="dash-title">Models</h2>
@@ -306,6 +307,7 @@ export default function RosterTab({
         </div>
         </section>
       )))}
+      </div>
 
       {editing && (
         <ModelProfile

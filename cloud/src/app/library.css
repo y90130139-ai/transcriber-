@@ -445,6 +445,10 @@
 /* ------------------------------------------------------------ MODELS
    The library card's language: uniform 4:5 frame, handle beside its number,
    persona as tinted pills. */
+.models-roster { padding-inline: var(--sc-space-4); }
+@media (min-width: 1024px) {
+  .models-roster { padding-inline: var(--sc-space-8); }
+}
 .models {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

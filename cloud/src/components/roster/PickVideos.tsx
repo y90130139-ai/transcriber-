@@ -107,6 +107,13 @@ export const SKIP_WORDS: Record<SkipReason, string> = {
   solo: 'needs a second person on camera, and they film alone',
 }
 
+/** The same three, counted: "2 were turned down by them". */
+const SKIP_COUNT_WORDS: Record<SkipReason, string> = {
+  already: 'already on the week',
+  declined: 'turned down by them',
+  solo: 'needing a second person on camera',
+}
+
 export async function addPicksToWeek(planId: string, picks: Pick[]): Promise<{
   text: string; bad?: boolean; landed: number; skipped: Record<string, SkipReason>
 }> {
@@ -114,6 +121,10 @@ export async function addPicksToWeek(planId: string, picks: Pick[]): Promise<{
   const urls = picks.filter((pick) => pick.kind === 'feed').map((pick) => pick.url).filter(Boolean)
   let landed = 0
   const skipped: Record<string, SkipReason> = {}
+  // What the link route's guards refused, per link — the library pile's own
+  // "already" comes back in `skipped` below. Named rather than guessed: a
+  // solo refusal used to read as "already on the week" here too.
+  let refusals: SkipReason[] = []
 
   // One round-trip for the whole library pile (written cards + cover job).
   if (library.length > 0) {
@@ -148,11 +159,20 @@ export async function addPicksToWeek(planId: string, picks: Pick[]): Promise<{
     const body = await response?.json().catch(() => ({}))
     if (!response?.ok) return { text: body?.error ?? 'Could not send those to the week.', bad: true, landed, skipped }
     landed += Number(body?.attached ?? 0)
+    refusals = (Array.isArray(body?.skips) ? body.skips : [])
+      .map((skip: { reason?: unknown }) => skip?.reason)
+      .filter((reason: unknown): reason is SkipReason => typeof reason === 'string' && reason in SKIP_WORDS)
   }
 
   const dropped = picks.length - landed
   const parts = [`Added ${landed} to the week`]
-  if (dropped > 0) parts.push(`${dropped} were already on the week`)
+  if (dropped > 0) {
+    const counts = new Map<SkipReason, number>()
+    for (const reason of refusals) counts.set(reason, (counts.get(reason) ?? 0) + 1)
+    for (const [reason, count] of counts) parts.push(`${count} ${SKIP_COUNT_WORDS[reason]}`)
+    const rest = dropped - [...counts.values()].reduce((sum, count) => sum + count, 0)
+    if (rest > 0) parts.push(`${rest} were already on the week`)
+  }
   return { text: `${parts.join(' · ')}.`, landed, skipped }
 }
 

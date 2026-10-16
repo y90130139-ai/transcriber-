@@ -80,7 +80,10 @@ export async function shapeRows(planId: string, rows: ShapeRow[]): Promise<Shape
     duration_sec: row.duration_sec,
     formats: row.formats,
     topic: row.topic,
-    needs_others: needsOthers({
+    // Her own post is never a couple reel: whoever is in it, she filmed it
+    // (Tiffany, 2026-10-17 — her three-voice skit was being folded off her
+    // own week). See `jobsNeedingOthers` for the same rule on the way in.
+    needs_others: row.author && mineSet.has(row.author.toLowerCase()) ? false : needsOthers({
       author: row.author, rawCaption: row.raw_caption, speakerCount: row.speaker_count, formats: row.formats,
     }, couples),
     verdict: row.verdict,

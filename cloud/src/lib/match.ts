@@ -9,7 +9,7 @@ import { sql } from './db'
 import { SCORING_CTE } from './hot'
 import { DECLINE_COOLDOWN_DAYS, PERMANENT_DECLINES } from './decline'
 import { preview } from './sql'
-import { jobsNeedingOthers } from './solo'
+import { jobsNeedingOthers, ownHandlesOf } from './solo'
 
 /** Format weighs most: it is the thing she physically has to be able to shoot.
  *  Topic is level with it — a golf reel handed to the golf model is the whole
@@ -327,9 +327,15 @@ export async function suggestionsFor(
     ),
     // A solo model is never offered a reel that needs someone else on camera —
     // `appendItems` would refuse it anyway, and a planner that picks what then
-    // gets refused hands her a short week.
-    sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId]),
+    // gets refused hands her a short week. Her own posts are the exception:
+    // she filmed them, so they are never "someone else on camera".
+    sql.query(
+      `select coalesce(solo, true) as solo, handle, socials from transcriber.models where id = $1`,
+      [modelId],
+    ),
   ])
-  const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(rows.map((row) => String(row.id)))
+  const needsOthers = who?.solo === false
+    ? new Set<string>()
+    : await jobsNeedingOthers(rows.map((row) => String(row.id)), ownHandlesOf(who?.handle, who?.socials))
   return rows.filter((row) => !needsOthers.has(String(row.id))).slice(0, capped)
 }

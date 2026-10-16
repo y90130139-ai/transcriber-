@@ -22,7 +22,7 @@ import VolumeStepper from './VolumeStepper'
 import { clearDrafts, draftValue, dropDraft, putDraft, readDrafts } from '@/lib/plan-drafts'
 import DropSelect from '../dashboard/DropSelect'
 import { EditorAssign, EditorsPanel, useEditors } from './Editors'
-import PickVideos, { PICK_MIME, addPicksToWeek, readDraggedPicks, type Selection } from './PickVideos'
+import PickVideos, { PICK_MIME, SKIP_WORDS, addPicksToWeek, readDraggedPicks, type Selection, type SkipReason } from './PickVideos'
 import {
   UPLOAD_LABEL, uploadStateOf,
   type HerPost, type PlanHead, type PlanItemRow, type PlanSummary, type Suggestion,
@@ -735,10 +735,21 @@ export default function PlanEditor({
       setJustLanded(new Set(cards.map((card) => String(card.id))))
       window.setTimeout(() => setJustLanded(new Set()), 8000)
     }
+    // Why nothing landed, in the server's own words. The old sentence guessed
+    // "already on this week, or turned down" and both were wrong whenever the
+    // solo guard refused a reel (Tiffany, 2026-10-17).
+    const skips: { reason?: unknown }[] = Array.isArray(body.skips) ? body.skips : []
+    const reasons = [...new Set(
+      skips
+        .map((skip) => skip.reason)
+        .filter((reason): reason is SkipReason => typeof reason === 'string' && reason in SKIP_WORDS),
+    )]
     const landed = cards.map((card) => (card.card_no ? `V-${card.card_no}` : 'a card')).join(' · ')
     setLinkNote(cards.length > 0
       ? `On the week as ${landed} — the Mac fetches it next, nothing to do.`
-      : 'Nothing landed — it is already on this week, or they have turned it down.')
+      : reasons.length > 0
+        ? `Nothing landed — ${reasons.map((reason) => `it ${SKIP_WORDS[reason]}`).join('; ')}.`
+        : 'Nothing landed — it is already on this week, or they have turned it down.')
     setLinkPaste('')
     await loadPlan()
     void loadWeeks()

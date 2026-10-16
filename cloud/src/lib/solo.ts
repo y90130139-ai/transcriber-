@@ -50,9 +50,25 @@ export async function coupleAccounts(): Promise<Set<string>> {
   return accounts
 }
 
-/** The library reels among these that need someone else on camera. */
-export async function jobsNeedingOthers(jobIds: string[]): Promise<Set<string>> {
+/**
+ * The library reels among these that need someone else on camera.
+ *
+ * `ownHandles` — her own Instagram accounts, from `ownHandlesOf`. A reel she
+ * posted herself is never one of these: whoever is in it, she already filmed
+ * it. Without the exemption a solo model's own three-voice skit reads as a
+ * couple reel and `appendItems` silently refuses her own hit (Tiffany,
+ * 2026-10-17 — the 172× her-median reel could not be put on her week).
+ */
+export async function jobsNeedingOthers(
+  jobIds: string[],
+  ownHandles?: Iterable<string>,
+): Promise<Set<string>> {
   if (!jobIds.length) return new Set()
+  const own = new Set<string>()
+  for (const handle of ownHandles ?? []) {
+    const clean = String(handle).replace(/^@+/, '').trim().toLowerCase()
+    if (clean) own.add(clean)
+  }
   const [accounts, rows] = await Promise.all([
     coupleAccounts(),
     sql.query(
@@ -65,6 +81,8 @@ export async function jobsNeedingOthers(jobIds: string[]): Promise<Set<string>> 
   ])
   const out = new Set<string>()
   for (const row of rows) {
+    const author = row.author ? String(row.author).replace(/^@+/, '').trim().toLowerCase() : ''
+    if (author && own.has(author)) continue
     if (needsOthers({
       author: row.author ? String(row.author) : null,
       rawCaption: row.caption ? String(row.caption) : null,

@@ -4,7 +4,7 @@ import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { findGerman } from '@/lib/german'
 import { extractLinks, labelFor } from '@/lib/links'
-import { appendItems } from '@/lib/models'
+import { appendItems, type SkipReason } from '@/lib/models'
 import { isValidTag } from '@/lib/taxonomy'
 
 export async function POST(request: Request) {
@@ -95,10 +95,14 @@ export async function POST(request: Request) {
   // videos on that plan as cards, new and already-held alike. The cards are
   // thin until the Mac fetches — her page says the video is not ready yet —
   // and every appendItems guard (declines, solo, one-card-per-reel) applies.
+  // What each guard did comes back per link in `skips`, so the box says the
+  // real reason instead of guessing (Tiffany, 2026-10-17 — a solo refusal
+  // read as "already on this week, or they have turned it down").
   let attached = 0
   // The cards the paste became, so the editor can point at them — "landed as
   // V-121, V-122" beats a count when the week is forty rows long.
   let cards: { id: string; card_no: number | null }[] = []
+  let skips: { url: string; reason: SkipReason }[] = []
   if (typeof payload.plan_id === 'string' && /^[A-Za-z0-9_-]{6,32}$/.test(payload.plan_id)) {
     const [plan] = await sql.query(
       `select id, model_id from transcriber.plans where id = $1`,
@@ -110,7 +114,12 @@ export async function POST(request: Request) {
       [links],
     )
     const jobIds = held.map((job) => String(job.id))
-    attached = await appendItems(String(plan.id), String(plan.model_id), jobIds)
+    const reasons = new Map<string, SkipReason>()
+    attached = await appendItems(String(plan.id), String(plan.model_id), jobIds, undefined, reasons)
+    skips = linkJobs.flatMap((link) => {
+      const reason = link.job_id ? reasons.get(link.job_id) : undefined
+      return reason ? [{ url: link.url, reason }] : []
+    })
     if (attached > 0) {
       // A named paste — a German playbook pick, or a name typed in — names
       // its cards before the Mac has fetched anything (Geno, 2026-10-13). A
@@ -147,6 +156,7 @@ export async function POST(request: Request) {
     skipped: links.length - rows.length,
     attached,
     cards,
+    skips,
     jobs: rows,
     links: linkJobs,
   })

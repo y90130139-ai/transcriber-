@@ -15,7 +15,7 @@ import { playbookLabel } from './format'
 import { readSocials, type Social } from './socials'
 import { isValidTag, labelOf } from './taxonomy'
 import { isKnownPlace } from './timezones'
-import { jobsNeedingOthers } from './solo'
+import { jobsNeedingOthers, ownHandlesOf } from './solo'
 
 /** Long enough that guessing is not a strategy, short enough to paste. */
 const TOKEN_LENGTH = 32
@@ -484,8 +484,14 @@ export async function appendItems(
   // She films alone: a reel that needs someone else on camera never goes on
   // her week, however it is added (Susanna, the third time of asking,
   // 2026-09-27). `models.solo` is on unless someone turned it off for her.
-  const [who] = await sql.query(`select coalesce(solo, true) as solo from transcriber.models where id = $1`, [modelId])
-  const needsOthers = who?.solo === false ? new Set<string>() : await jobsNeedingOthers(jobIds)
+  // Her own posts are exempt — see `jobsNeedingOthers`.
+  const [who] = await sql.query(
+    `select coalesce(solo, true) as solo, handle, socials from transcriber.models where id = $1`,
+    [modelId],
+  )
+  const needsOthers = who?.solo === false
+    ? new Set<string>()
+    : await jobsNeedingOthers(jobIds, ownHandlesOf(who?.handle, who?.socials))
 
   // Which of these the library has already heard. A feed pick — a TikTok or
   // an OFMPro row added before the Mac fetched it — lands as a thin card, and

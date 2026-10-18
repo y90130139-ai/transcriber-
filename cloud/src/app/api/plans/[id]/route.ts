@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse, after } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { isDateString } from '@/lib/dates'
 import { keysForPlan, trashKeys } from '@/lib/models'
@@ -9,14 +9,14 @@ import { cleanStyleTargets } from '@/lib/styles'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 const MAX_TEXT = 4000
 
 /** One plan, as the editor needs it: the week, the model, and every item with
  *  enough of its library row attached to be recognisable at a glance. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const read = await readPlan(id)
   if (!read) return notFound()
@@ -25,7 +25,8 @@ export async function GET(_request: Request, { params }: Params) {
 
 /** Title, intro, due date, and the one switch that makes the link live. */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 
@@ -163,8 +164,9 @@ async function telegramFor(
 }
 
 /** Drop a whole week. Its R2 objects go on the Mac's deletion list first. */
-export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function DELETE(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   await trashKeys(await keysForPlan(id))

@@ -145,9 +145,11 @@ export async function unfetchable(postIds: string[]): Promise<Set<string>> {
 }
 
 /**
- * Put her failed downloads back in the queue once a fresh link exists for them.
+ * Put failed downloads back in the queue once either roster or Scout metadata
+ * provides a fresh direct video link. Scout winners may have only a sightings
+ * row, not a creator_posts row.
  *
- * Runs whenever the roster pass stores her posts, because that pass is what
+ * Runs whenever a roster/scout pass stores posts, because that pass is what
  * reads the CDN links a failed winner needs. Nobody has to notice the failure
  * or press retry: the next pass heals it. The retry budget resets because the
  * thing that failed — resolving the page — is no longer what will be tried.
@@ -159,9 +161,14 @@ export async function requeueWithFreshLinks(): Promise<number> {
             claimed_at = null, updated_at = now()
       where j.status = 'failed'
         and j.error like 'could not download%'
-        and exists (select 1 from transcriber.creator_posts cp
-                     where ${jobMatchesCode('j.source', 'cp.post_id')}
-                       and cp.video_url is not null and cp.media_until > now())
+        and (
+          exists (select 1 from transcriber.creator_posts cp
+                   where ${jobMatchesCode('j.source', 'cp.post_id')}
+                     and cp.video_url is not null and cp.media_until > now())
+          or exists (select 1 from transcriber.sightings s
+                      where ${jobMatchesCode('j.source', 's.post_id')}
+                        and s.video_url is not null and s.media_until > now())
+        )
       returning j.id`,
   )
   return rows.length

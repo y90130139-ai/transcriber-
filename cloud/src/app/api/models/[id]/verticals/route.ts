@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { bankFor } from '@/lib/bank'
 import { sql } from '@/lib/db'
 import { verticalsFor } from '@/lib/insights'
@@ -12,8 +12,9 @@ type Params = { params: Promise<{ id: string }> }
  * own reels are winners, which formats they prove out, and which template the
  * ladder suggests. Read-only — setting the template is its own route.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // Her row and her reel bank are independent reads — one wait (2026-10-09).

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Archivo, Geist_Mono, Inter } from 'next/font/google'
+import { Archivo, Inter } from 'next/font/google'
 import './globals.css'
 import './inbox.css'
 
@@ -11,17 +11,11 @@ const archivo = Archivo({
   display: 'swap',
 })
 
-// Inter + Geist Mono are the inbox's type (Geno, 2026-10-13): scoped to
-// .inbox-full and .ix-dialog, the rest of the console keeps Archivo.
+// Inter is the inbox's only type (Geno, 2026-10-14): scoped to .inbox-full
+// and .ix-dialog, the rest of the console keeps Archivo.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
-  display: 'swap',
-})
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
   display: 'swap',
 })
 
@@ -38,7 +32,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${inter.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${inter.variable}`}>
       <body
         style={
           {

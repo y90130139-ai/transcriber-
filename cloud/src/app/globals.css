@@ -16,6 +16,15 @@
 @import './video-batcher.css';
 /* The plan dialog's week pane (PlanEditor.tsx), scoped to `.planmodal`. */
 @import './plandialog.css';
+/* App accounts — the client side's list and one creator's account page
+   (2026-10-14), scoped to `.aa-*`. */
+@import './appaccounts.css';
+/* App content — the console editor for every word the client app shows
+   (2026-10-14), scoped to `.ac-*`. */
+@import './appcontent.css';
+/* Scheduler — the week the socials run on, the composer and the connected
+   accounts (2026-10-14), scoped to `.sc-*`. */
+@import './scheduler.css';
 /* DayPicker calendar used by DueDateField in the plan setup. */
 @import './calendar.css';
 /* Last, so a motion rule wins the tie against the component rule it animates.
@@ -140,27 +149,31 @@ body {
 }
 .queue-composer:focus-within { border-color: var(--sc-ember); }
 
+/* The two paths in (Geno, 2026-10-16): pickers label the batch, then one
+   clear way to bring videos in — pasted links or staged files. The links box
+   is a real field now; the old borderless display type read as decoration. */
 .queue-input {
   width: 100%;
-  background: transparent;
-  border: 0;
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
   resize: vertical;
-  min-height: 4.5rem;
+  min-height: 5.5rem;
+  padding: var(--sc-space-3);
   font-family: var(--sc-font-text);
-  font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem);
-  line-height: 1.45;
+  font-size: var(--sc-text-base);
+  line-height: 1.5;
   color: var(--sc-ink-900);
-  letter-spacing: var(--sc-track-tight);
+  letter-spacing: 0;
 }
-.queue-input:focus { outline: none; }
-.queue-input::placeholder { color: var(--sc-ink-150); }
+.queue-input:focus { outline: none; border-color: var(--sc-ember); }
+.queue-input:disabled { opacity: 0.6; }
+.queue-input::placeholder { color: var(--sc-ink-300); }
 
-/* The three columns (2026-10-08): format · which kind · the paste itself.
-   The paste keeps the room; the two pickers sit beside it and stack on a
-   phone. Both are optional — an unlabeled paste works as it always did. */
+/* The pickers label the batch: what format it is, and what type it is. */
 .queue-composer-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(200px, 250px) 1fr;
+  grid-template-columns: minmax(180px, 240px) minmax(200px, 280px);
   gap: var(--sc-space-4);
   align-items: start;
 }
@@ -185,8 +198,232 @@ body {
 .queue-composer-col .msel-trigger:hover:not(:disabled) { border-color: var(--sc-ink-900); }
 .queue-composer-col .msel-trigger[data-open] { border-color: var(--sc-ember); background: var(--sc-bone); }
 .queue-newformat { display: flex; gap: var(--sc-space-1); align-items: center; flex-wrap: wrap; }
+/* The playbook picker and its own add button share one row (2026-10-16):
+   the "add" sits beside the list instead of hiding at its foot. */
+.queue-picker-row { display: flex; align-items: center; gap: var(--sc-space-2); min-width: 0; }
+.queue-picker-row .msel-trigger { flex: 1; min-width: 0; width: auto; }
+.queue-picker-row .pill { flex: none; }
+
+/* A new German playbook entry is a template, not just a name (2026-10-16):
+   a titled panel — name and instructions side by side, versions in rows. */
+.queue-playbook-form {
+  display: grid;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-5) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+}
+.queue-playbook-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+}
+.queue-playbook-head strong { color: var(--sc-ink-900); font-size: var(--sc-text-sm); font-weight: 700; }
+.queue-playbook-head span { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.queue-playbook-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: var(--sc-space-4);
+  align-items: start;
+}
+.queue-playbook-form .field { background: var(--sc-bone-light); }
+.queue-playbook-form textarea.field { min-height: 4.5rem; resize: vertical; }
+.queue-playbook-vers { display: grid; gap: var(--sc-space-2); max-width: 980px; }
+.queue-ver {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 320px) minmax(0, 1fr) 1.8rem;
+  gap: var(--sc-space-2);
+  align-items: center;
+}
+.queue-ver-no {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  background: var(--sc-bone-light);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--sc-ink-700);
+}
+.queue-ver .field { padding: 6px 9px; font-size: var(--sc-text-sm); }
+.queue-ver-x {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--sc-ink-300);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.queue-ver-x:hover:not(:disabled) {
+  color: var(--sc-critical);
+  background: color-mix(in srgb, var(--sc-critical) 10%, transparent);
+}
+.queue-ver-x:disabled { opacity: 0.35; cursor: default; }
+.queue-vers-add { justify-self: start; border-style: dashed; }
+.queue-playbook-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding-top: var(--sc-space-3);
+  border-top: var(--sc-rule-hair);
+}
+.queue-playbook-foot .hint { margin: 0; }
+@media (max-width: 860px) {
+  .queue-playbook-fields { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .queue-playbook-foot { align-items: flex-start; flex-direction: column; }
+  .queue-ver {
+    grid-template-columns: 2.25rem minmax(0, 1fr) 1.8rem;
+    grid-template-areas:
+      'no outfit x'
+      'no caption x';
+  }
+  .queue-ver-no { grid-area: no; }
+  .queue-ver input:nth-of-type(1) { grid-area: outfit; }
+  .queue-ver input:nth-of-type(2) { grid-area: caption; }
+  .queue-ver-x { grid-area: x; }
+}
+
+/* ---- the intake: a segmented switch between the two ways in ---------- */
+.queue-intake {
+  display: grid;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-4);
+  padding-top: var(--sc-space-4);
+  border-top: var(--sc-rule-hair);
+}
+.queue-mode-tabs {
+  display: inline-flex;
+  width: fit-content;
+  border: var(--sc-rule-hair);
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-bone);
+}
+.queue-mode-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 1rem;
+  font-family: var(--sc-font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.queue-mode-tab + .queue-mode-tab { border-left: var(--sc-rule-hair); }
+.queue-mode-tab:hover { color: var(--sc-ink-900); }
+.queue-mode-tab[data-on] { background: var(--sc-ink-900); color: var(--sc-bone); }
+.queue-mode-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.queue-links { display: grid; gap: var(--sc-space-2); }
+.queue-links-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+}
+.queue-links-foot .hint { margin: 0; }
+.queue-files { display: grid; }
+.queue-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-1);
+  min-height: 8.5rem;
+  padding: var(--sc-space-5);
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+  color: var(--sc-ink-300);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.queue-dropzone:hover { border-color: var(--sc-ember); color: var(--sc-ink-500); }
+.queue-dropzone:focus-within { border-color: var(--sc-ember); outline: 2px solid var(--sc-ember); outline-offset: 2px; }
+.queue-dropzone[data-busy] { cursor: wait; opacity: 0.72; }
+.queue-dropzone svg { color: var(--sc-ember-deep); }
+.queue-dropzone strong { color: var(--sc-ink-900); font-size: var(--sc-text-sm); }
+.queue-dropzone span { font-size: var(--sc-text-xs); line-height: 1.4; }
+.queue-dropzone em { color: var(--sc-ink-300); font-size: var(--sc-text-xs); font-style: normal; }
+
+.queue-pending-batch {
+  display: grid;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+}
+.queue-pending-head,
+.queue-pending-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sc-space-3); }
+.queue-pending-title { display: grid; gap: 2px; }
+.queue-pending-title strong { color: var(--sc-ink-900); font-size: var(--sc-text-sm); }
+.queue-pending-title span { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.queue-pending-list { display: grid; }
+.queue-pending-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) 0;
+  border-bottom: var(--sc-rule-hair);
+}
+.queue-pending-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sc-ink-700); font-size: var(--sc-text-sm); }
+.queue-pending-file-size { color: var(--sc-ink-300); font-size: var(--sc-text-xs); font-variant-numeric: tabular-nums; }
+.queue-template-option { display: inline-flex; align-items: center; gap: var(--sc-space-2); color: var(--sc-ink-700); font-size: var(--sc-text-sm); cursor: pointer; }
+.queue-template-option input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--sc-ember); }
+.queue-template-option small { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+.queue-save-template-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr); gap: var(--sc-space-3); }
+.queue-save-template-fields .field { background: var(--sc-bone-light); }
+.queue-save-template-fields textarea.field { min-height: 4rem; resize: vertical; }
+.queue-pending-foot .hint { margin: 0; }
 @media (max-width: 860px) {
   .queue-composer-grid { grid-template-columns: 1fr; }
+  .queue-save-template-fields { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .queue-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .queue-mode-tab { justify-content: center; }
+  .queue-pending-head,
+  .queue-pending-foot { align-items: flex-start; flex-direction: column; }
+  .queue-pending-file { grid-template-columns: minmax(0, 1fr) auto; }
+  .queue-pending-file .pill { grid-column: 1 / -1; justify-self: flex-start; }
 }
 
 .queue-composer-foot {

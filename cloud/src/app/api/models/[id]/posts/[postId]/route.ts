@@ -1,10 +1,10 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { linksFor, mediaBase } from '@/lib/media'
-import { appendItems } from '@/lib/models'
+import { appendItems, trashKeys } from '@/lib/models'
 import { recreateTarget } from '@/lib/week-target'
-import { REPURPOSE_HOLD } from '@/lib/repurpose'
+import { queueRepurposeRender, REPURPOSE_HOLD } from '@/lib/repurpose'
 
 /**
  * The two things a winner of hers can become.
@@ -14,9 +14,10 @@ import { REPURPOSE_HOLD } from '@/lib/repurpose'
  *
  *   recreate   she shoots it again — a reskin card on her week, the control
  *              rung of the ladder, her own opening quoted back to her
- *   repurpose  we repost it ourselves — the file comes down, goes through the
- *              batcher that rewrites its metadata, and goes out again on trial
- *              reels or the main feed
+ *   repurpose  we repost it ourselves — the studio renders a fresh copy
+ *              (mirrored, re-cut, re-encoded, metadata scrubbed; see
+ *              docs/REPURPOSE.md), it saves to R2, and goes out again on
+ *              trial reels or the main feed
  *
  * They are independent on purpose. The same winner can be worth her filming
  * again *and* worth reposting, and which of those happened is worth knowing
@@ -28,7 +29,8 @@ const DESTINATIONS = new Set(['trial', 'main', 'both'])
 
 
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id, postId } = await params
   const body = await request.json().catch(() => ({}))
   const action = typeof body.action === 'string' ? body.action : ''
@@ -47,6 +49,14 @@ export async function POST(request: Request, { params }: Params) {
   if (action === 'recreate') return recreate(id, post, body.plan_id)
   if (action === 'repurpose') return repurpose(id, post, body, body.plan_id)
   if (action === 'unrepurpose') {
+    // The rendered file has no other owner: nothing will reclaim it once this
+    // row is gone, so the key goes on the trash list the Mac already works
+    // through before the row is deleted (2026-10-18).
+    const [held] = await sql.query(
+      `select output_key from transcriber.repurposes where post_id = $1`,
+      [String(post.id)],
+    )
+    if (held?.output_key) await trashKeys([String(held.output_key)])
     await sql.query(`delete from transcriber.repurposes where post_id = $1`, [String(post.id)])
     return NextResponse.json({ repurposed: false })
   }
@@ -86,11 +96,13 @@ async function recreate(modelId: string, post: Record<string, unknown>, askedPla
 
 
 /**
- * Mark it ours to repost, and hand back the file.
+ * Mark it ours to repost — and queue the studio render (2026-10-18).
  *
- * The download is the whole point — the batcher needs the actual video — so a
- * repurpose that cannot produce one says so rather than recording an intention
- * nobody can act on. The Mac holds the files, so this needs the Mac awake.
+ * The tap used to stop at "marked": a person had to download the reel and
+ * drive the batcher by hand. Now the row is queued for the Mac, which renders
+ * a fresh copy through `src/repurpose.py`, uploads it to R2 and reports back;
+ * the fresh file appears in the Reels tab's Repurposed section. The download
+ * link still rides along for anyone who wants the source by hand.
  */
 async function repurpose(modelId: string, post: Record<string, unknown>, body: Record<string, unknown>, askedPlan: unknown) {
   const destination = typeof body.destination === 'string' && DESTINATIONS.has(body.destination)
@@ -101,23 +113,16 @@ async function repurpose(modelId: string, post: Record<string, unknown>, body: R
   const base = folder ? await mediaBase() : null
   const download = base && folder ? linksFor(base, folder).download : null
 
-  await sql.query(
-    `insert into transcriber.repurposes (post_id, model_id, job_id, destination, note)
-     values ($1, $2, $3, $4, $5)
-     on conflict (post_id) do update
-        set destination = excluded.destination, note = excluded.note, created_at = now()`,
-    [
-      String(post.id),
-      modelId,
-      String(post.id),
-      destination,
-      typeof body.note === 'string' ? body.note.slice(0, 500) : null,
-    ],
-  )
+  await queueRepurposeRender({
+    modelId,
+    jobId: String(post.id),
+    destination: destination as 'trial' | 'main' | 'both',
+    note: typeof body.note === 'string' ? body.note.slice(0, 500) : null,
+  })
 
   // On her week too, labelled Repurpose (2026-09-27): she saves it and posts
   // it again, no filming. Same week rule as Recreate. A week that cannot take
-  // it (already sent) still leaves the repost marked and the file downloading.
+  // it (already sent) still leaves the repost marked and the render queued.
   const target = await recreateTarget(modelId, askedPlan)
   const onWeek = 'error' in target
     ? { added: 0, week_of: null, week_note: target.error }
@@ -138,9 +143,10 @@ async function repurpose(modelId: string, post: Record<string, unknown>, body: R
     ...onWeek,
     destination,
     download,
-    // Said plainly rather than returning a dead link: the video lives on the
-    // Mac, and a sleeping Mac is the one reason this comes back empty.
-    note: download ? null : 'Marked, but the Mac is offline so there is no file to download yet.',
+    render: 'queued',
+    // Said plainly rather than returning a dead link: the source video lives
+    // on the Mac, and a sleeping Mac is the one reason this comes back empty.
+    note: download ? null : 'The Mac is offline, so there is no source file to download yet — the render gets queued either way.',
   })
 }
 

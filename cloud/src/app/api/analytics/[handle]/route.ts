@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { TARGET, cadence, growth, topPosts } from '@/lib/analytics'
 
 /** One account's scorecard: what they post, how often, how it does, and
  *  whether a story went up. Same answer for a watched creator and for one of
  *  ours — only the reason for asking differs. */
 export async function GET(request: Request, ctx: { params: Promise<{ handle: string }> }) {
-  if (!(await isSignedIn())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { handle: raw } = await ctx.params
   const handle = raw.replace(/^@/, '').trim().toLowerCase()
   if (!handle) return NextResponse.json({ error: 'handle is required' }, { status: 400 })

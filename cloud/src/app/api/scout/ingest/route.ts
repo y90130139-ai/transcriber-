@@ -6,6 +6,7 @@ import {
   candidates,
   enqueue,
   multiplierSpread,
+  PICK_WINDOW_DAYS,
   parseAccess,
   parseCreatorPost,
   parseCreatorSnapshot,
@@ -69,9 +70,11 @@ export async function POST(request: Request) {
   await storeAccess(access, swept)
   const postsStored = await storeCreatorPosts(posts)
   const snapsStored = await storeCreatorSnapshots(snapshots)
-  // A roster pass brings fresh links for her reels; any winner that failed to
-  // download goes back in the queue on its own.
-  const requeued = posts.some((post: CreatorPost) => post.video_url) ? await requeueWithFreshLinks() : 0
+  // Roster rows and Scout sightings can each carry a fresh Instagram CDN URL.
+  // If a failed winner gets one, requeue it without waiting for a manual retry.
+  const hasFreshVideo = posts.some((post: CreatorPost) => post.video_url)
+    || sightings.some((sighting: Sighting) => sighting.video_url)
+  const requeued = hasFreshVideo ? await requeueWithFreshLinks() : 0
 
   if (body.final !== true) {
     return NextResponse.json({
@@ -80,12 +83,17 @@ export async function POST(request: Request) {
     })
   }
 
-  const picks = await candidates()
+  // A header-only pass must never pick old sightings and masquerade as a
+  // fresh content sweep. Older workers did not send kind; infer those passes
+  // from their snapshots/statistics so they remain compatible during rollout.
+  const stats = body.stats && typeof body.stats === 'object' ? body.stats : {}
+  const profilesOnly = body.kind === 'profiles'
+    || (body.kind !== 'sweep' && sightings.length === 0 && snapshots.length > 0 && !Number(stats.sightings))
+  const picks = profilesOnly ? [] : await candidates()
   const queued = await enqueue(picks, runId)
   const suggested = await suggest(picks.map((p) => p.post_id))
   const [spread] = await multiplierSpread()
 
-  const stats = body.stats && typeof body.stats === 'object' ? body.stats : {}
   const started = typeof body.started_at === 'string' ? body.started_at : new Date().toISOString()
   const cost = Number(stats.cost_usd)
   await sql.query(
@@ -104,7 +112,8 @@ export async function POST(request: Request) {
       suggested,
       Number(stats.gated) || 0,
       Number.isFinite(cost) ? cost : null,
-      JSON.stringify({ spread, errors: stats.errors ?? [], skipped: stats.skipped ?? [] }),
+      JSON.stringify({ kind: profilesOnly ? 'profiles' : 'sweep', spread,
+        errors: stats.errors ?? [], skipped: stats.skipped ?? [], window_days: profilesOnly ? null : PICK_WINDOW_DAYS }),
     ],
   )
 

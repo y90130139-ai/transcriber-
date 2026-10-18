@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 
 type Params = { params: Promise<{ id: string }> }
@@ -15,8 +15,9 @@ type Params = { params: Promise<{ id: string }> }
  * it; the reply (through the existing /api/plans/<id>/items) is what marks
  * her messages seen, exactly as the plan editor always has.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const rows = await sql.query(

@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { VIEW_TRIES } from '@/lib/queue-state'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
 import { IN_HOT_WINDOW, IN_MONTH, IN_WEEK, IS_HOT, SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
@@ -54,14 +54,15 @@ const ORDERS: Record<string, string> = {
 }
 
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const url = new URL(request.url)
   const query = (url.searchParams.get('q') ?? '').trim()
   const creator = (url.searchParams.get('creator') ?? '').trim()
   const window = url.searchParams.get('window') // 'week' | '30' | '90' | null
   const onlyHot = url.searchParams.get('hot') === '1'
-  const sort = ORDERS[url.searchParams.get('sort') ?? ''] ?? ORDERS.recent
+  const sort = ORDERS[url.searchParams.get('sort') ?? ''] ?? ORDERS.added
 
   // Both are read off the query string, so both are validated rather than
   // interpolated. They are the only two numbers in this file that reach SQL.

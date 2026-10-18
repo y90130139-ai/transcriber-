@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn, isWorker } from '@/lib/auth'
+import { isWorker } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { aiReady } from '@/lib/ai'
 import { writeWeekCaptions } from '@/lib/captions'
 
@@ -22,8 +23,9 @@ export async function POST(request: Request, { params }: Params) {
   // The console button, or the worker secret — the same pair `/api/retag`
   // takes, so this can be run for a whole week from a terminal or a timer
   // rather than only by somebody holding the page open.
-  if (!(isWorker(request) || (await isSignedIn()))) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!isWorker(request)) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
   }
   if (!aiReady()) return NextResponse.json({ error: 'Workers AI is not configured' }, { status: 503 })
   const { id } = await params

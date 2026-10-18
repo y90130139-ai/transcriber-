@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
 import { linksFor, mediaBase } from '@/lib/media'
@@ -8,8 +8,9 @@ import { tagsFor } from '@/lib/tagging'
 
 type Params = { params: Promise<{ id: string }> }
 
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // The row, its tags and the Mac's heartbeat are three independent reads —
@@ -41,8 +42,9 @@ export async function GET(_request: Request, { params }: Params) {
   })
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function DELETE(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // Plan items cascade away with the job, so their R2 objects have to be handed
@@ -68,7 +70,8 @@ export async function DELETE(_request: Request, { params }: Params) {
  * not the same statement as false.
  */
 export async function PATCH(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const body = await request.json().catch(() => ({}))
@@ -121,8 +124,9 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 /** Re-queue a failed job so a transient platform error can be retried in place. */
-export async function POST(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function POST(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   await sql.query(
     `update transcriber.jobs

@@ -1,17 +1,17 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { loadStanding } from '@/lib/standing'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const PRIORITIES = ['S', 'A', 'B', 'C', 'D']
 const BANDS = ['high', 'mid', 'low']
 
 /** One model's standing, with the breakdown behind it. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const standing = (await loadStanding(id)).get(id)
   if (!standing) return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -26,7 +26,8 @@ export async function GET(_request: Request, { params }: Params) {
  * `null` clears either. A field left out of the body is left alone.
  */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 

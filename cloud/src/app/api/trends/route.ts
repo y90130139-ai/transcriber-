@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { ingestTrends, liveTrends, trendsBoard } from '@/lib/trends'
 import { cleanGeo, cleanRange } from '@/lib/trends-feed'
 
@@ -8,7 +8,8 @@ import { cleanGeo, cleanRange } from '@/lib/trends-feed'
  *  and the sounds spreading across watched accounts. The daily-archive
  *  terms ride along as the fallback for a day Google will not answer. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const url = new URL(request.url)
   const days = cleanRange(url.searchParams.get('days'))
   const geo = cleanGeo(url.searchParams.get('geo'))
@@ -19,7 +20,8 @@ export async function GET(request: Request) {
 /** Pull Google's feed now rather than waiting for the 10:00 cron — the
  *  button on the tab, and the first run's only way to have data today. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const days = cleanRange(new URL(request.url).searchParams.get('days'))
   try {
     const pulled = await ingestTrends()

@@ -14,7 +14,7 @@ export type Filters = {
 }
 
 export const EMPTY_FILTERS: Filters = {
-  persona: [], format: [], hook: [], topic: [], creator: '', window: '', hot: false, sort: 'recent', shelf: '',
+  persona: [], format: [], hook: [], topic: [], creator: '', window: '', hot: false, sort: 'added', shelf: '',
 }
 
 export function toQuery(filters: Filters, query: string): string {
@@ -24,16 +24,16 @@ export function toQuery(filters: Filters, query: string): string {
   if (filters.creator) params.set('creator', filters.creator)
   if (filters.window) params.set('window', filters.window)
   if (filters.hot) params.set('hot', '1')
-  if (filters.sort !== 'recent') params.set('sort', filters.sort)
+  if (filters.sort !== 'added') params.set('sort', filters.sort)
   if (filters.shelf) params.set('shelf', filters.shelf)
   return params.toString()
 }
 
 export const SORTS: { id: Filters['sort']; label: string }[] = [
+  { id: 'added', label: 'Just added' },
   { id: 'recent', label: 'Newest post' },
   { id: 'hot', label: 'Outperformance' },
   { id: 'likes', label: 'Most liked' },
-  { id: 'added', label: 'Just added' },
 ]
 
 export const WINDOWS: { id: Filters['window']; label: string }[] = [

@@ -1,0 +1,9 @@
+.env
+.env.*
+data
+secrets
+downloads
+node_modules
+__pycache__
+*.pyc
+test_*.py

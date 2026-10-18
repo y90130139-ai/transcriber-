@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { isInboxKey } from '@/lib/inbox'
 import { presignGet, r2Config } from '@/lib/r2'
 
@@ -10,7 +10,8 @@ type Params = { params: Promise<{ key: string[] }> }
  *  `?download=name` signs it as an attachment instead, so the browser saves
  *  the file — the viewer's download link relies on that (2026-10-13). */
 export async function GET(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return new Response('unauthorized', { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const { key } = await params
   const joined = (key ?? []).join('/')

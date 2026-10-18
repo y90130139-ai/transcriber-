@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { getPreferences, savePreferences } from '@/lib/reddit/settings'
 import type { RedditPreferences } from '@/lib/reddit/types'
 
@@ -7,8 +7,9 @@ const RANGES: RedditPreferences['range'][] = ['1h', '6h', '24h', '7d', '30d', '9
 
 /** Saved searches, the default range, table density — the console's own
  *  choices, kept apart from the collector's configuration. */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     return NextResponse.json(await getPreferences())
   } catch (error) {
@@ -17,7 +18,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const patch: Partial<RedditPreferences> = {}

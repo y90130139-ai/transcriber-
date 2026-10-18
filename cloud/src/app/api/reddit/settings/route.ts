@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { redditConfigured } from '@/lib/reddit/client'
 import {
   DEFAULT_SETTINGS,
@@ -48,8 +48,9 @@ async function payload(): Promise<SettingsPayload> {
   }
 }
 
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     return NextResponse.json(await payload())
   } catch (error) {
@@ -64,7 +65,8 @@ const clamp = (value: number, lo: number, hi: number, fallback: number) =>
  *  prerequisites and are refused without them — the API enforces what the
  *  checklist states, rather than trusting the UI. */
 export async function PUT(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const current = await getSettings()

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn, isWorker } from '@/lib/auth'
+import { isWorker } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { currentWeekOf } from '@/lib/dates'
 import { digestFor } from '@/lib/digest'
 import { readWeekOf } from '@/lib/models'
@@ -12,8 +13,9 @@ export const dynamic = 'force-dynamic'
  *  the week wanted; the current week by default. Readable by the console and
  *  by the Mac's Sunday job, which prints the headline into its log. */
 export async function GET(request: Request) {
-  if (!isWorker(request) && !(await isSignedIn())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!isWorker(request)) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
   }
   const asked = new URL(request.url).searchParams.get('week')
   const weekOf = readWeekOf(asked, currentWeekOf())

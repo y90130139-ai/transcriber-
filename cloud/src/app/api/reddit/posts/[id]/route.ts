@@ -1,11 +1,12 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { postDetail } from '@/lib/reddit/queries'
 
 /** One post: performance graph, snapshot history, topic associations,
  *  related posts, and the direct link to the source. */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   try {
     const detail = await postDetail(id)

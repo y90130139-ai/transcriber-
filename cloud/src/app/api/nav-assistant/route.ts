@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { rateLimit } from '@/lib/ratelimit'
 import { azureChatMessages, azureReady } from '@/lib/azure-ai'
 import { SECTIONS, SETTINGS_LEAF } from '@/components/console/nav'
@@ -58,7 +58,8 @@ function settle(pick: Destination, source: 'ai' | 'fallback', label?: unknown, s
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'local'
   if (!rateLimit(`nav-assistant:${ip}`, 60)) {
     return NextResponse.json({ error: 'Too many asks — give it a minute.' }, { status: 429 })

@@ -2003,18 +2003,27 @@ textarea.field { resize: vertical; }
 /* The week's numbers wear the dashboard's own stat cards. */
 .wk-stats { grid-template-columns: 1.4fr 1fr 1fr; }
 
-/* Sounds going round, as a leaderboard of tracks. */
+/* Sounds going round (2026-10-18) — a leaderboard of the tracks the OFM Pro
+   feeds carry: the rank numeral, the title, the reel and play counts it
+   rides with, the platforms it rides, the crowd it drew this week against
+   the week before, and a door to hear it. The list runs to thousands and
+   reads on as the page scrolls, so rows stay flat — one hairline, nothing
+   of their own to animate — and content-visibility keeps off-screen rows
+   from costing anything. */
 .snd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sc-space-2); }
 .snd-row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 7rem 9.5rem auto;
   gap: var(--sc-space-4);
   align-items: center;
   padding: var(--sc-space-3) var(--sc-space-4);
   border: var(--sc-rule-hair);
   border-radius: var(--r-sm, 8px);
   background: var(--sc-bone);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 3.4rem;
 }
+.snd-row[data-top='true'] .wk-n { color: var(--sc-ember); }
 .snd-main { display: grid; gap: 2px; min-width: 0; }
 .snd-title {
   font-family: var(--sc-font-text);
@@ -2024,9 +2033,23 @@ textarea.field { resize: vertical; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.snd-title em { font-style: normal; font-weight: 500; color: var(--sc-ink-300); }
-.snd-plays { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
-.snd-count { font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-500); white-space: nowrap; }
+.snd-meta { display: flex; align-items: center; gap: var(--sc-space-3); min-width: 0; }
+.snd-plays {
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snd-marks { display: inline-flex; align-items: center; gap: var(--sc-space-1); flex: none; color: var(--sc-ink-300); }
+.snd-count {
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  color: var(--sc-ink-500);
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .snd-count b { color: var(--sc-ink-900); font-weight: 700; }
 .snd-delta {
   font-size: 0.66rem;
@@ -2035,12 +2058,61 @@ textarea.field { resize: vertical; }
   text-transform: uppercase;
   color: var(--sc-ink-300);
   white-space: nowrap;
+  text-align: right;
 }
 .snd-delta[data-trend='up'] { color: var(--sc-positive); }
 .snd-delta[data-trend='down'] { color: var(--sc-critical); }
+
+/* The row's own shape while the first page is in flight, so nothing moves
+   when the real rows land. */
+.snd-skel { display: grid; gap: var(--sc-space-2); }
+.snd-skel-row {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 7rem 9.5rem 5.5rem;
+  gap: var(--sc-space-4);
+  align-items: center;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm, 8px);
+  background: var(--sc-bone);
+}
+.snd-skel-bar {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--sc-ink-150);
+  opacity: 0.45;
+  animation: tpl-pulse 1.2s ease-in-out infinite;
+}
+.snd-skel-rank { width: 1.5rem; }
+.snd-skel-title { height: 0.85rem; }
+.snd-skel-count { justify-self: end; width: 4.5rem; }
+.snd-skel-delta { justify-self: end; width: 6rem; }
+.snd-skel-pill { justify-self: end; width: 4.75rem; height: 1.9rem; }
+
+/* What the list says under itself as it reads on: working, lost, or done. */
+.snd-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  margin: var(--sc-space-4) 0 0;
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.snd-note[role='alert'] { color: var(--sc-ink-500); }
+.snd-note .pill { text-transform: none; letter-spacing: normal; }
+.snd-sentinel { height: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .snd-skel-bar { animation: none; }
+}
 @media (max-width: 720px) {
-  .snd-row { grid-template-columns: 1.5rem minmax(0, 1fr); }
-  .snd-count, .snd-delta, .snd-row .pill { grid-column: 2; justify-self: start; }
+  .snd-row { grid-template-columns: 1.75rem minmax(0, 1fr); }
+  .snd-count, .snd-delta, .snd-row .pill { grid-column: 2; justify-self: start; text-align: left; }
+  .snd-skel-row { grid-template-columns: 1.75rem minmax(0, 1fr); }
+  .snd-skel-row > :nth-child(n + 3) { display: none; }
 }
 
 /* The winners' common ground, as ranked bars per axis. */

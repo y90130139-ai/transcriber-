@@ -248,13 +248,16 @@ export async function enqueueDueRequirementJobs(limit = 200): Promise<number> {
      returning id`,
     [limit],
   )
+  // One queued pass per community, the earliest computed one — same rule
+  // as the trend queue (Geno, 2026-10-18): a cadence change takes effect
+  // immediately instead of draining the old, slower slots.
   await q(
     `delete from reddit.requirement_jobs j
       where j.state = 'queued'
         and exists (
           select 1 from reddit.requirement_jobs k
            where k.subreddit = j.subreddit and k.state = 'queued'
-             and (k.due_at > j.due_at or (k.due_at = j.due_at and k.id > j.id))
+             and (k.due_at < j.due_at or (k.due_at = j.due_at and k.id < j.id))
         )`,
   )
   return rows.length

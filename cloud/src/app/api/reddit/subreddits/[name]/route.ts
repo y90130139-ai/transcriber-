@@ -1,12 +1,13 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { subredditDetail } from '@/lib/reddit/queries'
 import { isAdultCategory } from '@/lib/reddit/registry'
 import { deleteSubreddit, updateSubreddit, type SubredditPatch } from '@/lib/reddit/store'
 
 /** One community, whole: history, topics, top posts and errors. */
-export async function GET(_request: Request, { params }: { params: Promise<{ name: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { name } = await params
   try {
     const detail = await subredditDetail(name.toLowerCase())
@@ -21,7 +22,8 @@ const PATCHABLE = ['category', 'enabled', 'paused', 'priority', 'interval_minute
 
 /** Pause, resume, re-prioritise, re-categorise. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ name: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { name } = await params
   try {
     const body = await request.json().catch(() => ({}))
@@ -48,8 +50,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ na
 }
 
 /** Remove tracking. Posts stay for aggregate history until retention runs. */
-export async function DELETE(_request: Request, { params }: { params: Promise<{ name: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function DELETE(request: Request, { params }: { params: Promise<{ name: string }> }) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { name } = await params
   try {
     await deleteSubreddit(name)

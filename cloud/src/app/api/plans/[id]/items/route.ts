@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse, after } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { appendItems, draftBothFor, isUntouchedDraft, newId, trashKeys, type SkipReason } from '@/lib/models'
 import { pushToModel } from '@/lib/push'
@@ -9,7 +9,6 @@ import { isValidTag } from '@/lib/taxonomy'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 const MAX_TEXT = 4000
 const MAX_BATCH = 60
@@ -96,7 +95,8 @@ async function freeMachineCard(planId: string, modelId: string, jobId: string): 
 
 /** Put one or more library items on this plan, each with a drafted brief. */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const modelId = await modelFor(id)
@@ -422,7 +422,8 @@ export async function POST(request: Request, { params }: Params) {
  * can only mark it read.
  */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 
@@ -640,7 +641,8 @@ export async function PUT(request: Request, { params }: Params) {
  *  The whole row comes back so the editor's Undo can hand it to `restore` —
  *  the thread does not survive (messages cascade), but the card does. */
 export async function DELETE(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const itemId = new URL(request.url).searchParams.get('item') ?? ''
   if (!itemId) return NextResponse.json({ error: 'item is required' }, { status: 400 })

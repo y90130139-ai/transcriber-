@@ -1,7 +1,7 @@
 /**
  * Scout — the watchlist sweep that fills the library without anyone pasting.
  *
- * Once a week the Mac lists every watched creator's recent reels (metadata
+ * Every day the scraper lists every watched creator's recent reels (metadata
  * only: plays, likes, comments, audio, collaborators) and posts them here as
  * *sightings*. This module keeps every sighting, measures each reel against
  * its own creator's median, and enqueues the ones that beat it into the same
@@ -45,7 +45,7 @@ export const BASELINE_DAYS = 120
 
 /** Only recent reels are worth making now, and plays need a day to mean
  *  anything — a two-hour-old reel at 3× has simply been seen by her core. */
-export const PICK_WINDOW_DAYS = 14
+export const PICK_WINDOW_DAYS = 3
 export const SETTLE_HOURS = 24
 
 /** One creator having a big week must not become the whole library, and one
@@ -281,6 +281,19 @@ export async function storeSightings(input: Sighting[]): Promise<number> {
             media_until    = greatest(excluded.media_until, transcriber.sightings.media_until),
             seen_at        = now()
      returning post_id`,
+    [JSON.stringify(rows)],
+  )
+  // The Media Library's likes/comments and hot ranking read transcripts.
+  // Refresh those too: keeping only sightings current leaves a saved winner
+  // displaying the metrics from the day it was originally transcribed.
+  await sql.query(
+    `update transcriber.transcripts t
+        set like_count = coalesce(x.likes, t.like_count),
+            comment_count = coalesce(x.comments, t.comment_count)
+       from transcriber.jobs j
+       join jsonb_to_recordset($1::jsonb) as x(source_key text, likes bigint, comments bigint)
+         on x.source_key = j.source_key
+      where t.job_id = j.id and (x.likes is not null or x.comments is not null)`,
     [JSON.stringify(rows)],
   )
   return written.length

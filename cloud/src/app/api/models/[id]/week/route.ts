@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { currentWeekOf } from '@/lib/dates'
 import { draftWeek } from '@/lib/draft'
 import { ingestHers } from '@/lib/hers'
@@ -11,8 +11,9 @@ type Params = { params: Promise<{ id: string }> }
 /** Her week as 70/20/10 would build it: reskins of her own winners, iterations
  *  of her middle, and the library sized back to the experiment budget it was
  *  always good at. Read-only — proposing, not writing. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const week = await weekFor(id)
   if (!week) return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -27,7 +28,8 @@ export async function GET(_request: Request, { params }: Params) {
  *   draft   write the split onto her week — always a draft, never sent
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   const action = typeof body.action === 'string' ? body.action : 'ingest'

@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { aiReady } from '@/lib/ai'
 import { writeCard } from '@/lib/writer'
@@ -17,8 +17,9 @@ export const maxDuration = 60
  * cost against the free AI allowance. Now the console's "Write DM" button calls
  * this, and an existing DM is returned rather than rewritten.
  */
-export async function POST(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function POST(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { itemId } = await params
   const [existing] = await sql.query(`select brief_short from transcriber.plan_items where id = $1`, [itemId])
   if (!existing) return NextResponse.json({ error: 'no such card' }, { status: 404 })

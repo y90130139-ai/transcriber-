@@ -20,15 +20,37 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { FORMAT_REELS, findFormatReel } from '@/lib/formats'
-import { GERMAN_FORMAT_TAG, GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanVersionRows } from '@/lib/german'
+import { GERMAN_FORMAT_TAG, GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanBrief, germanVersionRows } from '@/lib/german'
+import { normalizeUrl } from '@/lib/links'
 import { CONTENT_STYLES, conceptStem, type ContentStyle } from '@/lib/styles'
 import { taxonomy } from '@/lib/taxonomy'
 import DropSelect from '../dashboard/DropSelect'
 import type { AddedCard } from './CardComposer'
+import type { Pick } from './PickVideos'
 import type { PlanItemRow } from './types'
 
-/** One saved card template, as /api/templates hands it back. */
-type Template = { id: string; label: string; format: string | null; body: string | null }
+/** One saved card template, as /api/templates hands it back. A German one
+ *  also carries the playbook entry it is and the reference video that rides
+ *  Version 1 (2026-10-16). */
+type Template = {
+  id: string
+  label: string
+  format: string | null
+  body: string | null
+  variant?: string | null
+  job_id?: string | null
+}
+
+/** One team-made German playbook entry, as /api/formats hands its kinds back
+ *  (2026-10-16): saved from the queue with its instructions and versions, so
+ *  picking it here prefills the brief like the doc's own 57. */
+type CustomPlaybook = {
+  id: string
+  format?: string | null
+  label: string
+  body?: string | null
+  versions?: { outfit?: string; caption?: string }[] | null
+}
 
 /** One card to land — the fields the route's `custom.cards` understands. */
 type CardAsk = {
@@ -68,10 +90,10 @@ export default function ContentStyles({ planId, items, taken, references, onPick
   /** Library jobs already on this week — a reference video that is already
    *  there must not be attached again (one card per video per week). */
   taken: Set<string>
-  /** Everything ticked on the library wall, in the order it was ticked.
-   *  Every one of them lands: Talking and Picture posts land one card each,
-   *  a Format reel wears one per version (Geno, 2026-10-12). */
-  references: { jobId: string; name: string | null; thumb?: string | null }[]
+  /** Everything ticked on the wall, in the order it was ticked. Library picks
+   *  already have jobs; social-feed picks are queued from their post URLs when
+   *  this style is added. */
+  references: Pick[]
   /** The wall is pickable while the panel is open. */
   onPickingChange: (on: boolean) => void
   /** Untick everything on the wall — "Remove" on the selected videos. */
@@ -94,14 +116,25 @@ export default function ContentStyles({ planId, items, taken, references, onPick
   ])
   const [posts, setPosts] = useState(3)
   /** Which German playbook entry was picked — its own select beside the
-   *  Playbook field, so all 57 formats are visible instead of a datalist. */
+   *  Playbook field, so all 57 formats are visible instead of a datalist.
+   *  `germanNo` is the doc's own number only; `germanPick` is the select's
+   *  value, which may also be `k:<id>` for a team-made entry (2026-10-16). */
   const [germanNo, setGermanNo] = useState('')
+  const [germanPick, setGermanPick] = useState('')
+  /** The team's own German playbook entries, saved in the queue with their
+   *  instructions and version rows. */
+  const [customPlaybook, setCustomPlaybook] = useState<CustomPlaybook[]>([])
   /** The doc's own reference video for the picked German format, found in the
    *  library by its label. It rides Version 1, so picking a format brings its
    *  video with it (Geno, 2026-10-13). */
   const [germanRef, setGermanRef] = useState<{ jobId: string; label: string } | null>(null)
   /** Mid-lookup, so the hint can say "finding" rather than "none". */
   const [germanLooking, setGermanLooking] = useState(false)
+  /** The German lane's "save as a template" (Geno, 2026-10-16): a name, and
+   *  the save that carries the playbook entry and its reference video. */
+  const [keepName, setKeepName] = useState('')
+  const [keepBusy, setKeepBusy] = useState(false)
+  const [keepNote, setKeepNote] = useState<string | null>(null)
   /** The latest German pick, so a slow lookup for #4 can never overwrite the
    *  answer for #41. */
   const germanWanted = useRef('')
@@ -126,8 +159,24 @@ export default function ContentStyles({ planId, items, taken, references, onPick
       .catch(() => setTemplates([]))
   }, [])
 
+  // The team's own German playbook entries, for the playbook select — saved
+  // in the queue, they prefill like the doc's own (2026-10-16).
+  useEffect(() => {
+    fetch('/api/formats')
+      .then((response) => (response.ok ? response.json() : { kinds: [] }))
+      .then((data) => setCustomPlaybook(
+        (Array.isArray(data.kinds) ? data.kinds : [])
+          .filter((row: { format?: unknown }) => row?.format === GERMAN_FORMAT_TAG),
+      ))
+      .catch(() => setCustomPlaybook([]))
+  }, [])
+
   /** Land cards through the existing custom-card door — one round-trip. */
-  async function postCards(wanted: ContentStyle, cards: CardAsk[]): Promise<number | null> {
+  async function postCards(
+    wanted: ContentStyle,
+    cards: CardAsk[],
+    feedPreviewByJob: Map<string, string>,
+  ): Promise<number | null> {
     const response = await fetch(`/api/plans/${planId}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,18 +191,43 @@ export default function ContentStyles({ planId, items, taken, references, onPick
       return null
     }
     lastError.current = null
-    onCardsAdded(body.items as AddedCard[])
+    onCardsAdded((body.items as AddedCard[]).map((item) => ({
+      ...item,
+      cover_preview_url: item.job_id ? feedPreviewByJob.get(item.job_id) ?? null : null,
+    })))
     return Number(body.added ?? body.items.length)
   }
 
   /** A template prefills the card's words: its label, its format tag, and its
    *  body — into the style's own text field (directions for a format reel,
-   *  the body for a talking reel). Every field stays editable. */
+   *  the body for a talking reel). A German template is more (Geno,
+   *  2026-10-16): it restores the playbook entry — versions, caption and
+   *  directions with it — and the reference video it was saved with rides
+   *  Version 1. Every field stays editable. */
   function applyTemplate(id: string) {
     if (!id) { set({ template: '' }); return }
     const template = templates.find((entry) => entry.id === id)
     if (!template) return
+    const german = template.variant ? findGerman(template.variant) : undefined
+    if (german) {
+      applyGerman(german)
+      // The template's own video wins over the label lookup applyGerman just
+      // started: cancel it, so the two can never fight over Version 1.
+      germanWanted.current = ''
+      setGermanRef(template.job_id ? { jobId: template.job_id, label: template.label } : null)
+      setGermanLooking(false)
+      setKeepName(template.label)
+      setKeepNote(null)
+      set({
+        template: id,
+        title: template.label,
+        formatTag: GERMAN_FORMAT_TAG,
+        ...(template.body ? { dir: template.body } : {}),
+      })
+      return
+    }
     germanWanted.current = ''
+    setGermanPick('')
     setGermanNo('')
     setGermanRef(null)
     setGermanLooking(false)
@@ -175,6 +249,7 @@ export default function ContentStyles({ planId, items, taken, references, onPick
     const reel = findFormatReel(raw)
     if (reel) {
       germanWanted.current = ''
+      setGermanPick('')
       setGermanNo('')
       setGermanRef(null)
       setGermanLooking(false)
@@ -196,6 +271,11 @@ export default function ContentStyles({ planId, items, taken, references, onPick
   function applyGerman(format: (typeof GERMAN_FORMATS)[number]) {
     const label = `German #${format.no} · ${format.name}`
     setGermanNo(format.no)
+    setGermanPick(format.no)
+    // The keep-as-template name starts as the playbook's own label; edited
+    // before saving, never after (2026-10-16).
+    setKeepName(label)
+    setKeepNote(null)
     set({
       format: label,
       template: '',
@@ -222,6 +302,32 @@ export default function ContentStyles({ planId, items, taken, references, onPick
     })
   }
 
+  /** A team-made playbook entry prefills like the doc's own (Geno,
+   *  2026-10-16): the queue asked for its instructions and version rows when
+   *  it was saved, and both come back here. No reference-video lookup — the
+   *  entry has no doc number to match by; a link can still ride the card. */
+  function applyCustomPlaybook(entry: CustomPlaybook) {
+    const label = entry.label
+    germanWanted.current = ''
+    setGermanPick(`k:${entry.id}`)
+    setGermanNo('')
+    setGermanRef(null)
+    setGermanLooking(false)
+    setKeepName(label)
+    setKeepNote(null)
+    set({
+      format: label,
+      template: '',
+      formatTag: draft.formatTag || GERMAN_FORMAT_TAG,
+      title: draft.title.trim() ? draft.title : label,
+      dir: entry.body ?? '',
+    })
+    const rows = (entry.versions ?? [])
+      .map((row) => ({ outfit: row.outfit ?? '', caption: row.caption ?? '' }))
+      .filter((row) => row.outfit || row.caption)
+    setVersions(rows.length > 0 ? rows : [{ outfit: '', caption: '' }])
+  }
+
   /** The doc's reference video for one German number, found in the library by
    *  its label. The query carries the "·" so it matches one label exactly —
    *  "German #5" alone also matches #50–#59, and with five results the real
@@ -242,32 +348,74 @@ export default function ContentStyles({ planId, items, taken, references, onPick
     }
   }
 
+  /** Save the German setup as a reusable template (Geno, 2026-10-16): the
+   *  playbook entry it is, the directions on screen, and the reference video
+   *  riding Version 1 — so picking it later brings all three. Only rendered
+   *  for a picked German format in the Format reel lane. */
+  async function keepGermanTemplate() {
+    const german = germanNo ? findGerman(germanNo) : undefined
+    const label = keepName.trim()
+    if (!german || !label || keepBusy) return
+    setKeepBusy(true)
+    setKeepNote(null)
+    // Resolve the video now when the pick's lookup has not landed yet — the
+    // template must genuinely carry it.
+    const held = germanRef ?? await findGermanRef(german.no)
+    const response = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        label,
+        format: GERMAN_FORMAT_TAG,
+        body: draft.dir || germanBrief(german),
+        variant: german.no,
+        job_id: held?.jobId,
+      }),
+    }).catch(() => null)
+    const answer = await response?.json().catch(() => ({})) ?? {}
+    setKeepBusy(false)
+    if (!response?.ok || !answer.template) {
+      setKeepNote(answer.error ?? 'Could not save the template — try again.')
+      return
+    }
+    const saved = answer.template as Template
+    // Shown in this picker the moment it exists, before any reload.
+    setTemplates((current) => current.some((entry) => entry.id === saved.id)
+      ? current.map((entry) => (entry.id === saved.id ? saved : entry))
+      : [...current, saved].sort((a, b) => a.label.localeCompare(b.label)))
+    set({ template: saved.id })
+    setKeepNote(held
+      ? `Saved — ${held.label} rides Version 1 when this template is picked.`
+      : 'Saved — no reference video found for it yet; it attaches when one lands.')
+  }
+
   async function add() {
     if (busy || !style) return
     setBusy(true)
     setNote(null)
 
-    // Every ticked video lands (Geno, 2026-10-12): Talking and Picture posts
-    // land one card per video, a Format reel wears one per version, the
-    // Omegle session takes the first. A wall job already on the week is never
-    // attached again; a LINK the user pasted is always sent, and the route
-    // decides — a reel held by the machine's own card is freed for this one,
-    // a reel owned by a written card refuses the add with a reason.
-    const refs = references.filter((entry) => !taken.has(entry.jobId))
+    // Every ticked video lands (Geno, 2026-10-12). Library picks already have
+    // jobs; feed picks become jobs from their post URLs in the same queue call
+    // as a pasted link, so either kind can ride the styled card.
+    const libraryRefs = references.filter((entry): entry is Extract<Pick, { kind: 'library' }> =>
+      entry.kind === 'library' && !taken.has(entry.jobId))
     let landed: number | null = null
 
-    // A reel found on Instagram or TikTok, pasted into the box (Geno,
-    // 2026-10-13): it is queued first — new or already held — so the cards
-    // land already wearing its video, the same way a wall tick rides on a
-    // version. Nothing is fetched twice; a link the cards have no room for
-    // still lands on the week as its own card.
+    // A video selected from Instagram/TikTok/X is queued from its post URL.
+    // Keep selected feed links first: the video the user just ticked rides the
+    // style card; extra links still land as their own cards below.
     const linkEntries: { url: string; jobId: string }[] = []
-    if (draft.link.trim()) {
+    const queuedLinks = [
+      ...references.filter((entry): entry is Extract<Pick, { kind: 'feed' }> => entry.kind === 'feed')
+        .map((entry) => entry.url),
+      draft.link.trim(),
+    ].filter(Boolean)
+    if (queuedLinks.length > 0) {
       const response = await fetch('/api/links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: draft.link,
+          text: queuedLinks.join('\n'),
           format: draft.formatTag || (germanNo ? GERMAN_FORMAT_TAG : undefined),
           variant: germanNo || undefined,
           name: draft.title || draft.format || undefined,
@@ -276,7 +424,7 @@ export default function ContentStyles({ planId, items, taken, references, onPick
       const body = await response?.json().catch(() => ({})) ?? {}
       if (!response?.ok) {
         setBusy(false)
-        setNote(body.error ?? 'That link did not go in — nothing was added.')
+        setNote(body.error ?? 'That video did not go in — nothing was added.')
         return
       }
       for (const entry of Array.isArray(body.links) ? body.links : []) {
@@ -287,7 +435,21 @@ export default function ContentStyles({ planId, items, taken, references, onPick
         }
       }
     }
-    /** The reference a card wears: the pasted link first, then the wall. */
+    const previewByUrl = new Map(
+      references
+        .filter((entry): entry is Extract<Pick, { kind: 'feed' }> => entry.kind === 'feed' && Boolean(entry.video))
+        .map((entry) => [normalizeUrl(entry.url), entry.video as string]),
+    )
+    const feedPreviewByJob = new Map<string, string>()
+    for (const entry of linkEntries) {
+      const preview = previewByUrl.get(normalizeUrl(entry.url))
+      if (preview) feedPreviewByJob.set(entry.jobId, preview)
+    }
+    /** The first queued link rides the card; additional ones become their own cards. */
+    const refs = [
+      ...linkEntries.map((entry) => ({ jobId: entry.jobId })),
+      ...libraryRefs.map((entry) => ({ jobId: entry.jobId })),
+    ].filter((entry, index, list) => list.findIndex((candidate) => candidate.jobId === entry.jobId) === index)
     const linkAt = (at: number) => linkEntries[at]?.jobId
     // The picked German format's own reference video rides Version 1 — never
     // if the week already carries it, because the route drops a whole card
@@ -337,7 +499,7 @@ export default function ContentStyles({ planId, items, taken, references, onPick
         location: draft.location || undefined,
         job_id: jobId,
         versions: keptVersions,
-      }])
+      }], feedPreviewByJob)
     } else if (style === 'talking') {
       const fields = {
         label: draft.title || 'Talking reel',
@@ -345,11 +507,11 @@ export default function ContentStyles({ planId, items, taken, references, onPick
         wardrobe: draft.wardrobe || undefined, caption: draft.caption || undefined,
         location: draft.location || undefined, editing_notes: draft.editing || undefined,
       }
-      const jobs = [...linkEntries.map((entry) => entry.jobId), ...refs.map((entry) => entry.jobId)]
+      const jobs = [...new Set([...linkEntries.map((entry) => entry.jobId), ...refs.map((entry) => entry.jobId)])]
       consumedLinks = Math.min(linkEntries.length, jobs.length)
       landed = await postCards('talking', jobs.length
         ? jobs.map((jobId) => ({ ...fields, job_id: jobId }))
-        : [fields])
+        : [fields], feedPreviewByJob)
     } else if (style === 'omegle') {
       if (items.some((item) => item.style === 'omegle')) {
         setBusy(false)
@@ -364,10 +526,10 @@ export default function ContentStyles({ planId, items, taken, references, onPick
         editing_notes: [draft.training, draft.editing].filter(Boolean).join('\n') || undefined,
         location: draft.location || undefined,
         job_id: linkAt(0) ?? refs[0]?.jobId,
-      }])
+      }], feedPreviewByJob)
     } else {
       const what = draft.what || draft.title
-      const jobs = [...linkEntries.map((entry) => entry.jobId), ...refs.map((entry) => entry.jobId)]
+      const jobs = [...new Set([...linkEntries.map((entry) => entry.jobId), ...refs.map((entry) => entry.jobId)])]
       const count = jobs.length || Math.max(1, Math.min(10, posts))
       consumedLinks = Math.min(linkEntries.length, jobs.length)
       landed = await postCards('posts', Array.from({ length: count }, (_, at) => ({
@@ -375,7 +537,7 @@ export default function ContentStyles({ planId, items, taken, references, onPick
         body: 'From shoot-day photos — 3–6 slides, best one first.',
         location: draft.location || undefined, editing_notes: draft.editing || undefined,
         job_id: jobs[at],
-      })))
+      })), feedPreviewByJob)
     }
 
     // The links the cards had no room on. Queued already; landing them here
@@ -392,7 +554,7 @@ export default function ContentStyles({ planId, items, taken, references, onPick
     setBusy(false)
     if (landed === null) {
       setNote(lastError.current ?? (linkEntries.length > 0
-        ? 'The cards did not land — the pasted reel went onto the week by itself.'
+        ? 'The cards did not land — the selected or pasted video went onto the week by itself.'
         : 'That did not land — check the connection and try again.'))
       return
     }
@@ -442,15 +604,32 @@ export default function ContentStyles({ planId, items, taken, references, onPick
               </span>
               <div className="plancomposer-picked-row">
                 <span className="plancomposer-picked-thumbs">
-                  {references.slice(0, 8).map((entry) => (
-                    entry.thumb
-                      ? /* eslint-disable-next-line @next/next/no-img-element */
-                        <img className="plancomposer-picked-thumb" key={entry.jobId} src={entry.thumb} alt="" width={44} height={55} />
-                      : <span className="plancomposer-picked-thumb plancomposer-picked-blank" key={entry.jobId} />
-                  ))}
+                  {references.slice(0, 8).map((entry, at) => {
+                    const key = `${entry.kind}:${entry.kind === 'library' ? entry.jobId : entry.url}:${at}`
+                    if (entry.kind === 'feed' && entry.video) {
+                      /* The feed video itself is the only faithful preview
+                         before the queue has made its poster frame. */
+                      return <video
+                        className="plancomposer-picked-thumb"
+                        key={key}
+                        src={entry.video.includes('#') ? entry.video : `${entry.video}#t=0.001`}
+                        muted
+                        autoPlay
+                        playsInline
+                        preload="metadata"
+                        onLoadedData={(event) => event.currentTarget.pause()}
+                        aria-label="Selected video preview"
+                      />
+                    }
+                    if (entry.thumb) {
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      return <img className="plancomposer-picked-thumb" key={key} src={entry.thumb} alt="" width={44} height={55} />
+                    }
+                    return <span className="plancomposer-picked-thumb plancomposer-picked-blank" key={key} />
+                  })}
                 </span>
                 <span className="plancomposer-picked-name">
-                  {references.map((entry) => entry.name ?? 'Library video').join(' · ')}
+                  {references.map((entry) => entry.name ?? (entry.kind === 'feed' ? 'Social video' : 'Library video')).join(' · ')}
                 </span>
                 <button type="button" className="btn btn-small btn-quiet" onClick={onClearReference}>Remove</button>
               </div>
@@ -466,7 +645,12 @@ export default function ContentStyles({ planId, items, taken, references, onPick
                 onChange={applyTemplate}
                 options={[
                   { value: '', label: 'No template' },
-                  ...templates.map((template) => ({ value: template.id, label: template.label })),
+                  // A German template belongs to the Format reel lane — it is
+                  // the playbook entry, its versions and its video
+                  // (2026-10-16); every other lane sees the general blanks only.
+                  ...templates
+                    .filter((template) => style === 'format' || !template.variant)
+                    .map((template) => ({ value: template.id, label: template.label })),
                 ]}
               />
             </div>
@@ -484,14 +668,14 @@ export default function ContentStyles({ planId, items, taken, references, onPick
             </div>
             <div className="f pf-4">
               <label className="axis-name" htmlFor="plan-cf-link">
-                Reference link — a reel you found on Instagram or TikTok
+                Reference video — from Instagram, TikTok or X
               </label>
               <input
                 id="plan-cf-link"
                 className="field"
                 type="url"
                 value={draft.link}
-                placeholder="https://www.instagram.com/reel/… — it queues, and rides the first card onto the week"
+                placeholder="Paste a video link — it queues and rides the first card onto the week"
                 onChange={(event) => set({ link: event.target.value })}
                 onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault() }}
               />
@@ -508,18 +692,26 @@ export default function ContentStyles({ planId, items, taken, references, onPick
                   <select
                     id="plan-cf-german"
                     className="field"
-                    value={germanNo}
+                    value={germanPick}
                     onChange={(event) => {
-                      const no = event.target.value
-                      if (!no) {
+                      const chosen = event.target.value
+                      if (!chosen) {
                         germanWanted.current = ''
+                        setGermanPick('')
                         setGermanNo('')
                         setGermanRef(null)
                         setGermanLooking(false)
+                        setKeepName('')
+                        setKeepNote(null)
                         return
                       }
-                      const picked = findGerman(no)
-                      if (picked) applyGerman(picked)
+                      if (chosen.startsWith('k:')) {
+                        const entry = customPlaybook.find((row) => `k:${row.id}` === chosen)
+                        if (entry) applyCustomPlaybook(entry)
+                        return
+                      }
+                      const pickedGerman = findGerman(chosen)
+                      if (pickedGerman) applyGerman(pickedGerman)
                     }}
                   >
                     <option value="">Pick a German format…</option>
@@ -530,6 +722,16 @@ export default function ContentStyles({ planId, items, taken, references, onPick
                         ))}
                       </optgroup>
                     ))}
+                    {/* The team's own entries, added in the queue — they
+                        prefill instructions and versions like the doc's own
+                        (2026-10-16). */}
+                    {customPlaybook.length > 0 && (
+                      <optgroup label="Our playbook">
+                        {customPlaybook.map((entry) => (
+                          <option key={entry.id} value={`k:${entry.id}`}>{entry.label}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   {/* The doc's own reference video attaches itself (Geno,
                       2026-10-13) — said here, so nobody has to wonder whether
@@ -563,6 +765,31 @@ export default function ContentStyles({ planId, items, taken, references, onPick
                   </datalist>
                 </div>
               </div>
+              {/* Only a picked German format offers this (Geno, 2026-10-16):
+                  the entry, its versions and its reference video become a
+                  template any later week can pick again. */}
+              {germanNo && (
+                <div className="f pf-4 plancomposer-keep">
+                  <span className="axis-name">Save as a template — the playbook entry and its reference video ride it</span>
+                  <div className="plancomposer-keep-row">
+                    <input
+                      className="field"
+                      value={keepName}
+                      maxLength={120}
+                      aria-label="Template name"
+                      placeholder="Name this template"
+                      onChange={(event) => { setKeepName(event.target.value); setKeepNote(null) }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      disabled={keepBusy || !keepName.trim()}
+                      onClick={() => void keepGermanTemplate()}
+                    >{keepBusy ? 'Saving…' : 'Save template'}</button>
+                  </div>
+                  {keepNote && <span className="hint" role="status">{keepNote}</span>}
+                </div>
+              )}
               <div className="f pf-4">
                 <span className="axis-name">Versions — what changes each time</span>
                 <div className="cform-vers">

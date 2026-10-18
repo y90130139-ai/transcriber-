@@ -1,7 +1,7 @@
 // node --import ./cloud/test/ts-resolve.mjs --test cloud/test/german.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanBrief, germanVersionRows } from '../src/lib/german'
+import { GERMAN_FORMATS, GERMAN_TYPES, findGerman, germanBrief, germanVersionAt, germanVersionRows } from '../src/lib/german'
 
 test('six types, 57 formats, matching the source doc', () => {
   assert.equal(GERMAN_TYPES.length, 6)
@@ -83,4 +83,17 @@ test('every german format yields rows the composer can land', () => {
     assert.ok(rows.length >= 1 && rows.length <= 8, `#${format.no}`)
     for (const row of rows) assert.equal(row.caption, '')
   }
+})
+
+test('a numbered take resolves through explicit variants and version ranges', () => {
+  assert.deepEqual(germanVersionAt('V1 neutral top, bright underwear · V2 white/patterned underwear, neutral top', 2), {
+    outfit: 'white/patterned underwear, neutral top', caption: '',
+  })
+  assert.deepEqual(germanVersionAt('V1–4 bedroom · V5–7 bathroom, back to camera, over-shoulder top removal', 2), {
+    outfit: 'bedroom', caption: '',
+  })
+  assert.deepEqual(germanVersionAt('V1 / V2 same as reference', 2), {
+    outfit: 'Same as the reference', caption: '',
+  })
+  assert.equal(germanVersionAt('Single version', 2), null)
 })

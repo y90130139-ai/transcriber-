@@ -12,15 +12,27 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DropSelect from './dashboard/DropSelect'
+import { thumbUrl } from '@/lib/format'
 import { taxonomy } from '@/lib/taxonomy'
 
-type Template = { id: string; label: string; format: string | null; body: string | null }
+type Template = {
+  id: string
+  label: string
+  format: string | null
+  body: string | null
+  /** A German template's playbook entry and the video it rides (2026-10-16). */
+  variant?: string | null
+  job_id?: string | null
+  /** Whether that video has a poster frame the card can show (2026-10-18). */
+  has_thumb?: boolean
+}
 
 const FORMAT_LABELS = new Map(taxonomy.format.tags.map((tag) => [tag.id, tag.label]))
 const DELETE_ARM_MS = 4000
 
 export default function TemplatesTab() {
   const [templates, setTemplates] = useState<Template[]>([])
+  const [customFormats, setCustomFormats] = useState<{ id: string; label: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
   /** The id being edited — null is a new template. */
@@ -50,7 +62,20 @@ export default function TemplatesTab() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    fetch('/api/formats')
+      .then((response) => (response.ok ? response.json() : { formats: [] }))
+      .then((data) => {
+        setCustomFormats(Array.isArray(data.formats) ? data.formats : [])
+      })
+      .catch(() => { setCustomFormats([]) })
+  }, [])
   useEffect(() => () => { if (armTimer.current) window.clearTimeout(armTimer.current) }, [])
+
+  const formatLabels = useMemo(() => new Map([
+    ...FORMAT_LABELS,
+    ...customFormats.map((entry) => [entry.id, entry.label] as const),
+  ]), [customFormats])
 
   function startNew() {
     setEditing(null)
@@ -117,12 +142,15 @@ export default function TemplatesTab() {
 
   const shown = useMemo(() => {
     const needle = find.trim().toLowerCase()
-    if (!needle) return templates
-    return templates.filter((template) =>
+    const filtered = !needle ? templates : templates.filter((template) =>
       template.label.toLowerCase().includes(needle)
       || (template.body ?? '').toLowerCase().includes(needle)
-      || (template.format ? (FORMAT_LABELS.get(template.format) ?? template.format).toLowerCase().includes(needle) : false))
-  }, [templates, find])
+      || (template.format ? (formatLabels.get(template.format) ?? template.format).toLowerCase().includes(needle) : false))
+    // Cards with a cover lead the shelf; the blanks sit at the bottom
+    // (2026-10-18). A stable sort, so each group keeps its alphabetical order.
+    const covered = (template: Template) => Boolean(template.job_id && template.has_thumb)
+    return [...filtered].sort((a, b) => Number(covered(b)) - Number(covered(a)))
+  }, [templates, find, formatLabels])
 
   const said = note && <p className="hint" data-tone={note.bad ? 'bad' : undefined} role="status">{note.text}</p>
 
@@ -162,6 +190,7 @@ export default function TemplatesTab() {
               options={[
                 { value: '', label: 'Any format' },
                 ...taxonomy.format.tags.map((tag) => ({ value: tag.id, label: tag.label })),
+                ...customFormats.map((entry) => ({ value: entry.id, label: entry.label, group: 'Our own' })),
               ]}
             />
             <p className="tpl-hint">Leave it any when the blank works for every format.</p>
@@ -210,8 +239,11 @@ export default function TemplatesTab() {
             <div aria-busy="true" aria-label="Reading the templates">
               {[0, 1, 2].map((index) => (
                 <div className="tpl-item tpl-skel" key={index} aria-hidden>
-                  <span className="tpl-skel-bar" />
-                  <span className="tpl-skel-bar tpl-skel-body" />
+                  <span className="tpl-skel-cover" />
+                  <div className="tpl-skel-main">
+                    <span className="tpl-skel-bar" />
+                    <span className="tpl-skel-bar tpl-skel-body" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -239,41 +271,88 @@ export default function TemplatesTab() {
 
           {!loading && shown.map((template) => (
             <article className="tpl-item" key={template.id} data-editing={editing === template.id || undefined}>
-              <div className="tpl-item-top">
-                <span className="tpl-item-label">{template.label}</span>
-                {template.format && (
-                  <span className="chip chip-static">{FORMAT_LABELS.get(template.format) ?? template.format}</span>
-                )}
-                <div className="tpl-item-actions">
-                  <button type="button" className="btn btn-small btn-quiet" onClick={() => startEdit(template)}>
-                    Edit
-                  </button>
-                  {armed === template.id ? (
-                    <button
-                      type="button"
-                      className="btn btn-small tpl-armed"
-                      onClick={() => void remove(template)}
-                      title={`Delete “${template.label}”`}
-                    >
-                      Confirm delete
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-small btn-quiet"
-                      onClick={() => armDelete(template)}
-                      title={`Delete “${template.label}”`}
-                    >
-                      Delete
-                    </button>
+              <TplCover jobId={template.job_id ?? null} hasThumb={Boolean(template.has_thumb)} />
+              <div className="tpl-item-main">
+                <div className="tpl-item-top">
+                  <span className="tpl-item-label">{template.label}</span>
+                  {template.format && (
+                    <span className="tpl-tag">{formatLabels.get(template.format) ?? template.format}</span>
                   )}
+                  <div className="tpl-item-actions">
+                    <button type="button" className="btn btn-small btn-quiet" onClick={() => startEdit(template)}>
+                      Edit
+                    </button>
+                    {armed === template.id ? (
+                      <button
+                        type="button"
+                        className="btn btn-small tpl-armed"
+                        onClick={() => void remove(template)}
+                        title={`Delete “${template.label}”`}
+                      >
+                        Confirm delete
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-small btn-quiet"
+                        onClick={() => armDelete(template)}
+                        title={`Delete “${template.label}”`}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {template.body && <p className="tpl-item-body">{template.body}</p>}
               </div>
-              {template.body && <p className="tpl-item-body">{template.body}</p>}
             </article>
           ))}
         </section>
       </div>
     </div>
+  )
+}
+
+/** The attached reference video's frame, left of the card (2026-10-18).
+ *  A template with no video — or one whose poster frame the store no longer
+ *  holds — keeps the same tile as a quiet blank, so the column never breaks. */
+function TplCover({ jobId, hasThumb }: { jobId: string | null; hasThumb: boolean }) {
+  const [failed, setFailed] = useState(false)
+  const src = jobId && hasThumb && !failed ? thumbUrl(jobId) : null
+  return (
+    <span className="tpl-cover" aria-hidden="true">
+      {src && (
+        <img
+          src={src}
+          alt=""
+          width={64}
+          height={80}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      )}
+      {src ? (
+        <span className="tpl-cover-play">
+          <svg width="7" height="8" viewBox="0 0 7 8" fill="currentColor">
+            <path d="M7 4 0 8V0l7 4Z" />
+          </svg>
+        </span>
+      ) : (
+        <svg
+          className="tpl-cover-glyph"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        >
+          <rect x="2.2" y="2.8" width="11.6" height="10.4" rx="1.8" />
+          <path d="M2.2 6.2h11.6" />
+        </svg>
+      )}
+    </span>
   )
 }

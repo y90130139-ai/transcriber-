@@ -1,16 +1,18 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { createEditor, listEditors, notifyEditor, updateEditor } from '@/lib/editors'
 
 /** The editing team: list, add, edit, assign, notify. Console only. */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   return NextResponse.json({ editors: await listEditors() })
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const body = await request.json().catch(() => ({}))
 
   // Point one card at one editor (or at nobody). Notes can still be in
@@ -41,7 +43,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const body = await request.json().catch(() => ({}))
   const id = typeof body.id === 'string' ? body.id : ''
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })

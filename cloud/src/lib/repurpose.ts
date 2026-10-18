@@ -19,9 +19,66 @@ import { recreateTarget } from './week-target'
 
 export const REPURPOSE_HOLD = 'We refresh this one and send it to you in your group chat. Post it again this week.'
 
+/** What was done to a rendered file, so an old output can still say. The
+ *  render lives on the Mac (`src/repurpose.py`); this is the contract. */
+export const REPURPOSE_RECIPE = 'fresh-v1'
+
+/** `marked` is a row from before renders existed: flagged, file handled by
+ *  hand. Everything new walks queued → rendering → ready | failed. */
+export const REPURPOSE_STATUSES = ['marked', 'queued', 'rendering', 'ready', 'failed'] as const
+export type RepurposeStatus = (typeof REPURPOSE_STATUSES)[number]
+
+/** Every jitter in one render derives from this, so the row is its receipt. */
+export function newRepurposeSeed(): number {
+  return Math.floor(Math.random() * 0x7fff_ffff)
+}
+
+/**
+ * Queue the studio render for one marked reel (Geno, 2026-10-18).
+ *
+ * Upserts the `repurposes` row into `queued` with a fresh seed and clears any
+ * earlier outcome — a re-tap is a fresh try, not a duplicate. The Mac claims
+ * it on the same poll it already makes, renders in `src/repurpose.py`, uploads
+ * to R2 and reports back; this table is the ledger that whole way.
+ */
+export async function queueRepurposeRender(input: {
+  modelId: string
+  /** The library job id — the same id the console's repurpose actions carry. */
+  jobId: string
+  destination?: 'trial' | 'main' | 'both'
+  note?: string | null
+}): Promise<{ seed: number }> {
+  const seed = newRepurposeSeed()
+  await sql.query(
+    `insert into transcriber.repurposes
+       (post_id, model_id, job_id, destination, note, status, seed, recipe, error, claimed_at)
+     values ($1, $2, $1, $3, $4, 'queued', $5, $6, null, null)
+     on conflict (post_id) do update
+        set destination = excluded.destination,
+            note        = excluded.note,
+            status      = 'queued',
+            seed        = excluded.seed,
+            recipe      = excluded.recipe,
+            error       = null,
+            claimed_at  = null,
+            attempts    = 0,
+            created_at  = now()`,
+    [input.jobId, input.modelId, input.destination ?? 'trial', input.note ?? null, seed, REPURPOSE_RECIPE],
+  )
+  return { seed }
+}
+
 type Result =
-  | { error: string; status: number }
-  | { added: number; week_of: string; plan_id: string; download: string | null; note: string | null }
+  | { error: string; status: number; /** The render was still queued. */ render?: 'queued' }
+  | {
+      added: number
+      week_of: string
+      plan_id: string
+      download: string | null
+      note: string | null
+      /** The row is `queued` — the studio render is on its way. */
+      render: 'queued'
+    }
 
 /** The job for a reel, by shortcode — found in the library, or queued now. */
 async function jobFor(modelId: string, code: string, handle: string | null): Promise<string> {
@@ -54,9 +111,13 @@ async function downloadFor(code: string, jobId: string): Promise<string | null> 
 
 export async function repurposeReel(modelId: string, code: string, askedPlan: unknown): Promise<Result> {
   const [post] = await sql.query(`select handle from transcriber.creator_posts where post_id = $1`, [code])
-  const target = await recreateTarget(modelId, askedPlan)
-  if ('error' in target) return target
   const jobId = await jobFor(modelId, code, post?.handle ? String(post.handle) : null)
+  // The render is queued before the week is chosen, on purpose (2026-10-18):
+  // the fresh file is worth having even when no card can take it — a sent
+  // week — and the per-post route behaves the same way.
+  await queueRepurposeRender({ modelId, jobId })
+  const target = await recreateTarget(modelId, askedPlan)
+  if ('error' in target) return { ...target, render: 'queued' }
   const added = await appendItems(target.planId, modelId, [jobId], () => ({
     bucket: 'repurpose',
     axis: null,
@@ -71,5 +132,6 @@ export async function repurposeReel(modelId: string, code: string, askedPlan: un
     plan_id: target.planId,
     download,
     note: download ? null : 'The Mac is fetching the video — download it from the library once it lands.',
+    render: 'queued',
   }
 }

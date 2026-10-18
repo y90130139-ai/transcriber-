@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { requirementBoardMeta, requirementRows, type RequirementQuery } from '@/lib/reddit/queries'
 import { isAdultCategory, parseSubredditInput, REGISTRY_CATEGORIES } from '@/lib/reddit/registry'
 import {
@@ -21,7 +21,8 @@ import { getSettings } from '@/lib/reddit/settings'
  */
 
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const params = new URL(request.url).searchParams
   try {
     const query: RequirementQuery = {
@@ -64,7 +65,8 @@ export async function GET(request: Request) {
 
 /** Add one community by name or URL, or bulk-add a picked list of names. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const category = String(body.category ?? '').trim() || 'Uncategorized'
@@ -99,7 +101,8 @@ export async function POST(request: Request) {
  *  forward, set the Bot Bouncer badge, or save the current result set as a
  *  new list. */
 export async function PATCH(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const action = String(body.action ?? 'update')
@@ -132,7 +135,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const id = new URL(request.url).searchParams.get('id') ?? ''
     const parsed = parseSubredditInput(id)

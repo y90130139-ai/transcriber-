@@ -149,7 +149,10 @@ export type UserVerdict = {
   overall: 'fits' | 'under' | 'unknown'
 }
 
-export function eligibility(profile: RequirementProfileStats | null, row: RequirementRow): UserVerdict {
+export function eligibility(
+  profile: RequirementProfileStats | null,
+  row: Pick<RequirementRow, 'min_post_karma' | 'min_comment_karma' | 'min_age_days'>,
+): UserVerdict {
   const judge = (value: number | null | undefined, required: number | null | undefined): CriterionVerdict => {
     if (!has(required as number) || !has(value as number)) return 'unknown'
     return (value as number) >= (required as number) ? 'ok' : 'under'

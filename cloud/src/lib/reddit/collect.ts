@@ -74,6 +74,7 @@ import {
   finishRun,
   getSubreddit,
   latestRateState,
+  latestSubredditSnapshotAt,
   listSubreddits,
   markSubredditSynced,
   markSubredditValidated,
@@ -815,7 +816,11 @@ async function collectRequirementOne(
     })
   }
 
-  const sampled = await sampleNewPosts(client, settings, subreddit, state)
+  const previousAt = await latestSubredditSnapshotAt(subreddit).catch(() => null)
+  const sampled = await sampleNewPosts(
+    client, settings, subreddit, state,
+    previousAt ? Date.parse(previousAt) : Date.now() - 86_400_000,
+  )
   state.samples_new += sampled.inserted
   // Judging after sampling means a community's newest page can both produce
   // samples and pass judgement in one pass: the posts already older than the
@@ -827,6 +832,26 @@ async function collectRequirementOne(
   // samples taken in earlier passes; their rows get the stats now.
   await fillSampleProfiles(subreddit).catch(() => 0)
   const fresh = await getRequirementSubreddit(subreddit)
+  // The trend column: for communities the content collector does not scan,
+  // this pass is the only visitor, so its listing reading lands as the
+  // activity snapshot, in the same shape the collector writes — no extra
+  // request. Geno, 2026-10-18: "track the trend for each subreddit".
+  const tracked = await getSubreddit(subreddit).catch(() => null)
+  const contentScanned = Boolean(tracked && tracked.enabled && !tracked.paused
+    && (tracked.status === 'active' || tracked.status === 'pending'))
+  if (!contentScanned && sampled.activity.seen > 0) {
+    await writeSubredditSnapshot({
+      subreddit,
+      capturedAt: new Date().toISOString(),
+      subscribers: fresh && fresh.subscribers !== null && fresh.subscribers !== undefined
+        ? Number(fresh.subscribers)
+        : null,
+      activeUsers: null,
+      postsSeen: sampled.activity.seen,
+      postsNew: sampled.activity.postsNew,
+      engagement: sampled.activity.engagement,
+    }).catch(() => null)
+  }
   const points: SamplePoint[] = (await samplesForEstimate(subreddit, settings.retention_days))
     .map((sample) => ({
       outcome: sample.outcome as SamplePoint['outcome'],
@@ -876,17 +901,27 @@ async function judgeSamples(
 
 /** Sample the newest posts: up to `requirements_sample_size` posts whose
  *  authors and ids we have not sampled before, plus the account stats they
- *  need. The profile reads are the expensive part and are cached by user. */
+ *  need. The profile reads are the expensive part and are cached by user.
+ *  The whole page is already in hand, so the pass also returns the activity
+ *  reading (seen / new-since-last-reading / engagement) that feeds the
+ *  board's trend column at no extra request. Geno, 2026-10-18. */
 async function sampleNewPosts(
   client: RedditClient,
   settings: Awaited<ReturnType<typeof getSettings>>,
   subreddit: string,
   state: RequirementRunSummary,
-): Promise<{ inserted: number; postsPerDay: number | null }> {
+  sinceMs: number,
+): Promise<{ inserted: number; postsPerDay: number | null; activity: { seen: number; postsNew: number; engagement: number } }> {
   const payload = await client.get<{ data: { children: ListingChild[] } }>(
     `/r/${subreddit}/new`,
     { limit: LISTING_LIMIT, raw_json: 1 },
   )
+  const raw = (payload.data?.children ?? []).filter((child) => child.kind === 't3' && child.data?.id)
+  const activity = {
+    seen: raw.length,
+    postsNew: raw.filter((child) => (child.data?.created_utc ?? 0) * 1000 > sinceMs).length,
+    engagement: raw.reduce((sum, child) => sum + (child.data?.score ?? 0) + (child.data?.num_comments ?? 0), 0),
+  }
   const children = (payload.data?.children ?? []).filter(
     (child) => child.kind === 't3' && child.data?.id && child.data.author
       && child.data.author !== '[deleted]' && child.data.author !== 'AutoModerator',
@@ -894,12 +929,12 @@ async function sampleNewPosts(
   const perDay = postsPerDay(
     (payload.data?.children ?? []).map((child) => child.data?.created_utc ?? 0).filter(Boolean),
   )
-  if (!children.length) return { inserted: 0, postsPerDay: perDay }
+  if (!children.length) return { inserted: 0, postsPerDay: perDay, activity }
 
   const known = await existingSampleIds(subreddit, children.map((child) => String(child.data?.id)))
   const fresh = children.filter((child) => !known.has(String(child.data?.id)))
     .slice(0, Math.max(1, settings.requirements_sample_size))
-  if (!fresh.length) return { inserted: 0, postsPerDay: perDay }
+  if (!fresh.length) return { inserted: 0, postsPerDay: perDay, activity }
 
   const batch = Math.max(0, settings.requirements_profile_batch)
   const fetched = new Set<string>()
@@ -951,7 +986,7 @@ async function sampleNewPosts(
     }
   })
   const inserted = await recordRequirementSamples(subreddit, samples)
-  return { inserted: inserted.length, postsPerDay: perDay }
+  return { inserted: inserted.length, postsPerDay: perDay, activity }
 }
 
 /* ------------------------------------------------------ NSFW discovery */

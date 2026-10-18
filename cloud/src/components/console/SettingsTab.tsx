@@ -14,8 +14,8 @@ type Me = { name: string | null; role: string; email: string }
 
 const DOORS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: '/reddit-trends/settings', label: 'Reddit Trends settings', note: 'Budgets, cadence and cooldowns for the collector.', icon: 'reddit' },
-  { href: '/app-accounts', label: 'App accounts', note: 'The app logins — invited, active or off — and the actions that keep them alive.', icon: 'checkCircle' },
-  { href: '/invites', label: 'Invites', note: 'Send a model her invite to the app.', icon: 'mail' },
+  { href: '/app-accounts', label: 'App accounts', note: 'The app logins — invited, active or off — and the Invite button that mints the next one.', icon: 'checkCircle' },
+  { href: '/app-content/welcome', label: 'App content', note: 'Every word the client app shows — publish here, it lands on her phone.', icon: 'type' },
   { href: '/templates', label: 'Templates', note: 'Reusable card blanks — the plan editor reads this list.', icon: 'copy' },
 ]
 

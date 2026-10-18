@@ -17,6 +17,10 @@
  */
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import bcrypt from 'bcryptjs'
+import {
+  PAGES, hasAppAccess, isElevated, resolvePermissions, sanitizePermissions,
+  type AccessLevel,
+} from './permissions'
 
 export type TeamRole = 'ceo' | 'admin' | 'member'
 /** The permission key the dashboard's Team settings write for this app. */
@@ -29,8 +33,11 @@ export type TeamSession = {
   email: string
   name: string | null
   role: TeamRole
-  /** This app's permission level from the member's page_permissions. */
+  /** Legacy single value, kept for old sessions and the worker gate. */
   transcriber: 'read' | 'edit' | null
+  /** The effective Off/View/Edit level for every page, resolved at sign-in
+   *  (docs/PERMISSIONS.md). Permission edits land at the next sign-in. */
+  permissions: Record<string, AccessLevel>
   /** Unix seconds. */
   exp: number
 }
@@ -80,7 +87,7 @@ export async function listTeamMembers(): Promise<
             name: row.name ?? null,
             email: String(row.email ?? ''),
             role: (['ceo', 'admin', 'member'].includes(String(row.role)) ? String(row.role) : 'member') as TeamRole,
-            allowed: canUseTranscriber(row.role, levelOf(row.page_permissions)),
+            allowed: hasAppAccess(row.page_permissions, row.role),
           }))
           .filter((member) => member.allowed)
           .map(({ id, name, email, role }) => ({ id, name, email, role }))
@@ -96,20 +103,13 @@ function supabase(): { url: string; key: string } | null {
   return url && key ? { url, key } : null
 }
 
-/** CEO and admin are in, always. A member needs the transcriber permission
- *  switched on for their account. */
+/** CEO and admin are in, always. A member when the door is open or any single
+ *  page is granted (`hasAppAccess` in lib/permissions.ts). */
 export function canUseTranscriber(
   role: string | null | undefined,
-  transcriber: 'read' | 'edit' | null | undefined,
+  pagePermissions: unknown,
 ): boolean {
-  const normalized = String(role || 'member').toLowerCase()
-  if (normalized === 'ceo' || normalized === 'admin') return true
-  return transcriber === 'read' || transcriber === 'edit'
-}
-
-const levelOf = (permissions: Record<string, string> | null | undefined): 'read' | 'edit' | null => {
-  const level = permissions?.[TRANSCRIBER_PAGE_KEY]
-  return level === 'read' || level === 'edit' ? level : null
+  return hasAppAccess(pagePermissions, role)
 }
 
 /** Check one email/password against the shared team table. */
@@ -152,9 +152,9 @@ export async function verifyTeamLogin(
   const matches = await bcrypt.compare(password, member.password_hash)
   if (!matches) return { error: 'Invalid email or password.', status: 401 }
 
-  if (!canUseTranscriber(member.role, levelOf(member.page_permissions))) {
+  if (!canUseTranscriber(member.role, member.page_permissions)) {
     return {
-      error: 'This account does not have access to the Transcriber — ask an admin to turn it on in Team settings.',
+      error: 'This account does not have access to the Transcriber — ask an admin for it in Team settings.',
       status: 403,
     }
   }
@@ -178,27 +178,42 @@ function same(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-/** Mint the cookie's token for a member who just signed in. */
+/** Mint the cookie's token for a member who just signed in. The effective
+ *  page map is resolved once, here, and rides the token — permission edits
+ *  in the dashboard land at the member's next sign-in (docs/PERMISSIONS.md). */
 export function issueSession(member: TeamMember): { token: string; session: TeamSession } {
   const now = Math.floor(Date.now() / 1000)
   const role = (['ceo', 'admin', 'member'].includes(String(member.role).toLowerCase())
     ? String(member.role).toLowerCase()
     : 'member') as TeamRole
+  const permissions = resolvePermissions(member.page_permissions, role)
   const session: TeamSession = {
     id: String(member.id),
     email: member.email,
     name: member.name ?? null,
     role,
-    transcriber: levelOf(member.page_permissions),
+    transcriber: legacyOf(permissions),
+    permissions,
     exp: now + SESSION_TTL_SEC,
   }
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
-  const body = Buffer.from(JSON.stringify({ sub: session.id, email: session.email, name: session.name, role: session.role, transcriber: session.transcriber, iat: now, exp: session.exp })).toString('base64url')
+  const body = Buffer.from(JSON.stringify({
+    sub: session.id, email: session.email, name: session.name, role: session.role,
+    perm: permissions, iat: now, exp: session.exp,
+  })).toString('base64url')
   const token = `${header}.${body}.${sign(`${header}.${body}`)}`
   return { token, session }
 }
 
-/** Read a token back. Null for anything unsigned, tampered with or expired. */
+/** The broadcast an old token (or an old table row) means: one level for
+ *  every page. New sessions carry the resolved map instead. */
+function broadcast(level: 'read' | 'edit' | null): Record<string, AccessLevel> {
+  return Object.fromEntries(PAGES.map((page) => [page.key, level ?? 'none']))
+}
+
+/** Read a token back. Null for anything unsigned, tampered with, expired,
+ *  or belonging to a member with no access left. Old tokens without the
+ *  resolved map read their legacy `transcriber` value instead. */
 export function readSession(token: string | undefined | null): TeamSession | null {
   if (!token) return null
   const parts = token.split('.')
@@ -218,17 +233,33 @@ export function readSession(token: string | undefined | null): TeamSession | nul
     const role = (['ceo', 'admin', 'member'].includes(String(payload.role).toLowerCase())
       ? String(payload.role).toLowerCase()
       : 'member') as TeamRole
-    const transcriber = payload.transcriber === 'read' || payload.transcriber === 'edit' ? payload.transcriber : null
-    if (!canUseTranscriber(role, transcriber)) return null
+
+    const permissions = payload.perm && typeof payload.perm === 'object'
+      ? sanitizePermissions(payload.perm)
+      : broadcast(payload.transcriber === 'read' || payload.transcriber === 'edit' ? payload.transcriber : null)
+
+    // The door, from the resolved map: elevated, or at least one page open.
+    const allowed = isElevated(role) || PAGES.some((page) => permissions[page.key] !== 'none')
+    if (!allowed) return null
+
+    const legacy = legacyOf(permissions)
     return {
       id: String(payload.sub ?? ''),
       email: String(payload.email ?? ''),
       name: payload.name ? String(payload.name) : null,
       role,
-      transcriber,
+      transcriber: legacy,
+      permissions,
       exp,
     }
   } catch {
     return null
   }
+}
+
+/** The old single value, derived from a resolved map (for older readers). */
+function legacyOf(permissions: Record<string, AccessLevel>): 'read' | 'edit' | null {
+  const levels = PAGES.map((page) => permissions[page.key])
+  if (levels.every((level) => level === 'edit')) return 'edit'
+  return levels.some((level) => level !== 'none') ? 'read' : null
 }

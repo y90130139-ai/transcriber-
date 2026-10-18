@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { aiReady, askJson } from '@/lib/ai'
 import { validateAiSuggestion, type AiBatcherSuggestion } from '@/lib/video-batcher'
 
@@ -30,7 +30,8 @@ function cleanMediaSummary(value: unknown): MediaSummary[] {
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => null)
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''

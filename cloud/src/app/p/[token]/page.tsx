@@ -11,12 +11,18 @@ import { styleScript } from '@/lib/portal-style'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function PlanPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
+export default async function PlanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>
+  searchParams: Promise<{ week?: string | string[] }>
+}) {
+  const [{ token }, { week }] = await Promise.all([params, searchParams])
 
   // Unknown, malformed and revoked tokens all land here. Never a 403 — that
   // would confirm there is something behind the URL.
-  const plan = await loadPlan(token)
+  const plan = await loadPlan(token, week)
   if (!plan) notFound()
 
   // The first open, stamped here rather than from a client effect — the whole

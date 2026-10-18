@@ -1,12 +1,11 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { addDays, currentWeekOf } from '@/lib/dates'
 import { newId, readWeekOf } from '@/lib/models'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 
 /** The last day of the week the plan belongs to — same rule as POST /api/plans. */
@@ -24,7 +23,8 @@ const DUE_OFFSET_DAYS = 6
  * follows it across.
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const body = await request.json().catch(() => ({}))

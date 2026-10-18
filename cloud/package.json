@@ -14,6 +14,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@blocknote/core": "^0.51.4",
+    "@blocknote/mantine": "^0.51.4",
+    "@blocknote/react": "^0.51.4",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@neondatabase/serverless": "^1.1.0",

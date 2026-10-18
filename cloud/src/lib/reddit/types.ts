@@ -89,6 +89,12 @@ export type SubredditRow = {
   engagement: number
   /** New posts per day, last 14 days — the table's trend spark. */
   spark?: number[]
+  /** The measured posting gates, joined from the requirements board —
+   *  null until that board has sampled this community. Geno, 2026-10-18:
+   *  one board instead of two, gates under the community. */
+  gates?: RequirementGates | null
+  /** The evidence posts behind the gates, ≤4, filtered authors first. */
+  gate_sources?: RequirementSource[]
 }
 
 export type CollectorRun = {
@@ -258,6 +264,22 @@ export type RequirementSource = {
   comment_karma: number | null
   account_age_days: number | null
   post_created_utc: string
+}
+
+/** The measured gates for one community, as the merged board reads them. */
+export type RequirementGates = {
+  min_post_karma: number | null
+  min_comment_karma: number | null
+  min_age_days: number | null
+  avg_total_karma: number | null
+  posts_per_day: number | null
+  confidence: RequirementConfidence
+  bot_bouncer: BotBouncerStatus
+  sample_count: number
+  survivor_count: number
+  filtered_count: number
+  confirmations: number
+  last_collected_at: string | null
 }
 
 export type RequirementProfileStats = {

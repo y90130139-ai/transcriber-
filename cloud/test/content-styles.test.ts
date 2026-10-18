@@ -26,6 +26,7 @@ test('a non-object payload is null, not an empty rule', () => {
 
 test('a version suffix is stripped back to its concept stem', () => {
   assert.equal(conceptStem('69 · Black top transition · Version 2'), '69 · Black top transition')
+  assert.equal(conceptStem('FORMAT #6 (V2)'), 'FORMAT #6')
   assert.equal(conceptStem('69 · Black top transition'), '69 · Black top transition')
   assert.equal(conceptStem(null), '')
 })
@@ -37,6 +38,8 @@ test('the composer and the versions tool write the same title', () => {
 
 test('the version number reads back off a title, and only off one', () => {
   assert.equal(versionOf('German #14 · Viral Clip Format · Version 2'), 2)
+  assert.equal(versionOf('FORMAT #6 (V2)'), 2)
+  assert.equal(versionOf('FORMAT #6 V2'), 2)
   assert.equal(versionOf('German #14 · Viral Clip Format'), null)
   assert.equal(versionOf('Simple Lingerie (Comical)'), null)
   assert.equal(versionOf(null), null)

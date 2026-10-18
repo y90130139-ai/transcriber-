@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { freshAudioFor } from '@/lib/trends'
 
 /** Save a spreading sound as a file: `?title=<audio_title>` streams the
@@ -8,7 +8,8 @@ import { freshAudioFor } from '@/lib/trends'
  *  cross-origin download and the links die in hours anyway — the button
  *  only shows when one is still alive (`fresh_audio` on the board). */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const title = new URL(request.url).searchParams.get('title')?.trim()
   if (!title) return NextResponse.json({ error: 'which sound?' }, { status: 400 })

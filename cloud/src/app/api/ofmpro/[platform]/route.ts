@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn, isWorker } from '@/lib/auth'
+import { isWorker } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { sql } from '@/lib/db'
 import { ofmproR2Config, presignGet } from '@/lib/r2'
 
@@ -14,8 +15,9 @@ import { ofmproR2Config, presignGet } from '@/lib/r2'
 
 const PLATFORMS = new Set(['instagram', 'tiktok', 'twitter'])
 
-export async function GET(_request: Request, { params }: { params: Promise<{ platform: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: { params: Promise<{ platform: string }> }) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { platform } = await params
   if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
 
@@ -133,8 +135,9 @@ async function probeMedia(url: string, platform: string): Promise<ProbeResult> {
 /** Mark a preview the player could not open. No probe, no delete — scrolling
  *  stays on the feed instead of waiting on a database cleanup. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ platform: string }> }) {
-  if (!(await isSignedIn()) && !isWorker(request)) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!isWorker(request)) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
   }
   const { platform } = await params
   if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })
@@ -160,8 +163,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pl
  *  small range probe. Transient/ambiguous network failures are retained.
  *  `?unavailable=1` is the explicit purge of rows already tagged unavailable. */
 export async function DELETE(request: Request, { params }: { params: Promise<{ platform: string }> }) {
-  if (!(await isSignedIn()) && !isWorker(request)) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!isWorker(request)) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
   }
   const { platform } = await params
   if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'unknown platform' }, { status: 404 })

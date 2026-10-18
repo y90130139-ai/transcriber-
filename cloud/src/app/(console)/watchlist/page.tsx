@@ -1,5 +1,5 @@
+import { requirePage } from '@/lib/access'
 import WatchlistPanel from '@/components/WatchlistPanel'
-import { isSignedIn } from '@/lib/auth'
 import { loadWatchlist, type WatchlistData } from '@/lib/watchlist'
 
 /** The accounts the sweep reads beyond the roster — added by hand, or picked
@@ -13,10 +13,9 @@ import { loadWatchlist, type WatchlistData } from '@/lib/watchlist'
  *  render still travels in the response payload behind the sign-in gate, so
  *  an unauthenticated request must never carry the rows (measured 2026-10-13
  *  — the handles showed up in a cookie-less fetch before this guard). */
-const EMPTY: WatchlistData = { suggested: [], watching: [], counts: { watching: 0, suggested: 0, gated: 0 } }
-
 export default async function WatchlistPage() {
-  const initial = (await isSignedIn()) ? await loadWatchlist() : EMPTY
+  await requirePage('watchlists')
+  const initial = await loadWatchlist()
   return (
     <div className="dash">
       <header className="dash-head dash-head-flush">

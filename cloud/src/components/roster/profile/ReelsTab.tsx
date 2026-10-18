@@ -8,6 +8,7 @@ import type { QualityCheck } from '@/lib/quality'
 import type { Grade, Review, ReviewedPost } from '@/lib/review'
 import { put, useLive } from '@/lib/live'
 import VideoStrip, { useReelMedia, type StripItem } from '../../dashboard/VideoStrip'
+import RepurposedReels, { type RepurposedPayload } from './RepurposedReels'
 import { useRepurpose } from './useRepurpose'
 import { SentWeeks } from './StandingTab'
 
@@ -41,6 +42,8 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
   const reviewLive = useLive<Payload>(`/api/models/${modelId}/review?week=${week}`)
   const queueLive = useLive<EditorQueue>(`/api/models/${modelId}/editor`)
   const checksLive = useLive<{ checks: QualityCheck[] }>(`/api/models/${modelId}/quality`)
+  // The studio's own renders — the ♻ results, their own section (2026-10-18).
+  const repurposedLive = useLive<RepurposedPayload>(`/api/models/${modelId}/repurpose`)
   const review = reviewLive.data
   const queue = queueLive.data
   const checks = checksLive.data?.checks ?? null
@@ -90,6 +93,9 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
               setNotes((n) => ({ ...n, [post.post_id]: 'Adding…' }))
               const said = await repurpose({ post_id: post.post_id })
               setNotes((n) => ({ ...n, [post.post_id]: said }))
+              // The queued row belongs in the Repurposed section below now,
+              // not after some later refresh.
+              repurposedLive.reload()
             }}>
             ♻ Repurpose
           </button>
@@ -128,6 +134,8 @@ export default function ReelsTab({ modelId, name, photo }: { modelId: string; na
           })}
         </>
       )}
+
+      <RepurposedReels modelId={modelId} data={repurposedLive.data} reload={repurposedLive.reload} />
 
       <section className="reels-row" data-tone="edit">
         <header>

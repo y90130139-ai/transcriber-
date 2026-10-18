@@ -2,27 +2,44 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { compact } from '@/lib/format'
+import { canView, firstAllowedPath, levelOf, pageForPath, type AccessLevel } from '@/lib/permissions'
 import PlatformIcon from '../roster/PlatformIcon'
 import ItemView from '../ItemView'
 import { useConsole } from './ConsoleProvider'
 import { Icon } from './ConsoleIcons'
 import NavSearch from './NavSearch'
-import { LABELS, SETTINGS_LEAF, TABS, isOn, tabOf, type NavTabId } from './nav'
+import { LABELS, SETTINGS_LEAF, TABS, isOn, tabOf, type NavTab, type NavTabId } from './nav'
 
 /** Which side of the rail the reader last chose, for the pages outside both
  *  (Settings). The route itself outranks this whenever it belongs to a side. */
 const SIDE_KEY = 'sinaura-console-side'
 
-/** The switcher menu's width, mirrored in shell.css — keep them in step. */
-const MENU_W = 240
+/** The switcher menu's width, mirrored in shell.css �?" keep them in step. */
+const MENU_W = 280
+
+/** The rail a member actually owns (Geno, 2026-10-18): pages they cannot view
+ *  are not offered — not in the rail, not in the switcher, not in search. */
+function visibleTabs(permissions: Record<string, AccessLevel>): NavTab[] {
+  return TABS
+    .map((tab) => ({
+      ...tab,
+      sections: tab.sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => canView(permissions, pageForPath(item.href))),
+        }))
+        .filter((section) => section.items.length > 0),
+    }))
+    .filter((tab) => tab.sections.length > 0)
+}
 
 /** The console chrome — rail, top bar, reader — around every page. Phase 6:
  *  every console rule that differs from the maison default hangs off the one
  *  `console` class below, so it can never reach her plan page. The frame itself
  *  is shell.css's. */
-export default function ConsoleShell({ children }: { children: React.ReactNode }) {
+export default function ConsoleShell({ children, permissions }: { children: React.ReactNode; permissions: Record<string, AccessLevel> }) {
   const pathname = usePathname()
   const router = useRouter()
   const { counts, creators, openItem, setOpenItem, reload } = useConsole()
@@ -58,19 +75,36 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
       .catch(() => null)
   }, [])
 
-  // The stored pick seeds the pages outside both sides (Settings). Read on
+  // The stored pick seeds the pages outside every side (Settings). Read on
   // mount, never during render, so the first paint is deterministic.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(SIDE_KEY)
-      if (stored === 'marketing' || stored === 'client') setSide(stored)
+      if (stored === 'marketing' || stored === 'client' || stored === 'scheduler') setSide(stored)
     } catch { /* private window: marketing is the default anyway */ }
   }, [])
 
   /** The side the rail draws: whichever side owns the page you are on, else
-   *  the side you last chose. */
-  const shownSide = tabOf(pathname) ?? side
-  const shownTab = TABS.find((tab) => tab.id === shownSide) ?? TABS[0]
+   *  the side you last chose. Only sides with pages the member can open. */
+  const tabs = useMemo(() => visibleTabs(permissions), [permissions])
+  const routeSide = tabOf(pathname)
+  const shownSide = (routeSide && tabs.some((tab) => tab.id === routeSide) ? routeSide : null)
+    ?? (tabs.some((tab) => tab.id === side) ? side : tabs[0]?.id)
+    ?? 'marketing'
+  const shownTab = tabs.find((tab) => tab.id === shownSide) ?? tabs[0]
+
+  /** The permissions page gate (Geno, 2026-10-18): the APIs refuse regardless
+   *  — this is the face of that, and it bounces to the first page they own. */
+  const pageKey = pageForPath(pathname)
+  const allowedHere = !pageKey || canView(permissions, pageKey)
+  const fallbackPath = firstAllowedPath(permissions)
+  useEffect(() => {
+    if (allowedHere || !fallbackPath) return
+    if (fallbackPath === pathname) return
+    router.replace(fallbackPath)
+  }, [allowedHere, fallbackPath, pathname, router])
+  /** View-only pages wear it in the top bar, so a refused save has a reason. */
+  const pageLevel = pageKey ? levelOf(permissions, pageKey) : 'edit'
 
   function chooseSide(next: NavTabId) {
     setSideMenu(false)
@@ -140,9 +174,15 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
   const queued = counts.queued + counts.running
   const needYou = Math.max(0, counts.failed - (counts.waiting ?? 0))
   const navShown = narrow ? mobileNav : navOpen
-  // Reddit Trends is one rail item with nine of its own pages; the crumb is
-  // the section, the way a platform's crumb is the platform.
-  const crumb = pathname.startsWith('/reddit-trends') ? 'Reddit Trends' : LABELS[pathname] ?? 'Console'
+// Reddit Trends is one rail item with nine of its own pages; the crumb is
+// the section, the way a platform's crumb is the platform.
+const crumb = pathname.startsWith('/reddit-trends')
+  ? 'Reddit Trends'
+  // App Content is one section of six document pages; the crumb names the
+  // section, and the page title names the document.
+  : pathname.startsWith('/app-content')
+    ? 'App Content'
+    : LABELS[pathname] ?? 'Console'
 
   function toggleNav() {
     // One button, two behaviours: a drawer below the rail's breakpoint, a
@@ -157,7 +197,7 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="console shell" data-nav={navOpen} data-mnav={mobileNav} data-side={shownSide} data-flush={pathname === '/inbox' || undefined}>
+    <div className="console shell" data-nav={navOpen} data-mnav={mobileNav} data-side={shownSide} data-flush={pathname === '/inbox' || undefined} data-cal={pathname === '/scheduler' || undefined}>
       <aside className="side" id="console-nav">
         <div className="side-inner">
           <div className="side-top">
@@ -176,11 +216,11 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
           </div>
 
           <div className="side-find">
-            <NavSearch />
+            <NavSearch permissions={permissions} />
           </div>
 
           <nav className="side-nav" aria-label="Sections">
-            {shownTab.sections.map((section) => (
+            {shownTab?.sections.map((section) => (
               <div className="side-sect" key={section.id}>
                 <span className="side-sect-label">{section.label}</span>
                 {section.items.map((item) => {
@@ -202,15 +242,17 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
               </div>
             ))}
 
-            <div className="side-sect side-sect-tail">
-              <Link href={SETTINGS_LEAF.href} className="nav-row"
-                data-on={pathname === SETTINGS_LEAF.href}
-                aria-current={pathname === SETTINGS_LEAF.href ? 'page' : undefined}
-                onClick={() => setMobileNav(false)}>
-                <span className="nav-icon"><Icon name={SETTINGS_LEAF.icon ?? 'settings'} size={16} /></span>
-                <span className="nav-label">{SETTINGS_LEAF.label}</span>
-              </Link>
-            </div>
+            {canView(permissions, 'settings') && (
+              <div className="side-sect side-sect-tail">
+                <Link href={SETTINGS_LEAF.href} className="nav-row"
+                  data-on={pathname === SETTINGS_LEAF.href}
+                  aria-current={pathname === SETTINGS_LEAF.href ? 'page' : undefined}
+                  onClick={() => setMobileNav(false)}>
+                  <span className="nav-icon"><Icon name={SETTINGS_LEAF.icon ?? 'settings'} size={16} /></span>
+                  <span className="nav-label">{SETTINGS_LEAF.label}</span>
+                </Link>
+              </div>
+            )}
           </nav>
 
           <div className="side-foot">
@@ -244,16 +286,33 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
           extending right over the page. Kept mounted after the first open so
           the close fade can run; position is measured off the button. */}
       {menuMounted && (
-        <div className="side-switch-menu" role="menu" aria-label="Switch console side"
+        <div className="side-switch-menu" role="menu" aria-label="Switch workspace"
           data-open={sideMenu || undefined}
           style={{ top: menuPos.top, left: menuPos.left }}>
-          {TABS.map((tab) => (
+          <div className="side-switch-menu-head" role="presentation">
+            <span className="side-switch-menu-heading">
+              <span className="side-switch-menu-kicker">Workspace</span>
+              <span className="side-switch-menu-title">Choose a workspace</span>
+            </span>
+          </div>
+          <div className="side-switch-menu-rule" role="separator" />
+          {tabs.map((tab) => (
             <button key={tab.id} type="button" role="menuitem"
               className="side-switch-option" data-on={tab.id === shownSide || undefined}
               onClick={() => chooseSide(tab.id)}>
-              <img src="/gosian-logo.png" alt="" className="side-switch-logo" />
+              <span className="side-switch-logo-box">
+                <img src="/gosian-logo.png" alt="" className="side-switch-logo" />
+              </span>
               <span className="side-switch-body">
-                <span className="side-switch-tag">{tab.label}</span>
+                <span className="side-switch-heading-row">
+                  <span className="side-switch-tag">{tab.label}</span>
+                  {tab.id === shownSide && (
+                    <span className="side-switch-current">
+                      <span className="side-switch-current-dot" aria-hidden="true" />
+                      Current
+                    </span>
+                  )}
+                </span>
                 <span className="side-switch-note">{tab.note}</span>
               </span>
             </button>
@@ -306,6 +365,13 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
               {needYou > 0 && <b className="topbar-bell-count">{needYou}</b>}
             </Link>
 
+            {pageLevel === 'read' && (
+              <span className="topbar-viewonly" title="View only — ask an admin for edit access in Team settings">
+                <Icon name="eye" size={13} />
+                View only
+              </span>
+            )}
+
             <span className="topbar-account" aria-hidden>GM</span>
           </div>
         </header>
@@ -315,12 +381,29 @@ export default function ConsoleShell({ children }: { children: React.ReactNode }
             (2026-10-13). The Video Batcher's tools share one key: its layout
             must stay mounted between them, or the loaded files and the queue
             would die with every tool switch (2026-10-13). */}
-        <main key={pathname.startsWith('/video-batcher') ? 'video-batcher' : pathname} className={pathname === '/inbox' ? 'page page-flush' : 'page'}>
-          {children}
+        <main
+          key={pathname.startsWith('/video-batcher') ? 'video-batcher' : pathname}
+          className={pathname === '/inbox' || pathname === '/scheduler' ? 'page page-flush' : 'page'}>
+          {allowedHere ? children : (
+            <div className="noaccess" role="alert">
+              <span className="noaccess-mark" aria-hidden>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
+                  <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+                </svg>
+              </span>
+              <h2>No access to this page</h2>
+              <p>
+                Your account does not have it. An admin can grant it in the
+                ai-invoice dashboard — Team settings, your name, Transcriber.
+              </p>
+              {fallbackPath && <Link href={fallbackPath} className="noaccess-go">Go to my first page</Link>}
+            </div>
+          )}
         </main>
       </div>
 
-      {openItem && <ItemView item={openItem} onClose={() => setOpenItem(null)} onChanged={reload} />}
+      {openItem && allowedHere && <ItemView item={openItem} onClose={() => setOpenItem(null)} onChanged={reload} />}
     </div>
   )
 }

@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { isAdultCategory } from '@/lib/reddit/registry'
 import { bulkDeleteSubreddits, bulkUpdateSubreddits } from '@/lib/reddit/store'
 
@@ -10,7 +10,8 @@ import { bulkDeleteSubreddits, bulkUpdateSubreddits } from '@/lib/reddit/store'
  * round trip.
  */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const ids = Array.isArray(body.ids) ? body.ids.map(String).slice(0, 300) : []

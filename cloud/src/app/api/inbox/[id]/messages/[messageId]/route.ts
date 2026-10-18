@@ -1,15 +1,15 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { deleteThreadMessage, editThreadMessage } from '@/lib/inbox'
 
 type Params = { params: Promise<{ id: string; messageId: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** Edit the team's own message (Geno, 2026-10-13): the bubble gets a new
  *  body and an "edited" mark; a model's word is never touched. */
 export async function PATCH(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id, messageId } = await params
 
   const body = await request.json().catch(() => null)
@@ -22,8 +22,9 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 /** Remove the team's own message from the thread. */
-export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function DELETE(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id, messageId } = await params
 
   const ok = await deleteThreadMessage(id, messageId, 'team')

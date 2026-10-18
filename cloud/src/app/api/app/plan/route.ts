@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { logAppEvent } from '@/lib/app-activity'
 import { modelSessionFrom } from '@/lib/model-auth'
 import { loadPlanForModel, modelById } from '@/lib/plans'
 
@@ -17,6 +18,11 @@ export async function GET(request: Request) {
   if (!model) return NextResponse.json({ error: 'no_model' }, { status: 404 })
 
   const loaded = await loadPlanForModel(model)
+  // Every open lands in her history — `plans.opened_at` only remembers the
+  // first one (2026-10-14).
+  after(async () => {
+    await logAppEvent(model.id, 'plan_open', loaded?.plan ? `Week of ${loaded.plan.week_of}` : null)
+  })
   return NextResponse.json({
     ok: true,
     model: {

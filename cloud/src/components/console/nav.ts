@@ -16,7 +16,7 @@ import type { IconName } from './ConsoleIcons'
  *  reads the very same catalog the rail draws (2026-10-13). */
 export type NavLeaf = { href: string; label: string; icon?: IconName; mark?: Platform }
 export type NavSection = { id: string; label: string; items: NavLeaf[] }
-export type NavTabId = 'marketing' | 'client'
+export type NavTabId = 'marketing' | 'client' | 'scheduler'
 export type NavTab = {
   id: NavTabId
   label: string
@@ -83,33 +83,65 @@ export const TABS: NavTab[] = [
       {
         id: 'team', label: 'Team',
         items: [
+          /* Today is the ops desk's morning read — a marketing-side page
+             (Geno, 2026-10-14), it used to sit on the client side. */
+          { href: '/today', label: 'Today', icon: 'calendarCheck' },
           { href: '/week', label: 'This Week', icon: 'calendar' },
         ],
       },
     ],
   },
   {
-    id: 'client', label: 'Client', note: 'Invites, app accounts and inbox', home: '/app-accounts',
+    id: 'client', label: 'Client', note: 'Invites, app accounts, app content and inbox', home: '/app-accounts',
     sections: [
       {
         id: 'clients', label: 'Clients',
         items: [
-          { href: '/invites', label: 'Invites', icon: 'mail' },
           { href: '/app-accounts', label: 'App Accounts', icon: 'checkCircle' },
           { href: '/inbox', label: 'Inbox', icon: 'chat' },
         ],
       },
       {
-        id: 'team', label: 'Team',
+        id: 'app', label: 'App Content',
+        /* One page per document she reads — the FAQ, the onboarding text,
+           the SOP — each edited here and read by the app at runtime
+           (Geno, 2026-10-14). */
         items: [
-          { href: '/today', label: 'Today', icon: 'calendarCheck' },
+          { href: '/app-content/welcome', label: 'Welcome', icon: 'home' },
+          { href: '/app-content/onboarding', label: 'Onboarding', icon: 'checkCircle' },
+          { href: '/app-content/faq', label: 'FAQ', icon: 'chat' },
+          { href: '/app-content/sop', label: 'Client SOP', icon: 'type' },
+          { href: '/app-content/expectations', label: 'Expectations', icon: 'play' },
+          { href: '/app-content/agreement', label: 'Agreement', icon: 'copy' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'scheduler', label: 'Scheduler', note: 'Plan, compose and publish across the socials', home: '/scheduler/overview',
+    sections: [
+      {
+        id: 'plan', label: 'Plan',
+        /* The workspace at a glance, then the week it runs on — the
+           overview reads Autoposter, the calendar works it, the composer
+           writes to it (Geno, 2026-10-14). */
+        items: [
+          { href: '/scheduler/overview', label: 'Overview', icon: 'home' },
+          { href: '/scheduler', label: 'Calendar', icon: 'calendar' },
+          { href: '/scheduler/new', label: 'New post', icon: 'plus' },
+        ],
+      },
+      {
+        id: 'setup', label: 'Setup',
+        items: [
+          { href: '/scheduler/accounts', label: 'Social Accounts', icon: 'users' },
         ],
       },
     ],
   },
 ]
 
-/** Every section, both sides — the search palette and the nav assistant read
+/** Every section, every side — the search palette and the nav assistant read
  *  this one catalog, so nothing is ever hidden from ⌘K (2026-10-13). */
 export const SECTIONS: NavSection[] = TABS.flatMap((tab) => tab.sections)
 
@@ -128,7 +160,7 @@ export function isOn(href: string, pathname: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-/** Which side of the rail owns a route; null for pages outside both
+/** Which side of the rail owns a route; null for pages outside them all
  *  (Settings pins at the foot whichever side is up). */
 export function tabOf(pathname: string): NavTabId | null {
   for (const tab of TABS) {

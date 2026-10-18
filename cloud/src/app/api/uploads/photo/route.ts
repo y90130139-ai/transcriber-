@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { isSignedIn } from '@/lib/auth'
 
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/avif']
 const MAX_BYTES = 12 * 1024 * 1024
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async () => {
-        if (!(await isSignedIn())) throw new Error('unauthorized')
+        const denied = await guardAccess(request)
+        if (denied) throw new Error('unauthorized')
         return {
           allowedContentTypes: ALLOWED,
           maximumSizeInBytes: MAX_BYTES,

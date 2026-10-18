@@ -53,11 +53,13 @@ export default function TopPosts(
       const week = formatDate(body.week_of)
       setNote(body.added ? `On the week of ${week} as a Recreate card — film it again.` : `Already on the week of ${week}.`)
     } else if (action === 'repurpose') {
-      if (body.download) window.location.href = body.download
+      // The studio renders the fresh copy itself now; the file shows up under
+      // Reels → Repurposed when the Mac has done it (docs/REPURPOSE.md).
       const week = body.week_of ? formatDate(body.week_of) : null
       setNote([
-        body.note ?? 'Marked to repost. Downloading the file for the batcher.',
+        body.render === 'queued' ? 'Rendering a fresh copy — it lands under Reels → Repurposed.' : 'Marked to repost.',
         week ? (body.added ? `On the week of ${week} as a Repurpose card.` : `Already on the week of ${week}.`) : body.week_note,
+        body.note,
       ].filter(Boolean).join(' '))
     } else {
       setNote('No longer marked to repost.')

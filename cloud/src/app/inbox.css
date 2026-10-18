@@ -1,32 +1,44 @@
 /* ============================================================
-   THE INBOX (Geno, 2026-10-12; Inter + bigger, 2026-10-13)
+   THE INBOX (Geno, 2026-10-12; app bones, 2026-10-14)
 
    A mail client in one colour: ink on the dark ground, no hues,
-   no ember, no rainbow. Photos are the only colour in the house
-   - real faces when a model has one, quiet initials when not.
-   Scoped to .inbox-full so no other page moves an inch.
+   no rainbow - except the room itself, which wears her phone's
+   clothes (2026-10-14): the team's side in the X blue, the
+   models' side on the raised surface, media riding bare at its
+   own proportions with its words in a bubble under it. The
+   composer is the app's too - a plus circle, a box that holds
+   attached shots over the words, one round send that wakes in
+   ember when there is something to say.
 
-   Type: Inter, generous sizes. Geist Mono for the small machine
-   voice (times, counts, labels). Copy kept to labels; nothing
-   explains itself.
+   A dropped photo or film lands anywhere on the room: thumbs
+   show at once, the wire catches up. Every pane, section and
+   card fades in (ix-rise / ix-fade-in); reduced motion is
+   honoured globally (tokens.css).
 
-   Right-click on the left list: mark unread, mute, delete. Right
-   click on your own message: edit, delete. The popup card fades
-   in and out.
+   Type: Inter, only Inter - no second family anywhere in the
+   inbox (2026-10-14). Numbers ride tabular-nums so times and
+   counts line up without a mono face.
 
-   Motion: ix-out for entrances, ix-spring for presses and pops.
-   Reduced motion is honoured globally (tokens.css).
+   Below a full desk the people/details rail is a drawer, not a
+   casualty: it slides over the room, scrim behind, X and Escape
+   to close (2026-10-14). Styles scoped to .inbox-full and
+   .ix-dialog so no other page moves an inch.
    ============================================================ */
 
 .console .page-flush .inbox-full {
-  font-family: var(--font-inter), var(--sc-font-text);
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 15px;
   letter-spacing: -0.014em;
   --ix-hair: color-mix(in srgb, var(--sc-ink-900) 9%, transparent);
   --ix-hair-2: color-mix(in srgb, var(--sc-ink-900) 16%, transparent);
   --ix-surface: color-mix(in srgb, var(--sc-ink-900) 4%, transparent);
   --ix-surface-2: color-mix(in srgb, var(--sc-ink-900) 7.5%, transparent);
-  --ix-mono: var(--font-geist-mono), var(--sc-font-mono);
+  /* The room's palette - the phone's values (2026-10-14). */
+  --ix-blue: #1d9bf0;
+  --ix-line: rgba(245, 246, 248, 0.1);
+  --ix-line-strong: rgba(245, 246, 248, 0.22);
+  --ix-panel: #1e1e1e;
+  --ix-panel-2: #262626;
   --ix-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ix-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   background: var(--sc-bone);
@@ -40,8 +52,17 @@
 }
 
 .ix-dialog {
-  font-family: var(--font-inter), var(--sc-font-text);
+  font-family: var(--font-inter), system-ui, sans-serif;
   letter-spacing: -0.014em;
+}
+/* Inter only, even where the shared dialog styles reach for the
+   display face (2026-10-14). */
+.ix-dialog h2,
+.ix-dialog .adddialog-kicker,
+.ix-dialog .adddialog-note,
+.ix-dialog .axis-name,
+.ix-dialog .chip {
+  font-family: inherit;
 }
 
 .inbox-full ::selection { background: color-mix(in srgb, var(--sc-ink-900) 22%, transparent); }
@@ -111,25 +132,26 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--ix-hair);
   background: color-mix(in srgb, var(--sc-ink-900) 1.5%, transparent);
 }
 
-.ix-list-head { padding: 19px 16px 14px; display: grid; gap: 14px; }
+.ix-list-head { padding: 19px 16px 14px; display: grid; gap: 14px; animation: ix-rise 0.44s var(--ix-out) backwards; }
 
 .ix-list-title { display: flex; align-items: center; gap: 8px; }
 .ix-list-title h2 {
   margin: 0;
-  font-family: var(--font-inter), var(--sc-font-text);
+  font-family: inherit;
   font-size: 23px;
   font-weight: 650;
   letter-spacing: -0.038em;
   color: var(--sc-ink-900);
 }
 .ix-title-n {
-  font-family: var(--ix-mono);
   font-size: 13.5px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--sc-ink-300);
   margin-top: 4px;
   animation: ix-rise 0.4s var(--ix-out);
@@ -181,7 +203,7 @@
 }
 
 /* Tabs: one light pill for the active filter, quiet text for the rest. */
-.ix-tabs { display: flex; align-items: center; gap: 4px; }
+.ix-tabs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ix-tab {
   display: inline-flex;
   align-items: center;
@@ -201,9 +223,9 @@
 .ix-tab[data-on='true'] { background: var(--sc-ink-900); color: #171717; }
 .ix-tab b {
   margin-left: 6px;
-  font-family: var(--ix-mono);
   font-size: 11.5px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   opacity: 0.55;
 }
 
@@ -243,7 +265,6 @@
   background: var(--ix-surface-2);
   color: var(--sc-ink-500);
   box-shadow: inset 0 0 0 1px var(--ix-hair);
-  font-family: var(--ix-mono);
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -289,7 +310,7 @@
   text-overflow: ellipsis;
 }
 .ix-row[data-unread='true'] .ix-row-name { color: var(--sc-ink-900); }
-.ix-row-time { flex: none; font-family: var(--ix-mono); font-size: 11px; color: var(--sc-ink-300); }
+.ix-row-time { flex: none; font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--sc-ink-300); }
 .ix-row[data-unread='true'] .ix-row-time { color: var(--sc-ink-700); }
 .ix-row-prev {
   font-size: 13.5px;
@@ -312,8 +333,9 @@
   color: var(--sc-ink-300);
   background: var(--ix-surface);
   box-shadow: inset 0 0 0 1px var(--ix-hair);
-  font-family: var(--ix-mono);
   font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.045em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -338,6 +360,26 @@
   animation: ix-shimmer 1.5s linear infinite;
 }
 
+/* The open thread's first paint while its words fly in. */
+.ix-sk-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 5px 0;
+  animation: ix-fade-in 0.3s ease backwards;
+}
+.ix-sk-msg[data-side='team'] { flex-direction: row-reverse; }
+.ix-sk-msg .ix-sk-av { width: 28px; height: 28px; }
+.ix-sk-bubble {
+  width: min(280px, 62%);
+  height: 44px;
+  border-radius: 18px;
+  background: linear-gradient(100deg, var(--ix-surface) 32%, var(--ix-surface-2) 50%, var(--ix-surface) 68%);
+  background-size: 200% 100%;
+  animation: ix-shimmer 1.5s linear infinite;
+}
+.ix-sk-msg:nth-child(2n) .ix-sk-bubble { width: min(220px, 48%); }
+
 .ix-empty {
   display: grid;
   place-items: center;
@@ -359,16 +401,22 @@
   color: var(--sc-ink-300);
 }
 .ix-empty b { font-size: 15px; font-weight: 600; color: var(--sc-ink-700); letter-spacing: -0.015em; }
+.ix-empty-sub { font-size: 13px; color: var(--sc-ink-300); }
 
 /* ================================================================
-   PANE 2 - THE CONVERSATION
+   PANE 2 - THE CONVERSATION (her phone's room, 2026-10-14)
    ================================================================ */
 
 .ix-convo {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sc-ink-900) 2.5%, transparent), transparent 320px);
+  /* A flex/grid item never pushes its own frame taller than the app pane:
+     content beyond the fold lives in the stream's scroll, not the page's
+     (2026-10-14). */
+  min-height: 0;
+  background: var(--sc-bone);
 }
 
 .ix-convo-head {
@@ -390,8 +438,9 @@
   height: 36px;
   background: var(--ix-surface-2);
   color: var(--sc-ink-300);
-  font-family: var(--ix-mono);
   font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   box-shadow: 0 0 0 2.5px var(--sc-bone);
 }
 
@@ -406,9 +455,9 @@
   text-overflow: ellipsis;
 }
 .ix-head-sub {
-  font-family: var(--ix-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--sc-ink-300);
   white-space: nowrap;
   overflow: hidden;
@@ -420,7 +469,7 @@
   height: 38px;
   display: inline-grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 999px;
   border: 1px solid var(--ix-hair);
   background: var(--ix-surface);
   color: var(--sc-ink-300);
@@ -430,6 +479,10 @@
 .ix-iconbtn:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); border-color: var(--ix-hair-2); }
 .ix-iconbtn:active { transform: scale(0.9); }
 .ix-iconbtn[data-busy='true'] svg { animation: ix-spin 0.8s linear infinite; }
+.ix-iconbtn[data-on='true'] { color: var(--sc-ink-900); background: var(--ix-surface-2); border-color: var(--ix-hair-2); }
+
+/* The rail's door when the rail is off-canvas (below a full desk). */
+.ix-details { display: none; }
 
 .ix-pill {
   height: 38px;
@@ -443,6 +496,7 @@
   color: var(--sc-ink-700);
   font-size: 13px;
   font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
   transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.2s var(--ix-spring);
 }
@@ -451,6 +505,7 @@
 
 .ix-stream {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   width: 100%;
   max-width: 1040px;
@@ -470,14 +525,13 @@
   margin: 12px 0 8px;
   padding: 4px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sc-bone) 86%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
-  font-family: var(--ix-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  background: var(--ix-panel-2);
   color: var(--sc-ink-300);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: ix-fade-in 0.4s ease backwards;
 }
 
 .ix-msg {
@@ -491,39 +545,51 @@
 .ix-msg[data-side='team'] { align-self: flex-end; flex-direction: row-reverse; max-width: min(660px, 84%); }
 .ix-msg-col { min-width: 0; max-width: 100%; display: grid; gap: 5px; justify-items: start; }
 .ix-msg[data-side='team'] .ix-msg-col { justify-items: end; }
+.ix-msg--pending { opacity: 0.88; }
 
 .ix-msg-meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--ix-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.03em;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
   color: var(--sc-ink-300);
 }
-.ix-msg-meta b { font-weight: 550; color: var(--sc-ink-500); }
+.ix-msg-meta b { font-weight: 600; color: var(--sc-ink-500); }
+
+/* The message's column: media rides bare above, the words in a bubble
+   under - exactly the phone's arrangement (2026-10-14). */
+.ix-hold {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  justify-items: start;
+  min-width: 0;
+}
+.ix-msg[data-side='team'] .ix-hold { justify-items: end; }
+.ix-hold[data-mine] .ix-bubble { cursor: context-menu; }
+.ix-hold[data-mine] .ix-att-img { cursor: zoom-in; }
 
 .ix-bubble {
   max-width: 100%;
   display: grid;
-  gap: 8px;
-  padding: 11px 15px;
-  border-radius: 18px;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--sc-ink-700);
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 22px;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--sc-ink-900);
 }
 .ix-msg[data-side='model'] .ix-bubble {
-  background: color-mix(in srgb, var(--sc-ink-900) 6.5%, transparent);
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
-  border-bottom-left-radius: 5px;
+  background: var(--ix-panel);
+  border: 1px solid var(--ix-line);
 }
 .ix-msg[data-side='team'] .ix-bubble {
-  background: var(--sc-ink-900);
-  color: #171717;
-  border-bottom-right-radius: 5px;
-  cursor: context-menu;
+  background: var(--ix-blue);
+  border: 1px solid transparent;
+  color: #ffffff;
 }
+.ix-bubble--caption { border-radius: 16px; }
 .ix-bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ix-msg--flash .ix-bubble { animation: ix-flash 1.3s ease-out; }
 
@@ -531,7 +597,7 @@
 .ix-bubble--gone,
 .ix-msg[data-side='team'] .ix-bubble--gone {
   background: none;
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  border: 1px solid var(--ix-line);
   color: var(--sc-ink-300);
   font-style: italic;
   cursor: default;
@@ -539,71 +605,73 @@
 
 /* A forwarded copy wears its mark; a reply quotes what it answers. */
 .ix-fwd {
-  font-family: var(--ix-mono);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.55;
+  opacity: 0.75;
 }
 .ix-bubble .ix-quote {
   display: grid;
   gap: 2px;
   max-width: 100%;
-  padding: 7px 11px;
+  padding: 6px 10px;
   border-radius: 10px;
-  border-left: 2px solid currentColor;
-  background: color-mix(in srgb, var(--ix-hair) 40%, transparent);
+  border-left: 2.5px solid var(--sc-ember);
+  background: color-mix(in srgb, var(--sc-ink-900) 8%, transparent);
   font-size: 12.5px;
   line-height: 1.35;
-  opacity: 0.85;
 }
 .ix-msg[data-side='team'] .ix-bubble .ix-quote {
-  background: color-mix(in srgb, #171717 12%, transparent);
+  border-left-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
 }
-.ix-quote b { font-weight: 550; }
+.ix-quote b { font-weight: 600; }
 .ix-quote i {
   font-style: normal;
-  opacity: 0.75;
+  opacity: 0.8;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The tapbacks, under the bubble they belong to (2026-10-13). */
+/* The tapbacks, tucked half over the bubble's corner (2026-10-14). */
 .ix-reactions {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: -6px;
+  margin-top: -9px;
+  padding: 0 6px;
+  z-index: 1;
 }
 .ix-reaction {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  border: 0;
+  border: 1px solid var(--ix-line-strong);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sc-ink-900) 7%, transparent);
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  background: var(--ix-panel-2);
   font-size: 13px;
-  line-height: 1.1;
+  line-height: 1.15;
   cursor: pointer;
   transition: background 0.12s ease, transform 0.12s var(--ix-spring);
 }
 .ix-reaction:hover {
-  background: color-mix(in srgb, var(--sc-ink-900) 12%, transparent);
+  background: color-mix(in srgb, var(--sc-ink-900) 12%, var(--ix-panel-2));
   transform: translateY(-1px);
 }
 .ix-reaction b {
-  font-family: var(--ix-mono);
-  font-size: 10.5px;
-  font-weight: 550;
-  color: var(--sc-ink-500);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink-900);
 }
 .ix-reaction[data-mine] {
-  background: color-mix(in srgb, var(--sc-ink-900) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc-ink-900) 34%, transparent);
+  background: var(--sc-ember);
+  border-color: transparent;
 }
+.ix-reaction[data-mine] b { color: #ffffff; }
 
 /* The quiet react dot beside a message's time — anyone in the room can
    tap back, several people the same emoji (2026-10-13). */
@@ -636,6 +704,7 @@
   z-index: 70;
   animation: ix-fade-in 0.12s ease;
 }
+.ix-react-veil[data-closing='true'] { animation: ix-fade-out 0.16s ease forwards; }
 .ix-react-bar {
   position: fixed;
   z-index: 71;
@@ -646,12 +715,15 @@
   background: var(--sc-bone-light);
   box-shadow: inset 0 0 0 1px var(--ix-hair-2), var(--sc-lift-3);
   max-width: calc(100vw - 16px);
+  overflow-x: auto;
   animation: ix-menu-in 0.16s var(--ix-out);
   transform-origin: top left;
 }
+.ix-react-bar[data-closing='true'] { animation: ix-menu-out 0.16s ease forwards; }
 .ix-react-bar button {
   width: 34px;
   height: 34px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -668,61 +740,136 @@
   transform: scale(1.18);
 }
 
-/* Editing your own message, in place. */
-.ix-edit { display: grid; gap: 8px; }
-.ix-edit textarea {
-  width: min(440px, 100%);
-  min-height: 64px;
-  resize: none;
-  border: 1px solid color-mix(in srgb, var(--sc-bone) 35%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--sc-bone) 8%, transparent);
-  color: #171717;
-  font-size: 14.5px;
-  line-height: 1.5;
-  padding: 9px 11px;
-  outline: none;
+/* Editing your own message (Geno, 2026-10-14): the composer takes over like
+   the phone's; the bubble keeps its words behind a quiet ring, and the
+   strip is one plain line — pencil, "Edit message", the X. */
+.ix-msg[data-editing] .ix-bubble,
+.ix-msg[data-editing] .ix-hold {
+  outline: 2px solid color-mix(in srgb, var(--ix-blue) 70%, transparent);
+  outline-offset: 3px;
+  border-radius: 16px;
 }
-.ix-edit textarea:focus { border-color: color-mix(in srgb, var(--sc-bone) 55%, transparent); }
-.ix-edit-actions { display: flex; justify-content: flex-end; gap: 7px; }
-.ix-edit-actions button {
-  height: 30px;
-  padding: 0 13px;
-  border-radius: 999px;
+
+.ix-editstrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 8px;
+  animation: ix-fade-in 0.16s ease;
+}
+.ix-editstrip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 12.5px;
   font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.18s var(--ix-spring), filter 0.18s ease;
+  letter-spacing: -0.01em;
+  color: var(--sc-ink-900);
 }
-.ix-edit-actions button:active { transform: scale(0.95); }
-.ix-edit-cancel {
-  border: 1px solid color-mix(in srgb, var(--sc-bone) 35%, transparent);
+.ix-editstrip-label svg { color: var(--sc-ink-300); }
+.ix-editstrip-x {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
   background: none;
-  color: #171717;
+  color: var(--sc-ink-300);
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease;
 }
-.ix-edit-save {
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--sc-bone) 92%, transparent);
-  color: #171717;
-}
-.ix-edit-save:hover { filter: brightness(1.05); }
+.ix-editstrip-x:hover { background: var(--ix-surface-2); color: var(--sc-ink-900); }
 
-.ix-att-img {
-  display: block;
-  max-width: min(300px, 100%);
-  max-height: 420px;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
-  cursor: zoom-in;
-  transition: transform 0.25s var(--ix-out), filter 0.25s ease;
+/* The composer's emoji shelf (Geno, 2026-10-14): the app's own set — search
+   and sections — floating above its button. */
+.ix-emoji-open[data-open='true'] {
+  color: var(--ix-blue);
+  border-color: color-mix(in srgb, var(--ix-blue) 45%, transparent);
+  background: color-mix(in srgb, var(--ix-blue) 12%, transparent);
 }
-.ix-att-img:hover { transform: scale(1.015); filter: brightness(1.09); }
-video.ix-att-video {
+.ix-emoji-veil { position: fixed; inset: 0; z-index: 70; animation: ix-fade-in 0.12s ease; }
+.ix-emoji-veil[data-closing='true'] { animation: ix-fade-out 0.16s ease forwards; }
+.ix-emoji {
+  position: fixed;
+  z-index: 71;
+  width: 324px;
+  max-height: 380px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--sc-ink-900) 20%, transparent);
+  background: var(--sc-bone-light);
+  box-shadow: var(--sc-lift-3);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  animation: ix-menu-in 0.16s var(--ix-out);
+  transform-origin: bottom left;
+}
+.ix-emoji[data-closing='true'] { animation: ix-menu-out 0.16s ease forwards; }
+.ix-emoji-search {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ix-line-strong);
+  border-radius: 999px;
+  background: var(--ix-panel);
+  color: var(--sc-ink-900);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ix-emoji-search:focus {
+  border-color: color-mix(in srgb, var(--ix-blue) 65%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ix-blue) 14%, transparent);
+}
+.ix-emoji-search::placeholder { color: var(--sc-ink-300); }
+.ix-emoji-scroll { overflow-y: auto; min-height: 0; padding-right: 2px; }
+.ix-emoji-sec { display: grid; gap: 6px; padding: 6px 0; }
+.ix-emoji-sec > span {
+  padding-left: 4px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-300);
+}
+.ix-emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.ix-emoji-grid button {
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.14s var(--ix-spring);
+}
+.ix-emoji-grid button:hover { background: var(--ix-surface-2); transform: scale(1.14); }
+.ix-emoji-none { margin: 6px 4px; font-size: 13px; color: var(--sc-ink-300); }
+
+/* Media rides bare - its own plane, no bubble around it (2026-10-14). */
+.ix-att-img {
   display: block;
   max-width: min(320px, 100%);
   max-height: 440px;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  border-radius: 16px;
+  border: 1px solid var(--ix-line);
+  cursor: zoom-in;
+  transition: transform 0.25s var(--ix-out), filter 0.25s ease;
+}
+.ix-att-img:hover { transform: scale(1.01); filter: brightness(1.06); }
+video.ix-att-video {
+  display: block;
+  max-width: min(340px, 100%);
+  max-height: 460px;
+  border-radius: 16px;
+  border: 1px solid var(--ix-line);
+  background: #000;
 }
 audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 .ix-att-audio-wrap {
@@ -730,114 +877,175 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   align-items: center;
   gap: 9px;
   padding: 7px 11px;
-  border-radius: 12px;
-  background: var(--ix-surface-2);
-  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sc-bone) 10%, transparent);
 }
+.ix-msg[data-side='team'] .ix-att-audio-wrap { background: rgba(255, 255, 255, 0.16); }
 .ix-att-audio-wrap > span {
-  font-family: var(--ix-mono);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
   flex: none;
 }
+.ix-msg[data-side='team'] .ix-att-audio-wrap > span { color: rgba(255, 255, 255, 0.8); }
 .ix-att-audio-wrap audio { flex: 1; min-width: 0; }
 
 /* ---------------------------------------------------------- composer */
-.ix-composer { padding: 11px 18px 14px; border-top: 1px solid var(--ix-hair); display: grid; gap: 8px; }
-.ix-composer-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 6px 7px 6px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--ix-hair);
-  background: var(--ix-surface);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+.ix-composer {
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--ix-hair);
+  display: grid;
+  gap: 6px;
+  animation: ix-rise 0.5s var(--ix-out) backwards;
 }
-.ix-composer-bar:focus-within {
-  border-color: var(--ix-hair-2);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ink-900) 9%, transparent);
-  background: var(--ix-surface-2);
+.ix-composer-row { display: flex; align-items: flex-end; gap: 8px; }
+
+/* The plus, the app's left circle. */
+.ix-attach {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--ix-line);
+  background: var(--ix-panel);
+  color: var(--sc-ink-500);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, transform 0.2s var(--ix-spring);
 }
+.ix-attach:hover:not(:disabled) { color: var(--sc-ink-900); background: var(--ix-panel-2); }
+.ix-attach:active:not(:disabled) { transform: scale(0.9); }
+.ix-attach:disabled { cursor: default; color: var(--sc-ink-300); }
+
+/* The one box: attached shots ride on top, the words under. */
+.ix-composer-box {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--ix-line);
+  border-radius: 24px;
+  background: var(--ix-panel);
+  padding: 4px 6px 4px 16px;
+  transition: border-color 0.2s ease;
+}
+.ix-composer-box:focus-within { border-color: var(--ix-line-strong); }
+.ix-composer-bar { display: flex; align-items: flex-end; gap: 10px; min-height: 44px; }
 .ix-composer textarea {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
+  min-height: 42px;
   max-height: min(150px, 26vh);
   resize: none;
   border: 0;
   background: none;
   outline: none;
   color: var(--sc-ink-900);
-  font-size: 14.5px;
-  line-height: 1.5;
-  padding: 11px 0;
+  font-size: 15px;
+  line-height: 22px;
+  padding: 10px 0;
 }
 .ix-composer textarea::placeholder { color: var(--sc-ink-300); }
 
-.ix-attach {
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border-radius: 15px;
-  border: 1px solid var(--ix-hair);
-  background: none;
-  color: var(--sc-ink-300);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: color 0.16s ease, background 0.16s ease, transform 0.2s var(--ix-spring);
+/* The shelf of attached shots, inside the box, the app's 96px squares
+   with the X on the corner (2026-10-14). */
+.ix-tray { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0 2px; }
+.ix-thumb {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--ix-panel-2);
+  animation: ix-rise 0.3s var(--ix-spring);
 }
-.ix-attach:hover:not(:disabled) { color: var(--sc-ink-900); background: var(--ix-surface-2); }
-.ix-attach:active:not(:disabled) { transform: scale(0.9); }
-.ix-attach:disabled { opacity: 0.5; cursor: default; }
-
-.ix-send {
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border-radius: 15px;
-  border: 1px solid var(--sc-ink-900);
-  background: var(--sc-ink-900);
-  color: #171717;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: transform 0.2s var(--ix-spring), filter 0.2s ease, opacity 0.2s ease;
-}
-.ix-send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
-.ix-send:active:not(:disabled) { transform: scale(0.88); }
-.ix-send:disabled { opacity: 0.28; cursor: default; }
-
-.ix-pending {
+.ix-thumb img, .ix-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ix-thumb-ico { display: grid; place-items: center; width: 100%; height: 100%; color: var(--sc-ink-300); }
+.ix-thumb-tag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  padding: 4px 5px 4px 12px;
+  gap: 4px;
+  height: 19px;
+  padding: 0 8px;
   border-radius: 999px;
-  background: var(--ix-surface-2);
-  box-shadow: inset 0 0 0 1px var(--ix-hair-2);
-  font-size: 13px;
-  color: var(--sc-ink-700);
-  animation: ix-rise 0.3s var(--ix-out);
+  background: rgba(23, 23, 23, 0.78);
+  color: rgba(245, 246, 248, 0.85);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
-.ix-pending b { font-weight: 600; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ix-pending button {
-  width: 22px;
-  height: 22px;
+.ix-thumb-busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: inherit;
+}
+.ix-thumb-busy::after {
+  content: '';
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
-  border: 0;
-  background: none;
-  color: var(--sc-ink-300);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  animation: ix-spin 0.8s linear infinite;
+}
+.ix-thumb-x {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  border: 2px solid var(--sc-bone);
+  background: rgba(23, 23, 23, 0.92);
+  color: #f5f6f8;
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: transform 0.18s var(--ix-spring), background 0.16s ease;
 }
-.ix-pending button:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+.ix-thumb-x:hover { background: #000000; transform: scale(1.07); }
+.ix-thumb-x:active { transform: scale(0.92); }
+
+.ix-send {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--ix-panel-2);
+  color: rgba(245, 246, 248, 0.38);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s var(--ix-spring), background 0.2s ease, color 0.2s ease;
+}
+.ix-send[data-on] { background: var(--sc-ember); color: #ffffff; }
+/* Saving an edit is the app's blue circle with the check (2026-10-14). */
+.ix-send[data-edit] { background: var(--ix-blue); color: #ffffff; }
+.ix-send[data-edit]:disabled { background: var(--ix-panel-2); color: rgba(245, 246, 248, 0.38); }
+.ix-send:hover:not(:disabled) { transform: translateY(-1px); }
+.ix-send:active:not(:disabled) { transform: scale(0.9); }
+.ix-send:disabled { cursor: default; }
+
+/* A quiet spinner for the plus while an upload is on the wire. */
+.ix-spin {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid var(--ix-line-strong);
+  border-top-color: var(--sc-ink-900);
+  animation: ix-spin 0.8s linear infinite;
+}
 
 .ix-footline {
   display: flex;
@@ -846,8 +1054,38 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   padding: 0 3px;
   font-size: 12.5px;
   color: var(--sc-ink-300);
+  animation: ix-fade-in 0.3s ease;
 }
 .ix-footline[data-tone='bad'] { color: var(--sc-critical); }
+
+/* The drop veil: anywhere on the room, the whole plane becomes the
+   target (2026-10-14). */
+.ix-drop {
+  position: absolute;
+  inset: 10px;
+  z-index: 6;
+  border-radius: 20px;
+  border: 1.5px dashed var(--ix-line-strong);
+  background: color-mix(in srgb, var(--sc-bone) 80%, transparent);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: ix-fade-in 0.16s ease;
+}
+.ix-drop-card { display: grid; justify-items: center; gap: 7px; color: var(--sc-ink-700); }
+.ix-drop-card b { font-size: 16px; font-weight: 650; letter-spacing: -0.02em; color: var(--sc-ink-900); }
+.ix-drop-card > span:last-child { font-size: 13px; color: var(--sc-ink-300); }
+.ix-drop-ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--ix-panel-2);
+  color: var(--sc-ink-900);
+  animation: ix-rise 0.28s var(--ix-spring);
+}
 
 /* ================================================================
    PANE 3 - THE RAIL
@@ -855,11 +1093,40 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 
 .ix-rail {
   border-left: 1px solid var(--ix-hair);
-  padding: 16px 14px 26px;
+  padding: 16px 14px calc(26px + env(safe-area-inset-bottom));
   overflow-y: auto;
   display: grid;
   gap: 22px;
   align-content: start;
+  background: var(--sc-bone);
+}
+
+/* The drawer's X - only drawn while the rail floats (2026-10-14). */
+.ix-rail-x {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--ix-hair);
+  background: var(--ix-surface);
+  color: var(--sc-ink-300);
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, transform 0.2s var(--ix-spring);
+}
+.ix-rail-x:hover { color: var(--sc-ink-900); background: var(--ix-surface-2); }
+.ix-rail-x:active { transform: scale(0.9); }
+
+.ix-rail-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 54;
+  background: rgba(10, 10, 10, 0.52);
+  animation: ix-fade-in 0.2s ease;
 }
 
 /* A system note ("Geno has been added") sits in the middle of the stream. */
@@ -879,6 +1146,7 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 
 /* The thread at a glance: one face, one name, one label. */
 .ix-hero {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 13px;
@@ -925,7 +1193,7 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   font-weight: 600;
   outline: none;
 }
-.ix-hero-input:focus { border-color: color-mix(in srgb, var(--sc-ink-900) 40%, transparent); }
+.ix-hero-input:focus { border-color: var(--sc-ink-500); }
 .ix-hero-save {
   flex: none;
   height: 32px;
@@ -968,8 +1236,8 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   text-overflow: ellipsis;
 }
 .ix-hero-text span {
-  font-family: var(--ix-mono);
   font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
@@ -982,8 +1250,9 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   justify-content: space-between;
   gap: 8px;
   padding: 0 4px;
-  font-family: var(--ix-mono);
   font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
@@ -1019,7 +1288,7 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   font-size: 13px;
   color: var(--sc-ink-300);
 }
-.ix-detail b { font-family: var(--ix-mono); font-size: 12px; font-weight: 500; color: var(--sc-ink-700); font-variant-numeric: tabular-nums; }
+.ix-detail b { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--sc-ink-700); }
 
 .ix-files { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ix-file {
@@ -1044,8 +1313,8 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   justify-items: center;
   gap: 6px;
   padding: 10px;
-  font-family: var(--ix-mono);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
@@ -1065,8 +1334,8 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   background: color-mix(in srgb, var(--sc-bone) 78%, transparent);
   backdrop-filter: blur(6px);
   color: var(--sc-ink-500);
-  font-family: var(--ix-mono);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1078,8 +1347,9 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   border-radius: 999px;
   background: color-mix(in srgb, var(--sc-bone) 78%, transparent);
   backdrop-filter: blur(6px);
-  font-family: var(--ix-mono);
   font-size: 9.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--sc-ink-500);
 }
 
@@ -1088,37 +1358,44 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
    ================================================================ */
 
 .ix-menu-veil { position: fixed; inset: 0; z-index: 70; animation: ix-fade-in 0.14s ease; }
-.ix-menu-veil[data-closing='true'] { animation: ix-fade-out 0.15s ease forwards; }
+.ix-menu-veil[data-closing='true'] { animation: ix-fade-out 0.16s ease forwards; }
+/* The card sizes to its own rows — a two-item message menu is two rows tall
+   (Geno, 2026-10-14). A real border, Inter only, and the fade in/out it
+   always had now carries the whole card. */
 .ix-menu {
   position: fixed;
   z-index: 71;
   width: 224px;
-  height: 148px;
-  padding: 6px;
+  padding: 7px;
   border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--sc-ink-900) 20%, transparent);
   background: var(--sc-bone-light);
-  box-shadow: inset 0 0 0 1px var(--ix-hair-2), var(--sc-lift-3);
+  box-shadow: var(--sc-lift-3);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.014em;
   display: grid;
-  gap: 2px;
+  gap: 3px;
   align-content: start;
   overflow: hidden;
-  animation: ix-menu-in 0.16s var(--ix-out);
   transform-origin: top left;
+  will-change: opacity, transform;
+  animation: ix-menu-in 0.18s var(--ix-out);
 }
-.ix-menu[data-closing='true'] { animation: ix-menu-out 0.15s ease forwards; }
+.ix-menu[data-closing='true'] { animation: ix-menu-out 0.16s ease forwards; }
 .ix-menu button {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 36px;
-  padding: 0 11px;
+  min-height: 38px;
+  padding: 0 12px;
   border: 0;
   border-radius: 9px;
   background: none;
   color: var(--sc-ink-700);
   font-size: 13.5px;
   font-weight: 550;
+  letter-spacing: -0.014em;
   text-align: left;
   cursor: pointer;
   transition: background 0.13s ease, color 0.13s ease;
@@ -1129,7 +1406,7 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 .ix-menu .ix-menu-danger { color: var(--sc-critical); }
 .ix-menu .ix-menu-danger:hover { background: color-mix(in srgb, var(--sc-critical) 14%, transparent); color: var(--sc-critical); }
 .ix-menu .ix-menu-danger svg { color: var(--sc-critical); }
-.ix-menu-sep { height: 1px; margin: 4px 6px; background: var(--ix-hair); }
+.ix-menu-sep { height: 1px; margin: 4px 7px; background: var(--ix-hair); }
 
 /* ================================================================
    THE PICKER (new message / add people) - fades in and out
@@ -1196,13 +1473,13 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   align-items: center;
   gap: 8px;
   padding: 2px 4px 5px;
-  font-family: var(--ix-mono);
   font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
 }
-.ix-group-name b { font-weight: 500; opacity: 0.7; }
+.ix-group-name b { font-weight: 500; opacity: 0.7; font-variant-numeric: tabular-nums; }
 .ix-choice {
   display: flex;
   align-items: center;
@@ -1236,8 +1513,8 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 }
 .ix-choice[data-on='true'] .ix-choice-text b { color: var(--sc-ink-900); }
 .ix-choice-text small {
-  font-family: var(--ix-mono);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--sc-ink-300);
@@ -1261,6 +1538,135 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   transform: scale(1.05);
 }
 .ix-people-empty { padding: 8px 4px; font-size: 13px; color: var(--sc-ink-300); }
+
+/* ================================================================
+   THE PICKER, REDESIGNED (Geno, 2026-10-14)
+
+   The same shell the rest of the console's dialogs wear, tidied for
+   this room: one scroller, a search you can actually see, rows that
+   answer the pointer, sticky group heads, and the picked count as a
+   chip. Scoped to .ix-dialog so no other page moves an inch.
+   ================================================================ */
+
+.ix-dialog { width: min(540px, 100%); }
+
+.ix-dialog .adddialog-head { padding: 18px 18px 14px; }
+.ix-dialog .adddialog-kicker { font-size: 0.62rem; color: var(--sc-ink-300); }
+.ix-dialog .adddialog-head h2 { font-size: 1.35rem; }
+.ix-dialog .adddialog-x {
+  width: 32px;
+  height: 32px;
+  font-size: 1.1rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ix-dialog .adddialog-x:hover { background: var(--ix-surface-2); }
+
+.ix-dialog .adddialog-body {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 14px 18px 18px;
+}
+
+.ix-dialog .form-row { margin-bottom: 0; gap: 7px; }
+.ix-dialog .axis-name { font-size: 10.5px; letter-spacing: 0.13em; color: var(--sc-ink-300); }
+.ix-dialog .field {
+  height: 42px;
+  border-color: var(--ix-hair-2);
+  border-radius: 12px;
+  background: var(--ix-panel);
+  color: var(--sc-ink-900);
+  font-size: 14px;
+}
+.ix-dialog .field:focus { border-color: color-mix(in srgb, var(--sc-ember) 60%, transparent); }
+.ix-dialog .field::placeholder { color: var(--sc-ink-300); }
+
+.ix-dialog .ix-search { height: 42px; border-color: var(--ix-hair-2); background: var(--ix-panel); }
+.ix-dialog .ix-search input { font-size: 14px; }
+.ix-dialog .ix-search:focus-within {
+  border-color: color-mix(in srgb, var(--sc-ember) 60%, transparent);
+  background: var(--ix-panel);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-ember) 12%, transparent);
+}
+
+.ix-dialog .ix-pick-tray { background: var(--ix-panel); }
+
+.ix-dialog .ix-people {
+  max-height: min(44vh, 356px);
+  gap: 10px;
+  padding-right: 4px;
+}
+.ix-dialog .ix-group { gap: 2px; }
+.ix-dialog .ix-group-name {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 6px 6px;
+  background: #171717;
+  font-size: 10px;
+}
+
+.ix-dialog .ix-choice {
+  min-height: 54px;
+  padding: 7px 10px;
+  gap: 13px;
+  border-radius: 14px;
+}
+.ix-dialog .ix-choice[data-on='true'] {
+  background: color-mix(in srgb, var(--sc-ember) 9%, transparent);
+  border-color: color-mix(in srgb, var(--sc-ember) 34%, transparent);
+}
+.ix-dialog .ix-choice-mark {
+  width: 28px;
+  height: 28px;
+  box-shadow: inset 0 0 0 1px var(--ix-hair-2);
+}
+.ix-dialog .ix-choice:hover .ix-choice-mark { color: var(--sc-ink-900); }
+.ix-dialog .ix-choice[data-on='true'] .ix-choice-mark {
+  background: var(--sc-ember);
+  color: #ffffff;
+  box-shadow: none;
+  transform: none;
+}
+
+.ix-dialog .adddialog-foot { padding: 13px 18px; }
+.ix-dialog .adddialog-note {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--ix-surface);
+  box-shadow: inset 0 0 0 1px var(--ix-hair);
+  font-size: 12px;
+}
+.ix-dialog .adddialog-note:empty { display: none; }
+.ix-dialog .adddialog-cancel,
+.ix-dialog .adddialog-save {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.ix-dialog .adddialog-cancel {
+  border-color: var(--ix-hair-2);
+  color: var(--sc-ink-700);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ix-dialog .adddialog-cancel:hover { background: var(--ix-surface); color: var(--sc-ink-900); }
+.ix-dialog .adddialog-save {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #ffffff;
+  transition: filter 0.15s ease;
+}
+.ix-dialog .adddialog-save:hover:not(:disabled) { filter: brightness(1.08); }
+.ix-dialog .adddialog-save:disabled {
+  background: var(--ix-panel-2);
+  border-color: transparent;
+  color: var(--sc-ink-300);
+  opacity: 1;
+}
 
 /* ================================================================
    THE VIEWER - tap an image, see it full, download it
@@ -1320,10 +1726,20 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
 .ix-viewer-x { width: 38px; padding: 0; display: grid; place-items: center; }
 
 /* ================================================================
-   SMALL SCREENS - one pane at a time (Geno, 2026-10-13)
+   ONE PANE AT A TIME - below a desk (2026-10-13)
    ================================================================ */
 
 .ix-back { display: none; }
+
+@media (max-width: 1240px) {
+  /* The rail floats now - the door is the head's details button, the
+     scrim and Escape the ways out (2026-10-14). */
+  .ix-details { display: inline-grid; }
+  .ix-rail-x { display: grid; }
+  .ix-rail-scrim { display: block; }
+  /* Room for the drawer's X, which floats over the hero. */
+  .ix-hero { padding-right: 50px; }
+}
 
 @media (max-width: 899px) {
   .ix-back { display: inline-grid; }
@@ -1342,9 +1758,36 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   .ix-composer { padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); }
   .ix-msg[data-side='model'] { max-width: 92%; }
   .ix-msg[data-side='team'] { max-width: 92%; }
-  .ix-att-img { max-width: min(250px, 100%); max-height: 340px; }
-  video.ix-att-video { max-width: min(260px, 100%); max-height: 360px; }
+  .ix-att-img { max-width: min(260px, 100%); max-height: 340px; }
+  video.ix-att-video { max-width: min(280px, 100%); max-height: 360px; }
   .ix-viewer { padding: 64px 10px 18px; }
+  .ix-drop { inset: 8px; }
+}
+
+/* Phones in a hand: the furniture shrinks, nothing clips. */
+@media (max-width: 430px) {
+  .ix-list-head { padding: 12px 12px 10px; gap: 10px; }
+  .ix-list-title h2 { font-size: 20px; }
+  .ix-search { height: 40px; }
+  .ix-tab { height: 31px; padding: 0 12px; }
+  .ix-row { grid-template-columns: 42px minmax(0, 1fr); padding: 12px; gap: 11px; }
+  .ix-sk { grid-template-columns: 42px minmax(0, 1fr); padding: 12px; }
+  .ix-sk-av { width: 42px; height: 42px; }
+  .ix-av { width: 42px; height: 42px; }
+  .ix-convo-head { padding: 10px 12px; gap: 9px; flex-wrap: wrap; }
+  .ix-head-actions { gap: 6px; }
+  .ix-pill { height: 34px; padding: 0 12px; font-size: 12.5px; }
+  .ix-iconbtn { width: 34px; height: 34px; }
+  .ix-stream { padding: 12px 11px 4px; }
+  .ix-bubble { font-size: 14.5px; padding: 9px 12px; }
+  .ix-msg-meta { font-size: 11px; }
+  .ix-composer { padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); }
+  .ix-attach { width: 40px; height: 40px; }
+  .ix-composer-box { padding-left: 13px; }
+  .ix-thumb { width: 84px; height: 84px; }
+  .ix-msg[data-side='model'] { max-width: 94%; }
+  .ix-msg[data-side='team'] { max-width: 94%; }
+  .ix-files { grid-template-columns: 1fr 1fr 1fr; }
 }
 
 /* ================================================================
@@ -1360,9 +1803,10 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   .ix-day { margin: 7px 0 5px; }
   .ix-msg { padding: 3px 0; }
   .ix-composer { padding: 8px 18px 10px; }
-  .ix-composer textarea { min-height: 38px; padding: 8px 0; }
-  .ix-composer-bar { padding: 5px 6px 5px 14px; }
-  .ix-attach, .ix-send { width: 38px; height: 38px; border-radius: 13px; }
+  .ix-composer textarea { min-height: 36px; padding: 8px 0; }
+  .ix-composer-bar { min-height: 40px; }
+  .ix-attach { width: 40px; height: 40px; }
+  .ix-thumb { width: 78px; height: 78px; }
 }
 
 @media (max-height: 560px) {
@@ -1377,4 +1821,5 @@ audio.ix-att-audio { width: 258px; max-width: 100%; height: 37px; }
   .ix-convo-head { padding: 7px 14px; }
   .ix-composer { padding: 6px 14px 8px; }
   .ix-composer textarea { max-height: min(74px, 24vh); }
+  .ix-thumb { width: 64px; height: 64px; }
 }

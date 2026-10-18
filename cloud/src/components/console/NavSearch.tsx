@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import PlatformIcon from '../roster/PlatformIcon'
 import { Icon } from './ConsoleIcons'
+import { canView, pageForPath, type AccessLevel } from '@/lib/permissions'
 import { SECTIONS, SETTINGS_LEAF, type NavLeaf } from './nav'
 
 /** The rail's search (Geno, 2026-10-13): the ai-invoice sidebar's find — a
@@ -29,13 +30,13 @@ const PAGES: Page[] = [
   { ...SETTINGS_LEAF, section: 'Console' },
 ]
 
-function pickRandom(count: number): Page[] {
-  const pool = [...PAGES]
-  for (let i = pool.length - 1; i > 0; i -= 1) {
+function pickRandom(count: number, pool: Page[]): Page[] {
+  const copy = [...pool]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
   }
-  return pool.slice(0, count)
+  return copy.slice(0, count)
 }
 
 /** Label hits first, then section hits; stable and small. */
@@ -47,9 +48,15 @@ function rank(page: Page, needle: string): number {
   return page.href.includes(needle) ? 3 : -1
 }
 
-export default function NavSearch() {
+export default function NavSearch({ permissions }: { permissions: Record<string, AccessLevel> }) {
   const router = useRouter()
   const pathname = usePathname()
+  /** Only the pages this member can open — search must never offer a door
+   *  the gate would refuse (Geno, 2026-10-18). */
+  const pages = useMemo(
+    () => PAGES.filter((page) => canView(permissions, pageForPath(page.href))),
+    [permissions],
+  )
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
@@ -73,13 +80,13 @@ export default function NavSearch() {
   const results = useMemo(() => {
     if (!hasQuery) return []
     const needle = trimmed.toLowerCase()
-    return PAGES
+    return pages
       .map((page) => ({ page, score: rank(page, needle) }))
       .filter((row) => row.score >= 0)
       .sort((a, b) => a.score - b.score || a.page.label.localeCompare(b.page.label))
       .slice(0, RESULT_COUNT)
       .map((row) => row.page)
-  }, [trimmed, hasQuery])
+  }, [trimmed, hasQuery, pages])
   const rows = hasQuery ? results : suggestions
   const showAiRow = hasQuery
   const cardMode = hasQuery ? 'has-results' : 'has-suggestions'
@@ -103,7 +110,7 @@ export default function NavSearch() {
   // unmount and clear — the ai-invoice choreography.
   useEffect(() => {
     if (open) {
-      setSuggestions(pickRandom(SUGGESTION_COUNT))
+      setSuggestions(pickRandom(SUGGESTION_COUNT, pages))
       updateAnchor()
       setMounted(true)
       const frame = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
@@ -121,7 +128,7 @@ export default function NavSearch() {
       return () => clearTimeout(timer)
     }
     return undefined
-  }, [open, mounted, updateAnchor])
+  }, [open, mounted, updateAnchor, pages])
 
   useEffect(() => {
     if (!mounted) return undefined
@@ -161,7 +168,9 @@ export default function NavSearch() {
         })
         const data = await response.json().catch(() => ({}))
         if (cancelled) return
-        setAiSuggestion(response.ok && data?.href ? data : null)
+        // A suggestion to a page they cannot open is no suggestion.
+        const allowed = Boolean(data?.href) && canView(permissions, pageForPath(data.href))
+        setAiSuggestion(response.ok && allowed ? data : null)
       } catch {
         if (!cancelled) setAiSuggestion(null)
       } finally {
@@ -172,7 +181,7 @@ export default function NavSearch() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [trimmed, mounted, showAiRow])
+  }, [trimmed, mounted, showAiRow, permissions])
 
   // ⌘K / Ctrl+K toggles from anywhere that is not a field; Escape closes.
   useEffect(() => {

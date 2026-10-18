@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { interestOverTime } from '@/lib/trends'
 import { cleanGeo, cleanInterestRange, parseInterestQuery } from '@/lib/trends-feed'
 
@@ -8,7 +8,8 @@ import { cleanGeo, cleanInterestRange, parseInterestQuery } from '@/lib/trends-f
  *  `?geo=US|US-XX&range=<Google range id>`; the answer is Google's 0–100
  *  relative interest per point, cached server-side for fifteen minutes. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const url = new URL(request.url)
   const terms = parseInterestQuery(url.searchParams.getAll('term').join(','))
   const geo = cleanGeo(url.searchParams.get('geo'))

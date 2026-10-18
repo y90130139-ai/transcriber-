@@ -651,6 +651,43 @@
 .reels-more > .chip { margin: var(--sc-space-2) 0; }
 .dash-reel-actions { display: grid; gap: var(--sc-space-1); }
 
+/* Repurposed files — the studio's own renders, saved under Reels (2026-10-18).
+   Same section rhythm as the graded rows; each row is one fresh file with the
+   post it came from, its state, and the player folded behind Play. */
+.reels-row[data-tone='repost'] { border-top-color: var(--sc-ember-light); }
+.repostlist { display: grid; gap: var(--sc-space-2); list-style: none; margin: 0; padding: 0; }
+.repostrow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: var(--sc-space-3);
+  align-items: center;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone-light);
+}
+.repostrow-thumb { width: 44px; height: 55px; border-radius: var(--r-sm); object-fit: cover; background: var(--sc-bone); }
+.repostrow-thumb-blank { display: block; }
+.repostrow-id { min-width: 0; }
+.repostrow-what { margin: 0; font-size: var(--sc-text-sm); font-weight: 600; color: var(--sc-ink-700); }
+.repostrow[data-status='ready'] .repostrow-what { color: var(--sc-positive); }
+.repostrow[data-status='failed'] .repostrow-what { color: var(--sc-critical); }
+.repostrow-meta { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+.repostrow-error { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-critical); overflow-wrap: anywhere; }
+.repostrow-acts { display: flex; align-items: center; gap: var(--sc-space-2); }
+.repostrow-acts .dash-reel-action { width: auto; display: inline-block; padding: var(--sc-space-1) var(--sc-space-3); text-decoration: none; }
+.repostrow-source { font-size: var(--sc-text-xs); color: var(--sc-ink-500); white-space: nowrap; }
+.repostrow-source:hover { color: var(--sc-ember-deep); }
+.repostrow-unmark { border: 0; background: none; color: var(--sc-ink-300); font: inherit; font-size: var(--sc-text-xs); cursor: pointer; padding: 0; }
+.repostrow-unmark:hover:not(:disabled) { color: var(--sc-critical); }
+.repostrow-unmark:disabled { opacity: 0.6; cursor: default; }
+.repostrow-player { grid-column: 1 / -1; }
+.repostrow-player video { width: 100%; max-height: 420px; border-radius: var(--r-sm); background: #000; }
+@media (max-width: 620px) {
+  .repostrow { grid-template-columns: 44px minmax(0, 1fr); }
+  .repostrow-acts { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
 /* The grade on the cover — word always, colour as a second cue. */
 .dash-reel-grade { position: absolute; z-index: 1; left: var(--sc-space-2); bottom: var(--sc-space-2); padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; background: rgba(10,10,10,.7); pointer-events: none; }
 .dash-reel-grade[data-tone='win'] { background: var(--sc-positive); }

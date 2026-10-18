@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { datasetStats, exportRows, toCsv, type ExportKind } from '@/lib/reddit/queries'
 
 const KINDS: ExportKind[] = ['topics', 'subreddits', 'posts']
@@ -13,7 +13,8 @@ const KINDS: ExportKind[] = ['topics', 'subreddits', 'posts']
  * licence note on the Dataset page.
  */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const params = new URL(request.url).searchParams
   const exportKind = params.get('export')
   try {

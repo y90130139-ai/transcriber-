@@ -722,6 +722,21 @@
 }
 .planmodal .weektab-add:hover:not(:disabled) { color: var(--sc-ink-900); }
 
+/* The rail's add-week menu (PlanEditor.tsx): the DropSelect trigger is a
+   button, not a weektab, so it borrows the add-week buttons' clothes. */
+.planmodal .weektabs .weekadd-trigger {
+  flex: none;
+  min-width: 0;
+  border-style: dashed;
+  border-radius: var(--r-sm);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.planmodal .weektabs .weekadd-trigger:hover:not(:disabled),
+.planmodal .weektabs .weekadd-trigger[data-open] { color: var(--sc-ink-900); }
+
 /* --------------------------------------------------------- LOADING
    The shape of the week while its first read is in flight, at the sizes
    the real sections take, so nothing jumps when they land. */
@@ -2403,6 +2418,13 @@
   background: var(--sc-bone-light);
 }
 .planmodal .plancomposer-body textarea.field { min-height: 4rem; }
+
+/* The German lane keeps its setup as a reusable template (Geno, 2026-10-16):
+   a name and one save — the playbook entry and its reference video ride it.
+   Only rendered once a German format is picked, so the lane stays the lane. */
+.planmodal .plancomposer-keep-row { display: flex; align-items: center; gap: var(--sc-space-2); }
+.planmodal .plancomposer-keep-row .field { flex: 1; min-width: 0; }
+.planmodal .plancomposer-keep .hint { display: block; margin-top: var(--sc-space-1); }
 /* The ticked video, its own section above the fields (Geno, 2026-10-12):
    thumbnail, name, and the way to take it off. */
 .planmodal .plancomposer-picked {
@@ -2549,7 +2571,9 @@
 
 /* ============================================================
    COPY PLAN — the week onto another creator's week (2026-10-12).
-   A small dialog over the pane: pick the creator, then the week.
+   A small dialog over the pane (2026-10-18): it wears the pane's own dark
+   head, walks creator → week, shows what is going over, and says where it
+   lands before the tap.
    ============================================================ */
 .planmodal .plancopy-overlay {
   position: fixed;
@@ -2558,33 +2582,171 @@
   display: grid;
   place-items: center;
   padding: var(--sc-space-4);
-  background: rgba(10, 10, 10, 0.42);
+  background: rgba(10, 10, 10, 0.55);
+  animation: plancopy-veil-in 0.18s ease;
 }
+
+@keyframes plancopy-veil-in { from { opacity: 0; } }
+@keyframes plancopy-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
 .planmodal .plancopy {
-  width: min(440px, 92vw);
+  width: min(480px, 92vw);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: min(86vh, 720px);
+  /* Paper, one step brighter than the pane it floats over. */
   background: var(--sc-paper);
-  border: var(--sc-rule-hair);
+  /* The console's own edge, stated literally — a token that flips with the
+     ground drew a light border around the pane too (see .planmodal). */
+  border: 1px solid #33302C;
   border-radius: var(--r);
   box-shadow: var(--sc-lift-3);
   overflow: hidden;
+  animation: plancopy-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
+@media (prefers-reduced-motion: reduce) {
+  .planmodal .plancopy-overlay, .planmodal .plancopy { animation: none; }
+}
+
+/* The head is the plan modal's dark bar in smaller type. */
 .planmodal .plancopy-head {
   display: flex;
-  align-items: center;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-3) var(--sc-space-4);
-  border-bottom: var(--sc-rule-hair);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  background: #171717;
+  color: #EDE9E3;
+  border-bottom: 1px solid #33302C;
 }
-.planmodal .plancopy-title { font-size: var(--sc-text-sm); font-weight: 700; color: var(--sc-ink-900); }
-.planmodal .plancopy-head .hint { flex: 1; margin: 0; min-width: 0; }
-.planmodal .plancopy-body { padding: var(--sc-space-4); display: grid; gap: var(--sc-space-3); }
-.planmodal .plancopy-body .form-row { display: grid; gap: var(--sc-space-1); margin: 0; }
+.planmodal .plancopy-title {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  text-transform: uppercase;
+  letter-spacing: var(--sc-track-display);
+  line-height: 0.95;
+  color: #EDE9E3;
+}
+.planmodal .plancopy-sub {
+  margin: var(--sc-space-1) 0 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: #A8A29A;
+}
+.planmodal .plancopy-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid #33302C;
+  border-radius: 999px;
+  background: none;
+  color: #A8A29A;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--sc-dur-fast) var(--sc-ease), border-color var(--sc-dur-fast) var(--sc-ease);
+}
+.planmodal .plancopy-x:hover { color: var(--sc-ember); border-color: var(--sc-ember); }
+
+.planmodal .plancopy-body {
+  display: grid;
+  align-content: start;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.planmodal .plancopy-field { display: grid; gap: var(--sc-space-2); }
+.planmodal .plancopy-field .msel-trigger {
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0 var(--sc-space-3);
+}
+.planmodal .plancopy-hint { font-size: var(--sc-text-xs); color: var(--sc-ink-300); }
+
+/* What is going over — the first few cards, an inset strip. */
+.planmodal .plancopy-cards {
+  margin: 0;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  list-style: none;
+  display: grid;
+  gap: var(--sc-space-2);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-bone);
+}
+.planmodal .plancopy-cards li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-2);
+  min-width: 0;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-700);
+}
+.planmodal .plancopy-cards b {
+  flex: none;
+  font-family: var(--sc-font-mono);
+  font-weight: 600;
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.planmodal .plancopy-cards li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planmodal .plancopy-cards .plancopy-more { color: var(--sc-ink-300); }
+
+.planmodal .plancopy-note {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-xs);
+}
+.planmodal .plancopy-note[data-bad] {
+  background: color-mix(in srgb, var(--sc-critical) 10%, transparent);
+  border-color: color-mix(in srgb, var(--sc-critical) 40%, transparent);
+  color: var(--sc-critical);
+}
+
 .planmodal .plancopy-foot {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-3) var(--sc-space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-5);
   border-top: var(--sc-rule-hair);
+  /* Same ground as the pane's own send bar. */
   background: var(--sc-bone-light);
 }
+.planmodal .plancopy-dest {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-500);
+}
+.planmodal .plancopy-actions { flex: none; display: inline-flex; align-items: center; gap: var(--sc-space-2); }
+.planmodal .plancopy-go {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #0A0A0A;
+  font-weight: 600;
+}
+.planmodal .plancopy-go:hover:not(:disabled) {
+  background: var(--sc-ember-deep);
+  border-color: var(--sc-ember-deep);
+  color: #0A0A0A;
+}
+.planmodal .plancopy-go:disabled { opacity: 0.45; }
 

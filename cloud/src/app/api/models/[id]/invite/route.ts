@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { appEmailConfigured, appOrigin, sendModelInviteEmail, sendModelResetEmail } from '@/lib/app-email'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import {
   createOrRefreshInvite,
@@ -26,7 +26,8 @@ const unavailable = () =>
   NextResponse.json({ error: 'The account store is unreachable — try again.' }, { status: 502 })
 
 export async function GET(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   try {
     return NextResponse.json({
@@ -39,7 +40,8 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({} as Record<string, unknown>))
   const action = body?.action === 'reset' ? 'reset' : 'invite'

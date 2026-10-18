@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { insightsFor } from '@/lib/insights'
 import { isValidTag } from '@/lib/taxonomy'
@@ -8,8 +8,9 @@ type Params = { params: Promise<{ id: string }> }
 
 /** Her level, verticals, similar creators and won't-do proposals — worked out
  *  from her accounts, never typed. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const insights = await insightsFor(id)
   if (!insights) return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -42,7 +43,8 @@ export async function GET(_request: Request, { params }: Params) {
  *   wont_do    { format: string } — added to the list she is never sent
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 

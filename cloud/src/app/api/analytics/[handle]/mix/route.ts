@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { MEDIAN_DAYS, THRESHOLD, mixFor, winners } from '@/lib/mix'
 
 /** How one creator's recent reels grade against 70/20/10, and the winners the
  *  70% would be drawn from. Reports only — it does not pick anything yet. */
 export async function GET(request: Request, ctx: { params: Promise<{ handle: string }> }) {
-  if (!(await isSignedIn())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { handle: raw } = await ctx.params
   const handle = raw.replace(/^@/, '').trim().toLowerCase()
   if (!handle) return NextResponse.json({ error: 'handle is required' }, { status: 400 })

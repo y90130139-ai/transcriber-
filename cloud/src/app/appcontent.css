@@ -1,0 +1,437 @@
+/* App Content — the console editor for every word the client app shows
+   (Geno, 2026-10-14). Every document is its own page under /app-content/…,
+   listed as sub-tabs in the sidebar. Read-first: the page opens as the
+   document itself (the "paper"), and one Edit button switches to the
+   writing surface (BlockNote — the same Notion-style editor the SOPs use on
+   ai-invoice). Rides the maison tokens, so both themes work. */
+
+/* --------------------------------------------------------------- the top */
+/* The page reads as one centered column, wider than the old paper and a
+   breath under the top bar (Geno, 2026-10-14). Inter only — the same choice
+   the app-accounts surfaces made — so the words here look like the words on
+   her phone. */
+.ac-doc {
+  --sc-font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-text: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  align-content: start;
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+  padding-top: var(--sc-space-8);
+}
+
+.ac-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+.ac-top-title { display: grid; gap: 3px; min-width: 0; }
+
+.ac-top-title h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+
+.ac-top-meta {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ac-top-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-space-2); }
+
+.ac-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-ember-deep);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ember-deep);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+}
+
+.ac-warn {
+  border-left: 3px solid var(--sc-critical);
+  padding-left: var(--sc-space-3);
+}
+
+.ac-warn code {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ember-deep);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------- the paper
+   The read view: the document as she will meet it. No forms, no labels —
+   just the words, a little light, and room to breathe. */
+.ac-paper {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  width: 100%;
+  padding: var(--sc-space-8) var(--sc-space-8) var(--sc-space-12);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: 12px;
+}
+
+.ac-paper-kicker {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ember-deep);
+}
+
+.ac-paper-headline {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: 1.9rem;
+  line-height: 1.12;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+
+.ac-paper-lede {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  line-height: 1.55;
+  color: var(--sc-ink-500);
+}
+
+.ac-paper-rule {
+  height: 1px;
+  background: var(--sc-ink-150);
+  margin: var(--sc-space-2) 0 var(--sc-space-3);
+}
+
+.ac-paper-label {
+  margin: 0 0 var(--sc-space-2);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+/* Read-only chips + doors (the two structured pieces), previewed the way
+   the app draws them. */
+.ac-preview { padding-top: var(--sc-space-2); }
+
+.ac-pill-row { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); }
+
+.ac-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sc-space-2);
+  padding: 8px 13px;
+  border: var(--sc-rule-hair);
+  border-radius: 999px;
+  background: var(--sc-bone);
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+}
+
+.ac-pill em {
+  font-style: normal;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ac-step-list { display: grid; }
+
+.ac-step-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sc-space-3);
+  padding: 10px 0;
+  border-bottom: var(--sc-rule-hair);
+}
+
+.ac-step-row:last-child { border-bottom: 0; }
+
+.ac-step-title { color: var(--sc-ink-900); font-size: var(--sc-text-sm); font-weight: 600; }
+
+.ac-step-hint { color: var(--sc-ink-300); font-size: var(--sc-text-sm); }
+
+.ac-step-key {
+  margin-left: auto;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- the editor */
+.ac-edit { display: grid; gap: var(--sc-space-5); }
+
+.ac-edit-hint { margin: 0; }
+
+.ac-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sc-space-4);
+}
+
+.ac-span-2 { grid-column: 1 / -1; }
+
+/* The micro label above a field — casing and tracking live on the LABEL
+   only. Never on the wrapper: the BlockNote document sits inside one of
+   these, and uppercase / letter-spacing must never bleed into what she
+   reads (Geno, 2026-10-14). */
+.ac-field-note {
+  display: grid;
+  gap: var(--sc-space-2);
+}
+
+.ac-field-note > span {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ac-field-note .field { text-transform: none; letter-spacing: 0; }
+
+/* BlockNote brings its own skin (mantine); this is only the frame it sits
+   in — bordered while editing, invisible while reading. The editor's own
+   white/dark slab is turned off so the document sits on the console's
+   ground, and overflow stays visible so the side handle and slash menu are
+   never clipped. */
+.ac-rich {
+  position: relative;
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  background: var(--sc-bone);
+  min-height: 24rem;
+  padding: var(--sc-space-1) 0 var(--sc-space-2);
+}
+
+.ac-rich .bn-container,
+.ac-rich .bn-editor {
+  background: transparent;
+  overflow: visible;
+}
+
+.ac-rich .bn-editor {
+  min-height: 22rem;
+  padding-inline: var(--sc-space-4);
+}
+
+.ac-rich-loading { padding: var(--sc-space-3) var(--sc-space-4); }
+
+/* ----------------------------------------------------- the read document
+   The editor's markdown, rendered as plain HTML by lib/markdown.ts — no
+   editor runtime on the read path, so the paper paints with the page. */
+.ac-doc-body {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  font-size: var(--sc-text-sm);
+  line-height: 1.6;
+  color: var(--sc-ink-500);
+  overflow-wrap: anywhere;
+}
+
+.ac-doc-body > * { margin: 0; }
+
+.ac-doc-body h1,
+.ac-doc-body h2,
+.ac-doc-body h3 {
+  color: var(--sc-ink-900);
+  font-weight: 650;
+  letter-spacing: var(--sc-track-tight);
+}
+
+.ac-doc-body h1 { font-size: 1.3rem; line-height: 1.25; }
+.ac-doc-body h2 { font-size: 1.05rem; line-height: 1.3; padding-top: var(--sc-space-4); }
+.ac-doc-body h3 { font-size: 0.95rem; line-height: 1.35; padding-top: var(--sc-space-2); }
+
+.ac-doc-body ul,
+.ac-doc-body ol { padding-left: 1.35rem; display: grid; gap: 6px; }
+.ac-doc-body li::marker { color: var(--sc-ember); font-weight: 600; }
+.ac-doc-body ol li::marker { font-family: var(--sc-font-mono); font-size: 0.8em; }
+
+.ac-doc-body blockquote {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--sc-ember);
+  background: var(--sc-ember-tint);
+  border-radius: 0 8px 8px 0;
+  color: var(--sc-ink-700);
+}
+.ac-doc-body blockquote p { margin: 0; }
+
+.ac-doc-body strong { color: var(--sc-ink-900); font-weight: 650; }
+.ac-doc-body em { font-style: italic; }
+.ac-doc-body a { color: var(--sc-ember-deep); text-decoration: underline; text-underline-offset: 2px; }
+
+.ac-doc-body code {
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 0.85em;
+}
+
+.ac-doc-body pre {
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: 8px;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  overflow-x: auto;
+}
+.ac-doc-body pre code { background: none; border: 0; padding: 0; font-size: 0.82rem; line-height: 1.5; }
+
+.ac-doc-body table { border-collapse: collapse; width: 100%; }
+.ac-doc-body th,
+.ac-doc-body td {
+  border: var(--sc-rule-hair);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.ac-doc-body th {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  font-weight: 500;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  background: var(--sc-bone);
+}
+
+.ac-doc-body img { max-width: 100%; border-radius: 10px; }
+.ac-doc-body hr { border: 0; border-top: var(--sc-rule-hair); }
+
+.ac-doc-body .md-checks { list-style: none; padding-left: 0; }
+.ac-doc-body .md-checks li { display: flex; gap: 10px; align-items: flex-start; }
+.ac-doc-body .md-box {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  border: 1.5px solid var(--sc-ink-150);
+  border-radius: 5px;
+}
+.ac-doc-body .md-check[data-on='true'] .md-box { background: var(--sc-ember); border-color: var(--sc-ember); }
+.ac-doc-body .md-check[data-on='true'] .md-box::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sc-bone);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ---------------------------------------- the two structured panels */
+.ac-panel {
+  display: grid;
+  gap: var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  padding: var(--sc-space-4);
+  background: color-mix(in srgb, var(--sc-bone) 45%, transparent);
+}
+
+.ac-panel-title {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.ac-panel-note {
+  margin: 0;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+}
+
+.ac-fields { display: grid; gap: var(--sc-space-3); }
+
+.ac-kv-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 240px) minmax(140px, 200px) auto;
+  gap: var(--sc-space-2);
+  align-items: center;
+}
+
+.ac-step {
+  display: grid;
+  grid-template-columns: minmax(140px, 170px) minmax(0, 1fr) auto;
+  gap: var(--sc-space-2);
+  align-items: start;
+}
+
+.ac-step-text { display: grid; gap: var(--sc-space-2); }
+
+.ac-line-tools { display: flex; gap: 4px; align-items: center; }
+
+.ac-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--sc-rule-hair);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sc-ink-500);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ac-icon:hover:not(:disabled) { border-color: var(--sc-ink-900); color: var(--sc-ink-900); }
+.ac-icon:disabled { opacity: 0.3; cursor: default; }
+.ac-icon-bad:hover:not(:disabled) { border-color: var(--sc-critical); color: var(--sc-critical); }
+
+.ac-armed {
+  background: var(--sc-critical);
+  border-color: var(--sc-critical);
+  color: var(--sc-bone);
+}
+
+.ac-armed:hover:not(:disabled) { background: var(--sc-critical); border-color: var(--sc-critical); }
+
+@media (max-width: 900px) {
+  .ac-head { grid-template-columns: minmax(0, 1fr); }
+  .ac-span-2 { grid-column: auto; }
+  .ac-kv-row,
+  .ac-step { grid-template-columns: minmax(0, 1fr); }
+  .ac-paper { padding: var(--sc-space-5); }
+}

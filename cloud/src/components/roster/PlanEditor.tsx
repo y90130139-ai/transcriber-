@@ -147,7 +147,11 @@ function stubCard(card: AddedCard): PlanItemRow {
     webpage_url: null,
     duration_sec: null,
     folder: null,
-    has_thumb: Boolean(card.has_thumb ?? card.job_id),
+    // A job id only means the downloader has been queued. The thumbnail is
+    // ready only when the API says so; otherwise CoverThumb would cache an
+    // early 404 and never show the frame after the download finishes.
+    has_thumb: Boolean(card.has_thumb),
+    job_status: card.job_id && !card.has_thumb ? 'queued' : null,
     preview: null,
     bucket: 'custom',
     style: card.style ?? null,
@@ -217,20 +221,18 @@ export default function PlanEditor({
    *  videos; what is ticked there is held here so the panel can use it. */
   const [picking, setPicking] = useState(false)
   const [selection, setSelection] = useState<Selection>(() => new Map())
+  /** Feed clips paint on newly added cards immediately; the worker poster
+   *  replaces them as soon as the persisted thumbnail is ready. */
+  const [feedPreviewByJob, setFeedPreviewByJob] = useState<Map<string, string>>(() => new Map())
   const weekJobIds = useMemo(
     () => new Set(items.map((item) => item.job_id).filter((id): id is string => Boolean(id))),
     [items],
   )
-  /** Everything ticked on the wall, minus what the week already holds — the
-   *  Add content panel wears them as references, one per card (or version). */
+  /** The picks the Add content panel will use. Library jobs already on this
+   *  week are left out; social-feed URLs are queued when the style is added. */
   const styleReferences = useMemo(() => {
-    const out: { jobId: string; name: string | null; thumb: string | null }[] = []
-    for (const [, pick] of selection) {
-      if (pick.kind === 'library' && pick.jobId && !weekJobIds.has(pick.jobId)) {
-        out.push({ jobId: pick.jobId, name: pick.name ?? null, thumb: pick.thumb ?? null })
-      }
-    }
-    return out
+    return [...selection.values()].filter((pick) =>
+      pick.kind === 'feed' || !weekJobIds.has(pick.jobId))
   }, [selection, weekJobIds])
   /** The card list, with neighbouring versions of one concept folded under a
    *  single heading (Geno, 2026-10-13): "German #14 · Viral Clip Format" once,
@@ -308,7 +310,7 @@ export default function PlanEditor({
   const [copyWeeks, setCopyWeeks] = useState<string[]>([])
   const [copyWeek, setCopyWeek] = useState('')
   const [copyBusy, setCopyBusy] = useState(false)
-  const [copyNote, setCopyNote] = useState<string | null>(null)
+  const [copyNote, setCopyNote] = useState<{ text: string; bad?: boolean } | null>(null)
 
   const thisWeek = currentWeekOf()
   const openingWeekOf = initialWeekOf || thisWeek
@@ -345,11 +347,8 @@ export default function PlanEditor({
         setPlanId((current) => current ?? open.id)
         return
       }
-      // A model with no weeks at all used to dead-end on "Open a week". Land
-      // on the current week instead (Geno, 2026-10-09). Decided once per
-      // mount, and only off the fresh read, so a stale cache can never spawn
-      // a duplicate — and the fetch underneath replaces this the moment the
-      // server answers either way.
+      // A model with no plan for the selected week gets that week created once,
+      // from the fresh read only, so a stale cache cannot spawn a duplicate.
       if (!fresh || autoOpen.current) return
       autoOpen.current = true
       void openWeek(openingWeekOf)
@@ -501,10 +500,16 @@ export default function PlanEditor({
   }, [anyFetching, loadPlan])
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      // While the copy dialog is over the pane, Escape folds that — not the
+      // whole week someone is in the middle of editing.
+      if (copyOpen) { setCopyOpen(false); return }
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, copyOpen])
 
   /** Create-or-get the plan for a week and switch to it. */
   async function openWeek(weekOf: string) {
@@ -608,16 +613,16 @@ export default function PlanEditor({
     const body = await response?.json().catch(() => ({})) ?? {}
     setCopyBusy(false)
     if (!response?.ok) {
-      setCopyNote(body.error ?? 'That did not copy — try again.')
+      setCopyNote({ text: body.error ?? 'That did not copy — try again.', bad: true })
       return
     }
     const name = copyModels.find((model) => model.id === copyTarget)?.name ?? 'their week'
     const added = Number(body.added ?? 0)
     const skipped = Number(body.skipped ?? 0)
-    setCopyNote(
-      `Copied ${added} card${added === 1 ? '' : 's'} into ${name} — week of ${formatDate(copyWeek)}`
-      + (skipped > 0 ? ` · ${skipped} already on that week` : '') + '.',
-    )
+    setCopyNote({
+      text: `Copied ${added} card${added === 1 ? '' : 's'} into ${name} — week of ${formatDate(copyWeek)}`
+        + (skipped > 0 ? ` · ${skipped} already on that week` : '') + '.',
+    })
     // Warm the week they just received, so opening it there paints instantly.
     if (body.plan?.id) void fetchPlan(String(body.plan.id)).catch(() => null)
     void loadWeeks()
@@ -669,8 +674,9 @@ export default function PlanEditor({
    * The two things one of her winners can become.
    *
    * `recreate` puts it on her week as a control reskin — shoot it again as it
-   * was. `repurpose` marks it ours to repost and hands back the file for the
-   * batcher. Independent on purpose: a reel can be worth both.
+   * was. `repurpose` marks it ours to repost and queues the studio render
+   * (mirrored, re-cut, re-encoded; docs/REPURPOSE.md). Independent on purpose:
+   * a reel can be worth both.
    */
   async function actOnPost(postId: string, action: 'recreate' | 'repurpose' | 'unrepurpose') {
     setPostBusy(postId)
@@ -695,13 +701,16 @@ export default function PlanEditor({
       return
     }
     if (action === 'repurpose') {
-      // Straight to the file: the batcher is the next step and it needs the
-      // video, so the tap that marks it is the tap that downloads it.
-      if (body.download) window.location.href = body.download
+      // The studio renders the fresh copy now, so the tap no longer downloads
+      // anything by hand: the row is queued and the file appears in the Reels
+      // tab's Repurposed section (docs/REPURPOSE.md).
       const week = body.week_of ? formatDate(body.week_of) : null
       setPostNote([
-        body.note ?? 'Marked to repost. Downloading the file for the batcher.',
+        body.render === 'queued'
+          ? 'Queued for the studio — the fresh file lands in Reels → Repurposed when the Mac has done it.'
+          : 'Marked to repost.',
         week ? (body.added ? `On the week of ${week} as a Repurpose card.` : `Already on the week of ${week}.`) : body.week_note,
+        body.note,
       ].filter(Boolean).join(' '))
       await loadPlan()
       void loadWeeks()
@@ -1135,6 +1144,23 @@ export default function PlanEditor({
     .filter((week) => week !== plan?.week_of && !isPastWeek(week, thisWeek))
     .sort()
 
+  // The rail's own door to any week (Geno, 2026-10-18): this Monday on,
+  // twelve of them. A week already on the rail is offered too — picking it
+  // just opens it; anything else is created the moment it is picked.
+  const weekChoices = Array.from({ length: 12 }, (_, index) => addDays(thisWeek, index * 7))
+    .map((week, index) => ({
+      value: week,
+      label: index === 0 ? `This week · ${formatDate(week)}`
+        : index === 1 ? `Next week · ${formatDate(week)}`
+          : `${formatDate(week)}${knownWeeks.has(week) ? '' : ' — new'}`,
+    }))
+  // The weeks the copy dialog can land on: the target's own, this one, and
+  // the three Mondays after it — a week that does not exist yet is created
+  // by the copy itself.
+  const copyWeekOptions = [...new Set([
+    ...copyWeeks, thisWeek, addDays(thisWeek, 14), addDays(thisWeek, 21), addDays(thisWeek, 28),
+  ])].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+
   const target = plan ? (plan.target ?? plan.weekly_target ?? 0) : 0
   const short = target > 0 && items.length < target ? target - items.length : 0
   const videosReady = waiting === 0 && missing === 0 && fetching === 0
@@ -1239,6 +1265,17 @@ export default function PlanEditor({
                     + Next week
                   </button>
                 )}
+                {/* Any Monday, this one on — the only door to a week further
+                    out than the two above (Geno, 2026-10-18). */}
+                <DropSelect
+                  label="Add week"
+                  className="weekadd-trigger"
+                  value=""
+                  placeholder="+ Add week"
+                  disabled={busy}
+                  onChange={(next) => { if (next) void openWeek(next) }}
+                  options={weekChoices}
+                />
               </>
             )}
           </nav>
@@ -1569,7 +1606,7 @@ export default function PlanEditor({
                   <span className="planstep-no" aria-hidden="true">2</span>
                   <span className="planstep-id">
                     <span className="planstep-title" role="heading" aria-level={4}>Add content</span>
-                    <span className="planstep-sub">Paste a link straight from Instagram — or add by style.</span>
+                    <span className="planstep-sub">Paste a video link from Instagram, TikTok or X — or add by style.</span>
                   </span>
                   <span className="planstep-aside">
                     <button
@@ -1581,16 +1618,16 @@ export default function PlanEditor({
                   </span>
                 </header>
 
-                {/* Found it on Instagram? One box, one card (Geno, 2026-10-13).
+                {/* Found a social video? One box, one card (Geno, 2026-10-13).
                     The same door a paste takes in the queue: a thin card until
                     the Mac fetches, then the video is on it by itself. */}
-                <div className="planadd-link" role="group" aria-label="Add a reel by link">
+                <div className="planadd-link" role="group" aria-label="Add a video by link">
                   <input
                     className="field"
                     type="url"
                     value={linkPaste}
-                    placeholder="Paste an Instagram or TikTok link — it lands on the week and the Mac fetches it"
-                    aria-label="Paste a reel link"
+                    placeholder="Paste an Instagram, TikTok or X video link — it lands on the week and the Mac fetches it"
+                    aria-label="Paste a video link"
                     onChange={(event) => { setLinkPaste(event.target.value); setLinkNote(null) }}
                     onKeyDown={(event) => { if (event.key === 'Enter') void addLink() }}
                   />
@@ -1618,6 +1655,14 @@ export default function PlanEditor({
                     onClearReference={() => setSelection(new Map())}
                     onCardsAdded={(fresh) => {
                       const rows = fresh.map(stubCard)
+                      const previews = fresh.filter((card) => card.job_id && card.cover_preview_url)
+                      if (previews.length > 0) {
+                        setFeedPreviewByJob((current) => {
+                          const next = new Map(current)
+                          for (const card of previews) next.set(card.job_id as string, card.cover_preview_url as string)
+                          return next
+                        })
+                      }
                       setItems((current) => [...current, ...rows])
                       setJustLanded(new Set(rows.map((row) => row.id)))
                       window.setTimeout(() => setJustLanded(new Set()), 8000)
@@ -1707,6 +1752,8 @@ export default function PlanEditor({
                         <div className="cardhero">
                           <CoverThumb
                             jobId={item.job_id}
+                            hasThumb={item.has_thumb}
+                            previewVideoUrl={item.job_id ? feedPreviewByJob.get(item.job_id) : null}
                             className="cardhero-thumb"
                             blankClassName="cardhero-thumb cardhero-thumb-blank"
                             blank={item.job_id ? 'No frame' : 'No cover'}
@@ -2131,6 +2178,8 @@ export default function PlanEditor({
                               </span>
                               <CoverThumb
                                 jobId={item.job_id}
+                                hasThumb={item.has_thumb}
+                                previewVideoUrl={item.job_id ? feedPreviewByJob.get(item.job_id) : null}
                                 className="planrow-cover"
                                 blankClassName="planrow-thumb-blank"
                                 width={48}
@@ -2353,10 +2402,14 @@ export default function PlanEditor({
                           data-on={post.repurposed ? true : undefined}
                           title={post.repurposed
                             ? `Marked for ${post.destination ?? 'trial'} — click to unmark`
-                            : 'Download the file and mark it ours to repost'}
+                            : 'Render a fresh copy for reposting — the studio does it and it lands in Reels'}
                           onClick={() => void actOnPost(post.id, post.repurposed ? 'unrepurpose' : 'repurpose')}
                         >
-                          {post.repurposed ? 'Reposting ✓' : 'Repurpose'}
+                          {post.repurposed
+                            ? (post.repurpose_status === 'queued' || post.repurpose_status === 'rendering'
+                              ? 'Reposting ✓ · rendering'
+                              : post.repurpose_status === 'ready' ? 'Reposting ✓ · file ready' : 'Reposting ✓')
+                            : 'Repurpose'}
                         </button>
                       </span>
                     </li>
@@ -2633,71 +2686,98 @@ export default function PlanEditor({
             )}
           </div>
         </div>
-      </div>
 
-      {/* Copy the week onto another creator's week — a dialog on top of the
-          pane, week options read from their own plans. */}
-      {plan && copyOpen && (
-        <div className="plancopy-overlay" role="dialog" aria-modal="true" aria-label="Copy this plan">
-          <div className="plancopy">
-            <div className="plancopy-head">
-              <span className="plancopy-title">Copy this plan</span>
-              <span className="hint">
-                {items.length} card{items.length === 1 ? '' : 's'} from the week of {formatDate(plan.week_of)}
-              </span>
-              <button type="button" className="cardtool" aria-label="Close" onClick={() => setCopyOpen(false)}>×</button>
-            </div>
-            <div className="plancopy-body">
-              <div className="form-row">
-                <label className="axis-name" htmlFor="plancopy-model">Creator</label>
-                <DropSelect
-                  id="plancopy-model"
-                  label="Creator"
-                  value={copyTarget}
-                  onChange={(next) => void pickCopyTarget(next)}
-                  options={[
-                    { value: '', label: copyModels.length > 0 ? 'Pick a creator' : 'Loading the roster…' },
-                    ...copyModels.map((model) => ({ value: model.id, label: model.name })),
-                  ]}
-                />
-              </div>
-              {copyTarget && (
-                <div className="form-row">
-                  <label className="axis-name" htmlFor="plancopy-week">Week</label>
-                  <DropSelect
-                    id="plancopy-week"
-                    label="Week"
-                    value={copyWeek}
-                    onChange={setCopyWeek}
-                    options={(() => {
-                      const weeks = new Set(copyWeeks)
-                      weeks.add(thisWeek)
-                      return [...weeks]
-                        .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
-                        .map((week) => ({
-                          value: week,
-                          label: copyWeeks.includes(week) ? formatDate(week) : `${formatDate(week)} — new week`,
-                        }))
-                    })()}
-                  />
+        {/* Copy the week onto another creator's week — a dialog on top of the
+            pane. Week options are their own plans plus the Mondays ahead: the
+            route creates the target week when it does not exist yet. */}
+        {plan && copyOpen && (
+          <div className="plancopy-overlay" role="dialog" aria-modal="true" aria-label="Copy this plan">
+            <div className="plancopy">
+              {/* The head wears the plan modal's own dark bar, so the dialog
+                  reads as a small sibling of the pane it sits over. */}
+              <header className="plancopy-head">
+                <div className="plancopy-head-id">
+                  <h3 className="plancopy-title">Copy this plan</h3>
+                  <p className="plancopy-sub">
+                    {items.length} card{items.length === 1 ? '' : 's'} · week of {formatDate(plan.week_of)}
+                  </p>
                 </div>
-              )}
-              {copyNote && <p className="hint" role="status">{copyNote}</p>}
-            </div>
-            <div className="plancopy-foot">
-              <button type="button" className="btn btn-small btn-quiet" onClick={() => setCopyOpen(false)}>Close</button>
-              <button
-                type="button"
-                className="btn btn-small"
-                disabled={!copyTarget || !copyWeek || copyBusy || items.length === 0}
-                onClick={() => void copyPlanTo()}
-              >
-                {copyBusy ? 'Copying…' : `Copy ${items.length} card${items.length === 1 ? '' : 's'}`}
-              </button>
+                <button type="button" className="plancopy-x" aria-label="Close" onClick={() => setCopyOpen(false)}>×</button>
+              </header>
+
+              <div className="plancopy-body">
+                <div className="plancopy-field">
+                  <label className="axis-name" htmlFor="plancopy-model">Creator</label>
+                  <DropSelect
+                    id="plancopy-model"
+                    label="Creator"
+                    value={copyTarget}
+                    onChange={(next) => void pickCopyTarget(next)}
+                    options={[
+                      { value: '', label: copyModels.length > 0 ? 'Pick a creator' : 'Loading the roster…' },
+                      ...copyModels.map((model) => ({ value: model.id, label: model.name })),
+                    ]}
+                  />
+                  <span className="plancopy-hint">Every card lands as a fresh draft — nothing of her answers follows.</span>
+                </div>
+                {copyTarget && (
+                  <div className="plancopy-field">
+                    <label className="axis-name" htmlFor="plancopy-week">Week</label>
+                    <DropSelect
+                      id="plancopy-week"
+                      label="Week"
+                      value={copyWeek}
+                      onChange={setCopyWeek}
+                      options={copyWeekOptions.map((week) => ({
+                        value: week,
+                        label: copyWeeks.includes(week) ? formatDate(week) : `${formatDate(week)} — new week`,
+                      }))}
+                    />
+                    <span className="plancopy-hint">A week that does not exist yet is started by the copy.</span>
+                  </div>
+                )}
+
+                {/* What is going over, at a glance — the first few cards by
+                    number, so the tap is never blind. */}
+                {items.length > 0 && (
+                  <ul className="plancopy-cards" aria-label={`The ${items.length} cards going over`}>
+                    {items.slice(0, 4).map((item, index) => (
+                      <li key={item.id}>
+                        <b>{item.card_no ? `V-${item.card_no}` : index + 1}</b>
+                        <span>{item.item_title ?? item.author ?? item.title ?? 'Untitled card'}</span>
+                      </li>
+                    ))}
+                    {items.length > 4 && <li className="plancopy-more">+ {items.length - 4} more</li>}
+                  </ul>
+                )}
+
+                {copyNote && (
+                  <p className="plancopy-note" data-bad={copyNote.bad || undefined} role="status">{copyNote.text}</p>
+                )}
+              </div>
+
+              <footer className="plancopy-foot">
+                <span className="plancopy-dest">
+                  {copyTarget && copyWeek
+                    ? `→ ${copyModels.find((model) => model.id === copyTarget)?.name ?? 'their week'} · week of ${formatDate(copyWeek)}`
+                    : 'Pick a creator to say where it goes.'}
+                </span>
+                <span className="plancopy-actions">
+                  <button type="button" className="btn btn-small btn-quiet" onClick={() => setCopyOpen(false)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="btn btn-small plancopy-go"
+                    disabled={!copyTarget || !copyWeek || copyBusy || items.length === 0}
+                    onClick={() => void copyPlanTo()}
+                  >
+                    {copyBusy ? 'Copying…' : `Copy ${items.length} card${items.length === 1 ? '' : 's'}`}
+                  </button>
+                </span>
+              </footer>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   )
 }

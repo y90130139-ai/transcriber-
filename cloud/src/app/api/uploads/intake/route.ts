@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { isSignedIn } from '@/lib/auth'
 
 /** What a filled-in intake form actually arrives as. The first four can be
  *  read; the rest are stored whole and their text is pasted in, which is the
@@ -33,7 +33,8 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async () => {
-        if (!(await isSignedIn())) throw new Error('unauthorized')
+        const denied = await guardAccess(request)
+        if (denied) throw new Error('unauthorized')
         return { allowedContentTypes: ALLOWED, maximumSizeInBytes: MAX_BYTES, addRandomSuffix: true }
       },
       onUploadCompleted: async () => {

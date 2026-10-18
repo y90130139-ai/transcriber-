@@ -4,17 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 /** The section's secondary navigation — plain text tabs on a hairline,
- *  the active one held by an ember underline. */
+ *  the active one held by an ember underline. Geno, 2026-10-18: three tabs
+ *  and nothing else. Trending Now and Topics boards are no longer listed;
+ *  topic detail pages stay reachable from the Today board, which is where
+ *  the topics are actually read. */
 const PAGES = [
-  { href: '/reddit-trends', label: 'Overview' },
-  { href: '/reddit-trends/trending', label: 'Trending Now' },
-  { href: '/reddit-trends/topics', label: 'Topics' },
+  { href: '/reddit-trends', label: 'Today' },
   { href: '/reddit-trends/posts', label: 'Posts' },
   { href: '/reddit-trends/subreddits', label: 'Subreddits' },
-  { href: '/reddit-trends/requirements', label: 'Requirements' },
-  { href: '/reddit-trends/search', label: 'Search' },
-  { href: '/reddit-trends/dataset', label: 'Dataset' },
-  { href: '/reddit-trends/health', label: 'Health' },
 ]
 
 export default function RedditNav() {

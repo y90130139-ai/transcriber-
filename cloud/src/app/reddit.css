@@ -89,6 +89,16 @@
   height: 2px;
   background: var(--sc-ember);
 }
+/* Geno, 2026-10-18: the marketing tabs and the operator pages are different
+   jobs; a hairline says so without adding another row of chrome. */
+.rt-tab-sep {
+  align-self: center;
+  flex: none;
+  width: 1px;
+  height: 1.15rem;
+  margin: 0 0.15rem 0.35rem;
+  background: var(--rt-line-strong);
+}
 
 .rt-page { display: block; padding: var(--sc-space-6) 0 var(--sc-space-24); }
 .rt-page > * + * { margin-top: var(--sc-space-5); }
@@ -206,9 +216,7 @@
   max-width: 13rem;
 }
 
-/* the add-subreddit panel: input first, category beside it, add on the end */
-.rt-addpanel { padding: var(--sc-space-4) var(--sc-space-5); }
-.rt-addpanel > * + * { margin-top: var(--sc-space-3); }
+/* the add-subreddit dialog's row: input first, category beside it */
 .rt-addrow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .rt-addrow .rt-input { flex: 1 1 280px; width: auto; }
 .rt-addrow .msel-trigger { flex: 0 0 auto; }
@@ -385,6 +393,106 @@
 .rt-panel-sub { font-size: 0.74rem; color: var(--sc-ink-300); }
 .rt-panel-link { margin-left: auto; font-size: 0.76rem; color: var(--sc-ember-deep); text-decoration: none; white-space: nowrap; }
 .rt-panel-link:hover { color: var(--sc-ember); }
+
+/* ---------------------------------------------------------- dialogs
+   The add-subreddit popup (Geno, 2026-10-18): the inline panel moved into a
+   dialog that fades in and out — the same exit every dialog in the console
+   uses. The card wears the panel's own surface so it reads as one board. */
+.rt-modal-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: rt-fade-in 0.18s ease;
+}
+.rt-modal-veil[data-closing='true'] { animation: rt-fade-out 0.18s ease forwards; }
+
+.rt-modal {
+  width: min(560px, 100%);
+  display: grid;
+  border: 1px solid var(--rt-line);
+  border-radius: var(--rt-r);
+  background: var(--rt-surface-raise);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.rt-modal-card { animation: rt-card-in 0.24s cubic-bezier(0.22, 1, 0.36, 1); }
+.rt-modal-card[data-closing='true'] { animation: rt-card-out 0.18s ease forwards; }
+
+.rt-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-5) var(--sc-space-5) var(--sc-space-3);
+}
+.rt-modal-head h2 {
+  margin: 0 0 0.2rem;
+  font-family: var(--sc-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+.rt-modal-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--rt-line);
+  border-radius: var(--rt-r-sm);
+  background: var(--rt-surface);
+  color: var(--sc-ink-500);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.rt-modal-x:hover { background: var(--rt-surface-hover); border-color: var(--rt-line-strong); color: var(--sc-ink-900); }
+
+.rt-modal-body {
+  display: grid;
+  gap: var(--sc-space-3);
+  padding: 0 var(--sc-space-5) var(--sc-space-5);
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
+.rt-modal-body .rt-section-label { margin: 0; }
+.rt-modal-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--sc-critical);
+}
+
+.rt-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3) var(--sc-space-5);
+  border-top: 1px solid var(--rt-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@keyframes rt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rt-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rt-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rt-card-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt-modal-veil, .rt-modal-veil[data-closing='true'],
+  .rt-modal-card, .rt-modal-card[data-closing='true'] { animation: none; }
+}
 
 .rt-columns { display: grid; gap: var(--sc-space-5); grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .rt-columns-2 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
@@ -1123,27 +1231,94 @@ a.rt-list-row:hover .rt-list-main b { color: var(--sc-ember-deep); }
 .rt-reqverdict[data-verdict='under'] { color: var(--sc-critical); border-color: rgba(224, 104, 94, 0.4); }
 .rt-reqverdict[data-verdict='unknown'] { color: var(--sc-ink-300); }
 
-/* The Bot Bouncer badge — a status chip that is also the setter. */
-.rt-reqbadge {
-  display: inline-block;
-  padding: 0.12rem 0.5rem;
-  border: 1px solid var(--rt-line);
-  border-radius: 999px;
-  background: none;
-  font-family: var(--sc-font-text);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--sc-ink-300);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.rt-reqbadge:hover:not(:disabled) { border-color: var(--rt-line-strong); color: var(--sc-ink-900); }
-.rt-reqbadge[data-value='yes'] { color: var(--sc-critical); border-color: rgba(224, 104, 94, 0.4); }
-.rt-reqbadge[data-value='no'] { color: var(--sc-positive); border-color: rgba(78, 158, 118, 0.4); }
-.rt-reqbadge:disabled { opacity: 0.5; cursor: default; }
-
 @media (max-width: 900px) {
   .rt-reqcontrols { flex-direction: column; align-items: stretch; }
   .rt-reqgroup { justify-content: flex-start; }
+}
+
+/* ---------------------------------------------------------- the plan */
+/* Geno, 2026-10-18 — the Today board: ready-to-post, heating topics and
+   the account check. Same instrument skin, marketing questions. */
+
+.rt-stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* The merged communities board: tracker columns and the measured gates on
+   one row. Geno, 2026-10-18 — the Requirements page is gone; its columns
+   live here. */
+.rt-mergetable { min-width: 1420px; }
+
+.rt-evidencelink {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--sc-font-text);
+}
+.rt-evidencelink[aria-expanded='true'] { color: var(--sc-ember); }
+
+.rt-today-sec > * + * { margin-top: var(--sc-space-4); }
+
+.rt-check { display: flex; align-items: center; gap: 0.5rem; }
+.rt-check .rt-input { width: 16ch; }
+
+.rt-check-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--rt-line-strong);
+  border-radius: var(--rt-r);
+  background: var(--rt-surface);
+  font-size: 0.78rem;
+  color: var(--sc-ink-500);
+}
+.rt-check-line > b { color: var(--sc-ink-900); }
+.rt-check-line .rt-copy { margin-left: auto; }
+
+.rt-panel-head h2 a { color: inherit; text-decoration: none; }
+.rt-panel-head h2 a:hover { color: var(--sc-ember-deep); }
+
+.rt-postline {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.65rem;
+  border: 1px solid var(--rt-line);
+  border-radius: var(--rt-r-sm);
+  background: var(--rt-surface);
+}
+.rt-postline p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--sc-ink-700);
+}
+.rt-postline .rt-link { flex: none; }
+
+.rt-copy {
+  flex: none;
+  height: 1.6rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--rt-line);
+  border-radius: var(--rt-r-sm);
+  background: none;
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-text);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.rt-copy:hover { border-color: var(--rt-line-strong); color: var(--sc-ink-900); }
+.rt-copy[data-done='true'] { color: var(--sc-positive); border-color: rgba(78, 158, 118, 0.4); }
+
+@media (max-width: 900px) {
+  .rt-stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

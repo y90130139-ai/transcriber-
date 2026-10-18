@@ -4,9 +4,10 @@ The Scout scrape reader no longer uses Apify. The Railway deployment consists
 of two services from this repository:
 
 1. **transcriber-worker** — the long-running queue/fallback trigger. Every five
-   minutes it invokes the existing cloud worker route. It also contains the
-   daily profile and Friday full-sweep schedule, but Instagram scraping is
-   disabled unless `ENABLE_INSTAGRAM_SCRAPING=true`.
+   minutes it invokes the existing cloud worker route. Scheduler snapshots are
+   refreshed every four hours through the cloud app. It also contains the daily
+   profile and Friday full-sweep schedule, but Instagram scraping is disabled
+   unless `ENABLE_INSTAGRAM_SCRAPING=true`.
 2. **transcriber-watchdog** — a Railway cron service that calls
    `/api/scout/monitor` every two hours. It never contacts Instagram. While
    scraping is disabled it reports that state; after activation it alerts if
@@ -34,6 +35,20 @@ use; use the replacement as the environment variable value.
 
 Attach a Railway volume mounted at `/data` to the worker service. It is needed
 for cookie jars and refreshed browser state if/when scraping is enabled.
+
+## Scheduler snapshots
+
+The cloud app stores normalized Autoposter accounts, posts and media in
+`transcriber.autoposter_snapshots`. Calendar, overview, account and composer
+reads use those saved rows; successful create, approve, queue, delete and upload
+actions update the local snapshot immediately. A failed refresh records its
+error without replacing the last-good data.
+
+The Railway worker calls `/api/worker/scheduler-sync` with `WORKER_SECRET`.
+Snapshots refresh every four hours, in six-workspace batches so the full roster
+stays within Autoposter's 60-requests-per-minute limit. Remaining batches resume
+on the worker's next poll. The first Scheduler page hit also starts a due sync.
+The table is created by the existing `npm run migrate` command.
 
 ## Instagram safety / cookie count
 

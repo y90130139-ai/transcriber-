@@ -148,6 +148,7 @@ export default function DropSelect({ value, options, onChange, label, id, disabl
       <button ref={trigger} type="button"
         className={className ? `msel-trigger ${className}` : 'msel-trigger'}
         id={id} disabled={disabled} data-open={open || undefined}
+        data-empty={selected < 0 || undefined}
         aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => toggle()}>
         <span>{cap(selected < 0 ? placeholder || value : options[selected].label)}</span>
         <i className="msel-chev" aria-hidden>{at?.side === 'up' && open ? '▴' : '▾'}</i>

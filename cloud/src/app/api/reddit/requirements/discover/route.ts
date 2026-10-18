@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { collectDiscovery } from '@/lib/reddit/collect'
 import { getSettings } from '@/lib/reddit/settings'
 
@@ -7,8 +7,9 @@ import { getSettings } from '@/lib/reddit/settings'
  *  rotating keyword list, inside the day's remaining allowance. */
 export const maxDuration = 60
 
-export async function POST() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function POST(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const settings = await getSettings()
     const result = await collectDiscovery({

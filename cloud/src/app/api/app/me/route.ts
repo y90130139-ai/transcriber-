@@ -1,28 +1,83 @@
 import { NextResponse } from 'next/server'
+import { sql } from '@/lib/db'
 import { findAccountByEmail } from '@/lib/model-accounts'
-import { modelSessionFrom } from '@/lib/model-auth'
+import { issueModelSession, modelSessionFrom } from '@/lib/model-auth'
 
 /**
- * Who the app is looking at. Read on launch: the stored token survives 30
- * days, but the account behind it can be disabled at any time, so the session
- * is only trusted after the account is read back and found active.
+ * Who the app is looking at. Read on launch and resume: the session slides
+ * forward while the account remains active, and onboarding data is restored
+ * from the server when a device has no local copy.
  */
 export async function GET(request: Request) {
   const session = await modelSessionFrom(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!session) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: { 'Cache-Control': 'private, no-store' } })
+  }
 
   let account = null
   try {
     account = await findAccountByEmail(session.email)
   } catch {
-    return NextResponse.json({ error: 'temporarily_unavailable' }, { status: 502 })
+    return NextResponse.json({ error: 'temporarily_unavailable' }, { status: 502, headers: { 'Cache-Control': 'private, no-store' } })
   }
-  if (!account || account.status !== 'active' || account.id !== session.accountId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!account || account.status !== 'active' || account.id !== session.accountId || account.modelId !== session.modelId) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: { 'Cache-Control': 'private, no-store' } })
   }
 
-  return NextResponse.json({
-    ok: true,
-    account: { id: account.id, email: account.email, name: account.name, modelId: account.modelId },
-  })
+  try {
+    const [eventRows, submissionRows] = await Promise.all([
+      sql.query(
+        `select kind,
+                to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as at
+           from transcriber.app_events
+          where model_id = $1 and kind in ('tour', 'onboarding')
+          order by created_at desc`,
+        [session.modelId],
+      ),
+      sql.query(
+        `select kind, data,
+                to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at
+           from transcriber.app_submissions
+          where model_id = $1
+          order by created_at desc limit 12`,
+        [session.modelId],
+      ),
+    ])
+
+    const milestones = { tourAt: null as string | null, onboardingAt: null as string | null }
+    for (const row of eventRows) {
+      if (row.kind === 'tour' && !milestones.tourAt) milestones.tourAt = String(row.at)
+      if (row.kind === 'onboarding' && !milestones.onboardingAt) milestones.onboardingAt = String(row.at)
+    }
+
+    const latest = new Map<string, { kind: string; data: Record<string, unknown>; createdAt: string }>()
+    for (const row of submissionRows) {
+      const kind = String(row.kind)
+      if (!['agreement', 'contact', 'intake'].includes(kind) || latest.has(kind)) continue
+      latest.set(kind, {
+        kind,
+        data: row.data && typeof row.data === 'object' && !Array.isArray(row.data)
+          ? row.data as Record<string, unknown>
+          : {},
+        createdAt: String(row.created_at),
+      })
+    }
+
+    const refreshed = issueModelSession(account)
+    return NextResponse.json(
+      {
+        ok: true,
+        token: refreshed.token,
+        account: { id: account.id, email: account.email, name: account.name, modelId: account.modelId },
+        bootstrap: { milestones, submissions: [...latest.values()] },
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    )
+  } catch (error) {
+    console.error('[api/app/me] bootstrap_read_failed', error instanceof Error ? error.name : 'UnknownError')
+    return NextResponse.json(
+      { error: 'temporarily_unavailable' },
+      { status: 502, headers: { 'Cache-Control': 'private, no-store' } },
+    )
+  }
 }

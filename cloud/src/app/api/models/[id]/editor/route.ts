@@ -1,13 +1,14 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { TRIAL_STAGE_PER_DAY, editorQueueFor } from '@/lib/editor'
 
 type Params = { params: Promise<{ id: string }> }
 
 /** Her edit-reskin and trial-reel queue, topped up from her current winners. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const queue = await editorQueueFor(id)
   if (!queue) return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -20,7 +21,8 @@ export async function GET(_request: Request, { params }: Params) {
  *          when a stage runs smoothly, which is the manual's own test
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   if (body.action === 'done' && typeof body.task_id === 'string') {

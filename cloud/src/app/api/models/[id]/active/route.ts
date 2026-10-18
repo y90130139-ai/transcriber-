@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { readActiveChange } from '@/lib/inactive'
 
@@ -11,7 +11,8 @@ type Params = { params: Promise<{ id: string }> }
  * the profile's Save. Reactivating clears the reason; nothing else changes.
  */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const change = readActiveChange(await request.json().catch(() => null))
   if ('error' in change) return NextResponse.json({ error: change.error }, { status: 400 })

@@ -50,6 +50,18 @@ export const r2Endpoint = (accountId: string) => `https://${accountId}.r2.cloudf
 /** The object key for one plan item. Stable, so a re-upload replaces in place. */
 export const r2KeyFor = (planId: string, jobId: string) => `plans/${planId}/${jobId}.mp4`
 
+/**
+ * The object key for one repurposed output (2026-10-18). Stable per job, so a
+ * re-render replaces in place rather than orphaning the copy before it.
+ *
+ * Deliberately outside the `plans/` prefix: the retention sweep and the bucket
+ * reconcile only ever list `plans/`, and a repurposed file must not be
+ * reclaimed while the row still points at it. Cleanup is explicit — the
+ * unrepurpose route and the model delete push the key onto `r2_trash`.
+ */
+export const r2KeyForRepurposed = (modelId: string, jobId: string) =>
+  `repurposed/${modelId.replace(/[^A-Za-z0-9_-]/g, '')}/${jobId.replace(/[^A-Za-z0-9_-]/g, '')}.mp4`
+
 /** AWS's encoding rules, which are stricter than encodeURIComponent's. */
 function encodeRfc3986(value: string): string {
   return encodeURIComponent(value).replace(
@@ -60,7 +72,7 @@ function encodeRfc3986(value: string): string {
 
 const encodePath = (path: string) => path.split('/').map(encodeRfc3986).join('/')
 
-const sha256Hex = (value: string) => createHash('sha256').update(value).digest('hex')
+const sha256Hex = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex')
 
 function hmac(key: Buffer | string, value: string): Buffer {
   return createHmac('sha256', key).update(value).digest()
@@ -138,6 +150,57 @@ export function presignGet(
   options: { ttlSec?: number; extraQuery?: Record<string, string> } = {},
 ): string {
   return presign(config, key, { ...options, method: 'GET' })
+}
+
+/**
+ * A server-side PUT of real bytes (Geno, 2026-10-14).
+ *
+ * The console used to hand the browser a presigned PUT, which the bucket's
+ * missing CORS policy refuses at the preflight — the phone can upload
+ * directly (native fetch has no CORS) but a browser tab cannot. Console
+ * uploads come through the route and land here instead; the wire never
+ * touches a browser's origin rules.
+ *
+ * Same SigV4 as above, header-signed with the real payload hash rather than
+ * UNSIGNED-PAYLOAD, because this request is not presigned.
+ */
+export async function putObject(
+  config: R2Config,
+  key: string,
+  body: Uint8Array,
+  contentType: string,
+): Promise<void> {
+  const host = `${config.accountId}.r2.cloudflarestorage.com`
+  const canonicalUri = `/${encodePath(config.bucket)}/${encodePath(key)}`
+  const stamp = new Date().toISOString().replace(/[-:]|\.\d{3}/g, '')
+  const datestamp = stamp.slice(0, 8)
+  const payloadHash = sha256Hex(body)
+  const canonicalHeaders = [
+    `content-type:${contentType}`,
+    `host:${host}`,
+    `x-amz-content-sha256:${payloadHash}`,
+    `x-amz-date:${stamp}`,
+    '',
+  ].join('\n')
+  const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date'
+  const canonicalRequest = ['PUT', canonicalUri, '', canonicalHeaders, signedHeaders, payloadHash].join('\n')
+  const scope = `${datestamp}/${REGION}/${SERVICE}/aws4_request`
+  const toSign = [ALGORITHM, stamp, scope, sha256Hex(canonicalRequest)].join('\n')
+  const signature = createHmac('sha256', signingKey(config.secretAccessKey, datestamp)).update(toSign).digest('hex')
+
+  const response = await fetch(`https://${host}${canonicalUri}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+      'content-type': contentType,
+      'x-amz-content-sha256': payloadHash,
+      'x-amz-date': stamp,
+    },
+    // A Blob so both DOM and undici fetch typings accept it; the bytes are
+    // already in hand.
+    body: new Blob([body as Uint8Array<ArrayBuffer>]),
+  })
+  if (!response.ok) throw new Error(`r2 put failed: ${response.status}`)
 }
 
 export type PlanMedia = { video: string; download: string }

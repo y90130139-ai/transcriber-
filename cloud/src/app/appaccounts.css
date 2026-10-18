@@ -1,0 +1,850 @@
+/* ============================================================
+   APP ACCOUNTS — 2026-10-14. The client side's account list,
+   redesigned, and one creator's account page: her devices, her
+   questionnaire, her whole activity timeline, and the push
+   composer. Scoped to .aa-* so nothing leaks beyond these two
+   surfaces. Tokens only — an undefined var() would invalidate
+   the whole property rather than fall back.
+   ============================================================ */
+
+/* Inter on the list too (Geno, 2026-10-14): the whole app-account surface
+   speaks one face — including the counter face the shared empty blocks
+   reach for, so nothing on this page renders in another family. */
+.aa-tab {
+  --sc-font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-text: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-counter: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* The shared empty block wears the counter face, italic and a little
+   shouty; on these pages it reads like the rest of the room (2026-10-14):
+   Inter, upright, one quiet line under a stronger one. */
+.aa-tab .empty,
+.aa-detail .empty {
+  padding: var(--sc-space-12) 0;
+}
+.aa-tab .empty p,
+.aa-detail .empty p {
+  font-style: normal;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-300);
+  line-height: 1.6;
+}
+.aa-tab .empty p:first-child,
+.aa-detail .empty p:first-child {
+  font-size: var(--sc-text-base);
+  font-weight: 600;
+  color: var(--sc-ink-700);
+  margin-bottom: 4px;
+}
+
+/* ------------------------------------------------ shared stats */
+.aa-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sc-space-3);
+}
+.aa-stat {
+  display: grid;
+  gap: 4px;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+}
+.aa-stat b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-2xl);
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1;
+  color: var(--sc-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.aa-stat span {
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-xs);
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-300);
+}
+@media (max-width: 860px) {
+  .aa-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ------------------------------------------------ the list */
+/* The base table already hovers ember; a row with nowhere to go keeps still. */
+.aa-row:not([data-link]) { cursor: default; }
+.aa-row:not([data-link]):hover { background: none; }
+
+.aa-creator { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.aa-creator-copy { display: grid; gap: 1px; min-width: 0; }
+.aa-name {
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.aa-name:hover { color: var(--sc-ember-light); }
+.aa-name-plain { cursor: default; }
+.aa-handle {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  color: var(--sc-ink-300);
+}
+.aa-cell-note {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--sc-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.aa-quiet { color: var(--sc-ink-300); }
+/* The one door on each row (Geno, 2026-10-14): quiet Resend while she is
+   still invited, then the Open button the column is named for — right
+   aligned, never wrapping, so the table reads as columns and not as soup. */
+.aa-table .aa-actions {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+.aa-actions .btn {
+  vertical-align: middle;
+}
+.aa-actions .btn + .btn {
+  margin-left: 6px;
+}
+@media (max-width: 980px) {
+  .aa-hide-md { display: none; }
+}
+@media (max-width: 760px) {
+  .aa-hide-sm { display: none; }
+}
+
+/* ------------------------------------------------ the account page */
+/* Inter only (Geno, 2026-10-14): the page resets every font var it reads,
+   display, text and mono alike, to the Inter face. Nothing on this page
+   renders in another family. */
+.aa-detail {
+  --sc-font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-text: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-counter: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  display: grid;
+  gap: var(--sc-space-4);
+  align-content: start;
+  /* A breath under the top bar (Geno, 2026-10-14): the console header is
+     sticky, and the hero used to start flush against it. */
+  padding-top: var(--sc-space-8);
+}
+.aa-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  /* A breath after the page header (Geno, 2026-10-14): the grid gap alone
+     left the hero sitting right on the stats row. */
+  margin-bottom: var(--sc-space-2);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+}
+.aa-hero-copy { display: grid; gap: 5px; min-width: 0; }
+.aa-h1 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-2xl);
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  line-height: 1.05;
+  color: var(--sc-ink-900);
+}
+.aa-hero-sub {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+}
+.aa-email {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+}
+.aa-hero-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.aa-hero-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--sc-space-2); }
+@media (max-width: 760px) {
+  .aa-hero-actions { margin-left: 0; }
+}
+
+/* The page's sections as horizontal tabs (Geno, 2026-10-14): a single
+   segmented strip above the content — Activity, Contracts, Notifications,
+   Forms. One tap between the views; nothing else on the page moves. */
+.aa-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: 12px;
+  scrollbar-width: none;
+}
+.aa-tabs::-webkit-scrollbar { display: none; }
+.aa-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+.aa-tab-btn:hover { background: rgba(255, 255, 255, 0.04); color: var(--sc-ink-900); }
+.aa-tab-btn[data-on] { background: var(--sc-ember-tint); color: var(--sc-ember-light); }
+.aa-tab-btn:focus-visible { outline: 2px solid var(--sc-ember-light); outline-offset: 2px; }
+
+/* The tab bodies. `aa-split` is the two-column read — getting started beside
+   the timeline, the composer beside her devices; `aa-cols2` is the even
+   pair for the forms; `aa-narrow` keeps a solo panel from stretching. */
+.aa-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 4fr) minmax(0, 6fr);
+  gap: var(--sc-space-4);
+  /* Both cards share one height (Geno, 2026-10-14): the shorter read —
+     getting started beside the timeline, the composer beside her devices —
+     stretches level with its taller neighbour instead of ending early. */
+  align-items: stretch;
+  min-width: 0;
+}
+.aa-cols2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+  align-items: start;
+  min-width: 0;
+}
+.aa-span-2 { grid-column: 1 / -1; }
+/* Cards stacked in one column of a split — composer over devices. */
+.aa-stack { display: grid; gap: var(--sc-space-4); align-content: start; min-width: 0; }
+@media (max-width: 1100px) {
+  .aa-split, .aa-cols2 { grid-template-columns: 1fr; }
+}
+
+.aa-panel {
+  display: grid;
+  gap: var(--sc-space-3);
+  /* Content stays compact at the top (Geno, 2026-10-14): a panel stretched
+     level with its taller neighbour keeps its rows at their natural height
+     and leaves the breathing room at the bottom — the milestones must not
+     spread apart to fill the card. */
+  align-content: start;
+  padding: var(--sc-space-4) var(--sc-space-5);
+  background: var(--sc-bone-light);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  min-width: 0;
+  /* Every card keeps a floor (Geno, 2026-10-14): an empty form or contract
+     read used to collapse to one thin line and leave the page half blank. */
+  min-height: 12rem;
+}
+.aa-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+.aa-panel-title {
+  margin: 0;
+  font-family: var(--sc-font-text);
+  font-size: var(--sc-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.aa-panel-note {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+  text-align: right;
+}
+.aa-empty { margin: 0; color: var(--sc-ink-300); font-size: var(--sc-text-sm); line-height: 1.5; }
+
+/* ------------------------------------------------ the timeline */
+.aa-timeline {
+  display: grid;
+  gap: var(--sc-space-4);
+  /* The card keeps one height however long her story gets (Geno,
+     2026-10-14): past this, the timeline scrolls inside the card instead of
+     stretching it — and with it every card beside it. */
+  max-height: 30rem;
+  overflow-y: auto;
+  padding-right: var(--sc-space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--sc-ink-150) transparent;
+}
+.aa-timeline::-webkit-scrollbar { width: 6px; }
+.aa-timeline::-webkit-scrollbar-track { background: transparent; }
+.aa-timeline::-webkit-scrollbar-thumb { background: var(--sc-ink-150); border-radius: 999px; }
+.aa-day { display: grid; gap: 2px; }
+.aa-day-label {
+  margin: 0 0 var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.aa-ev {
+  display: grid;
+  grid-template-columns: 40px 16px minmax(0, 1fr);
+  gap: var(--sc-space-2);
+  padding: 5px 0;
+}
+.aa-ev-time {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  color: var(--sc-ink-300);
+  padding-top: 2px;
+}
+.aa-ev-rail { position: relative; display: flex; justify-content: center; }
+.aa-ev-rail::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: -12px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.aa-ev:last-child .aa-ev-rail::before { display: none; }
+.aa-ev-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--sc-ink-150);
+}
+.aa-ev[data-by='her'] .aa-ev-dot { background: var(--sc-ember-light); }
+.aa-ev[data-tone='bad'] .aa-ev-dot { background: var(--sc-critical); }
+.aa-ev-copy { display: grid; gap: 1px; min-width: 0; }
+.aa-ev-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  font-weight: 500;
+}
+.aa-ev-icon { display: inline-flex; flex: none; color: var(--sc-ink-300); }
+.aa-ev[data-by='her'] .aa-ev-icon { color: var(--sc-ember-light); }
+.aa-ev-detail {
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* A milestone tap flashes the event it points at (Geno, 2026-10-14). */
+.aa-ev { transition: background 0.4s ease; }
+.aa-ev[data-flash] {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  background: var(--sc-ember-tint);
+  border-radius: 10px;
+}
+.aa-ev[data-flash] .aa-ev-dot {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sc-ember-light) 22%, transparent);
+}
+
+/* ------------------------------------------------ answers + facts */
+.aa-answers { margin: 0; display: grid; }
+.aa-answer {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: var(--sc-space-3);
+  padding: 7px 0;
+  border-bottom: var(--sc-rule-hair);
+}
+.aa-answer:first-child { padding-top: 0; }
+.aa-answer:last-child { border-bottom: 0; padding-bottom: 0; }
+.aa-answer dt { color: var(--sc-ink-300); font-size: var(--sc-text-xs); letter-spacing: 0.02em; }
+.aa-answer dd {
+  margin: 0;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .aa-answer { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* ------------------------------------------------ the getting-started miles */
+.aa-miles { display: grid; }
+.aa-mile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  /* Bleed the hover pill past the text column; the divider keeps its span. */
+  margin-inline: -8px;
+  border-bottom: var(--sc-rule-hair);
+  border-radius: 10px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.aa-mile:first-child { padding-top: 0; }
+.aa-mile:last-child { border-bottom: 0; padding-bottom: 0; }
+/* A done row is a door to its own moment on the timeline (Geno, 2026-10-14). */
+button.aa-mile { width: 100%; background: transparent; border: 0; border-bottom: var(--sc-rule-hair); cursor: pointer; }
+button.aa-mile:last-child { border-bottom: 0; }
+button.aa-mile:hover { background: rgba(255, 255, 255, 0.04); }
+button.aa-mile:hover .aa-mile-label { color: var(--sc-ember-light); }
+button.aa-mile:focus-visible { outline: 2px solid var(--sc-ember-light); outline-offset: -2px; }
+.aa-mile-go {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+  color: var(--sc-ink-300);
+  opacity: 0.45;
+  transform: rotate(-90deg);
+  transition: opacity var(--sc-dur-fast) var(--sc-ease), color var(--sc-dur-fast) var(--sc-ease);
+}
+button.aa-mile:hover .aa-mile-go { opacity: 1; color: var(--sc-ember-light); }
+.aa-mile-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--sc-ink-300);
+}
+.aa-mile[data-done] .aa-mile-mark { color: var(--sc-ember-light); }
+.aa-mile-ring {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--sc-ink-150);
+}
+.aa-mile-copy { display: grid; gap: 1px; min-width: 0; }
+.aa-mile-label { color: var(--sc-ink-900); font-size: var(--sc-text-sm); font-weight: 600; }
+.aa-mile[data-done='true'] .aa-mile-label { color: var(--sc-ink-900); }
+.aa-mile-hint { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+
+/* ------------------------------------------------ the contract
+   Read as a document, not a field dump (Geno, 2026-10-14): a letterhead, the
+   title, a hairline, then the signature and the date on their own lines —
+   the way a signed page actually reads. */
+.aa-doc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--sc-space-4);
+  align-items: start;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .aa-doc-grid { grid-template-columns: 1fr; }
+}
+.aa-doc { gap: var(--sc-space-5); padding: var(--sc-space-6); min-height: 20rem; }
+.aa-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+.aa-doc-mark { display: block; height: 1.5rem; width: auto; }
+.aa-doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--sb-ember-line);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ember-light);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.aa-doc-badge[data-quiet='true'] {
+  border-color: var(--sc-ink-150);
+  background: transparent;
+  color: var(--sc-ink-300);
+}
+.aa-doc-titleblock { display: grid; gap: 6px; }
+.aa-doc-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--sc-ink-900);
+}
+.aa-doc-sub { margin: 0; font-size: var(--sc-text-sm); color: var(--sc-ink-300); }
+.aa-doc-rule { height: 1px; background: rgba(255, 255, 255, 0.08); }
+.aa-doc-sign {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--sc-space-5);
+}
+@media (max-width: 640px) {
+  .aa-doc-sign { grid-template-columns: 1fr; }
+}
+.aa-doc-field { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.aa-doc-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.aa-doc-signline {
+  display: flex;
+  align-items: flex-end;
+  min-height: 74px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--sc-ink-150);
+}
+.aa-doc-value { font-size: var(--sc-text-sm); font-weight: 500; color: var(--sc-ink-900); }
+.aa-doc-note {
+  margin: 0;
+  font-size: var(--sc-text-xs);
+  line-height: 1.6;
+  color: var(--sc-ink-300);
+  max-width: 62ch;
+}
+.aa-signature {
+  width: min(390px, 100%);
+  height: auto;
+  color: var(--sc-ink-900);
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  padding: 10px;
+}
+/* The signature on the document: ink on the page, no box. */
+.aa-doc-ink {
+  width: 100%;
+  height: 68px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sc-ink-900);
+}
+
+/* ------------------------------------------------ the lock-screen preview
+   An iPhone drawn in CSS (Geno, 2026-10-14): the composer on the left, and
+   on the right the notification as she would actually meet it. Purely
+   decorative — the fields own the words, this mirrors them. */
+.aa-preview { display: grid; gap: var(--sc-space-3); justify-items: center; }
+.aa-phone {
+  position: relative;
+  width: min(262px, 100%);
+  height: 528px;
+  padding: 9px;
+  border-radius: 44px;
+  background: #0b0b0c;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 26px 70px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.aa-phone-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  border-radius: 36px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(232, 102, 58, 0.32) 0%, rgba(23, 23, 23, 0) 58%),
+    linear-gradient(180deg, #201512 0%, #171717 46%, #0d0d0e 100%);
+}
+.aa-phone-island {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 20px;
+  border-radius: 999px;
+  background: #000;
+  z-index: 2;
+}
+.aa-phone-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 24px 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.aa-phone-glyphs { display: inline-flex; align-items: center; gap: 5px; }
+.aa-phone-lock { display: grid; justify-items: center; gap: 2px; padding-top: 36px; }
+.aa-phone-date { margin: 0; font-size: 0.72rem; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
+.aa-phone-time {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.aa-phone-notif {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: auto 10px 12px;
+  padding: 11px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.aa-phone-app {
+  display: block;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.35);
+}
+.aa-phone-notif-copy { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.aa-phone-notif-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.aa-phone-app-name {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+.aa-phone-app-when { font-size: 0.6rem; color: rgba(255, 255, 255, 0.55); }
+.aa-phone-notif-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.aa-phone-notif-body {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+  overflow-wrap: anywhere;
+}
+.aa-dim { opacity: 0.55; }
+.aa-preview-note { margin: 0; font-size: var(--sc-text-xs); color: var(--sc-ink-300); text-align: center; }
+
+/* ------------------------------------------------ the push composer */
+.aa-push-form { display: grid; gap: 4px; }
+.aa-field-label {
+  margin-top: var(--sc-space-1);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.aa-push-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-2);
+}
+.aa-push-foot .hint { margin: 0; }
+
+/* ------------------------------------------------ devices / file */
+.aa-devices { display: grid; }
+.aa-device {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 7px 0;
+  border-bottom: var(--sc-rule-hair);
+}
+.aa-device:first-child { padding-top: 0; }
+.aa-device:last-child { border-bottom: 0; padding-bottom: 0; }
+.aa-device-icon { display: inline-flex; flex: none; color: var(--sc-ink-300); }
+.aa-device-copy { display: grid; gap: 1px; min-width: 0; }
+.aa-device-name {
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aa-device-meta {
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  color: var(--sc-ink-300);
+}
+
+.aa-note { margin: 0; }
+
+/* ------------------------------------------------ settings: the link
+   The model this account is attached to, and the picker that links it when
+   it is attached to none (Geno, 2026-10-14). */
+.aa-linked {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r, 12px);
+  background: var(--sc-bone);
+}
+.aa-linked-copy { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.aa-linked-name {
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aa-linked-meta { color: var(--sc-ink-300); font-size: var(--sc-text-xs); }
+
+.aa-link-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.aa-link-row .msel-trigger { flex: 1; min-width: 180px; justify-content: space-between; }
+
+/* The model picker reads as a field, not a chip (Geno, 2026-10-14): the
+   console's select wears micro-caps by default, which is wrong for the one
+   input a form is asking about. Sentence case, field height, muted
+   placeholder — here in the invite dialog and on the Settings tab alike. */
+.aa-dialog .msel-trigger,
+.aa-link-row .msel-trigger {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  font-family: var(--sc-font-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sc-ink-900);
+}
+.aa-link-row .msel-trigger {
+  background: var(--sc-bone);
+  border-color: var(--sc-ink-150);
+}
+.aa-link-row .msel-trigger:hover:not(:disabled) { border-color: var(--sc-ink-300); }
+.aa-link-row .msel-trigger[data-open='true'] { border-color: var(--sc-ember); background: var(--sc-ember-tint); }
+.aa-dialog .msel-trigger[data-empty],
+.aa-link-row .msel-trigger[data-empty] { color: var(--sc-ink-300); }
+.aa-dialog .msel-trigger .msel-chev,
+.aa-link-row .msel-trigger .msel-chev { font-size: 0.7rem; }
+
+/* ------------------------------------------------ the invite popup
+   The old Invites screen, as a dialog (Geno, 2026-10-14): fade in, fade
+   out, the same card voice as the inbox's own dialogs. */
+.aa-modal-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: aa-fade-in 0.18s ease;
+}
+.aa-modal-veil[data-closing='true'] { animation: aa-fade-out 0.18s ease forwards; }
+.aa-modal-card { animation: aa-card-in 0.24s cubic-bezier(0.22, 1, 0.36, 1); }
+.aa-modal-card[data-closing='true'] { animation: aa-card-out 0.18s ease forwards; }
+
+.aa-dialog { width: min(520px, 100%); }
+.aa-dialog .adddialog-body { display: grid; gap: var(--sc-space-4); }
+/* The foot is buttons only now — the note lives under the fields — so
+   nothing wraps and the pills keep one line (Geno, 2026-10-14). */
+.aa-dialog .adddialog-foot { gap: var(--sc-space-2); }
+.aa-dialog .adddialog-cancel,
+.aa-dialog .adddialog-save {
+  height: 38px;
+  padding: 0 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.aa-dialog .adddialog-cancel { border-color: #33302C; transition: background 0.15s ease, border-color 0.15s ease; }
+.aa-dialog .adddialog-cancel:hover { background: rgba(255, 255, 255, 0.06); border-color: #6B6660; }
+.aa-dialog .adddialog-save {
+  background: var(--sc-ember);
+  border-color: var(--sc-ember);
+  color: #ffffff;
+  transition: filter 0.15s ease;
+}
+.aa-dialog .adddialog-save:hover:not(:disabled) { filter: brightness(1.08); }
+.aa-dialog .adddialog-save:disabled {
+  background: #33302C;
+  border-color: transparent;
+  color: #6B6660;
+  opacity: 1;
+}
+
+/* The tab strip's little count (Geno, 2026-10-14). */
+.aa-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sc-ink-300);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.aa-tab-btn[data-on] .aa-tab-count { background: var(--sc-ember); color: #ffffff; }
+
+@keyframes aa-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes aa-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes aa-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes aa-card-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(10px) scale(0.98); }
+}

@@ -31,12 +31,15 @@ export async function POST(request: Request) {
   return response
 }
 
-/** Who is signed in — the sidebar reads this. */
+/** Who is signed in — the sidebar reads this, permissions included. */
 export async function GET() {
   const session = await currentSession()
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   return NextResponse.json({
-    user: { name: session.name, role: session.role, email: session.email },
+    user: {
+      name: session.name, role: session.role, email: session.email,
+      permissions: session.permissions,
+    },
   })
 }
 

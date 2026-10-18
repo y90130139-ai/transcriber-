@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { liveTrends, trendsBoard } from '@/lib/trends'
 import { answerTrends, MAX_QUESTION_CHARS } from '@/lib/trends-ask'
 import { cleanGeo, cleanRange } from '@/lib/trends-feed'
@@ -8,7 +8,8 @@ import { cleanGeo, cleanRange } from '@/lib/trends-feed'
  *  Console-only; the model error comes back as itself, never swallowed into
  *  a generic 500. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => null)
   const question = typeof body?.question === 'string' ? body.question.trim() : ''

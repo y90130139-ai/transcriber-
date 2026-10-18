@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { openingWeek } from '@/lib/carry'
 import { addDays, currentWeekOf } from '@/lib/dates'
 import { sql } from '@/lib/db'
@@ -19,7 +19,8 @@ const DUE_OFFSET_DAYS = 6
  * after another, and the right pane sat on "No week open" for all of it.
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 

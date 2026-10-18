@@ -1,0 +1,870 @@
+/* ============================================================
+   SCHEDULER (Geno, 2026-10-15) — every workspace on one calendar.
+
+   Full-bleed month grid: toolbar holds Today / nav / Posts·Stories +
+   Reels·Videos / accounts dropdown / Day·Week·Month / New post. No
+   sidebar — the grid touches left and right. Platform-coloured pills.
+   ============================================================ */
+
+.sc-split {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: var(--sc-space-4);
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .sc-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Full-bleed calendar — edge to edge, no sidebar, fills the reader. */
+.sc-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--topbar-h));
+  height: calc(100dvh - var(--topbar-h));
+  padding: 0;
+  box-sizing: border-box;
+}
+.console[data-cal='true'] .page-flush {
+  padding: 0;
+  max-width: none;
+}
+.sc-cal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.sc-cal-body {
+  display: block;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* Inter only + platform event colours (categorical, calendar pills only). */
+.sc-tab {
+  --sc-font-display: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-text: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-font-mono: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sc-plat-tiktok: #0D9488;
+  --sc-plat-instagram: #7C3AED;
+  --sc-plat-youtube: #DC2626;
+  --sc-plat-x: #334155;
+  --sc-plat-facebook: #2563EB;
+  --sc-plat-threads: #57534E;
+  --sc-plat-reddit: #EA580C;
+  --sc-plat-snapchat: #CA8A04;
+  --sc-plat-onlyfans: #0EA5E9;
+  --sc-plat-fansly: #DB2777;
+  --sc-plat-other: var(--sc-ember);
+}
+
+/* ------------------------------------------------- the account mark */
+.sc-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+  color: var(--sc-ink-500);
+}
+.sc-mark-text {
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------- the rail */
+.sc-rail {
+  display: grid;
+  gap: var(--sc-space-3);
+  align-content: start;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.sc-workspaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.sc-filter-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  padding: 8px 12px;
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sc-filter-all[data-on] { border-color: var(--sc-ember); background: var(--sc-ember-tint); color: var(--sc-ink-900); }
+.sc-filter-all:hover:not([data-on]) { border-color: var(--sc-ink-300); }
+
+.sc-accounts {
+  display: grid;
+  gap: 4px;
+  max-height: min(420px, 50vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.sc-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sc-account:hover { background: var(--sc-bone); }
+.sc-account[data-on] { background: var(--sc-ember-tint); border-color: color-mix(in srgb, var(--sc-ember) 40%, transparent); }
+.sc-account-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-account-x { color: var(--sc-ember-deep); font-size: 14px; line-height: 1; }
+
+.sc-statuses { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* -------------------------------------------------------- the week */
+.sc-week { display: grid; gap: var(--sc-space-3); }
+
+.sc-week-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+.sc-range {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+.sc-nav { display: flex; gap: var(--sc-space-2); }
+
+.sc-grid-scroll { overflow-x: auto; }
+.sc-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 840px;
+}
+@media (max-width: 720px) {
+  .sc-grid { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+}
+
+.sc-day {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: var(--sc-rule-hair);
+  border-radius: 12px;
+  background: var(--sc-bone);
+  overflow: hidden;
+}
+.sc-day[data-today] { border-color: color-mix(in srgb, var(--sc-ember) 60%, transparent); }
+.sc-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: var(--sc-rule-hair);
+}
+.sc-day-name {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.sc-day[data-today] .sc-day-name { color: var(--sc-ember-deep); }
+.sc-today-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sc-ember);
+  flex: none;
+}
+
+.sc-posts { display: grid; gap: 6px; padding: 8px; align-content: start; }
+
+.sc-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  background: var(--sc-bone-light);
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sc-card:hover { border-color: var(--sc-ink-300); }
+.sc-card-top { display: flex; align-items: center; gap: 7px; }
+.sc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.sc-time {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  color: var(--sc-ink-300);
+  font-variant-numeric: tabular-nums;
+}
+.sc-marks { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
+.sc-marks .sc-mark { width: 20px; height: 20px; border-radius: 6px; }
+.sc-marks .sc-mark-text { font-size: 8.5px; }
+.sc-more { font-family: var(--sc-font-mono); font-size: 10px; color: var(--sc-ink-300); }
+.sc-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.45;
+  color: var(--sc-ink-700);
+}
+.sc-status {
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.sc-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border: 1px dashed var(--sc-ink-150);
+  border-radius: 10px;
+  color: var(--sc-ink-300);
+  text-decoration: none;
+  font-size: 16px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.sc-add:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+
+/* -------------------------------------------------------- the sheet */
+.sc-sheet { width: min(520px, 100%); }
+.sc-sheet .adddialog-body { display: grid; gap: var(--sc-space-3); max-height: 60vh; overflow-y: auto; }
+.sc-sheet-accounts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-sheet-accounts .chip { display: inline-flex; align-items: center; gap: 6px; }
+.sc-sheet-body {
+  margin: 0;
+  font-size: var(--sc-text-base);
+  line-height: 1.55;
+  color: var(--sc-ink-900);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ----------------------------------------------------- the composer */
+.sc-form { display: grid; gap: var(--sc-space-4); align-content: start; }
+
+.sc-media { display: flex; flex-wrap: wrap; gap: 10px; }
+.sc-thumb {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--sc-bone);
+  border: var(--sc-rule-hair);
+}
+.sc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sc-thumb-none {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--sc-font-mono);
+  color: var(--sc-ink-300);
+}
+.sc-thumb-x {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.7);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sc-thumb-busy {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.45);
+}
+.sc-thumb-busy::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: sc-spin 0.8s linear infinite;
+}
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+
+.sc-media-add {
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
+  border: 1px dashed var(--sc-ink-150);
+  background: none;
+  color: var(--sc-ink-300);
+  font-size: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.sc-media-add span { font-size: 11px; letter-spacing: 0.04em; }
+.sc-media-add:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+
+.sc-picks { display: grid; gap: 4px; }
+.sc-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sc-pick:hover { background: var(--sc-bone); }
+.sc-pick[data-on] { background: var(--sc-ember-tint); border-color: color-mix(in srgb, var(--sc-ember) 40%, transparent); }
+.sc-pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
+.sc-pick-go {
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+
+.sc-when { display: flex; flex-wrap: wrap; gap: var(--sc-space-2); align-items: center; }
+
+.sc-submit { display: grid; gap: var(--sc-space-2); justify-items: end; }
+.sc-submit-tools { display: flex; align-items: center; gap: var(--sc-space-2); flex-wrap: wrap; }
+
+/* -------------------------------------------------------- the accounts */
+.sc-accounts-groups { display: grid; gap: var(--sc-space-4); align-content: start; }
+
+.sc-ws-id {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--sc-ink-150);
+  overflow-wrap: anywhere;
+}
+
+.sc-accounts-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+}
+.sc-accounts-toolbar .field {
+  width: min(240px, 100%);
+  height: 32px;
+}
+
+.sc-accounts-table tbody tr { cursor: default; }
+.sc-accounts-table tbody th { font-weight: 400; }
+.sc-accounts-table td,
+.sc-accounts-table th[scope="row"] { vertical-align: middle; }
+
+.sc-acc-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 320px;
+}
+.sc-acc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+  color: var(--sc-ink-700);
+}
+
+.sc-acc-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+}
+
+.sc-acc-link {
+  display: inline-block;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sc-ember-deep);
+  text-decoration: none;
+  font-size: var(--sc-text-sm);
+}
+.sc-acc-link:hover { text-decoration: underline; }
+.sc-acc-nolink { color: var(--sc-ink-300); }
+
+/* Coloured platform marks in the accounts table */
+.sc-accounts-table .sc-mark {
+  background: color-mix(in srgb, var(--sc-mark-plat, var(--sc-ember)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--sc-mark-plat, var(--sc-ember)) 28%, transparent);
+  color: var(--sc-mark-plat, var(--sc-ember));
+}
+.sc-accounts-table .sc-mark[data-platform="tiktok"] { --sc-mark-plat: var(--sc-plat-tiktok); }
+.sc-accounts-table .sc-mark[data-platform="instagram"] { --sc-mark-plat: var(--sc-plat-instagram); }
+.sc-accounts-table .sc-mark[data-platform="youtube"] { --sc-mark-plat: var(--sc-plat-youtube); }
+.sc-accounts-table .sc-mark[data-platform="x"],
+.sc-accounts-table .sc-mark[data-platform="twitter"] { --sc-mark-plat: var(--sc-plat-x); }
+.sc-accounts-table .sc-mark[data-platform="facebook"] { --sc-mark-plat: var(--sc-plat-facebook); }
+.sc-accounts-table .sc-mark[data-platform="threads"] { --sc-mark-plat: var(--sc-plat-threads); }
+.sc-accounts-table .sc-mark[data-platform="reddit"] { --sc-mark-plat: var(--sc-plat-reddit); }
+.sc-accounts-table .sc-mark[data-platform="snapchat"] { --sc-mark-plat: var(--sc-plat-snapchat); }
+.sc-accounts-table .sc-mark[data-platform="onlyfans"] { --sc-mark-plat: var(--sc-plat-onlyfans); }
+.sc-accounts-table .sc-mark[data-platform="fansly"] { --sc-mark-plat: var(--sc-plat-fansly); }
+.sc-accounts-table .sc-mark[data-platform="telegram"] { --sc-mark-plat: #229ED9; }
+.sc-accounts-table .sc-mark[data-platform="twitch"] { --sc-mark-plat: #9146FF; }
+.sc-accounts-table .sc-mark[data-platform="pinterest"] { --sc-mark-plat: #E60023; }
+.sc-accounts-table .sc-mark[data-platform="other"] { --sc-mark-plat: var(--sc-plat-other); }
+
+/* ------------------------------------------------- the overview lists
+   Up next and needs attention: one line per post, time first, status last. */
+.sc-ov-list { display: grid; }
+
+.sc-ov-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: var(--sc-rule-hair);
+  min-width: 0;
+}
+.sc-ov-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.sc-ov-row:first-child { padding-top: 0; }
+
+.sc-ov-row .sc-time { flex: none; }
+
+.sc-ov-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sc-text-sm);
+  color: var(--sc-ink-700);
+}
+
+.sc-ov-row .sc-status { flex: none; }
+.sc-ov-row .sc-dot { flex: none; align-self: center; }
+
+.sc-ov-bars { flex: 1; min-width: 120px; max-width: 260px; margin-left: auto; }
+
+/* ------------------------------------------------- unified calendar chrome */
+.sc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: var(--sc-rule-hair);
+  border-radius: 0;
+  background: var(--sc-bone-light);
+}
+.sc-account-pick {
+  min-width: 160px;
+  max-width: 220px;
+}
+.sc-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+  white-space: nowrap;
+}
+.sc-load[data-tone='busy'] { color: var(--sc-ember-deep); }
+.sc-load[data-tone='warn'] { color: var(--sc-critical); }
+.sc-load[data-tone='ok'] { color: var(--sc-ink-300); }
+.sc-load-retry {
+  border: var(--sc-rule-hair);
+  border-radius: 6px;
+  background: var(--sc-bone);
+  color: var(--sc-ink-700);
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.sc-load-retry:hover { border-color: var(--sc-ember); color: var(--sc-ember-deep); }
+.sc-toolbar-left,
+.sc-toolbar-mid,
+.sc-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+.sc-nav-arrows { display: inline-flex; gap: 4px; }
+.sc-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: var(--sc-rule-hair);
+  border-radius: 8px;
+  background: var(--sc-bone);
+  color: var(--sc-ink-700);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sc-arrow:hover { border-color: var(--sc-ink-300); background: var(--sc-bone-light); }
+.sc-cal-title {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-lg);
+  font-weight: 600;
+  letter-spacing: var(--sc-track-tight);
+  color: var(--sc-ink-900);
+}
+
+.sc-type,
+.sc-view {
+  min-height: 32px;
+  padding: 0 12px;
+  border: var(--sc-rule-hair);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-sm);
+  font-weight: 550;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.sc-type:hover,
+.sc-view:hover { border-color: var(--sc-ink-300); color: var(--sc-ink-900); }
+.sc-type[data-on],
+.sc-view[data-on] {
+  border-color: color-mix(in srgb, var(--sc-ember) 50%, transparent);
+  background: var(--sc-ember-tint);
+  color: var(--sc-ink-900);
+}
+.sc-views {
+  display: inline-flex;
+  padding: 2px;
+  border: var(--sc-rule-hair);
+  border-radius: 10px;
+  background: var(--sc-bone);
+  gap: 2px;
+}
+.sc-views .sc-view {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+.sc-views .sc-view[data-on] {
+  background: var(--sc-bone-light);
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent);
+}
+.sc-tz {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  letter-spacing: var(--sc-track-label);
+  color: var(--sc-ink-300);
+}
+
+/* -------------------------------------------------------- month grid */
+.sc-month-panel {
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  background: var(--sc-bone-light);
+}
+.sc-month {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+}
+.sc-month-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: var(--sc-rule-hair);
+  background: var(--sc-bone);
+}
+.sc-month-dow {
+  padding: 10px 8px;
+  text-align: center;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}
+.sc-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+.sc-month-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-right: var(--sc-rule-hair);
+  border-bottom: var(--sc-rule-hair);
+  background: var(--sc-bone-light);
+}
+.sc-month-cell:nth-child(7n) { border-right: 0; }
+.sc-month-cell[data-outside] { background: var(--sc-bone); }
+.sc-month-cell[data-outside] .sc-month-daynum { color: var(--sc-ink-150); }
+.sc-month-cell[data-today] { background: color-mix(in srgb, var(--sc-ember) 6%, var(--sc-bone-light)); }
+.sc-month-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 24px;
+}
+.sc-month-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sc-ink-700);
+  font-family: var(--sc-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sc-month-daynum[data-today] {
+  background: var(--sc-ember);
+  color: #fff;
+}
+.sc-month-add {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--sc-ink-300);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.sc-month-cell:hover .sc-month-add { display: inline-flex; }
+.sc-month-add:hover { color: var(--sc-ember-deep); background: var(--sc-ember-tint); }
+.sc-month-events {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  min-height: 0;
+  overflow: hidden;
+}
+.sc-month-more {
+  border: 0;
+  background: none;
+  color: var(--sc-ink-300);
+  font-size: 11px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.sc-month-more:hover { color: var(--sc-ember-deep); }
+
+/* Compact event pills (month cells) */
+.sc-event {
+  display: grid;
+  grid-template-columns: 14px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 22px;
+  padding: 2px 6px 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sc-event, var(--sc-ember)) 16%, transparent);
+  color: var(--sc-ink-900);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.sc-event:hover {
+  background: color-mix(in srgb, var(--sc-event, var(--sc-ember)) 26%, transparent);
+}
+.sc-event-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sc-event, var(--sc-ember));
+}
+.sc-event-mark .sc-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.sc-event-time {
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink-500);
+  flex: none;
+}
+.sc-event-body {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sc-ink-700);
+  font-weight: 550;
+}
+
+.sc-event[data-platform="tiktok"] { --sc-event: var(--sc-plat-tiktok); }
+.sc-event[data-platform="instagram"] { --sc-event: var(--sc-plat-instagram); }
+.sc-event[data-platform="youtube"] { --sc-event: var(--sc-plat-youtube); }
+.sc-event[data-platform="x"] { --sc-event: var(--sc-plat-x); }
+.sc-event[data-platform="twitter"] { --sc-event: var(--sc-plat-x); }
+.sc-event[data-platform="facebook"] { --sc-event: var(--sc-plat-facebook); }
+.sc-event[data-platform="threads"] { --sc-event: var(--sc-plat-threads); }
+.sc-event[data-platform="reddit"] { --sc-event: var(--sc-plat-reddit); }
+.sc-event[data-platform="snapchat"] { --sc-event: var(--sc-plat-snapchat); }
+.sc-event[data-platform="onlyfans"] { --sc-event: var(--sc-plat-onlyfans); }
+.sc-event[data-platform="fansly"] { --sc-event: var(--sc-plat-fansly); }
+
+.sc-grid-week { min-width: 840px; }
+.sc-day-view { display: grid; gap: var(--sc-space-3); padding: var(--sc-space-3); }
+.sc-day-view-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sc-day-posts { max-width: 720px; }
+.sc-cal-empty { padding: var(--sc-space-4); }
+
+@media (max-width: 1100px) {
+  .sc-toolbar-mid { order: 3; width: 100%; }
+}
+@media (max-width: 720px) {
+  .sc-page {
+    height: auto;
+    min-height: calc(100dvh - var(--topbar-h));
+  }
+  .sc-toolbar { padding: 10px 12px; }
+  .sc-account-pick { min-width: 140px; max-width: 180px; }
+  .sc-month-grid { grid-auto-rows: minmax(96px, auto); }
+  .sc-event-time { display: none; }
+  .sc-event { grid-template-columns: 14px minmax(0, 1fr); }
+  .sc-tz { display: none; }
+  .sc-grid-week { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+}
+
+.sc-devices { display: grid; }
+.sc-device {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 9px 0;
+  border-bottom: var(--sc-rule-hair);
+}
+.sc-device:first-child { padding-top: 0; }
+.sc-device:last-child { border-bottom: 0; padding-bottom: 0; }
+.sc-device-copy { display: grid; gap: 1px; min-width: 0; }
+.sc-device-name {
+  color: var(--sc-ink-700);
+  font-size: var(--sc-text-sm);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-device-meta {
+  font-family: var(--sc-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  color: var(--sc-ink-300);
+}

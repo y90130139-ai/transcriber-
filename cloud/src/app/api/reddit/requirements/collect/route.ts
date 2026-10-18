@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { collectRequirements } from '@/lib/reddit/collect'
 import { getSettings } from '@/lib/reddit/settings'
 
@@ -9,8 +9,9 @@ export const maxDuration = 60
 
 const MANUAL_CAP = 15
 
-export async function POST() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function POST(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const settings = await getSettings()
     const budget = Math.max(2, Math.min(MANUAL_CAP, settings.requirements_budget_per_run))

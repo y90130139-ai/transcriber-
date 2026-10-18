@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 
 /** Hours after which a quiet reader is treated as a dead session: the daily
@@ -12,8 +12,9 @@ const STALE_HOURS = 26
  * pass writes an account header per creator per day, and only a signed-in
  * browser gets one back, so the newest snapshot is the heartbeat.
  */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const [row] = await sql.query(
     `select max(seen_at) as last_snapshot,
             extract(epoch from (now() - max(seen_at))) / 3600 as hours

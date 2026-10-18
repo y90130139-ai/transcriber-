@@ -1,34 +1,42 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
-import { subredditListSparks } from '@/lib/reddit/queries'
+import { requirementSourceMap, subredditBoard, subredditGates, subredditListSparks } from '@/lib/reddit/queries'
 import { isAdultCategory, parseSubredditInput, REGISTRY_CATEGORIES } from '@/lib/reddit/registry'
 import { getSettings } from '@/lib/reddit/settings'
-import { addSubreddit, listSubreddits, registryCounts, seedRegistry, untrackedCandidates } from '@/lib/reddit/store'
+import { addSubreddit, registryCounts, seedRegistry, untrackedCandidates } from '@/lib/reddit/store'
 
-/** Every tracked community, with whatever the last run observed. */
+/** Every community either registry knows about — the tracker's columns
+ *  where trend collection follows it, the measured posting gates and their
+ *  evidence everywhere. Geno, 2026-10-18: the board is the union of the
+ *  two registries, so all ~1,450 communities are visible, not just the
+ *  curated 19. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const params = new URL(request.url).searchParams
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     // First visit on a fresh install performs onboarding: the requested
     // registry lands as pending communities, waiting for validation.
     await seedRegistry()
     const settings = await getSettings()
     const [rows, untracked] = await Promise.all([
-      listSubreddits({
-        search: params.get('q') ?? undefined,
-        category: params.get('category') ?? undefined,
-        status: params.get('status') ?? undefined,
-        priority: params.get('priority') ?? undefined,
-        adultOnly: settings.adult_only,
-      }),
+      subredditBoard(),
       untrackedCandidates(settings.adult_only),
     ])
-    const sparks = await subredditListSparks(rows.map((row) => row.id))
-    for (const row of rows) row.spark = sparks.get(row.id) ?? []
+    const ids = rows.map((row) => row.id)
+    const [sparks, gates, sources] = await Promise.all([
+      subredditListSparks(ids),
+      subredditGates(ids),
+      requirementSourceMap(ids),
+    ])
+    for (const row of rows) {
+      row.spark = sparks.get(row.id) ?? []
+      row.gates = gates.get(row.id) ?? null
+      row.gate_sources = sources.get(row.id) ?? []
+    }
+    const categories = [...new Set(rows.map((row) => row.category))].sort((a, b) => a.localeCompare(b))
     return NextResponse.json({
       rows,
-      categories: REGISTRY_CATEGORIES,
+      categories,
       registry: { ...registryCounts(), untracked: untracked.length },
       untracked: untracked.slice(0, 60),
     })
@@ -39,7 +47,8 @@ export async function GET(request: Request) {
 
 /** Add one by name or URL. Existence is proven by validation, not assumed. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const parsed = parseSubredditInput(String(body.input ?? ''))

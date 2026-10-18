@@ -1,16 +1,16 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { previewBatch, writeBatch } from '@/lib/batch'
 import { currentWeekOf } from '@/lib/dates'
 import { readWeekOf } from '@/lib/models'
 
 export const maxDuration = 60
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** What one pass would draft. Writes nothing. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const asked = new URL(request.url).searchParams.get('week')
   return NextResponse.json(await previewBatch(readWeekOf(asked, currentWeekOf())))
 }
@@ -27,7 +27,8 @@ export async function GET(request: Request) {
  * is deliberately no parameter that would let it.
  */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => ({}))
   const weekOf = readWeekOf(body.week_of, currentWeekOf())

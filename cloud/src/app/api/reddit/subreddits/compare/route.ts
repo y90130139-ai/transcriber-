@@ -1,10 +1,11 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { subredditCompare } from '@/lib/reddit/queries'
 
 /** Side-by-side comparison for up to six communities. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const ids = (new URL(request.url).searchParams.get('ids') ?? '')
     .split(',')
     .map((id) => id.trim().toLowerCase())

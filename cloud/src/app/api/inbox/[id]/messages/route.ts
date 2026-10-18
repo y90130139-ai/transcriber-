@@ -1,5 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse, after } from 'next/server'
-import { currentSession, isSignedIn } from '@/lib/auth'
+import { currentSession } from '@/lib/auth'
 import { addThreadMembers, isInboxKey, modelMembersOf, sendThreadMessage } from '@/lib/inbox'
 import { pushToModel } from '@/lib/push'
 import { sql } from '@/lib/db'
@@ -9,7 +10,8 @@ type Params = { params: Promise<{ id: string }> }
 /** A message from the team (2026-10-12): text, a file, or both. The models in
  *  the thread are pushed, once. */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const session = await currentSession()

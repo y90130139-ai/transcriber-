@@ -177,3 +177,31 @@ export function germanVersionRows(versions: string): { outfit: string; caption: 
   }
   return parts.slice(0, 8).map((outfit) => ({ outfit, caption: '' }))
 }
+
+/** One numbered variant from the source line. Ranges such as `V1–4 bedroom`
+ *  apply to every version in the range; source entries without a named outfit
+ *  return null so a caller can ask for clarification instead of guessing. */
+export function germanVersionAt(
+  versions: string,
+  number: number,
+): { outfit: string; caption: string } | null {
+  const raw = versions.trim()
+  if (!raw || !Number.isInteger(number) || number < 1) return null
+
+  const sameAsReference = raw.match(/^V(\d+)\s*\/\s*V(\d+)\s+same as reference$/i)
+  if (sameAsReference && [Number(sameAsReference[1]), Number(sameAsReference[2])].includes(number)) {
+    return { outfit: 'Same as the reference', caption: '' }
+  }
+
+  for (const part of raw.split(/\s*·\s*/)) {
+    const match = part.match(/^V(\d+)(?:\s*[–-]\s*(\d+))?\s+(.+)$/i)
+    if (!match) continue
+    const start = Number(match[1])
+    const end = Number(match[2] ?? match[1])
+    if (number >= start && number <= end) {
+      return { outfit: match[3].trim(), caption: '' }
+    }
+  }
+
+  return null
+}

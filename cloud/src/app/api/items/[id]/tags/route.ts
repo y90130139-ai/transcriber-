@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { autoTag, setTags, tagsFor } from '@/lib/tagging'
 import { isAxis } from '@/lib/taxonomy'
 
@@ -7,7 +7,8 @@ type Params = { params: Promise<{ id: string }> }
 
 /** Confirm or correct one axis. What a human sets replaces the guess entirely. */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 
@@ -20,8 +21,9 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 /** Re-run the suggester, for an item tagged before the lexicon knew better. */
-export async function POST(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function POST(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const added = await autoTag(id)
   return NextResponse.json({ added, tags: await tagsFor(id) })

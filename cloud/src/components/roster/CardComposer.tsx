@@ -44,6 +44,9 @@ export type AddedCard = {
   /** The content-style lane it landed under (lib/styles.ts, 2026-10-12) —
    *  the Add content composer's cards carry one, the older tiles leave it null. */
   style?: string | null
+  /** Temporary live preview from a selected social feed while its queue job
+   *  is downloading its permanent poster frame. */
+  cover_preview_url?: string | null
   hook?: string | null
   caption?: string | null
   wardrobe?: string | null

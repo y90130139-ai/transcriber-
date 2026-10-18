@@ -1,16 +1,16 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { WINDOWS, accountBreakdown, loadBoard, loadModels, type WindowDays } from '@/lib/performance/load'
 
 type Params = { params: Promise<{ id: string }> }
 const TAGS = new Set(['top', 'average', 'attention'])
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** One model's analytics: the dashboard's numbers for her alone, plus each of
  *  her accounts on its own line. */
 export async function GET(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const asked = Number(new URL(request.url).searchParams.get('days'))
   const days = (WINDOWS as readonly number[]).includes(asked) ? (asked as WindowDays) : 30
@@ -28,7 +28,8 @@ export async function GET(request: Request, { params }: Params) {
 /** Pin a tag — `{ tag: 'top' | 'average' | 'attention' }` — or `{ tag: null }`
  *  to go back to the automatic one. */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   const tag = typeof body.tag === 'string' && TAGS.has(body.tag) ? body.tag : null

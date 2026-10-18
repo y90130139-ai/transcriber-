@@ -11,9 +11,20 @@ const sessionSecret = process.env.SESSION_SECRET
 if (!sessionSecret) throw new Error('Set SESSION_SECRET to the same local value used by the app server.')
 
 function makeSessionToken() {
-  const expires = Date.now() + 60 * 60 * 1000
-  const signature = createHmac('sha256', sessionSecret).update(String(expires)).digest('base64url')
-  return `${expires}.${signature}`
+  const now = Math.floor(Date.now() / 1000)
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const body = Buffer.from(JSON.stringify({
+    sub: 'local-video-batcher-smoke',
+    email: 'video-batcher-smoke@local.invalid',
+    name: 'Video Batcher smoke test',
+    role: 'ceo',
+    transcriber: null,
+    iat: now,
+    exp: now + 60 * 60,
+  })).toString('base64url')
+  const signed = `${header}.${body}`
+  const signature = createHmac('sha256', sessionSecret).update(signed).digest('base64url')
+  return `${signed}.${signature}`
 }
 
 const targetResponse = await fetch(`${cdpHttp}/json/new?${baseUrl}/video-batcher`, { method: 'PUT' })
@@ -133,14 +144,14 @@ try {
     setter.call(variations, '1');
     variations.dispatchEvent(new Event('input', { bubbles: true }));
     variations.dispatchEvent(new Event('change', { bubbles: true }));
-    [...document.querySelectorAll('button')].find((button) => button.textContent.includes('Generate variations')).click();
-    [...document.querySelectorAll('.vb-tab')].find((button) => button.textContent.includes('Downloads')).click();
+     [...document.querySelectorAll('button')].find((button) => button.textContent.includes('Generate variations')).click();
+     document.querySelector('a[href="/video-batcher/downloads"]')?.click();
     return true;
   })()`)
   const videoResult = await evaluate(`new Promise((resolve, reject) => {
     const started = Date.now();
     const poll = () => {
-      const row = document.querySelector('.vb-job-row[data-status="completed"]');
+   const row = document.querySelector('.vb-job-row[data-status="completed"]');
       if (row) resolve(row.textContent);
       else if (document.querySelector('.vb-job-row[data-status="failed"]')) reject(new Error(document.querySelector('.vb-job-row[data-status="failed"]').textContent));
       else if (Date.now() - started > 30000) reject(new Error('Video export did not complete in 30 seconds.'));
@@ -187,7 +198,7 @@ try {
       if (count >= 1) {
         [...document.querySelectorAll('.vb-file-row .vb-file-select')].find((button) => button.textContent.includes('browser smoke still.png')).click();
         document.querySelector('.vb-process-actions .vb-button-primary').click();
-        [...document.querySelectorAll('.vb-tab')].find((button) => button.textContent.includes('Downloads')).click();
+         document.querySelector('a[href="/video-batcher/downloads"]')?.click();
         resolve(true);
       } else if (Date.now() - started > 10000) reject(new Error('PNG fixture was not inspected.'));
       else setTimeout(poll, 100);

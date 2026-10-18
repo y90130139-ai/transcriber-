@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { personaProposal } from '@/lib/autotag'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { COMMENT_WEIGHT, IN_HOT_WINDOW } from '@/lib/hot'
 import { instagramAccounts, readSocials } from '@/lib/socials'
@@ -107,7 +107,8 @@ async function propose(limit: number) {
 
 /** One row per creator: how much of them we hold, and how they normally do. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   // `?propose=` asks a different question — what persona does each creator's
   // own shelf suggest — and is answered on its own, the way /api/models?job=

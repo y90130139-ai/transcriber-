@@ -1,12 +1,13 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { topicRows, type TopicQuery } from '@/lib/reddit/queries'
 
 const SORTS: TopicQuery['sort'][] = ['interest', 'growth', 'activity', 'velocity', 'freshness']
 
 /** The Trending Now table: sortable, filterable, paginated. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const params = new URL(request.url).searchParams
   const sort = SORTS.includes(params.get('sort') as TopicQuery['sort'])
     ? (params.get('sort') as TopicQuery['sort'])

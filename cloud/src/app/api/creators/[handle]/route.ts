@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { preview } from '@/lib/sql'
 import { SCORING_COLUMNS, SCORING_CTE, SCORING_JOIN } from '@/lib/hot'
@@ -9,8 +9,9 @@ import { whyItWorked } from '@/lib/why'
 type Params = { params: Promise<{ handle: string }> }
 
 /** One creator: their persona, their normal, and what beat it. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { handle } = await params
   const who = decodeURIComponent(handle)
 
@@ -57,7 +58,8 @@ export async function GET(_request: Request, { params }: Params) {
 
 /** Set the creator's persona. It then carries to everything they post next. */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { handle } = await params
   const who = decodeURIComponent(handle)
   const body = await request.json().catch(() => ({}))

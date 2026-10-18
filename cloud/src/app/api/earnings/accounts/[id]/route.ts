@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { isSignedIn } from '@/lib/auth'
 import { matchAccount } from '@/lib/earnings/board'
 
 type Params = { params: Promise<{ id: string }> }
@@ -14,7 +14,8 @@ const Body = z.object({
 /** Match an Infloww account to a roster model — the mapping every creator
  *  message is checked against before it is sent. */
 export async function PATCH(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const parsed = Body.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'model_id (or null) is required' }, { status: 400 })

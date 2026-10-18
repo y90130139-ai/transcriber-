@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { logAppEvent } from '@/lib/app-activity'
 import { actOnCard } from '@/lib/discover'
 import { modelSessionFrom } from '@/lib/model-auth'
 
@@ -15,5 +16,10 @@ export async function POST(request: Request) {
 
   const changed = await actOnCard(session.modelId, jobId, action)
   if (!changed) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  // Her swipe is a signal with no timestamp of its own — her page's timeline
+  // keeps it here (2026-10-14).
+  after(async () => {
+    await logAppEvent(session.modelId, 'discover', action)
+  })
   return NextResponse.json({ ok: true, action })
 }

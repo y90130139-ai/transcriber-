@@ -1,11 +1,10 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { addDays, currentWeekOf } from '@/lib/dates'
 import { alsoOn } from '@/lib/match'
 import { appendItems, newId, readWeekOf } from '@/lib/models'
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** The last day of the week the plan belongs to. */
 const DUE_OFFSET_DAYS = 6
@@ -28,7 +27,8 @@ const MAX_ASKED = 60
  * Read-only. It warns; the caller still decides.
  */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const url = new URL(request.url)
   const jobIds = (url.searchParams.get('jobs') ?? '')
@@ -61,7 +61,8 @@ export async function GET(request: Request) {
  * needs, and what keeps assigning to one tap.
  */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => ({}))
   const modelId = typeof body.model_id === 'string' ? body.model_id : ''

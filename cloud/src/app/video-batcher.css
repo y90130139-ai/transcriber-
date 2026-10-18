@@ -534,6 +534,7 @@
 .vb-job-status { display: grid; place-items: center; width: 14px; flex: none; }
 .vb-job-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--sc-ink-300); }
 .vb-job-row[data-status='completed'] .vb-job-status i { background: var(--sc-positive); }
+.vb-job-row[data-status='fallback'] .vb-job-status i { background: var(--sc-ember-light); }
 .vb-job-row[data-status='failed'] .vb-job-status i { background: var(--sc-critical); }
 .vb-job-row[data-status='processing'] .vb-job-status i { background: var(--sc-ember-light); }
 .vb-job-copy { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }

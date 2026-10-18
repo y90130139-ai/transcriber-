@@ -9,7 +9,10 @@ import { q, sql } from '../db'
 import { getSettings } from './settings'
 import { REGISTRY_CATEGORIES, TOPIC_CATEGORIES } from './registry'
 import { latestRateState, queueState, registryCounts, usageSummary, usageToday } from './store'
-import type { AlertRow, CollectorRun, Priority, RequirementRow, RequirementSource, SubredditRow, TrendStatus } from './types'
+import type {
+  AlertRow, BotBouncerStatus, CollectorRun, Priority, RequirementConfidence,
+  RequirementGates, RequirementRow, RequirementSource, SubredditRow, SubredditStatus, TrendStatus,
+} from './types'
 
 export type RangeKey = '1h' | '6h' | '24h' | '7d' | '30d' | '90d' | 'custom'
 
@@ -1354,6 +1357,118 @@ export async function requirementSourceMap(ids: string[]): Promise<Map<string, R
   return map
 }
 
+/** One row of the merged communities board: the tracker's columns where
+ *  trend collection follows the community, the gates' columns everywhere. */
+export type BoardRow = SubredditRow & { tracked: boolean }
+
+/**
+ * Every community either registry knows about, in one read. The gates
+ * registry holds the full discovered fleet; the tracker holds what trend
+ * collection follows — this board is the union, so nothing ever goes back
+ * to being invisible just because one of the two registries does not list
+ * it. Geno, 2026-10-18: "i need to see all those".
+ */
+export async function subredditBoard(): Promise<BoardRow[]> {
+  const rows = await q<{
+    id: string; display_name: string; category: string; url: string | null; title: string | null
+    description: string | null; subscribers: string | number | null; over18: boolean; adult: boolean
+    tracked: boolean; enabled: boolean; paused: boolean; priority: string; interval_minutes: number
+    status: string; status_note: string | null; validated_at: string | null; last_synced_at: string | null
+    last_error: string | null; consecutive_failures: number; source: string
+    posts_collected: number; engagement: number
+  }>(
+    `with base as (
+       select id from reddit.requirement_subreddits
+       union
+       select id from reddit.tracked_subreddits
+     )
+     select b.id,
+            coalesce(t.display_name, r.display_name, b.id) as display_name,
+            coalesce(t.category, r.category, 'Discovered NSFW') as category,
+            t.url, t.title, t.description,
+            coalesce(t.subscribers, r.subscribers) as subscribers,
+            coalesce(t.over18, r.over18, true) as over18,
+            coalesce(t.adult, true) as adult,
+            (t.id is not null) as tracked,
+            coalesce(t.enabled, r.enabled, true) as enabled,
+            coalesce(t.paused, false) as paused,
+            coalesce(t.priority, r.priority, 'medium') as priority,
+            coalesce(t.interval_minutes, 0) as interval_minutes,
+            coalesce(t.status, r.status, 'pending') as status,
+            t.status_note, t.validated_at, t.last_synced_at, t.last_error,
+            coalesce(t.consecutive_failures, 0) as consecutive_failures,
+            coalesce(t.source, 'seed') as source,
+            coalesce(p.posts, 0)::int as posts_collected,
+            coalesce(p.engagement, 0)::int as engagement
+       from base b
+       left join reddit.tracked_subreddits t on t.id = b.id
+       left join reddit.requirement_subreddits r on r.id = b.id
+       left join (
+         select subreddit, count(*) as posts,
+                sum(coalesce(score, 0) + coalesce(comments, 0)) as engagement
+           from reddit.reddit_posts
+          where is_deleted = false
+          group by subreddit
+       ) p on p.subreddit = b.id
+      order by (t.id is not null) desc,
+               coalesce(t.subscribers, r.subscribers) desc nulls last,
+               b.id
+      limit 2000`,
+  )
+  return rows.map((row) => ({
+    ...row,
+    subscribers: row.subscribers === null ? null : Number(row.subscribers),
+    interval_minutes: Number(row.interval_minutes),
+    consecutive_failures: Number(row.consecutive_failures),
+    posts_collected: Number(row.posts_collected),
+    engagement: Number(row.engagement),
+    priority: row.priority as Priority,
+    status: row.status as SubredditStatus,
+    source: row.source as SubredditRow['source'],
+    tracked: Boolean(row.tracked),
+  }))
+}
+
+/** The measured gates for a set of communities, keyed by id — the merged
+ *  board's one join of the tracker and the requirements estimates. One
+ *  query, no Reddit. Geno, 2026-10-18. */
+export async function subredditGates(ids: string[]): Promise<Map<string, RequirementGates>> {
+  const map = new Map<string, RequirementGates>()
+  if (!ids.length) return map
+  const rows = await q<{
+    id: string; min_post_karma: number | null; min_comment_karma: number | null
+    min_age_days: number | null; avg_total_karma: number | null; posts_per_day: number | null
+    confidence: string | null; bot_bouncer: string | null; sample_count: number | null
+    survivor_count: number | null; filtered_count: number | null; confirmations: number | null
+    last_collected_at: string | null
+  }>(
+    `select id, min_post_karma, min_comment_karma, min_age_days, avg_total_karma,
+            posts_per_day::real as posts_per_day, confidence, bot_bouncer,
+            sample_count, survivor_count, filtered_count, confirmations, last_collected_at
+       from reddit.requirement_subreddits
+      where id = any($1::text[])`,
+    [ids],
+  )
+  const num = (value: number | null) => (value === null ? null : Number(value))
+  for (const row of rows) {
+    map.set(row.id, {
+      min_post_karma: num(row.min_post_karma),
+      min_comment_karma: num(row.min_comment_karma),
+      min_age_days: num(row.min_age_days),
+      avg_total_karma: num(row.avg_total_karma),
+      posts_per_day: num(row.posts_per_day),
+      confidence: (row.confidence ?? 'insufficient') as RequirementGates['confidence'],
+      bot_bouncer: (row.bot_bouncer ?? 'unknown') as RequirementGates['bot_bouncer'],
+      sample_count: Number(row.sample_count ?? 0),
+      survivor_count: Number(row.survivor_count ?? 0),
+      filtered_count: Number(row.filtered_count ?? 0),
+      confirmations: Number(row.confirmations ?? 0),
+      last_collected_at: row.last_collected_at,
+    })
+  }
+  return map
+}
+
 export async function requirementBoardMeta(): Promise<RequirementBoardMeta> {
   const [counts, categories] = await Promise.all([
     q<{
@@ -1439,4 +1554,255 @@ export function toCsv(rows: Record<string, string | number | null>[]): string {
   const quote = (value: string | number | null) =>
     value === null || value === undefined ? '' : `"${String(value).replace(/"/g, '""')}"`
   return [headers.join(','), ...rows.map((row) => headers.map((header) => quote(row[header] ?? null)).join(','))].join('\n')
+}
+
+/* ------------------------------------------------------------- the plan */
+
+/** One community as the Today board needs it: the gates we measured, the
+ *  heat of the last two weeks, and the confidence behind both. */
+export type PlanCommunity = {
+  id: string
+  display_name: string
+  subscribers: number | null
+  over18: boolean
+  posts_7d: number
+  previous_7d: number
+  posts_per_day: number | null
+  hot_topics: number
+  min_post_karma: number | null
+  min_comment_karma: number | null
+  min_age_days: number | null
+  bot_bouncer: BotBouncerStatus
+  confidence: RequirementConfidence
+  last_collected_at: string | null
+}
+
+export type PlanTopic = {
+  id: string
+  name: string
+  status: TrendStatus
+  growth: number | null
+  mentions: number
+  subreddits: number
+  /** When the topic engine last read this topic. */
+  updated: string | null
+  communities: { id: string; mentions: number }[]
+  example: { title: string; permalink: string | null; subreddit: string; score: number | null } | null
+}
+
+export type PlanData = {
+  communities: PlanCommunity[]
+  topics: PlanTopic[]
+  stats: { communities: number; heating: number; posts_today: number; measured: number }
+  collector: {
+    last_run_at: string | null
+    last_run_state: string | null
+    next_scan_at: string | null
+    paused: boolean
+    emergency_stop: boolean
+  }
+  generated_at: string
+}
+
+/**
+ * The Today briefing: every in-scope community joined with its measured
+ * gates and its week-over-week heat, the topics currently heating with the
+ * communities driving each one and a post worth copying, and the four
+ * counts the strip shows. Read-only cache joins; no Reddit calls.
+ * Geno, 2026-10-18 — the marketing-first restructure's Phase 1 payload.
+ */
+export async function planData(): Promise<PlanData> {
+  const adultOnly = await adultScope()
+  const settings = await getSettings()
+  const [communityRows, topics, heating, postsToday, measured, lastRun, nextDue] = await Promise.all([
+    q<{
+      id: string; display_name: string; subscribers: string | number | null; over18: boolean
+      posts_7d: number; previous_7d: number; posts_per_day: number | null; hot_topics: number
+      min_post_karma: number | null; min_comment_karma: number | null; min_age_days: number | null
+      bot_bouncer: string; confidence: string; last_collected_at: string | null
+    }>(
+      `select s.id,
+              coalesce(s.display_name, s.id) as display_name,
+              s.subscribers, s.over18,
+              coalesce(act.posts_7d, 0)::int as posts_7d,
+              coalesce(act.previous_7d, 0)::int as previous_7d,
+              r.posts_per_day::real as posts_per_day,
+              r.min_post_karma, r.min_comment_karma, r.min_age_days,
+              coalesce(r.bot_bouncer, 'unknown') as bot_bouncer,
+              coalesce(r.confidence, 'insufficient') as confidence,
+              r.last_collected_at,
+              coalesce(hot.n, 0)::int as hot_topics
+         from reddit.tracked_subreddits s
+         left join lateral (
+           select count(*) filter (where p.created_utc > now() - interval '7 days')::int as posts_7d,
+                  count(*) filter (where p.created_utc > now() - interval '14 days'
+                                     and p.created_utc <= now() - interval '7 days')::int as previous_7d
+             from reddit.reddit_posts p
+            where p.subreddit = s.id and p.is_deleted = false
+         ) act on true
+         left join reddit.requirement_subreddits r on r.id = s.id
+         left join lateral (
+           select count(distinct m.topic_id)::int as n
+             from reddit.topic_mentions m
+             join (
+               select distinct on (ms.topic_id) ms.topic_id, ms.status
+                 from reddit.topic_metric_snapshots ms
+                where ms.window_hours = 24
+                order by ms.topic_id, ms.captured_at desc
+             ) latest on latest.topic_id = m.topic_id and latest.status in ('breakout', 'rising')
+            where m.subreddit = s.id and m.mentioned_at > now() - interval '7 days'
+         ) hot on true
+        where s.enabled and not s.paused and s.status = 'active'
+          and (not $1::boolean or s.adult)
+        order by posts_7d desc
+        limit 60`,
+      [adultOnly],
+    ),
+    q<{ id: string; name: string; mentions: number; subreddits: number; growth: number | null; status: TrendStatus; captured_at: string | null }>(
+      `with latest as (
+         select distinct on (topic_id) topic_id, growth, status, captured_at
+           from reddit.topic_metric_snapshots
+          where window_hours = 24
+          order by topic_id, captured_at desc
+       ),
+       volume as (
+         select m.topic_id,
+                count(*)::int as mentions,
+                count(distinct m.subreddit)::int as subreddits
+           from reddit.topic_mentions m
+          where m.mentioned_at > now() - interval '7 days'
+          group by m.topic_id
+       )
+       -- Geno, 2026-10-18: the card counts and its community chips and the
+       -- example post all read the same 7-day window, and one-mention noise
+       -- is held to the engine's own mention floor — a "heating topic" with
+       -- a single mention is not a topic, it is a typo.
+       select t.id, t.name, volume.mentions, volume.subreddits,
+              latest.growth::real as growth, latest.status, latest.captured_at
+         from reddit.topic_entities t
+         join latest on latest.topic_id = t.id and t.adult
+         join volume on volume.topic_id = t.id
+        where volume.mentions >= $1
+        order by (latest.status in ('breakout', 'rising')) desc,
+                 latest.growth desc nulls last,
+                 volume.mentions desc
+        limit 6`,
+      [Math.max(1, settings.min_mentions)],
+    ),
+    q<{ n: number }>(
+      `with latest as (
+         select distinct on (topic_id) topic_id, status
+           from reddit.topic_metric_snapshots
+          where window_hours = 24
+          order by topic_id, captured_at desc
+       )
+       select count(*)::int as n
+         from latest
+         join reddit.topic_entities t on t.id = latest.topic_id and t.adult
+        where latest.status in ('breakout', 'rising')`,
+    ),
+    q<{ n: number }>(
+      `select count(*)::int as n
+         from reddit.reddit_posts p
+        where p.is_deleted = false
+          and exists (select 1 from reddit.tracked_subreddits ts where ts.id = p.subreddit and (not $1::boolean or ts.adult))
+          and p.first_seen_at >= now() - interval '24 hours'`,
+      [adultOnly],
+    ),
+    q<{ n: number }>(
+      `select count(*)::int as n
+         from reddit.tracked_subreddits s
+         join reddit.requirement_subreddits r on r.id = s.id
+        where s.enabled and not s.paused and s.status = 'active'
+          and (not $1::boolean or s.adult)
+          and r.confidence is not null and r.confidence <> 'insufficient'`,
+      [adultOnly],
+    ),
+    q<{ started_at: string; state: string }>(
+      `select started_at, state from reddit.collector_runs order by started_at desc limit 1`,
+    ),
+    q<{ next_at: string | null }>(
+      `select min(due_at) as next_at from reddit.collector_jobs where state = 'queued'`,
+    ),
+  ])
+
+  const ids = topics.map((topic) => topic.id)
+  const [topicCommunities, examples] = ids.length
+    ? await Promise.all([
+        q<{ topic_id: string; subreddit: string; mentions: number }>(
+          `select ranked.topic_id, ranked.subreddit, ranked.mentions from (
+             select m.topic_id, m.subreddit, count(*)::int as mentions,
+                    row_number() over (partition by m.topic_id order by count(*) desc) as rn
+               from reddit.topic_mentions m
+               join reddit.tracked_subreddits ts on ts.id = m.subreddit and (not $2::boolean or ts.adult)
+              where m.topic_id = any($1::text[]) and m.mentioned_at > now() - interval '7 days'
+              group by m.topic_id, m.subreddit
+           ) ranked
+           where ranked.rn <= 4
+           order by ranked.topic_id, ranked.rn`,
+          [ids, adultOnly],
+        ),
+        q<{ topic_id: string; title: string; permalink: string | null; subreddit: string; score: number | null }>(
+          `select ranked.topic_id, ranked.title, ranked.permalink, ranked.subreddit, ranked.score from (
+             select m.topic_id, p.title, p.permalink, p.subreddit, p.score,
+                    row_number() over (partition by m.topic_id
+                      order by (coalesce(p.score, 0) + coalesce(p.comments, 0)) desc) as rn
+               from reddit.topic_mentions m
+               join reddit.reddit_posts p on p.id = m.post_id and p.is_deleted = false
+               join reddit.tracked_subreddits ts on ts.id = m.subreddit and (not $2::boolean or ts.adult)
+              where m.topic_id = any($1::text[]) and m.mentioned_at > now() - interval '7 days'
+           ) ranked
+           where ranked.rn = 1`,
+          [ids, adultOnly],
+        ),
+      ])
+    : [[], []]
+
+  const communitiesByTopic = new Map<string, { id: string; mentions: number }[]>()
+  for (const row of topicCommunities) {
+    const list = communitiesByTopic.get(row.topic_id) ?? []
+    list.push({ id: row.subreddit, mentions: Number(row.mentions) })
+    communitiesByTopic.set(row.topic_id, list)
+  }
+  const exampleByTopic = new Map(examples.map((row) => [row.topic_id, row]))
+
+  return {
+    communities: communityRows.map((row) => ({
+      ...row,
+      subscribers: row.subscribers === null ? null : Number(row.subscribers),
+      posts_per_day: row.posts_per_day === null ? null : Number(row.posts_per_day),
+      bot_bouncer: row.bot_bouncer as BotBouncerStatus,
+      confidence: row.confidence as RequirementConfidence,
+    })),
+    topics: topics.map((topic) => {
+      const example = exampleByTopic.get(topic.id)
+      return {
+        id: topic.id,
+        name: topic.name,
+        status: topic.status,
+        growth: topic.growth === null ? null : Number(topic.growth),
+        mentions: Number(topic.mentions),
+        subreddits: Number(topic.subreddits),
+        updated: topic.captured_at,
+        communities: communitiesByTopic.get(topic.id) ?? [],
+        example: example
+          ? { title: example.title, permalink: example.permalink, subreddit: example.subreddit, score: example.score === null ? null : Number(example.score) }
+          : null,
+      }
+    }),
+    stats: {
+      communities: communityRows.length,
+      heating: Number(heating[0]?.n ?? 0),
+      posts_today: Number(postsToday[0]?.n ?? 0),
+      measured: Number(measured[0]?.n ?? 0),
+    },
+    collector: {
+      last_run_at: lastRun[0]?.started_at ?? null,
+      last_run_state: lastRun[0]?.state ?? null,
+      next_scan_at: nextDue[0]?.next_at ?? null,
+      paused: settings.paused,
+      emergency_stop: settings.emergency_stop,
+    },
+    generated_at: new Date().toISOString(),
+  }
 }

@@ -50,11 +50,10 @@ const FEED_SOURCES: {
   { id: 'twitter', label: 'Twitter / X', platform: 'x', dataUrl: '/api/ofmpro/twitter' },
 ]
 
-/** `name` and `thumb` are for showing the pick elsewhere (the card composer);
- *  only `jobId` / `url` ever go to the server. */
+/** Display metadata stays on the client; only `jobId` / `url` go to the server. */
 export type Pick =
   | { kind: 'library'; jobId: string; name?: string; thumb?: string | null }
-  | { kind: 'feed'; url: string; name?: string; thumb?: string | null }
+  | { kind: 'feed'; url: string; name?: string; thumb?: string | null; video?: string | null }
 
 /** Keyed `${source}:${id}`, so a pick from the library and one from a feed
  *  with the same post can both be on the pile while they are different. */
@@ -75,6 +74,7 @@ const feedPick = (item: MediaItem): Pick => ({
   url: item.url ?? '',
   name: item.username ?? item.caption ?? undefined,
   thumb: item.image,
+  video: item.video,
 })
 
 /** What a dragged card carries — read by the week pane's drop zone. */

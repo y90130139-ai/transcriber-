@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server'
-import { isSignedIn, isWorker } from '@/lib/auth'
+import { isWorker } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { isScheduler } from '@/lib/cron'
 import { decide, openProposals, profile, profilerReady, store, unprofiled } from '@/lib/profiler'
 
@@ -11,8 +12,9 @@ export const maxDuration = 60
 const BATCH = 3
 
 /** What is waiting on a human. */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const proposals = await openProposals()
   return NextResponse.json({ proposals, ready: profilerReady() })
 }
@@ -22,8 +24,10 @@ export async function GET() {
  * `{ handle, tags }` takes a proposal (tags as offered, or edited);
  * `{ handle, tags: null }` rejects it. Otherwise it runs a batch. */
 export async function POST(request: Request) {
-  const invited = (await isSignedIn()) || isScheduler(request) || isWorker(request)
-  if (!invited) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!(isScheduler(request) || isWorker(request))) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
+  }
 
   const body = await request.json().catch(() => ({}))
 

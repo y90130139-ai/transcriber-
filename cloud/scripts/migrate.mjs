@@ -8,6 +8,24 @@ const sql = neon(process.env.DATABASE_URL)
 const statements = [
   `create schema if not exists transcriber`,
 
+  // Autoposter is the write-through source; the console reads this durable
+  // last-good snapshot so calendar views never spend the API's 60/minute
+  // budget. A failed refresh records the error but leaves the saved data intact.
+  `create table if not exists transcriber.autoposter_snapshots (
+     workspace_id text primary key,
+     accounts     jsonb not null default '[]'::jsonb,
+     posts        jsonb not null default '[]'::jsonb,
+     media        jsonb not null default '[]'::jsonb,
+     synced_at    timestamptz,
+     attempted_at timestamptz,
+     last_error   text,
+     last_status  integer,
+     created_at   timestamptz not null default now(),
+     updated_at   timestamptz not null default now()
+   )`,
+  `create index if not exists autoposter_snapshots_synced_idx
+     on transcriber.autoposter_snapshots (synced_at)`,
+
   `create table if not exists transcriber.jobs (
      id            text primary key,
      kind          text not null,
@@ -184,6 +202,23 @@ const statements = [
 
   `create unique index if not exists plan_items_unique_idx on transcriber.plan_items (plan_id, job_id)`,
   `create index if not exists plan_items_upload_idx on transcriber.plan_items (uploaded_at, r2_purged_at)`,
+
+  // The team's own reusable card blanks (2026-10-16): a label, a format and
+  // the directions, written by /api/templates from the queue and the plan
+  // editor. A German template also keeps the playbook entry it is (variant)
+  // and the reference video that rides Version 1 (job_id).
+  `create table if not exists transcriber.plan_templates (
+     id         text primary key,
+     label      text not null,
+     format     text,
+     body       text,
+     variant    text,
+     job_id     text,
+     created_at timestamptz not null default now(),
+     updated_at timestamptz not null default now()
+   )`,
+  `alter table transcriber.plan_templates add column if not exists variant text`,
+  `alter table transcriber.plan_templates add column if not exists job_id  text`,
 
   // What she actually does, in the same vocabulary the library tags videos
   // with. Uncapped on purpose: the autotagger caps its guesses about one video,
@@ -1328,6 +1363,12 @@ const statements = [
   `create unique index if not exists format_kinds_one
      on transcriber.format_kinds (format, lower(label))`,
 
+  // A German playbook entry added from the queue is a template, not just a
+  // name (2026-10-16): it carries what she films (body) and its version rows,
+  // so the plan editor's German lane can prefill from it like the doc's own.
+  `alter table transcriber.format_kinds add column if not exists body     text`,
+  `alter table transcriber.format_kinds add column if not exists versions jsonb`,
+
   // ------------------------------------------------------------ OFMPro media
   //
   // The tracked posts from OFM Pro's own API (`/v2/medias/fetch`), one row per
@@ -1955,6 +1996,60 @@ const statements = [
   // from the in-house editing notes, and shown on the content plan as they
   // are typed. Never written by the drafter.
   `alter table transcriber.plan_items add column if not exists notes_to_model text`,
+  // Her app activity (2026-10-14): one row per act the app can see — the
+  // sign-ins and the week opens that the model_accounts columns can only keep
+  // as a latest state. Additive; nothing older depends on it, and a write
+  // that fails is swallowed (lib/app-activity.ts) so tracking never blocks
+  // the act it records.
+  `create table if not exists transcriber.app_events (
+     id          text primary key,
+     model_id    text not null,
+     kind        text not null,
+     detail      text,
+     created_at  timestamptz not null default now()
+   )`,
+  `create index if not exists app_events_model_idx on transcriber.app_events (model_id, created_at desc)`,
+  // What she filled out in the app (2026-10-14): the agreement she signed,
+  // the contact form, the intake form — payloads the phone used to keep to
+  // itself. One row per submission, latest first; the console reads them,
+  // never writes them.
+  `create table if not exists transcriber.app_submissions (
+     id          text primary key,
+     model_id    text not null,
+     kind        text not null,
+     data        jsonb not null default '{}'::jsonb,
+     created_at  timestamptz not null default now()
+   )`,
+  `create index if not exists app_submissions_model_idx on transcriber.app_submissions (model_id, kind, created_at desc)`,
+
+  // The client app's own words (Geno, 2026-10-14): welcome, onboarding text,
+  // the FAQ, the Client SOP, expectations, the agreement. One row per edited
+  // document; a key with no row is the built-in default from
+  // src/lib/app-content.ts, so the app and the console read the same text
+  // whether or not anyone has ever edited it. See lib/app-content-store.ts.
+  `create table if not exists transcriber.app_content (
+     key        text primary key,
+     doc        jsonb not null,
+     updated_at timestamptz not null default now(),
+     updated_by text
+   )`,
+
+  // Repurpose rendering (Geno, 2026-10-18): the ♻ button used to only mark
+  // intent — a person had to download the reel and drive the batcher by hand.
+  // A row now carries the render itself: the console queues it, the Mac
+  // claims it on the same poll it already makes, renders a fresh copy in
+  // src/repurpose.py, uploads it to R2 under `repurposed/` and reports back.
+  // `seed` and `recipe` are the receipt for what was done to the file.
+  `alter table transcriber.repurposes
+     add column if not exists status       text not null default 'marked',
+     add column if not exists seed         integer,
+     add column if not exists attempts     integer not null default 0,
+     add column if not exists claimed_at   timestamptz,
+     add column if not exists output_key   text,
+     add column if not exists output_bytes bigint,
+     add column if not exists rendered_at  timestamptz,
+     add column if not exists recipe       text,
+     add column if not exists error        text`,
 ]
 
 for (const statement of statements) {

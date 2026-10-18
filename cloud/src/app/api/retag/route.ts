@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn, isWorker } from '@/lib/auth'
+import { isWorker } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { sql } from '@/lib/db'
 import { autoTag } from '@/lib/tagging'
 
@@ -11,8 +12,10 @@ export const maxDuration = 60
  * again whenever the lexicon learns a phrase. Confirmed tags are never touched,
  * so this is safe to run repeatedly. */
 export async function POST(request: Request) {
-  const allowed = isWorker(request) || (await isSignedIn())
-  if (!allowed) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!isWorker(request)) {
+    const denied = await guardAccess(request)
+    if (denied) return denied
+  }
 
   const all = new URL(request.url).searchParams.get('all') === '1'
   const rows = await sql.query(

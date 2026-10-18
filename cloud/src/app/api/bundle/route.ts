@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { bundleLink, mediaBase } from '@/lib/media'
 
@@ -7,7 +7,8 @@ const MAX_ITEMS = 60
 
 /** Turn a multi-select into one signed zip URL served off the Mac. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => ({}))
   const ids = Array.isArray(body.ids)

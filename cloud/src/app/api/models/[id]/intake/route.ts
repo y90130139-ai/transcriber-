@@ -1,12 +1,11 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { nanoid } from 'nanoid'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { mapIntake, readAnswers } from '@/lib/intake'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** Big enough for any form, small enough that a wrong URL cannot fill a
  *  function's memory. Matches the parser's own ceiling. */
@@ -26,8 +25,9 @@ function isReadable(contentType: string | null, url: string): boolean {
 }
 
 /** The latest form of hers, and what was made of it. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const [intake] = await sql.query(
@@ -54,7 +54,8 @@ export async function GET(_request: Request, { params }: Params) {
  * `formats` array is invisible and steers every recommendation she gets.
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const [model] = await sql.query(`select id from transcriber.models where id = $1`, [id])
@@ -111,7 +112,8 @@ export async function POST(request: Request, { params }: Params) {
  *  sheet after the save succeeds, so a form that was read and then ignored
  *  stays distinguishable from one that landed. */
 export async function PATCH(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   if (typeof body.id !== 'string') return NextResponse.json({ error: 'which form' }, { status: 400 })

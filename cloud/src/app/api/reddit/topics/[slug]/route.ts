@@ -1,11 +1,12 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { topicDetail } from '@/lib/reddit/queries'
 
 /** One topic, whole: history, keywords, communities, contributing posts,
  *  engagement, acceleration and related trends. */
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { slug } = await params
   try {
     const detail = await topicDetail(slug)

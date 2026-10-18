@@ -1,9 +1,8 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { isValidTag } from '@/lib/taxonomy'
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /**
  * The team's own formats — the queue's "+ make a new format". They sit
@@ -11,21 +10,25 @@ const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status
  * curated list, these are the working vocabulary. Tags written with them
  * are ordinary `format` tags, so filters and matching see them like any.
  */
-export async function GET() {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const rows = await sql.query(
     `select id, label from transcriber.custom_formats order by lower(label)`,
   )
   // The per-format "what it is" entries ride along — one fetch arms both
-  // columns of the queue's composer.
+  // columns of the queue's composer. German entries also carry their
+  // instructions and version rows (2026-10-16), so the plan editor's German
+  // lane can prefill the brief from them like the doc's own.
   const kinds = await sql.query(
-    `select id, format, label from transcriber.format_kinds order by lower(label)`,
+    `select id, format, label, body, versions from transcriber.format_kinds order by lower(label)`,
   )
   return NextResponse.json({ formats: rows, kinds })
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const body = await request.json().catch(() => ({}))
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 60) : ''
   if (!label) return NextResponse.json({ error: 'name the format' }, { status: 400 })

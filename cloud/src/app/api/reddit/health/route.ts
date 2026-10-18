@@ -1,10 +1,11 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { healthData } from '@/lib/reddit/queries'
 
 /** Collection health: last run, queue, errors, API budget and worker state. */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     return NextResponse.json(await healthData())
   } catch (error) {

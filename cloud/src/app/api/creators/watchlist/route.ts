@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { handlesIn } from '@/lib/handles'
 import { loadWatchlist } from '@/lib/watchlist'
@@ -16,13 +16,15 @@ import { loadWatchlist } from '@/lib/watchlist'
  * The read itself lives in `loadWatchlist` — the page renders from the same
  * function on the server, so its first paint never waits on this route.
  */
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   return NextResponse.json(await loadWatchlist())
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const body = await request.json().catch(() => ({}))
 
   const add = handlesIn(body.add)

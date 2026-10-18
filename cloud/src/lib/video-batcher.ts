@@ -128,6 +128,17 @@ export const CONVERT_TARGETS: { id: ConvertTarget; label: string }[] = [
   { id: 'webp', label: 'WebP · still' },
 ]
 
+/** Render independent jobs concurrently without changing any output settings.
+ *  Video playback/recording is more memory-heavy, so use two slots on machines
+ *  with at least six logical cores and one on smaller devices. Still images
+ *  are cheaper and may use up to four slots. */
+export function renderConcurrencyLimit(mediaKinds: readonly ('image' | 'video')[], hardwareConcurrency: number): number {
+  if (!mediaKinds.length) return 0
+  const cores = Number.isFinite(hardwareConcurrency) ? Math.max(1, Math.floor(hardwareConcurrency)) : 2
+  if (mediaKinds.includes('video')) return cores >= 6 ? 2 : 1
+  return cores >= 8 ? 4 : Math.max(1, Math.floor(cores / 2))
+}
+
 type MetadataBooleanKey = 'variationTag' | 'creationTime' | 'comments' | 'title' | 'encoderParams' | 'encoderTagEnabled' | 'gps' | 'sourceTags' | 'cleanExport'
 
 const METADATA_BOOLEAN_KEYS: MetadataBooleanKey[] = [

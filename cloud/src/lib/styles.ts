@@ -69,18 +69,23 @@ export function cleanStyleTargets(raw: unknown): StyleTargets | null {
   return out
 }
 
+/** The suffix written by the versions tool, plus the shorter `(V2)` labels in
+ *  existing plans. Keep both spellings in one parser so card grouping and the
+ *  creator-facing version brief agree about which take this is. */
+const VERSION_SUFFIX = /(?:\s*·\s*|\s+|\(\s*)(?:version\s*(\d+)|v\s*(\d+))\s*\)?\s*$/i
+
 /** "69 · Black top transition · Version 2" → "69 · Black top transition".
  *  The same suffix the versions tool writes, so a group is one rule. */
 export function conceptStem(title: string | null | undefined): string {
-  return String(title ?? '').replace(/\s*·?\s*version\s*\d+\s*$/i, '').trim()
+  return String(title ?? '').replace(VERSION_SUFFIX, '').trim()
 }
 
 /** The version number a title carries, or null — "X · Version 3" → 3. The
  *  plan list groups neighbouring versions of one concept under a single
  *  heading with these (Geno, 2026-10-13). */
 export function versionOf(title: string | null | undefined): number | null {
-  const match = String(title ?? '').match(/·\s*version\s*(\d+)\s*$/i)
-  return match ? Number(match[1]) : null
+  const match = String(title ?? '').match(VERSION_SUFFIX)
+  return match ? Number(match[1] ?? match[2]) : null
 }
 
 export const versionTitle = (stem: string, n: number) => `${stem} · Version ${n}`

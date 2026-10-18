@@ -1,6 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { nanoid } from 'nanoid'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { findGerman } from '@/lib/german'
 import { extractLinks, labelFor } from '@/lib/links'
@@ -8,7 +8,8 @@ import { appendItems, type SkipReason } from '@/lib/models'
 import { isValidTag } from '@/lib/taxonomy'
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const payload = await request.json().catch(() => ({}))
   const text = typeof payload.text === 'string' ? payload.text : ''

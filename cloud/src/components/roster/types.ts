@@ -283,6 +283,9 @@ export type HerPost = {
   /** Already marked as ours to repost, and where it is going. */
   repurposed?: boolean
   destination?: 'trial' | 'main' | 'both' | null
+  /** Where the studio render stands: queued · rendering · ready · failed
+   *  (docs/REPURPOSE.md). `marked` is a row from before renders existed. */
+  repurpose_status?: 'marked' | 'queued' | 'rendering' | 'ready' | 'failed' | null
 }
 
 /** A model scored against one library item, for the assign control. */

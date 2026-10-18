@@ -189,6 +189,22 @@ export async function updateAccountName(id: string, name: unknown): Promise<Mode
   return rows[0] ? mapAccount(rows[0]) : null
 }
 
+/** Re-point an account at a model (2026-10-14) — the Settings tab's one
+ *  write. The console links an account that never got one, or fixes one
+ *  that landed on the wrong profile; the account, her password and her
+ *  history all stay exactly as they are. */
+export async function updateAccountModel(id: string, modelId: string): Promise<ModelAccount | null> {
+  if (!id || !modelId) return null
+  const response = await rest(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ model_id: modelId, updated_at: new Date().toISOString() }),
+  })
+  if (!response.ok) throw new Error(`model_accounts write failed (${response.status})`)
+  const rows = (await response.json()) as Row[]
+  return rows[0] ? mapAccount(rows[0]) : null
+}
+
 export type InviteResult = {
   account: ModelAccount
   /** True when a token was minted and should be emailed. False for an account

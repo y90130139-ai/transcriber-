@@ -1,6 +1,6 @@
 import { headlineFor, SIGNALS_COLUMNS, SIGNALS_JOIN, signalsFrom } from './appeal'
 import { sql } from './db'
-import { currentWeekOf } from './dates'
+import { currentWeekOf, isDateString, mondayOf } from './dates'
 import { linksFor, mediaBase } from './media'
 import { planMediaFor, r2Config, type PlanMedia } from './r2'
 import { hiddenFromModel, sourceOf, type CardSource } from './source'
@@ -237,7 +237,20 @@ export async function modelById(id: unknown): Promise<PlanModel | null> {
 /** The plan she should be looking at right now: this week's if it has been
  *  sent, otherwise the nearest sent week either side. Drafts are invisible —
  *  that is the whole point of the draft status. */
-async function currentPlanFor(model: PlanModel): Promise<Plan | null> {
+async function currentPlanFor(model: PlanModel, requestedWeek?: unknown): Promise<Plan | null> {
+  if (isDateString(requestedWeek)) {
+    const [plan] = await sql.query(
+      `select id, to_char(week_of, 'YYYY-MM-DD') as week_of,
+              to_char(due_date, 'YYYY-MM-DD') as due_date, title, intro,
+              to_char(opened_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as opened_at
+         from transcriber.plans
+        where model_id = $1 and status = 'sent' and week_of = $2::date
+        limit 1`,
+      [model.id, mondayOf(requestedWeek)],
+    )
+    return (plan as Plan | undefined) ?? null
+  }
+
   const thisWeek = currentWeekOf(model.timezone)
   const [plan] = await sql.query(
     `select id, to_char(week_of, 'YYYY-MM-DD') as week_of,
@@ -502,10 +515,10 @@ function isBucket(value: unknown): value is 'reskin' | 'iteration' | 'test' | 'r
  *  session route both come through here — her week is assembled once, never
  *  twice, or the two surfaces drift. Editing notes appear on her card and the
  *  editor's worksheet; the editor assignment itself stays internal. */
-export async function loadPlanForModel(model: PlanModel): Promise<
+export async function loadPlanForModel(model: PlanModel, requestedWeek?: unknown): Promise<
   { model: PlanModel; plan: Plan; items: PlanItem[] } | null
 > {
-  const plan = await currentPlanFor(model)
+  const plan = await currentPlanFor(model, requestedWeek)
   if (!plan) return null
 
   const items = await planItemsFor(plan.id)
@@ -513,12 +526,12 @@ export async function loadPlanForModel(model: PlanModel): Promise<
 }
 
 /** Everything her page renders, for one token. */
-export async function loadPlan(token: unknown): Promise<
+export async function loadPlan(token: unknown, requestedWeek?: unknown): Promise<
   { model: PlanModel; plan: Plan; items: PlanItem[] } | null
 > {
   const model = await modelForToken(token)
   if (!model) return null
-  return loadPlanForModel(model)
+  return loadPlanForModel(model, requestedWeek)
 }
 
 /**

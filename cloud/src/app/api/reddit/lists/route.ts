@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import {
   createSubredditList,
   deleteSubredditList,
@@ -11,8 +11,9 @@ import {
  *  list is just a name and a set of subreddit keys; it never duplicates the
  *  board's own data. */
 
-export async function GET() {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+export async function GET(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     return NextResponse.json({ lists: await listSubredditLists() })
   } catch (error) {
@@ -21,7 +22,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const name = String(body.name ?? '').trim()
@@ -34,7 +36,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const id = String(body.id ?? '').trim()
@@ -51,7 +54,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const id = new URL(request.url).searchParams.get('id') ?? ''
     if (!id) return NextResponse.json({ error: 'Which list?' }, { status: 400 })

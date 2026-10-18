@@ -1,10 +1,9 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 
 /** Enough recent posts to cover a couple of weeks of hers without turning the
@@ -23,8 +22,9 @@ const RECENT = 40
  * length — so any guess is a coin toss, and a wrong one silently marks a card
  * posted that never was. Binding is a tap.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // One round trip, not two. The model lookup and her posts used to be two
@@ -38,7 +38,8 @@ export async function GET(_request: Request, { params }: Params) {
             t.like_count, t.comment_count,
             (t.thumbnail is not null) as has_thumb,
             bound.item_id, bound.card_no,
-            (r.post_id is not null) as repurposed, r.destination
+            (r.post_id is not null) as repurposed, r.destination,
+            r.status as repurpose_status
        from transcriber.models m
        left join transcriber.transcripts t on lower(t.author) = lower(m.handle)
        left join transcriber.jobs j on j.id = t.job_id

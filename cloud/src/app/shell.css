@@ -102,12 +102,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.34rem;
-  min-height: 27px;
-  padding: 0 0.5rem;
-  border-radius: 9px;
+  min-height: 29px;
+  padding: 0 0.6rem;
+  border-radius: 8px;
   border: 1px solid var(--sb-line);
   background: var(--sb-fill);
-  color: var(--sc-ink-300);
+  color: var(--sc-ink-900);
   font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
@@ -127,25 +127,27 @@
   transition: color 0.2s ease, opacity 0.2s ease;
 }
 .side-switch[data-open] .side-switch-chev { opacity: 1; color: var(--sc-ember-light); }
+.side-switch-trigger:focus-visible,
+.side-switch-option:focus-visible {
+  outline: 2px solid var(--sc-ember-light);
+  outline-offset: 2px;
+}
 
-/* The menu (Geno, 2026-10-13): a panel under the Switch button, extending
- * right over the page — the rail clips its own children, so ConsoleShell
- * renders this outside it and feeds it a measured position. Fades in and
- * out (mounted once opened). Inter, like the inbox (Geno, 2026-10-13):
- * the mark in a neutral grey, a bold ember heading, a plain sentence. */
+/* Workspace switcher: an anchored, compact popover with a clear title and one
+ * decisive active state. ConsoleShell renders it outside the clipping rail. */
 .side-switch-menu {
   position: fixed;
   z-index: 200;
-  width: 15rem;
-  padding: 0.35rem;
-  border-radius: 12px;
-  border: 1px solid var(--sb-surface-hover);
+  display: grid;
+  gap: 0.25rem;
+  width: min(17.5rem, calc(100vw - 1rem));
+  padding: 0.55rem;
+  border-radius: 14px;
+  border: 1px solid var(--sb-line);
   background: var(--sc-bone-light);
-  box-shadow:
-    0 0 0 1px rgba(232, 102, 58, 0.08),
-    0 16px 38px rgba(0, 0, 0, 0.48);
+  box-shadow: var(--sc-lift-2);
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-5px) scale(0.985);
   visibility: hidden;
   pointer-events: none;
   transition:
@@ -155,7 +157,7 @@
 }
 .side-switch-menu[data-open] {
   opacity: 1;
-  transform: none;
+  transform: translateY(0) scale(1);
   visibility: visible;
   pointer-events: auto;
   transition:
@@ -163,69 +165,128 @@
     transform 0.22s var(--sc-ease),
     visibility 0s;
 }
+.side-switch-menu-head {
+  padding: 0.2rem 0.35rem 0.35rem;
+}
+.side-switch-menu-heading { display: grid; gap: 0.08rem; }
+.side-switch-menu-kicker {
+  color: var(--sc-ink-300);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.side-switch-menu-title {
+  color: var(--sc-ink-900);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.side-switch-menu-rule {
+  height: 1px;
+  margin: 0 0.15rem 0.2rem;
+  background: var(--sb-line);
+}
 .side-switch-option {
   width: 100%;
   display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
+  align-items: center;
+  gap: 0.65rem;
   padding: 0.6rem 0.55rem;
-  border: 0;
-  border-radius: 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   background: transparent;
   text-align: left;
   cursor: pointer;
   font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
 }
-/* Where the pointer is, and — louder — the side that is up (Geno,
-   2026-10-13): the ember wash is how you see where you are. */
-.side-switch-option:hover { background: var(--sb-surface-hover); }
-.side-switch-option[data-on] { background: var(--sb-accent-soft); }
-/* The mark stays ours; it wears the menu's grey, so ember is spent on the
-   heading alone. */
-.side-switch-logo {
-  flex: none;
-  height: 0.95rem;
-  width: auto;
-  margin-top: 0.18rem;
-  filter: grayscale(1) brightness(1.8);
-  opacity: 0.92;
+.side-switch-option:hover {
+  background: var(--sb-surface-hover);
+  border-color: var(--sb-line);
 }
-
-/* The side's name — a big bold ember heading, no box around it, with the
-   one-line why under it. */
-.side-switch-tag {
+.side-switch-option:active { transform: scale(0.99); }
+.side-switch-option[data-on] {
+  background: var(--sb-accent-soft);
+  border-color: var(--sb-ember-line);
+}
+.side-switch-logo-box {
   display: inline-flex;
   align-items: center;
-  color: var(--sc-ember-light);
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1.25;
-  white-space: nowrap;
+  justify-content: center;
+  flex: none;
+  width: 3.5rem;
+  height: 2.25rem;
+}
+.side-switch-logo {
+  flex: none;
+  width: 3rem;
+  height: auto;
+  max-height: 1rem;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.8);
+  opacity: 0.92;
 }
 .side-switch-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.22rem;
+  flex: 1;
+}
+.side-switch-heading-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.side-switch-tag {
+  overflow: hidden;
+  color: var(--sc-ink-900);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.065em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.side-switch-option[data-on] .side-switch-tag { color: var(--sc-ember-light); }
+.side-switch-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex: none;
+  padding: 0.16rem 0.36rem;
+  border: 1px solid var(--sb-ember-line);
+  border-radius: 999px;
+  color: var(--sc-ember-light);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.side-switch-current-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sc-ember-light);
 }
 .side-switch-note {
   font-size: 0.75rem;
   line-height: 1.4;
   color: var(--sc-ink-300);
 }
-.side-switch-body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.24rem;
-}
-.side-switch-note {
-  font-size: 0.72rem;
-  line-height: 1.4;
-  color: var(--sc-ink-300);
+@media (prefers-reduced-motion: reduce) {
+  .side-switch-menu,
+  .side-switch-menu[data-open],
+  .side-switch-trigger,
+  .side-switch-option { transition: none; }
+  .side-switch-menu,
+  .side-switch-menu[data-open],
+  .side-switch-option:active { transform: none; }
 }
 
 /* -------------------------------------------------------------- search
@@ -340,7 +401,7 @@
 }
 .nav-search-card.is-visible {
   width: min(360px, calc(100vw - 16px));
-  max-height: 36px;
+  max-height: 40px;
   border-radius: 8px;
   opacity: 1;
   box-shadow:
@@ -373,22 +434,30 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.42rem 0.55rem;
-  min-height: 28px;
+  padding: 0.28rem 0.45rem;
+  min-height: 40px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--sb-line);
 }
 .nav-search-head-icon { display: inline-flex; flex-shrink: 0; color: var(--sc-ink-300); }
+/* The input reads as a field now (Geno, 2026-10-14) — its own border and
+   ground, so the palette does not look like one grey slab. */
 .nav-search-input {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--sc-ink-150);
+  border-radius: 8px;
+  background: var(--sc-bone);
   color: var(--sc-ink-900);
   font-family: var(--sc-font-text);
   font-size: 0.8rem;
   font-weight: 500;
+  padding: 0.34rem 0.6rem;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.nav-search-input:focus {
+  border-color: var(--sc-ember);
+  box-shadow: 0 0 0 3px rgba(232, 102, 58, 0.14);
 }
 .nav-search-input::placeholder { color: var(--sc-ink-300); }
 
@@ -396,6 +465,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  border-top: 1px solid var(--sb-line);
   opacity: 0;
   max-height: 0;
   transition:
@@ -404,7 +474,7 @@
 }
 .nav-search-card.is-visible.has-results .nav-search-list-wrap {
   opacity: 1;
-  max-height: calc(min(70vh, 480px) - 36px);
+  max-height: calc(min(70vh, 480px) - 46px);
 }
 .nav-search-card.is-hiding .nav-search-list-wrap {
   opacity: 0;
@@ -733,8 +803,12 @@
 
 /* The tally, one bordered pill a number: held · queue · waiting · needs you.
    On the Client side the top bar shows no tallies (Geno, 2026-10-13) — the
-   queue and the library are Marketing's numbers, not the client's. */
+   queue and the library are Marketing's numbers, not the client's. The
+   tallies were what pushed the bell and avatar to the right, so with them
+   gone the bell carries the push itself (2026-10-14) — the account controls
+   sit at the right edge on both sides. */
 .console[data-side='client'] .topbar-stats { display: none; }
+.console[data-side='client'] .topbar-bell { margin-left: auto; }
 .topbar-stats {
   display: flex;
   align-items: center;
@@ -867,6 +941,84 @@
   .page { animation: none; }
 }
 
+/* --------------------------------------------------------- permissions
+   View-only pages wear it in the top bar (Geno, 2026-10-18): a refused
+   save has a reason on screen instead of looking like a broken app. */
+.topbar-viewonly {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(232, 102, 58, 0.4);
+  border-radius: 999px;
+  background: rgba(232, 102, 58, 0.12);
+  color: var(--sc-ember-light);
+  font-family: var(--sc-font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .topbar-viewonly .icon, .topbar-viewonly svg { display: none; }
+  .topbar-viewonly { padding: 0 0.55rem; }
+}
+
+/* No access — the page gate's face. Quiet, branded, and it never blames
+   the reader; the button leads to the first page they do own. */
+.noaccess {
+  display: grid;
+  justify-items: center;
+  gap: var(--sc-space-3);
+  max-width: 30rem;
+  margin: clamp(3rem, 12vh, 8rem) auto 0;
+  padding: var(--sc-space-6);
+  text-align: center;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sb-fill);
+}
+.noaccess-mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: rgba(232, 102, 58, 0.12);
+  border: 1px solid rgba(232, 102, 58, 0.4);
+  color: var(--sc-ember-light);
+}
+.noaccess h2 {
+  margin: 0;
+  font-family: var(--sc-font-display);
+  font-weight: 700;
+  font-size: var(--sc-text-lg);
+  letter-spacing: var(--sc-track-display);
+  text-transform: uppercase;
+  color: var(--sc-ink-900);
+}
+.noaccess p {
+  margin: 0;
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+  line-height: 1.6;
+}
+.noaccess-go {
+  margin-top: var(--sc-space-2);
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--r-sm);
+  background: var(--sc-ember);
+  color: #171717;
+  font-size: var(--sc-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
+.noaccess-go:hover { filter: brightness(1.08); }
+
 @media (min-width: 1024px) {
   .side-scrim { display: none; }
   /* The hamburger collapses the rail; everything else takes the width. */
@@ -894,11 +1046,34 @@
 }
 .console .inbox-full > * { min-width: 0; }
 
-/* Below a full desk, the details rail folds away and the two working
-   panes take everything (Geno, 2026-10-13). */
+/* Below a full desk, the details rail floats: the two working panes take
+   everything and the rail slides over the room as a drawer - nothing is
+   ever unreachable, whatever the window (Geno, 2026-10-14). The door is
+   the conversation head's details button; the scrim and Escape close it. */
 @media (max-width: 1240px) {
   .console .inbox-full { grid-template-columns: minmax(320px, 370px) minmax(0, 1fr); }
-  .console .inbox-full > aside { display: none; }
+  .console .inbox-full > aside.ix-rail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 55;
+    width: min(342px, 92vw);
+    border-left: 1px solid var(--ix-hair-2);
+    transform: translateX(calc(100% + 32px));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.3s var(--ix-out), opacity 0.22s ease, visibility 0s linear 0.3s;
+  }
+  .console .inbox-full[data-rail] > aside.ix-rail {
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    box-shadow: -24px 0 60px rgba(0, 0, 0, 0.45);
+    transition: transform 0.3s var(--ix-out), opacity 0.22s ease;
+  }
 }
 
 /* The inbox owns its whole pane: no top bar on this page only, and the
@@ -914,7 +1089,6 @@
   .console[data-flush='true'] .topbar-stat { display: none; }
   .console[data-flush='true'] .inbox-full { height: calc(100dvh - var(--topbar-h)); }
   .console .inbox-full { grid-template-columns: minmax(0, 1fr); }
-  .console .inbox-full > aside { display: none; }
 }
 
 /* ------------------------------------------------------------ settings

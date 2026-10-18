@@ -1,16 +1,16 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { currentWeekOf } from '@/lib/dates'
 import { modelsForJob } from '@/lib/match'
 import { accountsForModels } from '@/lib/model-accounts'
 import { MODEL_COLUMNS, MODEL_COLUMNS_ALIASED, linkedOnlyfans, newId, newToken, readModelInput, readWeekOf } from '@/lib/models'
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /** The roster, each card carrying what this week actually looks like. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   // `?job=` asks a different question — which of our models suit this video —
   // and is answered on its own. Without it the response must stay exactly what
@@ -106,7 +106,8 @@ export async function GET(request: Request) {
 
 /** Add a model. The share token is minted here and never accepted from a client. */
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const body = await request.json().catch(() => ({}))
   const input = readModelInput(body)

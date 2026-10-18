@@ -1,11 +1,10 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { readOverrides } from '@/lib/models'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 
 /**
@@ -20,8 +19,9 @@ const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 }
  * only while drafting: changing one never rewrites a card that has already been
  * authored.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const defaults = await sql.query(
@@ -35,7 +35,8 @@ export async function GET(_request: Request, { params }: Params) {
 
 /** Replace her whole set. Sending an empty list clears it. */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 

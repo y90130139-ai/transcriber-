@@ -1,5 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { currentSession, isSignedIn } from '@/lib/auth'
+import { currentSession } from '@/lib/auth'
 import {
   addThreadMembers,
   hideThreadForMember,
@@ -19,8 +20,9 @@ const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status
 
 /** One thread, as the console draws it. Opening it is reading it — the
  *  seen stamp rides inside readThread now, one round trip (2026-10-13). */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // The viewer's own seat rides along, so a reaction is "mine" only when it

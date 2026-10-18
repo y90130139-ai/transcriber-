@@ -8,7 +8,7 @@
 import { q, sql } from '../db'
 import { REGISTRY_CATEGORIES, REGISTRY_CANDIDATE_COUNT, TOPIC_CATEGORIES, subredditKey, uniqueCandidates, uniqueCandidateCount, type RegistryCandidate } from './registry'
 import { SEED_TOPICS } from './keywords'
-import type { RedditSettings } from './types'
+import type { RedditSettings, RequirementGates, RequirementSource } from './types'
 import type { RequestUsage } from './client'
 
 /* ------------------------------------------------------------------ seed */
@@ -132,6 +132,10 @@ export type SubredditDbRow = {
   posts_collected: number
   engagement: number
   spark?: number[]
+  /** Joined by the subreddits route from the requirements board —
+   *  the merged board's gate columns and their evidence. */
+  gates?: RequirementGates | null
+  gate_sources?: RequirementSource[]
 }
 
 const SUBREDDIT_SELECT = `
@@ -330,17 +334,26 @@ export type JobRow = { id: string; subreddit: string; priority: string }
 
 /**
  * Enqueue one job per community that is due under its own interval. The id
- * is derived from the community and the interval bucket, so two schedulers
+ * is derived from the community and the exact due time, so two schedulers
  * racing cannot enqueue the same slot twice and a restart resumes rather
  * than duplicates.
+ *
+ * Geno, 2026-10-18: it used to be the interval-wide bucket, and that
+ * starved communities. The 0.80–0.95 spread on the due time walks it a few
+ * hours earlier every cycle, so eventually the next due landed in the same
+ * bucket as the job that had just finished — `on conflict do nothing`
+ * swallowed the enqueue and the community was never scanned again
+ * (onlyfanspromo sat four days stale while its queue looked healthy). The
+ * due time itself is deterministic for a given last_synced_at, so keying on
+ * it dedupes exactly as well and can never collide with a past cycle.
  */
 export async function enqueueDueJobs(settings: RedditSettings): Promise<number> {
   await purgeOutOfScopeJobs(settings.adult_only)
   // The due time is the scheduler's whole model: last sync + the priority
   // target, shortened for busy communities (activity from the last day of
   // snapshots), and never longer than 20 hours so daily coverage holds even
-  // if a target is configured past a day. The job's id includes the interval
-  // bucket, so two enqueuers racing cannot duplicate a slot, and due_at in
+  // if a target is configured past a day. The job's id is the due time
+  // itself, so two enqueuers racing cannot duplicate a slot, and due_at in
   // the past is what makes the queue claim oldest-due-first.
   const rows = await q<{ id: string }>(
     `with base as (
@@ -373,25 +386,28 @@ export async function enqueueDueJobs(settings: RedditSettings): Promise<number> 
          from base
      )
      insert into reddit.collector_jobs (id, subreddit, listing, due_at, priority, state)
-     -- The id is the due slot itself, so re-running is idempotent and one
+     -- The id is the due instant itself, so re-running is idempotent and one
      -- community never has two jobs for the same scan.
-     select id || ':' || floor(extract(epoch from due_at) / 60 / interval_min)::text,
+     select id || ':' || floor(extract(epoch from due_at))::text,
             id, 'new', due_at, priority, 'queued'
        from due
      on conflict (id) do nothing
      returning id`,
     [settings.high_interval_minutes, settings.medium_interval_minutes, settings.low_interval_minutes, settings.adult_enabled, settings.adult_only],
   )
-  // One queued scan per community: when a setting change (interval, scope,
-  // activity) moves the next due time, the older scheduled slot is dropped
-  // rather than left to fire early.
+  // One queued scan per community, and it is the earliest computed one.
+  // Geno, 2026-10-18: this used to keep the latest due slot, which meant
+  // shortening a cadence was silently ignored until the old, slower slot
+  // fired (the 24h -> 6h change did nothing for a day). A slot that fires
+  // earlier than a lengthened interval costs one extra bounded scan;
+  // keeping the earliest makes every cadence change take effect at once.
   await q(
     `delete from reddit.collector_jobs j
       where j.state = 'queued'
         and exists (
           select 1 from reddit.collector_jobs k
            where k.subreddit = j.subreddit and k.state = 'queued'
-             and (k.due_at > j.due_at or (k.due_at = j.due_at and k.id > j.id))
+             and (k.due_at < j.due_at or (k.due_at = j.due_at and k.id < j.id))
         )`,
   )
   return rows.length
@@ -609,6 +625,16 @@ export async function writeSubredditSnapshot(row: {
      on conflict (subreddit, captured_at) do nothing`,
     [row.subreddit, row.capturedAt, row.subscribers, row.activeUsers, row.postsSeen, row.postsNew, row.engagement],
   )
+}
+
+/** When the last activity reading for a community landed — the baseline a
+ *  new reading's posts_new counts forward from. Geno, 2026-10-18. */
+export async function latestSubredditSnapshotAt(id: string): Promise<string | null> {
+  const rows = await q<{ at: string | null }>(
+    `select max(captured_at) as at from reddit.subreddit_snapshots where subreddit = $1`,
+    [id],
+  )
+  return rows[0]?.at ?? null
 }
 
 /**

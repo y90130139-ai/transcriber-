@@ -1,17 +1,17 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { MODEL_COLUMNS, linkedOnlyfans, keysForModel, newToken, readModelInput, trashKeys } from '@/lib/models'
 import { planWeeks } from '@/lib/plan-read'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 
 /** One model, plus every plan she has ever had — old weeks are kept as history. */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   // Three independent reads in one wave. Sequentially they were three round
@@ -53,7 +53,8 @@ export async function GET(_request: Request, { params }: Params) {
  * `token_revoked_at`, after which the old URL 404s like any unknown token.
  */
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 
@@ -100,8 +101,9 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 /** Remove a model and everything of hers. The R2 objects go on the Mac's list. */
-export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function DELETE(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   await trashKeys(await keysForModel(id))

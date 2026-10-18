@@ -34,7 +34,8 @@ Instagram (the Mac's sweep, same reader, cookies from here):
 
   IG_COOKIES_B64       base64 Netscape jar — capture_cookies.py prints it
   IG_STATE_B64         optional warm browser state, same capture prints it
-  IG_SWEEP             off (default) | light (daily story read) | full (weekly)
+  IG_SWEEP             daily (profiles + reels every day) | light (profiles only)
+                       | full (weekly reels) | off (default)
   IG_ROSTER            "1" queues her winners for download after a clean full pass
   IG_MODEL_POSTS       on (default) | off — the daily roster read of our own
                        models' reels, which keeps the dashboard's
@@ -60,6 +61,7 @@ import ig
 import r2
 from alert import alert, report as discord_report
 from ofmpro import WorkerStopped, ensure_session, fetch_medias, open_browser
+from schedule import finish_sweep, select_sweep
 
 CLOUD = os.environ.get("CLOUD_URL", "https://plan.gosianmedia.com").rstrip("/")
 SECRET = os.environ.get("WORKER_SECRET", "")
@@ -688,13 +690,8 @@ def active_ig_cooldown() -> dict | None:
         return None
 
 def scheduled_ig_mode(configured: str) -> str | None:
-    """Limit light sweeps to daily and full sweeps to weekly, despite the
-    OFMPro worker's shorter polling interval. The volume preserves the slots
-    across Railway restarts.
-    """
+    """Choose a due pass; successful slots survive Railway restarts."""
     now = datetime.now(SCRAPE_ZONE)
-    today = now.date().isoformat()
-    week = now.strftime("%G-W%V")
     try:
         state = json.loads(IG_SCHEDULE_PATH.read_text())
     except Exception:
@@ -704,25 +701,9 @@ def scheduled_ig_mode(configured: str) -> str | None:
         print(f"ig: honoring Instagram cooldown until {cooldown.get('until')}", flush=True)
         return None
 
-    if configured == "light":
-        if IG_REFRESH_KEY and state.get("last_forced_light_refresh") != IG_REFRESH_KEY:
-            state["forced_light_started"] = IG_REFRESH_KEY
-            selected = "light"
-        elif state.get("last_light_completed_date") == today or state.get("last_light_failed_date") == today:
-            return None
-        else:
-            state["last_light_started_date"] = today
-            selected = "light"
-    else:
-        if now.weekday() == 4 and state.get("last_full_completed_week") != week and state.get("last_full_failed_week") != week:
-            state["last_full_started_week"] = week
-            selected = "full"
-        elif state.get("last_light_completed_date") != today and state.get("last_light_failed_date") != today:
-            state["last_light_started_date"] = today
-            selected = "light"
-        else:
-            return None
-
+    selected = select_sweep(configured, now, state, IG_REFRESH_KEY)
+    if selected is None:
+        return None
     try:
         IG_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
         IG_SCHEDULE_PATH.write_text(json.dumps(state))
@@ -756,21 +737,11 @@ def finish_ig_schedule(mode: str | None, success: bool) -> None:
     if mode not in ("light", "full"):
         return
     now = datetime.now(SCRAPE_ZONE)
-    today = now.date().isoformat()
-    week = now.strftime("%G-W%V")
     try:
         state = json.loads(IG_SCHEDULE_PATH.read_text())
     except Exception:
         state = {}
-    if mode == "light":
-        state["last_light_completed_date" if success else "last_light_failed_date"] = today
-        if IG_REFRESH_KEY and state.get("forced_light_started") == IG_REFRESH_KEY:
-            state["last_forced_light_refresh"] = IG_REFRESH_KEY
-            state.pop("forced_light_started", None)
-    else:
-        state["last_full_completed_week" if success else "last_full_failed_week"] = week
-        if success:
-            state["last_light_completed_date"] = today
+    finish_sweep(os.environ.get("IG_SWEEP", "off").strip().lower(), mode, now, state, success, IG_REFRESH_KEY)
     try:
         IG_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
         IG_SCHEDULE_PATH.write_text(json.dumps(state))
@@ -859,7 +830,7 @@ def ig_pass() -> None:
     Only the cookie's address changed: it arrives in an env var."""
     flush_ig_reports()
     configured_mode = os.environ.get("IG_SWEEP", "off").strip().lower()
-    if configured_mode not in ("light", "full"):
+    if configured_mode not in ("light", "full", "daily"):
         return
     mode = scheduled_ig_mode(configured_mode)
     if mode is None:
@@ -888,7 +859,7 @@ def ig_pass() -> None:
     targets = cloud_post("/api/scout/targets", {})
     creators = [str(c.get("handle") if isinstance(c, dict) else c) for c in targets.get("creators") or []]
     handles = [h for h in dict.fromkeys(creators + [str(h) for h in targets.get("mine") or []]) if h]
-    force_handles = IG_REFRESH_HANDLES
+    force_handles = IG_REFRESH_HANDLES if mode == "light" else ()
     if force_handles:
         try:
             schedule_state = json.loads(IG_SCHEDULE_PATH.read_text())
@@ -955,6 +926,7 @@ def ig_pass() -> None:
             print(f"ig: {len(gone)} handles no longer resolve on Instagram: {sorted(gone)}", flush=True)
         result = cloud_post("/api/scout/ingest", {
             "run_id": run_id, "started_at": started,
+            "kind": "profiles",
             "snapshots": snapshots, "final": True,
             "stats": {
                 "handles": len(handles),
@@ -1001,11 +973,29 @@ def ig_pass() -> None:
         return
 
     pending: dict[str, list] = {"posts": [], "snaps": []}
+    ingest_errors: list[str] = []
 
     def keep(reels, rows, snap) -> None:
         pending["posts"].extend(rows)
         if snap:
             pending["snaps"].append(snap)
+        # Save each creator as it is read. A full watchlist takes hours; a
+        # container restart or late login wall must not lose the entire day.
+        handle = (snap or {}).get("handle") or next(
+            (row.get("handle") for row in [*reels, *rows] if row.get("handle")), None)
+        for at in range(0, max(len(reels), len(rows), 1), IG_CHUNK):
+            try:
+                cloud_post("/api/scout/ingest", {
+                    "run_id": run_id, "started_at": started, "kind": "sweep",
+                    "sightings": reels[at:at + IG_CHUNK],
+                    "posts": rows[at:at + IG_CHUNK],
+                    "snapshots": [snap] if snap and at == 0 else [],
+                    "swept": [handle] if handle and at == 0 else [],
+                    "final": False,
+                })
+            except Exception as error:
+                ingest_errors.append(f"@{handle or 'unknown'} chunk not stored: {error}"[:300])
+                print(f"ig: {ingest_errors[-1]}", flush=True)
 
     # Any Instagram pushback stops the entire multi-session pass. The cooldown
     # prevents the backup account from immediately repeating blocked traffic.
@@ -1023,28 +1013,26 @@ def ig_pass() -> None:
         print(f"ig: burner '{label}' stopped; remaining sessions held to protect them", flush=True)
         break
     cadence = pending["posts"]
-    stats = {"sightings": len(sightings), "errors": []}
+    stats = {"handles": len(handles), "sightings": len(sightings), "errors": ingest_errors}
     if stopped:
         stats["errors"].append(f"burner stopped: {stopped}"[:300])
 
     swept = sorted({s["handle"] for s in sightings} | set(access))
     access_rows = [{"handle": h, "access": a} for h, a in access.items()]
 
-    # Enough chunks for whichever list is longer: there are always more cadence
-    # rows than sightings, because photos and carousels have no plays to score.
-    span = max(len(sightings), len(cadence))
-    chunks = [sightings[i:i + IG_CHUNK] for i in range(0, span, IG_CHUNK)] or [[]]
-    # Every chunk but the last only stores. A chunk that still fails is
-    # recorded and skipped — its reels are picked up next run — but the final
-    # call always goes, because it is the one that picks.
+    # If a streaming write failed, retry the collected rows once before picking.
+    # All upserts are idempotent. Normally only the final pick request remains.
+    retry_span = max(len(sightings), len(cadence)) if ingest_errors else 0
+    chunks = [sightings[i:i + IG_CHUNK] for i in range(0, retry_span, IG_CHUNK)] or [[]]
     result: dict = {}
     for index, chunk in enumerate(chunks):
         final = index == len(chunks) - 1
         body = {
             "run_id": run_id, "started_at": started,
+            "kind": "sweep",
             "sightings": chunk,
-            "posts": cadence[index * IG_CHUNK:(index + 1) * IG_CHUNK],
-            "snapshots": pending["snaps"] if index == 0 else [],
+            "posts": cadence[index * IG_CHUNK:(index + 1) * IG_CHUNK] if retry_span else [],
+            "snapshots": pending["snaps"] if retry_span and index == 0 else [],
             "access": access_rows if index == 0 else [],
             "swept": swept if index == 0 else [],
             "final": final,
@@ -1065,13 +1053,16 @@ def ig_pass() -> None:
     outcome = "blocked" if stopped else "incomplete" if snapshot_missing else "complete"
     report_lines = [
         f"Run date: {report_date} ({SCRAPE_ZONE})",
-        "Refresh: Instagram profile/follower read",
+        "Refresh: daily creator profiles + reels + last 3 days' winning content" if configured_mode == "daily"
+            else "Refresh: Instagram profile/follower read + full reel sweep",
         f"Outcome: {outcome.upper()}",
         f"Tracked handles in this run: {len(handles)}",
         f"Fresh follower snapshots: {snapshots_read}",
         f"Missing follower snapshots: {snapshot_missing}",
         f"Cookie sessions available: {', '.join(label for label, _, _ in burners)}",
         "Creator view: /creators",
+        f"Reels refreshed: {len(sightings)}",
+        f"New winners queued for the Media Library: {result.get('queued', 0)}",
     ]
     if stopped:
         report_lines.append(f"Stopped for session safety: {stopped[:300]}")
@@ -1083,7 +1074,7 @@ def ig_pass() -> None:
         # The full sweep already read the models' reels; today's separate
         # model-reels slot is spent.
         mark_model_posts_done()
-    finish_ig_schedule(mode, success=not stopped and snapshot_missing == 0)
+    finish_ig_schedule(mode, success=not stopped and not stats["errors"])
     queue_ig_report(report_date, outcome, "\n".join(report_lines))
     ACTIVE_IG_MODE = None
 

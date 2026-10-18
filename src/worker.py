@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from . import config, media, mediaserv, pipeline, r2, tunnel
+from . import config, media, mediaserv, pipeline, r2, repurpose, tunnel
 
 POLL_IDLE_SEC = 2.0
 POLL_ERROR_SEC = 30.0
@@ -84,6 +84,13 @@ class Cloud:
 
     def report_r2(self, payload: dict) -> None:
         self._quietly("/api/worker/r2", payload)
+
+    def report_repurpose(self, payload: dict) -> None:
+        """A render's outcome — ready with its key and size, or failed with the
+        reason. Quiet like the other chatter: if the app cannot be reached, the
+        row's stale sweep hands the render back and the next poll retries it,
+        and the R2 key is stable so the retry replaces the same object."""
+        self._quietly("/api/worker/repurpose", payload)
 
     def reconcile_r2(self, payload: dict) -> dict:
         """Hand the app a full bucket listing and get back what it made of it."""
@@ -366,6 +373,73 @@ def run_r2_reconcile(cloud: Cloud, bucket: r2.Bucket | None) -> None:
     print(f"    R2 reconcile: {len(stored)} objects · {queued} orphaned · {requeued} missing")
 
 
+def _repurpose_source(item: dict, workdir: Path, user_config: dict) -> Path:
+    """Where one render reads from — the library's own copy first, the CDN link
+    the sweep kept while it lives second, and the reel resolved by yt-dlp (with
+    the cookie fallback) last. Same order the transcribe pipeline trusts."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    folder = str(item.get("folder") or "")
+    if folder:
+        found = r2.video_in(folder)
+        if found is not None:
+            return found
+    media_url = str(item.get("media_url") or "")
+    if media_url:
+        target = workdir / "source.mp4"
+        request = urllib.request.Request(media_url, headers={"User-Agent": media.DIRECT_UA})
+        with urllib.request.urlopen(request, timeout=media.DIRECT_TIMEOUT_SEC) as response:
+            target.write_bytes(response.read())
+        if target.stat().st_size == 0:
+            raise RuntimeError("the stored media link returned an empty file")
+        return target
+    url = str(item.get("source_url") or "")
+    if not url:
+        raise RuntimeError("nothing to render from — no folder, no media link, no source URL")
+    return media.download(url, workdir, user_config).media_path
+
+
+def run_repurpose_errands(cloud: Cloud, bucket: r2.Bucket | None, out_dir: Path,
+                          user_config: dict, work: dict) -> bool:
+    """Render the queued repurposes into fresh files and put them in R2.
+
+    The recipes and the reasoning live in `src/repurpose.py`; the cloud queues
+    with a seed and mints the key, so the two sides can never disagree about
+    where a file belongs. A failed render reports its own words — the row keeps
+    them — and a stable key means a retried render replaces the same object
+    rather than orphaning the copy before it.
+    """
+    errands = work.get("repurpose") or []
+    if not errands:
+        return False
+    if bucket is None:
+        global _warned_no_r2
+        if not _warned_no_r2:
+            print("  R2 is not configured — repurposed files cannot be delivered.")
+            _warned_no_r2 = True
+        return False
+
+    for item in errands:
+        rid = str(item.get("id") or "")
+        scratch = out_dir / ".work" / f"repurpose-{rid}"
+        target = scratch / "fresh.mp4"
+        try:
+            seed = int(item.get("seed") or 0)
+            print(f"  ♻ repurpose {item.get('post_id')} (seed {seed})")
+            source = _repurpose_source(item, scratch, user_config)
+            result = repurpose.render(source, target, seed)
+            key = str(item.get("key") or "")
+            r2.put(bucket, target, key)
+            cloud.report_repurpose({"id": rid, "status": "ready", "key": key, "bytes": result["bytes"]})
+            print(f"    → {key} ({result['bytes'] / 1e6:.1f} MB)")
+        except Exception as exc:  # a bad reel must not stop the queue
+            message = str(exc).strip() or exc.__class__.__name__
+            print(f"    render failed: {message.splitlines()[0][:160]}")
+            cloud.report_repurpose({"id": rid, "status": "failed", "error": message[:900]})
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+    return True
+
+
 def run_r2_errands(cloud: Cloud, bucket: r2.Bucket | None, work: dict) -> bool:
     """Move plan videos into R2, and reclaim the ones whose week has closed.
 
@@ -498,19 +572,22 @@ def serve(*, model: str = "best") -> None:
                 continue
 
             jobs = work.get("jobs") or []
-            # Plan videos ride along on the same poll — this Mac holds both the
-            # files and the R2 credentials, so it is the only side that can.
+            # Plan videos and repurpose renders ride along on the same poll —
+            # this Mac holds the files, the codecs and the R2 credentials, so
+            # it is the only side that can move any of it.
             moved = run_r2_errands(cloud, bucket, work)
+            rendered = run_repurpose_errands(cloud, bucket, out_dir, user_config, work)
+            busy = moved or rendered
             # And every six hours, what the bucket holds that no row claims.
             run_r2_reconcile(cloud, bucket)
             # Keep the cookie probes armed even if launchd slept through them.
             maybe_kick_session_check()
 
             if not jobs:
-                if not moved and idle_notice:
+                if not busy and idle_notice:
                     print("  waiting for links…")
                     idle_notice = False
-                if not moved and held < 2.0:
+                if not busy and held < 2.0:
                     # A server that holds the claim open (wait_sec) has already
                     # waited; one that does not returns at once, so keep a
                     # short fallback sleep rather than spinning on it.

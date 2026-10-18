@@ -1,7 +1,7 @@
 'use client'
 
-import RedditOverview from '@/components/reddit/RedditOverview'
+import RedditToday from '@/components/reddit/RedditToday'
 
-export default function RedditTrendsOverviewPage() {
-  return <RedditOverview />
+export default function RedditTrendsTodayPage() {
+  return <RedditToday />
 }

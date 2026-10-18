@@ -405,12 +405,20 @@ export async function keysForPlan(planId: string): Promise<string[]> {
 
 export async function keysForModel(modelId: string): Promise<string[]> {
   const rows = await sql.query(
-    `select i.r2_key from transcriber.plan_items i
-       join transcriber.plans p on p.id = i.plan_id
-      where p.model_id = $1 and i.r2_key is not null`,
+    `select r2_key as key from (
+       select i.r2_key from transcriber.plan_items i
+         join transcriber.plans p on p.id = i.plan_id
+        where p.model_id = $1 and i.r2_key is not null
+       union all
+       -- Repurposed outputs live outside the "plans/" sweep, so the row is the
+       -- only thing that can hand their keys over before it is deleted
+       -- (2026-10-18).
+       select r.output_key from transcriber.repurposes r
+        where r.model_id = $1 and r.output_key is not null
+     ) held`,
     [modelId],
   )
-  return rows.map((row) => String(row.r2_key))
+  return rows.map((row) => String(row.key))
 }
 
 /**

@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server'
 import { isWorker } from '@/lib/auth'
 import { sql } from '@/lib/db'
 
-// Daily header snapshots should land at 19:00 local; 26 hours allows for one
-// missed/delayed run. The deeper reel sweep is weekly, so allow eight days.
+// Both profiles and reel metrics refresh daily. Measure actual sightings,
+// since a header-only run is not proof that the Media Library was refreshed.
 const SNAPSHOT_STALE_HOURS = 26
-const SWEEP_STALE_DAYS = 8
+const SWEEP_STALE_DAYS = 26 / 24
 
 export async function POST(request: Request) {
   if (!isWorker(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -15,15 +15,13 @@ export async function POST(request: Request) {
   const [row] = await sql.query(
     `select
        (select max(seen_at) from transcriber.creator_snapshots) as snapshot_at,
-       (select max(started_at) from transcriber.scout_runs
-         where notes->>'kind' is distinct from 'autodraft') as sweep_at,
+       (select max(seen_at) from transcriber.sightings) as sweep_at,
        (select coalesce(notes->'errors', '[]'::jsonb) from transcriber.scout_runs
-         where notes->>'kind' is distinct from 'autodraft'
+         where sightings > 0 and notes->>'kind' is distinct from 'profiles'
          order by started_at desc limit 1) as sweep_errors,
        extract(epoch from (now() - (select max(seen_at) from transcriber.creator_snapshots))) / 3600
          as snapshot_age_hours,
-       extract(epoch from (now() - (select max(started_at) from transcriber.scout_runs
-         where notes->>'kind' is distinct from 'autodraft'))) / 86400 as sweep_age_days`,
+       extract(epoch from (now() - (select max(seen_at) from transcriber.sightings))) / 86400 as sweep_age_days`,
   )
 
   const snapshotAge = row?.snapshot_age_hours == null ? null : Number(row.snapshot_age_hours)
@@ -37,8 +35,8 @@ export async function POST(request: Request) {
   }
   if (sweepAge === null || sweepAge > SWEEP_STALE_DAYS) {
     problems.push(sweepAge === null
-      ? 'no full Instagram sweep has ever completed'
-      : `the last full Instagram sweep is ${sweepAge.toFixed(1)} days old`)
+      ? 'no Instagram reel metrics have ever been collected'
+      : `daily Instagram reel metrics are ${(sweepAge * 24).toFixed(1)} hours old`)
   }
   const sweepErrors = Array.isArray(row?.sweep_errors) ? row.sweep_errors : []
   if (sweepErrors.length > 0) {

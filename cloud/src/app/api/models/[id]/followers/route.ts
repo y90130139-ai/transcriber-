@@ -1,12 +1,11 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { newId } from '@/lib/models'
 import { isPlatform, readCount } from '@/lib/socials'
 
 type Params = { params: Promise<{ id: string }> }
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const notFound = () => NextResponse.json({ error: 'not found' }, { status: 404 })
 
 /** Enough readings to draw a line and see a trend, not enough to be a report.
@@ -22,8 +21,9 @@ const KEEP = 52
  * in by hand and stamped `manual`; when Insights lands it writes rows here with
  * `source = 'insights'` and nothing else in the app has to change.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const readings = await sql.query(
@@ -41,7 +41,8 @@ export async function GET(_request: Request, { params }: Params) {
 /** Record one reading. Never an update — the history is the point, so a
  *  correction is a new row and a mistake is deleted rather than overwritten. */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
 
@@ -72,7 +73,8 @@ export async function POST(request: Request, { params }: Params) {
  *  for good. `?reading=` rather than a body, because a DELETE with one is not
  *  something every client sends. */
 export async function DELETE(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const reading = new URL(request.url).searchParams.get('reading')
   if (!reading) return NextResponse.json({ error: 'which reading?' }, { status: 400 })

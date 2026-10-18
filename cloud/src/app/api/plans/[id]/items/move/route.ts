@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { isPastWeek } from '@/lib/carry'
 import { sql } from '@/lib/db'
 import { addDays, currentWeekOf, mondayOf } from '@/lib/dates'
@@ -10,7 +10,6 @@ type Params = { params: Promise<{ id: string }> }
 /** The last day of the week the plan belongs to. Same as creating one. */
 const DUE_OFFSET_DAYS = 6
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 const isDate = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 
 /**
@@ -27,7 +26,8 @@ const isDate = (value: unknown): value is string => typeof value === 'string' &&
  * backlog. Moving a draft card around is planning, not a miss.
  */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   const itemId = typeof body.item === 'string' ? body.item : ''

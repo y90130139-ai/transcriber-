@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { carryTarget, isPastWeek, type WeekRef } from '@/lib/carry'
 import { sql } from '@/lib/db'
 import { addDays, currentWeekOf } from '@/lib/dates'
@@ -10,7 +10,6 @@ type Params = { params: Promise<{ id: string }> }
 /** The last day of the week the plan belongs to. Same as creating one. */
 const DUE_OFFSET_DAYS = 6
 
-const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
 /**
  * Move every video on a past week onto her current week, then drop the empty
@@ -25,8 +24,9 @@ const unauthorized = () => NextResponse.json({ error: 'unauthorized' }, { status
  * and the source week is only deleted once nothing is left on it. No R2
  * object is trashed: every one of them moved with its item.
  */
-export async function POST(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return unauthorized()
+export async function POST(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id } = await params
 
   const [source] = await sql.query(

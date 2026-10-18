@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
+import { logAppEvent } from '@/lib/app-activity'
 import { issueModelSession } from '@/lib/model-auth'
 import { touchLogin, verifyLogin } from '@/lib/model-accounts'
 import { rateLimit } from '@/lib/ratelimit'
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
 
   const { token } = issueModelSession(account)
   await touchLogin(account.id)
+  // Her history, not just her latest state (2026-10-14): the account row can
+  // only keep when she last signed in; every sign-in lands here too.
+  after(async () => {
+    await logAppEvent(account.modelId, 'signin')
+  })
   return NextResponse.json({
     ok: true,
     token,

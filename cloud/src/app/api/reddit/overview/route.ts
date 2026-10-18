@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { cleanRange, overviewData } from '@/lib/reddit/queries'
 import { seedRegistry } from '@/lib/reddit/store'
 
@@ -7,7 +7,8 @@ import { seedRegistry } from '@/lib/reddit/store'
  *  previous-period overlay, trending and rising topics, top posts by
  *  velocity, collector health and the newest alerts — all from the cache. */
 export async function GET(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const url = new URL(request.url)
   const range = cleanRange(url.searchParams.get('range'))
   const from = url.searchParams.get('from')

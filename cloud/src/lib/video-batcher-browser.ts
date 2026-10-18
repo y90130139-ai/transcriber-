@@ -348,9 +348,10 @@ export async function renderVideo(media: LocalMedia, options: BrowserRenderOptio
         await video.play()
       }
       if (options.signal.aborted) break
+      await nextVideoFrame(video)
+      if (options.signal.aborted || video.currentTime >= trim.end) break
       drawFrame(context, video, video.videoWidth, video.videoHeight, canvas.width, canvas.height, size.crop, options, watermarkImage)
       options.onProgress(Math.min(0.99, (video.currentTime - trim.start) / (trim.end - trim.start)))
-      await nextFrame()
     }
     if (options.signal.aborted) throw abortError()
 
@@ -383,6 +384,54 @@ export async function renderVideo(media: LocalMedia, options: BrowserRenderOptio
   }
 }
 
+/** Convert an already-rendered video frame to a still in the browser. Keeping
+ *  still-image targets on Canvas avoids a second lossy FFmpeg encode and also
+ *  preserves the video render's effects, captions and watermark. */
+export async function extractVideoFrame(
+  blob: Blob,
+  mime: 'image/jpeg' | 'image/png' | 'image/webp',
+  quality: number,
+): Promise<RenderedMedia> {
+  const url = URL.createObjectURL(blob)
+  const video = document.createElement('video')
+  video.preload = 'metadata'
+  video.muted = true
+  video.playsInline = true
+  video.src = url
+  try {
+    await waitForMediaMetadata(video)
+    if (!video.videoWidth || !video.videoHeight) throw new Error('The rendered video has no frame to export.')
+    const duration = await readFiniteDuration(video)
+    if (duration && duration > 0.1) {
+      video.currentTime = Math.min(0.1, duration / 3)
+      await waitForSeek(video)
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d', { alpha: mime === 'image/png' })
+    if (!context) throw new Error('Canvas rendering is unavailable in this browser.')
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const output = await canvasToBlob(canvas, mime, quality)
+    if (!output.size) throw new Error('The browser returned an empty still frame.')
+    const actualMime = output.type || mime
+    return {
+      blob: output,
+      mimeType: actualMime,
+      extension: extensionForMime(actualMime),
+      durationSeconds: null,
+      width: canvas.width,
+      height: canvas.height,
+      warnings: [],
+    }
+  } finally {
+    video.pause()
+    video.removeAttribute('src')
+    video.load()
+    URL.revokeObjectURL(url)
+  }
+}
+
 export async function verifyRenderedMedia(blob: Blob, kind: MediaKind): Promise<{ width: number; height: number; duration: number | null }> {
   if (!blob.size) throw new Error('The output is empty.')
   const url = URL.createObjectURL(blob)
@@ -402,6 +451,40 @@ export async function verifyRenderedMedia(blob: Blob, kind: MediaKind): Promise<
     }
     return { width: video.videoWidth, height: video.videoHeight, duration }
   } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+/** Audio-only converter targets need a decoded, finite duration check too. */
+export async function verifyRenderedAudio(blob: Blob): Promise<{ duration: number }> {
+  if (!blob.size) throw new Error('The audio output is empty.')
+  const url = URL.createObjectURL(blob)
+  const audio = document.createElement('audio')
+  audio.preload = 'metadata'
+  audio.src = url
+  try {
+    const duration = await new Promise<number>((resolve, reject) => {
+      const timeout = window.setTimeout(() => finish(new Error('Timed out while reading the audio output.')), 15_000)
+      const finish = (error?: Error) => {
+        window.clearTimeout(timeout)
+        audio.removeEventListener('loadedmetadata', onMetadata)
+        audio.removeEventListener('error', onError)
+        if (error) reject(error)
+        else if (Number.isFinite(audio.duration) && audio.duration > 0) resolve(audio.duration)
+        else reject(new Error('The audio output has no finite duration.'))
+      }
+      const onMetadata = () => finish()
+      const onError = () => finish(new Error('The browser could not decode the audio output.'))
+      audio.addEventListener('loadedmetadata', onMetadata, { once: true })
+      audio.addEventListener('error', onError, { once: true })
+      audio.load()
+      if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) finish()
+    })
+    return { duration }
+  } finally {
+    audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
     URL.revokeObjectURL(url)
   }
 }
@@ -547,6 +630,9 @@ function selectVideoMime(requested: BrowserRenderOptions['videoMime'], supported
   const filter = requested === 'auto'
     ? supported
     : supported.filter((mime) => mime.startsWith(requested))
+  if (requested === 'video/webm') {
+    return filter.find((mime) => mime.toLowerCase().includes('vp8')) ?? filter[0] ?? null
+  }
   return filter[0] ?? null
 }
 
@@ -668,6 +754,19 @@ function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number):
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+function nextVideoFrame(video: HTMLVideoElement): Promise<void> {
+  const videoWithFrameCallback = video as HTMLVideoElement & {
+    requestVideoFrameCallback?: (callback: (now: number, metadata: VideoFrameCallbackMetadata) => void) => number
+  }
+  // The render source is intentionally detached from the UI. Chromium can
+  // stop delivering video-frame callbacks for detached elements, so only use
+  // this path when a future caller renders an attached video.
+  if (video.isConnected && videoWithFrameCallback.requestVideoFrameCallback) {
+    return new Promise((resolve) => videoWithFrameCallback.requestVideoFrameCallback?.(() => resolve()))
+  }
+  return nextFrame()
 }
 
 function abortError(): Error {

@@ -12,6 +12,7 @@ import ShotListView from './ShotListView'
 import { buildShotList } from '@/lib/shotlist'
 import { effortFor } from '@/lib/effort'
 import { SOURCE_TEXT } from '@/lib/source'
+import { versionBriefFor } from '@/lib/version-brief'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -292,6 +293,7 @@ export default function PlanItemCard({
   // spot; taking it back returns it to a plain card.
   const bucket = made ? 'repurpose' : item.made_at ? null : item.bucket
   const kind = cardKind(bucket, item.source_post, item.mine)
+  const versionBrief = versionBriefFor(item.title, item.versions, item.notes)
   // A repurpose is posted as it is, and one of her own reels is hers to
   // repost or not — neither gets filming directions.
   const filming = kind !== 'repurpose' && kind !== 'yours'
@@ -381,8 +383,41 @@ export default function PlanItemCard({
           always did. */}
       <div className="plan-kind" data-kind={kind}>
         <b>{KIND_TEXT[kind].label}</b>
-        <span>{kind === 'repurpose' && item.repurposed_at ? REPURPOSE_READY : KIND_TEXT[kind].line}</span>
+        <span>
+          {kind === 'repurpose' && item.repurposed_at
+            ? REPURPOSE_READY
+            : versionBrief
+              ? versionBrief.current
+                ? versionBrief.previous
+                  ? `Version ${versionBrief.number} of this format. The V1 → V${versionBrief.number} comparison below shows what changes.`
+                  : `Version ${versionBrief.number} of this format. The line below tells you what to change for this take.`
+                : `Version ${versionBrief.number} is labelled, but its change from Version 1 is not specified yet. Ask the team before filming.`
+              : KIND_TEXT[kind].line}
+        </span>
       </div>
+
+      {filming && versionBrief && (
+        <div className="plan-version-brief" aria-label={`Version ${versionBrief.number} filming direction`}>
+          <span className="plan-label">Version {versionBrief.number} — what to change</span>
+          {versionBrief.current ? (
+            <>
+              <p><b>For this take</b>{versionBrief.current}</p>
+              {versionBrief.previous && (
+                <p className="plan-version-compare">
+                  <b>Compared with V1</b>
+                  <span>{versionBrief.previous} <span aria-hidden="true">→</span> {versionBrief.current}</span>
+                </p>
+              )}
+              {versionBrief.direction && (
+                <p><b>Film it</b>{versionBrief.direction}</p>
+              )}
+              <p className="plan-version-keep">Keep the same core idea and timing; make the version change above.</p>
+            </>
+          ) : (
+            <p>The outfit or action change for this version has not been written on the card yet. Ask the team before filming.</p>
+          )}
+        </div>
+      )}
 
       {/* A reskin's one line: what changes from the reference. Its own block
           rather than a line in the direction, because it is the whole card. */}
@@ -577,7 +612,7 @@ export default function PlanItemCard({
 
       {/* A format card's versions as fields (Geno, 2026-10-13): her one card,
           several outfits — what changes each time, in her own list. */}
-      {item.versions && item.versions.length > 1 && (
+      {!versionBrief && item.versions && item.versions.length > 1 && (
         <div className="plan-versions">
           <span className="plan-label">Versions</span>
           <ul>

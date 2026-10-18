@@ -1,5 +1,5 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
 import { fetchRequirementProfile } from '@/lib/reddit/collect'
 
 /** The u/ search: read one account's karma and account age so the board can
@@ -8,7 +8,8 @@ import { fetchRequirementProfile } from '@/lib/reddit/collect'
 export const maxDuration = 30
 
 export async function POST(request: Request) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   try {
     const body = await request.json().catch(() => ({}))
     const username = String(body.username ?? '').trim()

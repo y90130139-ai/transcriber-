@@ -1,7 +1,7 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { nanoid } from 'nanoid'
-import { isSignedIn } from '@/lib/auth'
 import { sql } from '@/lib/db'
 import { findGerman } from '@/lib/german'
 import { appendItems } from '@/lib/models'
@@ -26,7 +26,8 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
-        if (!(await isSignedIn())) throw new Error('unauthorized')
+        const denied = await guardAccess(request)
+        if (denied) throw new Error('unauthorized')
         // A drop in the plan editor carries the week it is for; the id rides
         // the token because the completion callback has no other context.
         const asked = (() => {

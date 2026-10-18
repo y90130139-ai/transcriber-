@@ -12,6 +12,7 @@ import {
   DEFAULT_METADATA_SETTINGS,
   EFFECT_DEFINITIONS,
   formatOutputName,
+  renderConcurrencyLimit,
   resolveVariation,
   serializePreset,
   validateEffectRanges,
@@ -29,9 +30,11 @@ import {
 import { exportPassActive, runExportPass } from '@/lib/video-batcher-ffmpeg'
 import {
   detectBrowserMediaCapabilities,
+  extractVideoFrame,
   inspectLocalMedia,
   renderImage,
   renderVideo,
+  verifyRenderedAudio,
   verifyRenderedMedia,
   type AudioRenderSettings,
   type BrowserMediaCapabilities,
@@ -46,7 +49,7 @@ import {
  *  under /video-batcher, listed as sub-tabs under Tools in the sidebar, and
  *  drawn by the layout so the loaded files and the queue survive switching. */
 export type WorkspaceTab = 'effects' | 'captions' | 'audio' | 'metadata' | 'watermark' | 'converter' | 'compressor' | 'downloads'
-type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled'
+type JobStatus = 'queued' | 'processing' | 'completed' | 'fallback' | 'failed' | 'cancelled'
 
 interface BatchJob {
   id: string
@@ -63,6 +66,9 @@ interface BatchJob {
   outputUrl: string | null
   outputBytes: number | null
   outputMime: string | null
+  outputWidth: number | null
+  outputHeight: number | null
+  outputDuration: number | null
   elapsedMs: number | null
   error: string | null
   warnings: string[]
@@ -135,6 +141,40 @@ const BUILT_IN_PRESETS: { name: string; setup: (current: BatchSettings) => Batch
     name: 'Social video export',
     setup: (current) => ({ ...current, aspectRatio: 'portrait', resolution: '1080p', videoBitrateMbps: 6 }),
   },
+  {
+    /* The studio side of ♻ Repurpose (2026-10-18): the same shape the Mac's
+       automatic render uses (src/repurpose.py, docs/REPURPOSE.md) — mirror,
+       slight zoom and colour drift, a small speed step, metadata scrubbed and
+       a fresh MP4. For the case where a person drives the render by hand. */
+    name: 'Repurpose — fresh video',
+    setup: (current) => ({
+      ...current,
+      flipHorizontal: true,
+      effects: {
+        ...current.effects,
+        brightness: { enabled: true, min: -3, max: 3 },
+        contrast: { enabled: true, min: -4, max: 4 },
+        saturation: { enabled: true, min: -5, max: 5 },
+        hue: { enabled: true, min: -3, max: 3 },
+        zoom: { enabled: true, min: 1.03, max: 1.08 },
+        shiftX: { enabled: true, min: -0.6, max: 0.6 },
+        shiftY: { enabled: true, min: -0.6, max: 0.6 },
+        speed: { enabled: true, min: 1.01, max: 1.03 },
+      },
+      metadata: {
+        ...(current.metadata ?? DEFAULT_METADATA_SETTINGS),
+        variationTag: false,
+        creationTime: true,
+        comments: false,
+        title: false,
+        gps: true,
+        sourceTags: true,
+        cleanExport: true,
+        encoderTagEnabled: false,
+      },
+      converter: { target: 'mp4', quality: 88 },
+    }),
+  },
 ]
 
 const PRESET_STORAGE_KEY = 'social-transcriber.video-batcher.presets.v1'
@@ -144,7 +184,9 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
   const [activeFileId, setActiveFileId] = useState<string | null>(null)
   const [effects, setEffects] = useState<EffectRanges>(() => structuredClone(DEFAULT_EFFECT_RANGES))
   const [variationCount, setVariationCount] = useState(3)
-  const [batchSeed, setBatchSeed] = useState(() => Math.floor(Math.random() * 2 ** 31))
+  // Keep the first server and browser renders identical; choose the session
+  // seed only after hydration so it cannot invalidate the client tree.
+  const [batchSeed, setBatchSeed] = useState(0)
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('original')
   const [resolution, setResolution] = useState<ResolutionCap>('1080p')
   const [videoMime, setVideoMime] = useState<BatchSettings['videoMime']>('auto')
@@ -196,20 +238,22 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
   const abortRef = useRef<AbortController | null>(null)
   const pausedRef = useRef(false)
   const latestSettingsRef = useRef<BatchSettings | null>(null)
-  const activeCountRef = useRef(0)
-  const completedInRunRef = useRef(0)
   const startTimeRef = useRef<number | null>(null)
 
   const activeMedia = useMemo(() => files.find((file) => file.id === activeFileId) ?? files[0] ?? null, [files, activeFileId])
   const validFiles = useMemo(() => files.filter((file) => !file.inspectionError && file.width > 0 && file.height > 0), [files])
   const captionPool = useMemo(() => captionText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), [captionText])
   const completedJobs = useMemo(() => jobs.filter((job) => job.status === 'completed'), [jobs])
+  const fallbackJobs = useMemo(() => jobs.filter((job) => job.status === 'fallback'), [jobs])
+  const readyJobs = useMemo(() => jobs.filter((job) => job.status === 'completed' || job.status === 'fallback'), [jobs])
   const failedJobs = useMemo(() => jobs.filter((job) => job.status === 'failed'), [jobs])
   const pendingJobs = useMemo(() => jobs.filter((job) => job.status === 'queued' || job.status === 'processing'), [jobs])
   const totalPlanned = validFiles.length * variationCount
   const validationError = validateEffectRanges(effects)
+  const plannedConcurrency = renderConcurrencyLimit(validFiles.map((file) => file.kind), capabilities?.hardwareConcurrency ?? 2)
 
   useEffect(() => {
+    setBatchSeed(Math.floor(Math.random() * 2 ** 31))
     setCapabilities(detectBrowserMediaCapabilities())
     try {
       const stored = JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) ?? '[]') as unknown[]
@@ -331,49 +375,63 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
     const controller = new AbortController()
     abortRef.current = controller
     pausedRef.current = false
-    activeCountRef.current = tasks.length
-    completedInRunRef.current = 0
     startTimeRef.current = performance.now()
     setIsRunning(true)
     setIsPaused(false)
     setOverallProgress(0)
     setBatchMessage(`Preparing ${tasks.length} local output${tasks.length === 1 ? '' : 's'}…`)
 
-    for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 1) {
-      const task = tasks[taskIndex]
+    const progressByTask = new Map(tasks.map((task) => [task.id, 0]))
+    const setTaskProgress = (taskId: string, progress: number) => {
+      progressByTask.set(taskId, Math.max(0, Math.min(1, progress)))
+      const totalProgress = [...progressByTask.values()].reduce((sum, value) => sum + value, 0)
+      setOverallProgress(totalProgress / tasks.length)
+    }
+    const markCancelled = (task: BatchJob, message: string) => {
+      updateJob(task.id, { status: 'cancelled', progress: 0, error: message })
+      setTaskProgress(task.id, 1)
+    }
+
+    const processTask = async (task: BatchJob) => {
       const media = files.find((file) => file.id === task.sourceId)
       if (controller.signal.aborted) {
-        updateJob(task.id, { status: 'cancelled', progress: 0, error: 'Cancelled before this output started.' })
-        completedInRunRef.current += 1
-        continue
+        markCancelled(task, 'Cancelled before this output started.')
+        return
       }
       if (!media) {
         updateJob(task.id, { status: 'failed', error: 'The original file is no longer in this batch.' })
-        completedInRunRef.current += 1
-        continue
+        setTaskProgress(task.id, 1)
+        return
       }
       while (pausedRef.current && !controller.signal.aborted) await waitMs(100)
       if (controller.signal.aborted) {
-        updateJob(task.id, { status: 'cancelled', progress: 0, error: 'Cancelled before this output started.' })
-        completedInRunRef.current += 1
-        continue
+        markCancelled(task, 'Cancelled before this output started.')
+        return
       }
 
       const startedAt = performance.now()
       const variation = resolveVariation(settings.effects, task.batchSeed, task.sourceIndex, task.variationIndex, captionPool.length)
       const caption = { ...settings.caption, text: captionPool[variation.captionIndex ?? 0] ?? '' }
+      const stillTargetMime = imageTargetMime(settings.converter.target)
+      const nativeWebmTarget = media.kind === 'video' && settings.converter.target === 'webm'
       let effectiveBitrate = settings.videoBitrateMbps
       if (settings.metadata.encoderParams) {
         const jitter = createSeededRandom(variation.seed ^ 0x2545f491)()
         effectiveBitrate = Math.round(Math.min(20, Math.max(0.5, effectiveBitrate * (0.94 + jitter * 0.12))) * 10) / 10
       }
+      if (nativeWebmTarget && settings.converter.quality < 100) {
+        effectiveBitrate = Math.min(effectiveBitrate, Math.max(0.5, 6 * settings.converter.quality / 100))
+      }
+      const requestedImageQuality = stillTargetMime
+        ? Math.min(settings.imageQuality, settings.converter.quality / 100)
+        : settings.imageQuality
       const options: BrowserRenderOptions = {
         variation,
         aspectRatio: settings.aspectRatio,
         resolution: settings.resolution,
-        videoMime: settings.videoMime,
-        imageMime: settings.imageMime,
-        imageQuality: settings.imageQuality,
+        videoMime: nativeWebmTarget ? 'video/webm' : settings.videoMime,
+        imageMime: media.kind === 'image' ? stillTargetMime ?? settings.imageMime : settings.imageMime,
+        imageQuality: requestedImageQuality,
         videoBitrateMbps: effectiveBitrate,
         flipHorizontal: settings.flipHorizontal,
         flipVertical: settings.flipVertical,
@@ -385,36 +443,57 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
         onProgress: (progress) => {
           const bounded = Math.max(0, Math.min(1, progress))
           updateJob(task.id, { status: 'processing', progress: bounded })
-          setOverallProgress((completedInRunRef.current + bounded) / Math.max(1, activeCountRef.current))
+          setTaskProgress(task.id, bounded)
           setBatchMessage(`Rendering ${task.sourceName} · variation ${task.variationIndex + 1} of ${settings.variationCount}`)
         },
       }
 
       updateJob(task.id, { status: 'processing', progress: 0, phase: null, error: null })
       try {
-        const rendered: RenderedMedia = media.kind === 'image'
+        let rendered: RenderedMedia = media.kind === 'image'
           ? await renderImage(media, options)
           : await renderVideo(media, options)
         if (controller.signal.aborted) throw new DOMException('Processing was cancelled.', 'AbortError')
-        await verifyRenderedMedia(rendered.blob, media.kind)
+        let outputKind: 'image' | 'video' = media.kind
+        let converterSettings = settings.converter
+        if (stillTargetMime && media.kind === 'video') {
+          const renderedVideo = rendered
+          const still = await extractVideoFrame(renderedVideo.blob, stillTargetMime, requestedImageQuality)
+          rendered = { ...still, warnings: [...renderedVideo.warnings, ...still.warnings] }
+          outputKind = 'image'
+          converterSettings = { target: 'keep', quality: 100 }
+        } else if (stillTargetMime && media.kind === 'image') {
+          // Canvas already encoded this requested still format; leave the
+          // FFmpeg pass for metadata only, avoiding a second lossy encode.
+          converterSettings = { target: 'keep', quality: 100 }
+        } else if (nativeWebmTarget) {
+          // MediaRecorder already produced WebM. Avoid a second, fragile WASM
+          // VP8 transcode when the requested container is the same.
+          converterSettings = { target: 'keep', quality: 100 }
+        }
+        const renderedVerification = await verifyRenderedMedia(rendered.blob, outputKind)
+        if (outputKind === 'video') assertDurationWithinTolerance(rendered.durationSeconds, renderedVerification.duration)
 
         let finalBlob = rendered.blob
         let finalMime = rendered.mimeType
         let finalExtension = rendered.extension
+        let outputVerification = renderedVerification
         const passWarnings: string[] = []
-        if (exportPassActive(settings.metadata, settings.converter)) {
+        let exportFallback = false
+        if (exportPassActive(settings.metadata, converterSettings)) {
           updateJob(task.id, { phase: 'Preparing the on-device export pass…' })
           const pass = await runExportPass(
-            { blob: rendered.blob, extension: rendered.extension, mimeType: rendered.mimeType, kind: media.kind },
+            { blob: rendered.blob, extension: rendered.extension, mimeType: rendered.mimeType, kind: outputKind, durationSeconds: rendered.durationSeconds },
             settings.metadata,
-            settings.converter,
+            converterSettings,
             { seed: variation.seed, batchSeed: task.batchSeed, variationIndex: task.variationIndex, variationCount: settings.variationCount },
             {
+              signal: controller.signal,
               onPhase: (phase) => updateJob(task.id, { phase }),
               onProgress: (progress) => {
                 const bounded = 0.92 + Math.max(0, Math.min(1, progress)) * 0.08
                 updateJob(task.id, { progress: bounded })
-                setOverallProgress((completedInRunRef.current + bounded) / Math.max(1, activeCountRef.current))
+                setTaskProgress(task.id, bounded)
               },
             },
           )
@@ -422,8 +501,20 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
           finalMime = pass.mimeType
           finalExtension = pass.extension
           passWarnings.push(...pass.warnings)
+          exportFallback = pass.fallback
         }
         if (controller.signal.aborted) throw new DOMException('Processing was cancelled.', 'AbortError')
+
+        const finalMimeType = finalMime.split(';')[0]
+        if (finalMimeType.startsWith('image/')) {
+          outputVerification = await verifyRenderedMedia(finalBlob, 'image')
+        } else if (finalMimeType === 'video/webm' || finalMimeType === 'video/mp4') {
+          outputVerification = await verifyRenderedMedia(finalBlob, 'video')
+          assertDurationWithinTolerance(rendered.durationSeconds, outputVerification.duration)
+        } else if (finalMimeType.startsWith('audio/')) {
+          const audioVerification = await verifyRenderedAudio(finalBlob)
+          outputVerification = { width: 0, height: 0, duration: audioVerification.duration }
+        }
 
         const name = formatOutputName(
           genericOutputNames ? 'media' : media.file.name,
@@ -434,13 +525,16 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
         )
         const outputUrl = rememberUrl(URL.createObjectURL(finalBlob))
         updateJob(task.id, {
-          status: 'completed',
+          status: exportFallback ? 'fallback' : 'completed',
           progress: 1,
           phase: null,
           outputName: name,
           outputUrl,
           outputBytes: finalBlob.size,
           outputMime: finalMime,
+          outputWidth: finalMimeType.startsWith('audio/') ? null : outputVerification.width,
+          outputHeight: finalMimeType.startsWith('audio/') ? null : outputVerification.height,
+          outputDuration: outputVerification.duration,
           elapsedMs: Math.round(performance.now() - startedAt),
           warnings: [...rendered.warnings, ...passWarnings],
           error: null,
@@ -455,17 +549,37 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
           error: cancelled ? 'Cancelled.' : error instanceof Error ? error.message : 'The browser could not process this output.',
         })
       } finally {
-        completedInRunRef.current += 1
-        setOverallProgress(completedInRunRef.current / Math.max(1, activeCountRef.current))
+        setTaskProgress(task.id, 1)
       }
     }
+
+    const workerCount = Math.min(tasks.length, renderConcurrencyLimit(validFiles.map((file) => file.kind), capabilities?.hardwareConcurrency ?? 2))
+    let nextTaskIndex = 0
+    const worker = async () => {
+      while (true) {
+        while (pausedRef.current && !controller.signal.aborted) await waitMs(50)
+        if (controller.signal.aborted) {
+          while (nextTaskIndex < tasks.length) {
+            markCancelled(tasks[nextTaskIndex++], 'Cancelled before this output started.')
+          }
+          return
+        }
+        const taskIndex = nextTaskIndex++
+        if (taskIndex >= tasks.length) return
+        await processTask(tasks[taskIndex])
+      }
+    }
+
+    await Promise.all(Array.from({ length: workerCount }, () => worker()))
 
     abortRef.current = null
     pausedRef.current = false
     setIsPaused(false)
     setIsRunning(false)
     setOverallProgress(1)
-    setBatchMessage(controller.signal.aborted ? 'Batch cancelled. Finished outputs remain available below.' : 'Batch finished. Each completed output was decoded and checked locally.')
+    setBatchMessage(controller.signal.aborted
+      ? 'Batch cancelled. Finished outputs remain available below.'
+      : 'Batch finished. Clean and fallback outputs are identified below.')
   }
 
   const startBatch = () => {
@@ -484,6 +598,11 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
     }
     if (validFiles.some((file) => file.kind === 'image') && !capabilities?.imageMimeTypes.includes(imageMime)) {
       setBatchMessage(`The selected image format ${imageMime.replace('image/', '').toUpperCase()} is not supported here.`)
+      return
+    }
+    const targetStillMime = imageTargetMime(converterSettings.target)
+    if (targetStillMime && !capabilities?.imageMimeTypes.includes(targetStillMime)) {
+      setBatchMessage(`The selected still output ${targetStillMime.replace('image/', '').toUpperCase()} is not supported here.`)
       return
     }
     const settings = makeSettings()
@@ -505,6 +624,9 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
       outputUrl: null,
       outputBytes: null,
       outputMime: null,
+      outputWidth: null,
+      outputHeight: null,
+      outputDuration: null,
       elapsedMs: null,
       error: null,
       warnings: [],
@@ -525,7 +647,7 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
   const retryJob = (job: BatchJob) => {
     if (isRunning || !latestSettingsRef.current) return
     if (job.outputUrl) releaseUrl(job.outputUrl)
-    updateJob(job.id, { status: 'queued', progress: 0, phase: null, outputName: null, outputUrl: null, outputBytes: null, outputMime: null, elapsedMs: null, error: null, warnings: [] })
+    updateJob(job.id, { status: 'queued', progress: 0, phase: null, outputName: null, outputUrl: null, outputBytes: null, outputMime: null, outputWidth: null, outputHeight: null, outputDuration: null, elapsedMs: null, error: null, warnings: [] })
     void runJobs([{ ...job, status: 'queued', outputUrl: null, error: null }], latestSettingsRef.current)
   }
 
@@ -535,7 +657,7 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
   }
 
   const clearDownloads = () => {
-    jobs.filter((job) => job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled').forEach((job) => releaseUrl(job.outputUrl))
+    jobs.filter((job) => job.status === 'completed' || job.status === 'fallback' || job.status === 'failed' || job.status === 'cancelled').forEach((job) => releaseUrl(job.outputUrl))
     setJobs((current) => current.filter((job) => job.status === 'queued' || job.status === 'processing'))
   }
 
@@ -1018,7 +1140,7 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
           </div>}
 
           {workspace === 'downloads' && <div className="vb-panel-body vb-downloads-panel">
-            <div className="vb-downloads-head"><p>{completedJobs.length} ready <span>·</span> {failedJobs.length} failed</p><button type="button" className="vb-text-button" onClick={clearDownloads} disabled={isRunning || (!completedJobs.length && !failedJobs.length)}>Clear finished</button></div>
+            <div className="vb-downloads-head"><p>{readyJobs.length} ready <span>·</span> {fallbackJobs.length} fallback <span>·</span> {failedJobs.length} failed</p><button type="button" className="vb-text-button" onClick={clearDownloads} disabled={isRunning || (!readyJobs.length && !failedJobs.length)}>Clear finished</button></div>
             {jobs.length === 0 ? <div className="vb-empty-state"><span><Icon name="download" size={20} /></span><strong>No output files yet</strong><p>Generated media appears here after it passes output verification.</p></div> : (
               <div className="vb-job-list">
                 {jobs.map((job) => <JobRow key={job.id} job={job} onDownload={() => downloadJob(job)} onRetry={() => retryJob(job)} onRemove={() => removeJob(job)} disabled={isRunning} />)}
@@ -1076,11 +1198,11 @@ export default function VideoBatcher({ workspace }: { workspace: WorkspaceTab })
       <section className="vb-process-bar" aria-label="Batch processing">
         <div className="vb-process-config">
           <label><span>Variations</span><input type="number" min="1" max="100" value={variationCount} onChange={(event) => setVariationCount(numberValue(event, 1, 1, 100))} disabled={isRunning} /></label>
-          <div className="vb-process-stat"><span>Concurrent outputs</span><strong>1 · sequential</strong></div>
+          <div className="vb-process-stat" title="Canvas renders are bounded in parallel; FFmpeg export passes remain serialized for stability."><span>Parallel renders</span><strong>Up to {plannedConcurrency}</strong></div>
           <div className="vb-process-stat"><span>Planned outputs</span><strong>{totalPlanned}</strong></div>
         </div>
         <div className="vb-progress-area">
-        <div className="vb-progress-copy"><span>{batchMessage || (validFiles.length ? 'Ready to generate' : 'Add media to queue a batch')}</span><span>{isRunning ? `${Math.round(overallProgress * 100)}% · ${formatEta(startTimeRef.current, overallProgress)}` : `${completedJobs.length} completed · ${failedJobs.length} failed`}</span></div>
+          <div className="vb-progress-copy"><span>{batchMessage || (validFiles.length ? 'Ready to generate' : 'Add media to queue a batch')}</span><span>{isRunning ? `${Math.round(overallProgress * 100)}% · ${formatEta(startTimeRef.current, overallProgress)}` : `${completedJobs.length} clean · ${fallbackJobs.length} fallback · ${failedJobs.length} failed`}</span></div>
           <div className="vb-progress-track" role="progressbar" aria-valuenow={Math.round(overallProgress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${Math.round(overallProgress * 100)}%` }} /></div>
         </div>
         <div className="vb-process-actions">
@@ -1125,18 +1247,19 @@ function AudioRange({ label, value, min, max, unit, disabled, onChange }: {
 }
 
 function JobRow({ job, onDownload, onRetry, onRemove, disabled }: { job: BatchJob; onDownload: () => void; onRetry: () => void; onRemove: () => void; disabled: boolean }) {
+  const hasReadyOutput = job.status === 'completed' || job.status === 'fallback'
   return (
     <div className="vb-job-row" data-status={job.status}>
       <span className="vb-job-status" aria-label={job.status}><i /></span>
       <div className="vb-job-copy">
         <strong title={job.outputName ?? job.sourceName}>{job.outputName ?? job.sourceName}</strong>
-        <small>{job.status === 'completed' ? `${formatBytes(job.outputBytes ?? 0)} · ${mediaLabel(job.outputMime)} · ${formatDuration((job.elapsedMs ?? 0) / 1000)} render` : job.status === 'processing' ? `${job.phase ?? 'Rendering'} · ${Math.round(job.progress * 100)}%` : job.status === 'failed' ? job.error : `Variation ${job.variationIndex + 1} · ${job.status}`}</small>
+        <small>{hasReadyOutput ? `${formatBytes(job.outputBytes ?? 0)} · ${mediaLabel(job.outputMime)} · ${formatDuration((job.elapsedMs ?? 0) / 1000)} render${job.status === 'fallback' ? ' · fallback — review warning' : ''}` : job.status === 'processing' ? `${job.phase ?? 'Rendering'} · ${Math.round(job.progress * 100)}%` : job.status === 'failed' ? job.error : `Variation ${job.variationIndex + 1} · ${job.status}`}</small>
         {job.error && job.status === 'failed' && <small className="vb-error-text">{job.error}</small>}
-        {job.warnings.map((warning) => <small className="vb-warning-text" key={warning}>{warning}</small>)}
+        {job.warnings.map((warning) => <small className="vb-warning-text" title={warning} key={warning}>{warning}</small>)}
       </div>
-      {job.status === 'completed' && <button type="button" className="vb-button vb-button-quiet vb-job-action" onClick={onDownload}><Icon name="download" size={14} />Download</button>}
-      {job.status === 'failed' && <button type="button" className="vb-text-button" onClick={onRetry} disabled={disabled}>Retry</button>}
-      {(job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="vb-icon-button" aria-label={`Remove ${job.outputName ?? job.sourceName}`} onClick={onRemove} disabled={disabled}><Icon name="x" size={14} /></button>}
+      {hasReadyOutput && <button type="button" className="vb-button vb-button-quiet vb-job-action" onClick={onDownload}><Icon name="download" size={14} />Download</button>}
+      {(job.status === 'failed' || job.status === 'fallback') && <button type="button" className="vb-text-button" onClick={onRetry} disabled={disabled}>Retry</button>}
+      {(hasReadyOutput || job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="vb-icon-button" aria-label={`Remove ${job.outputName ?? job.sourceName}`} onClick={onRemove} disabled={disabled}><Icon name="x" size={14} /></button>}
     </div>
   )
 }
@@ -1165,6 +1288,13 @@ function MetaSwitchCard({ label, description, on, disabled, onChange, children }
       {children}
     </div>
   )
+}
+
+function imageTargetMime(target: ConvertTarget): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  if (target === 'jpg') return 'image/jpeg'
+  if (target === 'png') return 'image/png'
+  if (target === 'webp') return 'image/webp'
+  return null
 }
 
 function mediaLabel(mime: string | null | undefined): string {
@@ -1196,6 +1326,14 @@ function formatDuration(seconds: number): string {
   const minutes = Math.floor(whole / 60)
   const remaining = whole % 60
   return minutes ? `${minutes}:${String(remaining).padStart(2, '0')}` : `${remaining}s`
+}
+
+function assertDurationWithinTolerance(expected: number | null, actual: number | null): void {
+  if (expected === null || actual === null || !Number.isFinite(expected) || !Number.isFinite(actual)) return
+  const tolerance = Math.max(0.5, expected * 0.08)
+  if (Math.abs(expected - actual) > tolerance) {
+    throw new Error(`The output duration changed from ${expected.toFixed(2)}s to ${actual.toFixed(2)}s (allowed difference ${tolerance.toFixed(2)}s).`)
+  }
 }
 
 function formatEta(startTime: number | null, progress: number): string {

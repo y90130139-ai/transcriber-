@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isSignedIn } from '@/lib/auth'
+import { guardAccess } from '@/lib/access'
 import { loadPlanPreview } from '@/lib/preview'
 
 type Params = { params: Promise<{ id: string }> }
@@ -15,10 +15,9 @@ type Params = { params: Promise<{ id: string }> }
  * exists: `loadPlan` shows only what she is entitled to see *now*, and the
  * preview's job is to show what she *will* see once it goes out.
  */
-export async function GET(_request: Request, { params }: Params) {
-  if (!(await isSignedIn())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+export async function GET(request: Request, { params }: Params) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
 
   const { id } = await params
   const payload = await loadPlanPreview(id)

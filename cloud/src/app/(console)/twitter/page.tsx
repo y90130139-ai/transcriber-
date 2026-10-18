@@ -1,3 +1,4 @@
+import { requirePage } from '@/lib/access'
 import type { Metadata } from 'next'
 import MediaFeed from '@/components/platform/MediaFeed'
 
@@ -14,7 +15,8 @@ import MediaFeed from '@/components/platform/MediaFeed'
  */
 export const metadata: Metadata = { referrer: 'no-referrer' }
 
-export default function TwitterPage() {
+export default async function TwitterPage() {
+  await requirePage('twitter')
   return (
     <MediaFeed
       platform="x"

@@ -8,6 +8,7 @@ import {
   computeCropRect,
   computeOutputSize,
   createSeededRandom,
+  renderConcurrencyLimit,
   formatOutputName,
   resolveTrim,
   resolveVariation,
@@ -19,6 +20,7 @@ import {
   validatePreset,
   type VideoBatcherPreset,
 } from '../src/lib/video-batcher'
+import { hasExpectedSignature } from '../src/lib/video-batcher-ffmpeg'
 
 function preset(): VideoBatcherPreset {
   return {
@@ -146,6 +148,37 @@ test('metadata and converter settings validate, sanitize, and round-trip in pres
   const legacyDecoded = validatePreset(JSON.parse(serializePreset(legacy)))
   assert.equal(legacyDecoded?.settings.metadata, undefined)
   assert.equal(legacyDecoded?.settings.converter, undefined)
+})
+
+test('converted output signatures must agree with the requested container', () => {
+  const bytes = (value: string) => new TextEncoder().encode(value)
+  const concat = (...parts: Uint8Array[]) => {
+    const output = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0))
+    let offset = 0
+    for (const part of parts) { output.set(part, offset); offset += part.length }
+    return output
+  }
+  assert.equal(hasExpectedSignature(bytes('RIFF0000WEBP'), 'webp'), true)
+  assert.equal(hasExpectedSignature(bytes('GIF89a'), 'gif'), true)
+  assert.equal(hasExpectedSignature(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'png'), true)
+  assert.equal(hasExpectedSignature(bytes('RIFF0000WAVE'), 'wav'), true)
+  assert.equal(hasExpectedSignature(bytes('ID3'), 'mp3'), true)
+  assert.equal(hasExpectedSignature(bytes('\x00\x00\x00\x18ftypisom'), 'mp4'), true)
+  assert.equal(hasExpectedSignature(bytes('\x00\x00\x00\x18ftypqt  '), 'mov'), true)
+  const ebml = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x00])
+  assert.equal(hasExpectedSignature(concat(ebml, bytes('webm')), 'webm'), true)
+  assert.equal(hasExpectedSignature(concat(ebml, bytes('matroska')), 'mkv'), true)
+  assert.equal(hasExpectedSignature(bytes('RIFF0000WEBP'), 'jpg'), false)
+})
+
+test('render concurrency stays bounded by media cost and device cores', () => {
+  assert.equal(renderConcurrencyLimit([], 12), 0)
+  assert.equal(renderConcurrencyLimit(['image'], 12), 4)
+  assert.equal(renderConcurrencyLimit(['image'], 4), 2)
+  assert.equal(renderConcurrencyLimit(['video'], 12), 2)
+  assert.equal(renderConcurrencyLimit(['video'], 4), 1)
+  assert.equal(renderConcurrencyLimit(['image', 'video'], 12), 2)
+  assert.equal(renderConcurrencyLimit(['image'], Number.NaN), 1)
 })
 
 test('AI suggestions are accepted only within supported controls and ranges', () => {

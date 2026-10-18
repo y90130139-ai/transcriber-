@@ -23,6 +23,8 @@ from zoneinfo import ZoneInfo
 
 POLL_SEC = 5 * 60
 TIMEOUT_SEC = 60
+SCHEDULER_SYNC_SEC = 4 * 60 * 60
+SCHEDULER_SYNC_RETRY_SEC = 15 * 60
 TZ = os.environ.get("SCRAPE_TIMEZONE", "America/New_York")
 
 
@@ -76,7 +78,14 @@ def _prepare_runtime() -> None:
     config_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
-def _post(base: str, secret: str, path: str, payload: dict | None = None) -> dict:
+def _post(
+    base: str,
+    secret: str,
+    path: str,
+    payload: dict | None = None,
+    *,
+    timeout: int = TIMEOUT_SEC,
+) -> dict:
     body = json.dumps(payload or {}).encode()
     request = urllib.request.Request(
         base.rstrip("/") + path,
@@ -88,7 +97,7 @@ def _post(base: str, secret: str, path: str, payload: dict | None = None) -> dic
             "User-Agent": "social-transcriber-railway/1.0",
         },
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SEC) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read() or b"{}")
 
 
@@ -125,6 +134,7 @@ def main() -> None:
 
     print("Railway worker online; cloud queue check every 5 minutes.", flush=True)
     last_scrape_slot = ""
+    next_scheduler_sync = 0.0
     while True:
         now = dt.datetime.now(ZoneInfo(TZ))
         slot = now.strftime("%Y-%m-%d-%H")
@@ -134,6 +144,34 @@ def main() -> None:
                 print(f"cloud fallback: {result}", flush=True)
         except (urllib.error.URLError, OSError, ValueError) as error:
             print(f"cloud worker trigger failed: {str(error)[:240]}", flush=True)
+
+        if time.monotonic() >= next_scheduler_sync:
+            try:
+                result = _post(
+                    base,
+                    secret,
+                    "/api/worker/scheduler-sync",
+                    timeout=270,
+                )
+                errors = result.get("errors") or []
+                if result.get("synced") or errors:
+                    print(
+                        f"scheduler sync: synced={result.get('synced', 0)} "
+                        f"skipped={result.get('skipped', 0)} errors={len(errors)}",
+                        flush=True,
+                    )
+                pending = int(result.get("pending", 0) or 0)
+                remaining = int(result.get("remaining", 0) or 0)
+                if remaining:
+                    delay = POLL_SEC
+                elif errors or pending:
+                    delay = SCHEDULER_SYNC_RETRY_SEC
+                else:
+                    delay = SCHEDULER_SYNC_SEC
+                next_scheduler_sync = time.monotonic() + delay
+            except (urllib.error.URLError, OSError, ValueError) as error:
+                print(f"scheduler sync trigger failed: {str(error)[:240]}", flush=True)
+                next_scheduler_sync = time.monotonic() + SCHEDULER_SYNC_RETRY_SEC
 
         if slot != last_scrape_slot and now.hour == 19 and now.minute < 5:
             last_scrape_slot = slot

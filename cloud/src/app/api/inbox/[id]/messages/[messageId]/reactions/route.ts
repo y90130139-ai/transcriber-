@@ -1,5 +1,6 @@
+import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
-import { currentSession, isSignedIn } from '@/lib/auth'
+import { currentSession } from '@/lib/auth'
 import { toggleThreadReaction } from '@/lib/inbox'
 
 type Params = { params: Promise<{ id: string; messageId: string }> }
@@ -9,7 +10,8 @@ type Params = { params: Promise<{ id: string; messageId: string }> }
  *  back, a different one replaces it. The answer is the new tally as this
  *  side sees it. */
 export async function POST(request: Request, { params }: Params) {
-  if (!(await isSignedIn())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const denied = await guardAccess(request)
+  if (denied) return denied
   const { id, messageId } = await params
 
   const session = await currentSession()

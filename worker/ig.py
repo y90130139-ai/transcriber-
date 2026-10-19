@@ -160,11 +160,63 @@ def _media(node):
             yield from _media(value)
 
 
+# Keys Instagram hangs the real author off, in the order they are worth
+# trusting. The caption's own user is included because several of the
+# profile-page responses carry the author there and nowhere else.
+_OWNER_PATHS = (("user", "username"), ("owner", "username"), ("caption", "user", "username"))
+
+# What an injected item looks like. A sponsored reel in a profile's feed is
+# still a media item with a pk and a code, so nothing upstream filters it.
+_AD_KEYS = ("ad_id", "is_ad", "injected", "ad_metadata", "sponsor_tags", "ad_action")
+
+
+def _dig(item: dict, path: tuple[str, ...]) -> str:
+    node = item
+    for key in path:
+        if not isinstance(node, dict):
+            return ""
+        node = node.get(key)
+    return str(node or "").lower()
+
+
+def belongs_to(item: dict, handle: str) -> bool:
+    """Is this post actually hers?
+
+    The reader harvests every media item in every response the profile page
+    makes, because the site nests them differently per query. Instagram
+    injects sponsored and suggested reels into those same responses, so a
+    Meta advert for VR glasses arrived stamped with a model's handle and sat
+    at the top of her Top reels on 25 million plays.
+
+    An item is hers when its own author is her, or when she is a credited
+    coauthor. An item whose author is somebody else is dropped, and so is
+    anything wearing an ad marker. An item with no author at all is KEPT:
+    not every response carries one, and losing her real posts to a shape we
+    do not recognise is the worse failure of the two.
+    """
+    if any(item.get(key) for key in _AD_KEYS):
+        return False
+    want = handle.lower()
+    owner = next((found for path in _OWNER_PATHS if (found := _dig(item, path))), "")
+    if not owner:
+        return True
+    if owner == want:
+        return True
+    coauthors = {
+        str(c.get("username") or "").lower()
+        for c in (item.get("coauthor_producers") or [])
+        if isinstance(c, dict)
+    }
+    return want in coauthors
+
+
 def to_sighting(item: dict, handle: str) -> dict | None:
     """One feed item â†’ the ingest shape. Photos and carousels are skipped:
     the library is reels, and a still has no plays to measure."""
     code = item.get("code")
     if not code or item.get("media_type") != 2:
+        return None
+    if not belongs_to(item, handle):
         return None
     clips = item.get("clips_metadata") or {}
     music = (clips.get("music_info") or {}).get("music_asset_info") or {}
@@ -191,7 +243,7 @@ def to_post(item: dict, handle: str) -> dict | None:
     """One item â†’ the cadence record. Unlike `to_sighting` this keeps photos
     and carousels: "2-3 carousels a week" cannot be measured from reels alone."""
     code = item.get("code")
-    if not code:
+    if not code or not belongs_to(item, handle):
         return None
     kind = KIND.get(item.get("media_type"))
     if kind == "video" and item.get("product_type") == "clips":

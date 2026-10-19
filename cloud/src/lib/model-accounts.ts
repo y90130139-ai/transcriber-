@@ -17,6 +17,8 @@
 import { createHash, randomBytes } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 
+import { sql } from './db'
+
 const TABLE = 'model_accounts'
 const RESET_TABLE = 'model_password_resets'
 const SETUP_TTL_DAYS = 7
@@ -245,11 +247,27 @@ export async function updateAccountModel(id: string, modelId: string): Promise<M
 
 /** Delete an account outright (Geno, 2026-10-19) — the console's own
  *  housekeeping for a duplicate, a test row, or a creator who is gone. The
- *  row and any reset link still out are deleted together; the model and
- *  everything she has done in the app live in other tables and are not
+ *  row and any reset link still out are deleted together.
+ *
+ *  Her app-side onboarding records are deleted with the account: the tour
+ *  and onboarding milestones, the agreement/contact/intake submissions and
+ *  her push devices all belong to the account, so a re-invite starts her
+ *  onboarding over instead of logging her into a finished checklist. Her
+ *  model page, plans and studio history live in other tables and are not
  *  touched. False when no row matched — the caller says "no such account". */
 export async function deleteAccount(id: string): Promise<boolean> {
   if (!id) return false
+  const account = await getAccount(id)
+  if (!account) return false
+
+  // Neon first: if this fails the account stays, so the console can retry
+  // with both halves intact rather than a login gone and an onboarding left.
+  if (account.modelId) {
+    await sql.query(`delete from transcriber.app_events where model_id = $1`, [account.modelId])
+    await sql.query(`delete from transcriber.app_submissions where model_id = $1`, [account.modelId])
+    await sql.query(`delete from transcriber.model_devices where model_id = $1`, [account.modelId])
+  }
+
   await rest(`${RESET_TABLE}?account_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
   const response = await rest(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',

@@ -115,8 +115,9 @@ export default function DeleteAccountDialog({ row, onClose, onDeleted }: {
             out stops working.
           </p>
           <p className="hint">
-            Her model page, her plans and everything she has done in the app
-            are not touched.
+            Her onboarding restarts with the next invite — the signed agreement,
+            her forms and her devices go with the account. Her model page, her
+            plans and her studio history are not touched.
           </p>
 
           {note ? (

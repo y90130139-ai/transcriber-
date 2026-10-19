@@ -595,6 +595,23 @@ const statements = [
      add column if not exists revenue_band    text check (revenue_band in ('high','mid','low')),
      add column if not exists revenue_set_at  timestamptz`,
 
+  // D joins the priority letters (Geno, 2026-10-11): "construction — no
+  // platform yet, on the 30-day sprint". The console has offered the D chip
+  // and the API has accepted it since the standing work, but the CHECK above
+  // was never widened, so every click died on the constraint and the button
+  // looked dead. `add column if not exists` can never fix a constraint on a
+  // column that already exists, which is why re-running this file never
+  // healed it — the constraint has to be dropped and re-made by name.
+  // `surveys.priority` carries the same list because submitting her
+  // questionnaire writes the priority back onto the model, so a D model's
+  // submission would have failed the same way.
+  `alter table transcriber.models
+     drop constraint if exists models_priority_check,
+     add  constraint models_priority_check check (priority in ('S','A','B','C','D'))`,
+  `alter table transcriber.surveys
+     drop constraint if exists surveys_priority_check,
+     add  constraint surveys_priority_check check (priority in ('S','A','B','C','D'))`,
+
   // Scout — the watchlist sweep. `access` is what the last sweep learned about
   // reading the account: open to a logged-out reader, gated (18+ or audience-
   // restricted, needs the burner session), or missing (renamed/deleted).

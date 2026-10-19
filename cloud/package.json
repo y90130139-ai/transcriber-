@@ -10,7 +10,8 @@
     "test:video-batcher:browser": "node test/video-batcher.browser-smoke.mjs",
     "earnings": "node --import ./test/ts-resolve.mjs scripts/earnings-pull.mjs",
     "reddit:seed": "node --import ./test/ts-resolve.mjs scripts/reddit-seed.mjs",
-    "reddit:pull": "node --import ./test/ts-resolve.mjs scripts/reddit-pull.mjs"
+    "reddit:pull": "node --import ./test/ts-resolve.mjs scripts/reddit-pull.mjs",
+    "infloww:new": "node --import ./test/ts-resolve.mjs scripts/infloww-new.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

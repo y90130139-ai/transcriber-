@@ -68,6 +68,7 @@ export default function FindCard({ modelId, open, onClose, onPick }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLUListElement>(null)
+  const sheet = useRef<HTMLDivElement>(null)
 
   const load = useCallback(() => {
     setFailed(false)
@@ -85,6 +86,35 @@ export default function FindCard({ modelId, open, onClose, onPick }: Props) {
   // A fresh open is a fresh search; the old query would hide the unread notes
   // that are the usual reason for coming here.
   useEffect(() => { if (!open) { setQuery(''); setCursor(0); setCopied(null) } }, [open])
+
+  // The sheet owns the gesture while it is open: the wheel moves the card
+  // list and nothing else. Same lesson as the reader panel in globals.css —
+  // a gesture that finds no scroller under it chains out and moves the page
+  // behind, so anything not over the list is blocked, and a wheel over the
+  // sheet's own head is fed to the list by hand.
+  useEffect(() => {
+    if (!open) return
+    const onWheel = (event: WheelEvent) => {
+      const listEl = list.current
+      const target = event.target as Node | null
+      if (!listEl || !target || listEl.contains(target)) return
+      if (sheet.current?.contains(target)) {
+        const step = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? listEl.clientHeight : 1
+        listEl.scrollTop += event.deltaY * step
+      }
+      event.preventDefault()
+    }
+    const onTouchMove = (event: TouchEvent) => {
+      const target = event.target as Node | null
+      if (target && !list.current?.contains(target)) event.preventDefault()
+    }
+    window.addEventListener('wheel', onWheel, { passive: false })
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => {
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('touchmove', onTouchMove)
+    }
+  }, [open])
 
   const results = useMemo(() => (cards ? findCards(cards, query) : []), [cards, query])
   useEffect(() => { setCursor(0) }, [query])
@@ -127,7 +157,7 @@ export default function FindCard({ modelId, open, onClose, onPick }: Props) {
   return (
     <>
       <button className="findcard-scrim" aria-label="Close find a card" onClick={onClose} />
-      <div className="findcard" role="dialog" aria-modal="true" aria-label="Find a card" onKeyDown={onKeyDown}>
+      <div className="findcard" ref={sheet} role="dialog" aria-modal="true" aria-label="Find a card" onKeyDown={onKeyDown}>
         <div className="findcard-head">
           <input
             ref={input}

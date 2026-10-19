@@ -8,6 +8,7 @@ import { newId } from '../models'
 import { runLoop, splitForTelegram, costCents, LoopError, NO_USAGE, type MessagesClient, type Turn, type Usage } from './core'
 import { TOOLS } from './tools'
 import { alertTools, type AlertContext } from './alert-tools'
+import { rosterHealthTools } from './roster-health-tools'
 
 /** A thread this long is closed; the next question starts a fresh one. */
 export const MAX_THREAD_TURNS = 120
@@ -82,7 +83,7 @@ export async function ask(input: Asked): Promise<Answer> {
   const base = { id: newId(), thread_id: thread.id, chat_id: input.chat_id, asker: input.asker, question: input.question }
   try {
     const ctx: AlertContext = { chat_id: input.chat_id, asker: input.asker, proposals: [], drafts: [] }
-    const result = await runLoop(api, [...TOOLS, ...alertTools(ctx)], thread.history, input.question.slice(0, MAX_QUESTION))
+    const result = await runLoop(api, [...TOOLS, ...alertTools(ctx), ...rosterHealthTools({ chat_id: input.chat_id })], thread.history, input.question.slice(0, MAX_QUESTION))
     await saveThread(thread, result.messages)
     await log({ ...base, answer: result.text, tools: result.calls, usage: result.usage, ms: Date.now() - started, stop: result.stop })
     const prefix = input.thread_id && thread.fresh ? '(That conversation got long, so this is a fresh one.)\n\n' : ''

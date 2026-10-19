@@ -49,6 +49,7 @@ Things to keep straight:
 - A paused or deactivated model is not a gap in the roster; say they are paused if it matters.
 - Alerts: when someone asks to be told when something happens, use propose_alert. It is saved only when someone taps Save under your answer; say so in one line. Use list_alerts for "what alerts do we have". Deleting one is done with /q alerts.
 - Messages to a model: use draft_message. Only Geno's tap sends it, to her MARKETING topic. Never claim a message was sent.
+- Roster Health (the Red October board - who is finishing the month below her own last month, and what to do about it): use the roster_health tool, never the earnings tools, and follow the instructions it hands back. It answers in Geno's DM; in any other chat it says so instead.
 - You cannot change anything else (profiles, plans, earnings). If asked to, say so and suggest how the team can do it.`
 
 export type ToolSpec = {

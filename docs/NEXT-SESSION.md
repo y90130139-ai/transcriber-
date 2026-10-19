@@ -1,3 +1,102 @@
+# 2026-10-18: Roster Health — the Red October board, wired end to end
+
+The spec Geno pasted ("Red October — Roster Health prompt for the transcriber")
+is built, on both sides, and **nothing is deployed or switched on**. The bot
+computes the board from its Infloww mirror and ships it with the hourly
+snapshot; this repo's assistant reads it with a new `roster_health` tool and
+writes the briefs from instructions that travel with the data.
+
+## It reproduces the 18 October report from the mirror, to the dollar
+
+Not asserted — run. The builder was pointed at the live mirror at the report's
+own `as_of` (2026-10-18T20:29) and compared with section 5 of the spec:
+
+| | spec | built |
+|---|---|---|
+| Agency net this month / same days / September full | 152,962 / 160,846 / 292,715 | **identical** |
+| Pace, last-4 pace, needed to tie | 8,998 / 9,504 / 9,982 | **identical** |
+| Red today, projected for the 31st | 35 / 31 | **identical** |
+| New subs, renewals net | 2,403 vs 3,130 / 8,952 vs 7,288 | **identical** |
+| 8pm–midnight on red accounts | 1,395 / 774 / 1,091 | **identical** |
+| Hold / push / stretch | 9 / 12 / 3 | **same counts, same names, same three starred** |
+| Paige's whole card | every field in the spec's example | **identical** (avg PPV 56.9 and 66.8, which the spec rounded to 57/67) |
+| Roster | 58 active, Livi Blossom / Ruby Chat / Chelsea gone | **identical** |
+
+Two readings had to be worked out rather than copied, and both are now the
+reason the numbers line up:
+
+- **`hold` keys off the projection, not the ratio.** Read as "ratio under 1.0"
+  it puts Miss Savage, Nikky Snoww, Arabella and Shianne on the hold list —
+  four creators who are quietly losing the month, marked "leave her alone".
+  `hold = red today AND projected to beat September` gives the report's own 9.
+- **The idle count in the report is the list as handed over on the 13th, not
+  the list today.** Rebuilt today it is 592; 592 + the 34 who came back = the
+  626 in the report. So the payload carries both — `idle.fans` to work and
+  `since_last_read.idle_handed_over` to score against — and a read is recorded
+  once a day, because a list rebuilt hourly makes "since the last read"
+  meaningless.
+
+## This side: a tool, not a system prompt
+
+`lib/assistant/roster-health.ts` (pure: the desk instructions, the slicing, the
+access rule, 12 tests) and `lib/assistant/roster-health-tools.ts` (the snapshot
+read and the tool). The ~90-line desk prompt rides on the **first** tool call
+rather than living in `SYSTEM_PROMPT`, which is cached in front of every
+question in OPS; `core.ts` gained two lines so the model knows the tool exists.
+
+Called with no arguments it returns the board — agency line, roster, goal, and
+a thin row for every creator in trouble — then `tier` or `creator` brings the
+full cards with the plays, the idle fans and the whales. That split is not
+cosmetic: the tool-result cap is 24,000 characters and the whole payload is
+43,000. Measured on the real board: 8.7k for the board, 12.3k for the biggest
+tier, 842 for one card.
+
+## The one decision worth Geno's word: who may read it
+
+The spec says the board goes to "Geno's DM or GOSIAN | OPS". Two standing rules
+pull against each other there — **revenue intelligence answers in his DM only**
+because it prints agency-wide money and fan ids, and **the /q assistant answers
+in OPS only**, which since the merger is Staff Team | GOSIAN. Putting the board
+in the snapshot with no gate would make agency money and fan spend answerable
+to everyone in that group.
+
+So it is gated here, and it fails closed:
+
+- `GOSIAN_OWNER_CHAT_ID` on Vercel → that chat gets everything, fan ids
+  included (the chatter brief is the point).
+- `ROSTER_HEALTH_OPS=1` → the staff group gets the whole board **without a
+  single fan id**, and the model is told they were withheld rather than that
+  there are none.
+- Neither set → nobody gets it, and the tool says which variable is missing.
+
+**His call to widen it is one environment variable.** Nothing else about the
+feature depends on the answer.
+
+## What it would take to see it
+
+Both switches it rides on are off, so today it is dormant by design:
+
+1. The mirror has to keep filling — `revenue_intelligence.enabled` is `false`,
+   so today the only thing filling it is Geno running
+   `npm run revenue-preview -- --sync` on the Mac.
+2. `roster_health.enabled: true` in the calendar (the config block is in,
+   defaulted off, with the goal 20 / 30% in it).
+3. The assistant is still off and **`ANTHROPIC_API_KEY` is still not on
+   Vercel**, which is the same thing blocking /q.
+4. `railway ssh npm run -s roster-health` prints the board without sending
+   anything, `-- --alerts` shows what the next pass would post, `-- --json` is
+   exactly what this repo would receive.
+
+Alerts are deterministic and live in the bot (eight triggers from section 4 of
+the spec, fixed wording, fire on a change rather than on a condition, nothing
+announced on the first pass, 23:00–09:00 held for the morning). No model is
+called to write one.
+
+911 tests green in the bot (34 new), 255 here (12 new), `npx next build` clean,
+`tsc --noEmit` clean. Everything on both sides is uncommitted.
+
+---
+
 # 2026-10-09 (morning): the Reddit drop merged + verified — read this first
 
 Main = `8301133`, pushed, in sync with origin. **Undeployed** — prod is still

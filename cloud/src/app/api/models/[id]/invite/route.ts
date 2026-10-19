@@ -1,6 +1,7 @@
 import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { appEmailConfigured, appOrigin, sendModelInviteEmail, sendModelResetEmail } from '@/lib/app-email'
+import { readAgreement, saveAgreementDetails } from '@/lib/model-agreement'
 import { sql } from '@/lib/db'
 import {
   createOrRefreshInvite,
@@ -32,6 +33,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     return NextResponse.json({
       account: await findAccountForModel(id),
+      agreement: await readAgreement(id),
       emailConfigured: appEmailConfigured(),
     })
   } catch {
@@ -81,6 +83,20 @@ export async function POST(request: Request, { params }: Params) {
     const invite = await createOrRefreshInvite({ modelId: id, email, name: (model.name as string) ?? null })
     if (!invite.invited || !invite.token) {
       return NextResponse.json({ ok: true, outcome: 'already_active', account: invite.account })
+    }
+
+    // The agreement's fields travel with the invite (2026-10-19): a failed
+    // save never fails the invite itself — the fields can be entered again,
+    // a lost email cannot be un-lost. Empty answers keep what is stored.
+    try {
+      await saveAgreementDetails(id, {
+        clientLegalName: body?.clientLegalName,
+        clientStageName: body?.clientStageName,
+        laterServiceStartDate: body?.laterServiceStartDate,
+        sentAt: new Date().toISOString(),
+      })
+    } catch {
+      /* the invite is what matters */
     }
 
     const url = `${origin}/join?token=${invite.token}`

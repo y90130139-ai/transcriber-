@@ -2050,6 +2050,18 @@ const statements = [
      add column if not exists rendered_at  timestamptz,
      add column if not exists recipe       text,
      add column if not exists error        text`,
+
+  // The agreement's fill-in fields (2026-10-19). The invite dialog captures
+  // them, her app reads them through /api/app/me, and the Independent
+  // Contractor Agreement renders with real values instead of placeholders:
+  // the legal name and optional stage name beside `later_service_start_date`,
+  // plus `agreement_sent_at` — the date the invite first went out, which is
+  // the agreement's Effective Date. See lib/model-agreement.ts.
+  `alter table transcriber.models
+     add column if not exists client_legal_name        text,
+     add column if not exists client_stage_name        text,
+     add column if not exists later_service_start_date text,
+     add column if not exists agreement_sent_at        timestamptz`,
 ]
 
 for (const statement of statements) {

@@ -709,6 +709,16 @@ export default function AppAccountPage({ detail, unreachable = false }: {
                   <div className="aa-answer">
                     <dt>Effective</dt>
                     <dd>
+                      {typeof agreement.data.effectiveDate === 'string' && !Number.isNaN(Date.parse(agreement.data.effectiveDate))
+                        ? format(new Date(agreement.data.effectiveDate), 'd MMM yyyy')
+                        : typeof agreement.data.at === 'string' && !Number.isNaN(Date.parse(agreement.data.at))
+                          ? format(new Date(agreement.data.at), 'd MMM yyyy, HH:mm')
+                          : '—'}
+                    </dd>
+                  </div>
+                  <div className="aa-answer">
+                    <dt>Signed</dt>
+                    <dd>
                       {typeof agreement.data.at === 'string' && !Number.isNaN(Date.parse(agreement.data.at))
                         ? format(new Date(agreement.data.at), 'd MMM yyyy, HH:mm')
                         : '—'}

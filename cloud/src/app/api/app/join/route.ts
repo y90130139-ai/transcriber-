@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { readAgreement } from '@/lib/model-agreement'
 import {
   activateWithToken,
+  appAccountDetails,
   resetWithToken,
   validatePassword,
   validateResetToken,
@@ -121,15 +123,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This account is not linked to a model yet — ask the team.' }, { status: 403 })
   }
 
+  // Her agreement fields ride the join (2026-10-19); /me refills them next.
+  const agreement = await readAgreement(outcome.account.modelId).catch(() => null)
+
   const { token: sessionToken } = issueModelSession(outcome.account)
   return NextResponse.json({
     ok: true,
     token: sessionToken,
-    account: {
-      id: outcome.account.id,
-      email: outcome.account.email,
-      name: outcome.account.name,
-      modelId: outcome.account.modelId,
-    },
+    account: appAccountDetails(outcome.account, agreement),
   })
 }

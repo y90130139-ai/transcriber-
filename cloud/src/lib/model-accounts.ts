@@ -32,6 +32,7 @@ export type ModelAccount = {
   setupSendCount: number
   lastLoginAt: string | null
   activatedAt: string | null
+  createdAt: string | null
 }
 
 type Row = {
@@ -47,6 +48,7 @@ type Row = {
   setup_send_count: number | null
   last_login_at: string | null
   activated_at: string | null
+  created_at: string | null
 }
 
 const unquote = (value: string | undefined) => (value ?? '').trim().replace(/^["']|["']$/g, '')
@@ -111,6 +113,42 @@ function mapAccount(row: Row): ModelAccount {
     setupSendCount: Number(row.setup_send_count ?? 0),
     lastLoginAt: row.last_login_at ?? null,
     activatedAt: row.activated_at ?? null,
+    createdAt: row.created_at ?? null,
+  }
+}
+
+/** What the console captured for the agreement (Neon, transcriber.models). */
+export type AppAgreementDetails = {
+  clientLegalName?: string | null
+  clientStageName?: string | null
+  laterServiceStartDate?: string | null
+  /** When the invite went out — the agreement's Effective Date. */
+  sentAt?: string | null
+}
+
+/** What the app itself may know about her: identity plus the agreement
+ *  fields the console captured when the invite went out. */
+export type AppAccountDetails = {
+  id: string
+  email: string
+  name: string | null
+  modelId: string | null
+  invitedAt: string | null
+  clientLegalName: string | null
+  clientStageName: string | null
+  laterServiceStartDate: string | null
+}
+
+export function appAccountDetails(account: ModelAccount, agreement?: AppAgreementDetails | null): AppAccountDetails {
+  return {
+    id: account.id,
+    email: account.email,
+    name: account.name,
+    modelId: account.modelId,
+    invitedAt: agreement?.sentAt ?? account.setupSentAt ?? account.createdAt,
+    clientLegalName: agreement?.clientLegalName ?? account.name,
+    clientStageName: agreement?.clientStageName ?? null,
+    laterServiceStartDate: agreement?.laterServiceStartDate ?? null,
   }
 }
 
@@ -269,9 +307,7 @@ export async function createOrRefreshInvite({
   const row = rows[0]
   if (!row) throw new Error('model_accounts write returned nothing')
   return { account: mapAccount(row), invited: true, token }
-}
-
-export type SetupTokenState = { account: ModelAccount; alreadyActive: boolean }
+}export type SetupTokenState = { account: ModelAccount; alreadyActive: boolean }
 
 /** A setup token, resolved. Null for unknown, expired, or already-used ones —
  *  every caller turns null into the same "link is no longer valid" screen. */

@@ -234,12 +234,19 @@ export function readSession(token: string | undefined | null): TeamSession | nul
       ? String(payload.role).toLowerCase()
       : 'member') as TeamRole
 
-    const permissions = payload.perm && typeof payload.perm === 'object'
-      ? sanitizePermissions(payload.perm)
-      : broadcast(payload.transcriber === 'read' || payload.transcriber === 'edit' ? payload.transcriber : null)
+    // Elevated roles get everything, full stop — including sessions minted
+    // before the permission map existed (their old token has no `perm`, and
+    // its legacy `transcriber` key is null for an admin who was never granted
+    // page by page). Read the role first, not the map (2026-10-18).
+    const elevated = isElevated(role)
+    const permissions = elevated
+      ? resolvePermissions(null, role)
+      : payload.perm && typeof payload.perm === 'object'
+        ? sanitizePermissions(payload.perm)
+        : broadcast(payload.transcriber === 'read' || payload.transcriber === 'edit' ? payload.transcriber : null)
 
     // The door, from the resolved map: elevated, or at least one page open.
-    const allowed = isElevated(role) || PAGES.some((page) => permissions[page.key] !== 'none')
+    const allowed = elevated || PAGES.some((page) => permissions[page.key] !== 'none')
     if (!allowed) return null
 
     const legacy = legacyOf(permissions)

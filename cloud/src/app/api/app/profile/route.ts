@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { findAccountByEmail, updateAccountName } from '@/lib/model-accounts'
+import { appAccountDetails, findAccountByEmail, updateAccountName } from '@/lib/model-accounts'
 import { modelSessionFrom } from '@/lib/model-auth'
 
 /** Her display name, set from the app's "Make it yours" screen (2026-10-12).
@@ -18,7 +18,7 @@ export async function PATCH(request: Request) {
     }
     const updated = await updateAccountName(account.id, name)
     if (!updated) return NextResponse.json({ error: 'temporarily_unavailable' }, { status: 502 })
-    return NextResponse.json({ ok: true, account: { id: updated.id, email: updated.email, name: updated.name, modelId: updated.modelId } })
+    return NextResponse.json({ ok: true, account: appAccountDetails(updated) })
   } catch {
     return NextResponse.json({ error: 'temporarily_unavailable' }, { status: 502 })
   }

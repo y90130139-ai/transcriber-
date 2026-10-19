@@ -97,12 +97,14 @@ const ICONS = {
     </>
   ),
   chevron: <path d="m6.5 9.5 5.5 5.5 5.5-5.5" />,
-  /* The switcher's selector mark (Geno, 2026-10-13): one chevron up over one
-     down — "there are others here", not a disclosure triangle. */
+  /* The switcher's lead mark (Geno, 2026-10-19): two arrows passing — the
+     same ⇄ the invoice workspace's Switch button wears. */
   swap: (
     <>
-      <path d="m8.5 9.5 3.5-3.5 3.5 3.5" />
-      <path d="m8.5 14.5 3.5 3.5 3.5-3.5" />
+      <path d="m8.5 3.5-4 4 4 4" />
+      <path d="M4.5 7.5h15" />
+      <path d="m15.5 20.5 4-4-4-4" />
+      <path d="M19.5 16.5h-15" />
     </>
   ),
   menu: (

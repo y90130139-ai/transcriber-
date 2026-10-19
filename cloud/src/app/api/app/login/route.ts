@@ -1,7 +1,8 @@
 import { NextResponse, after } from 'next/server'
 import { logAppEvent } from '@/lib/app-activity'
 import { issueModelSession } from '@/lib/model-auth'
-import { touchLogin, verifyLogin } from '@/lib/model-accounts'
+import { readAgreement } from '@/lib/model-agreement'
+import { appAccountDetails, touchLogin, verifyLogin } from '@/lib/model-accounts'
 import { rateLimit } from '@/lib/ratelimit'
 
 /**
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
 
   const { token } = issueModelSession(account)
   await touchLogin(account.id)
+  // Her agreement fields ride the sign-in (2026-10-19); a failed read is
+  // harmless — /me refills them a moment later.
+  const agreement = await readAgreement(account.modelId).catch(() => null)
   // Her history, not just her latest state (2026-10-14): the account row can
   // only keep when she last signed in; every sign-in lands here too.
   after(async () => {
@@ -42,6 +46,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     token,
-    account: { id: account.id, email: account.email, name: account.name, modelId: account.modelId },
+    account: appAccountDetails(account, agreement),
   })
 }

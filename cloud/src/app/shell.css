@@ -26,6 +26,7 @@
   --sb-fill: rgba(23, 23, 23, 0.45);
   --sb-surface: rgba(255, 255, 255, 0.05);
   --sb-surface-hover: rgba(255, 255, 255, 0.08);
+  --sb-muted: #a6a6a6;
   --sb-ember-line: rgba(232, 102, 58, 0.45);
   --sb-accent-soft: rgba(232, 102, 58, 0.14);
   --sb-inset: rgba(255, 255, 255, 0.03);
@@ -81,7 +82,9 @@
 
 /* The top of the rail: the mark, and the Switch button (Geno, 2026-10-13).
  * The button says only what it does; the menu says where you can go — each
- * side with the Gosian mark, its name on a tag, and what the side is for. */
+ * side with the Gosian mark, its name on a tag, and what the side is for.
+ * Restyled (Geno, 2026-10-19): the button wears the invoice workspace's
+ * pill exactly — same geometry, type and states on either side of the family. */
 .side-top {
   display: flex;
   align-items: center;
@@ -101,32 +104,44 @@
 .side-switch-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.34rem;
-  min-height: 29px;
-  padding: 0 0.6rem;
-  border-radius: 8px;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 0.7rem;
   border: 1px solid var(--sb-line);
-  background: var(--sb-fill);
-  color: var(--sc-ink-900);
+  border-radius: 999px;
+  background: var(--sb-surface);
+  color: var(--sb-muted);
   font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 var(--sb-inset);
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.side-switch[data-open] .side-switch-trigger {
+.side-switch-trigger:hover {
+  color: #fff;
   border-color: var(--sb-ember-line);
   background: var(--sb-surface-hover);
-  color: var(--sc-ink-900);
+}
+.side-switch[data-open] .side-switch-trigger {
+  color: #fff;
+  border-color: var(--sc-ember);
+  background: var(--sb-accent-soft);
+}
+.side-switch-lead {
+  display: inline-flex;
 }
 .side-switch-chev {
   display: inline-flex;
-  opacity: 0.8;
-  transition: color 0.2s ease, opacity 0.2s ease;
+  opacity: 0.75;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
-.side-switch[data-open] .side-switch-chev { opacity: 1; color: var(--sc-ember-light); }
+.side-switch[data-open] .side-switch-chev {
+  transform: rotate(180deg);
+  opacity: 1;
+}
 .side-switch-trigger:focus-visible,
 .side-switch-option:focus-visible {
   outline: 2px solid var(--sc-ember-light);
@@ -283,6 +298,7 @@
   .side-switch-menu,
   .side-switch-menu[data-open],
   .side-switch-trigger,
+  .side-switch-chev,
   .side-switch-option { transition: none; }
   .side-switch-menu,
   .side-switch-menu[data-open],

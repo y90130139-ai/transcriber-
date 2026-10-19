@@ -209,8 +209,9 @@ const crumb = pathname.startsWith('/reddit-trends')
               <button type="button" className="side-switch-trigger" ref={triggerRef}
                 aria-haspopup="menu" aria-expanded={sideMenu}
                 onClick={toggleMenu}>
+                <span className="side-switch-lead" aria-hidden><Icon name="swap" size={13} /></span>
                 <span>Switch</span>
-                <span className="side-switch-chev"><Icon name="swap" size={13} /></span>
+                <span className="side-switch-chev" aria-hidden><Icon name="chevron" size={13} /></span>
               </button>
             </div>
           </div>

@@ -14,7 +14,7 @@ export const INDEPENDENT_CONTRACTOR_AGREEMENT_BODY = String.raw`**OnlyFans Accou
 
 This Independent Contractor Agreement (the "Agreement") is entered into by Gosian Media LLC (the "Company") and the client identified below (the "Client"). Each is a "Party" and together they are the "Parties."
 
-Company notice email: ______________________________
+Company notice email: {{COMPANY_NOTICE_EMAIL}}
 
 Client legal name: {{CLIENT_LEGAL_NAME}}
 

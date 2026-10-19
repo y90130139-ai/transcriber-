@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { findAccountByEmail } from '@/lib/model-accounts'
+import { readAgreement } from '@/lib/model-agreement'
+import { findAccountByEmail, appAccountDetails } from '@/lib/model-accounts'
 import { issueModelSession, modelSessionFrom } from '@/lib/model-auth'
 
 /**
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [eventRows, submissionRows] = await Promise.all([
+    const [eventRows, submissionRows, agreement] = await Promise.all([
       sql.query(
         `select kind,
                 to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as at
@@ -42,6 +43,9 @@ export async function GET(request: Request) {
           order by created_at desc limit 12`,
         [session.modelId],
       ),
+      // The agreement's fill-ins from the invite (2026-10-19). A failed read
+      // leaves them empty rather than blocking the session.
+      readAgreement(session.modelId).catch(() => null),
     ])
 
     const milestones = { tourAt: null as string | null, onboardingAt: null as string | null }
@@ -68,7 +72,7 @@ export async function GET(request: Request) {
       {
         ok: true,
         token: refreshed.token,
-        account: { id: account.id, email: account.email, name: account.name, modelId: account.modelId },
+        account: appAccountDetails(account, agreement),
         bootstrap: { milestones, submissions: [...latest.values()] },
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

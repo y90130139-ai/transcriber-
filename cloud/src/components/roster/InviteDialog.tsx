@@ -25,6 +25,9 @@ export default function InviteDialog({ open, emailConfigured, onClose, onInvited
   const [models, setModels] = useState<ModelOption[] | null>(null)
   const [email, setEmail] = useState('')
   const [modelId, setModelId] = useState('')
+  const [legalName, setLegalName] = useState('')
+  const [stageName, setStageName] = useState('')
+  const [laterServiceStartDate, setLaterServiceStartDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
   const [link, setLink] = useState<string | null>(null)
@@ -53,6 +56,9 @@ export default function InviteDialog({ open, emailConfigured, onClose, onInvited
     setCopied(false)
     setEmail('')
     setModelId('')
+    setLegalName('')
+    setStageName('')
+    setLaterServiceStartDate('')
     const focus = window.setTimeout(() => emailRef.current?.focus(), 30)
     return () => window.clearTimeout(focus)
   }, [open])
@@ -89,7 +95,12 @@ export default function InviteDialog({ open, emailConfigured, onClose, onInvited
       const response = await fetch(`/api/models/${modelId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email,
+          clientLegalName: legalName,
+          clientStageName: stageName,
+          laterServiceStartDate,
+        }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -169,12 +180,63 @@ export default function InviteDialog({ open, emailConfigured, onClose, onInvited
             <DropSelect
               label="Which model"
               value={modelId}
-              onChange={setModelId}
+              onChange={(next) => {
+                setModelId(next)
+                const picked = models?.find((model) => model.id === next)
+                if (picked) setLegalName((current) => current || picked.name)
+              }}
               disabled={models === null}
               placeholder={models === null ? 'Loading models…' : 'Choose a model'}
               options={(models ?? []).map((model) => ({ value: model.id, label: model.name }))}
             />
           </div>
+
+          <div className="form-row">
+            <label className="axis-name" htmlFor="invite-legal-name">
+              Client legal name
+            </label>
+            <input
+              id="invite-legal-name"
+              className="field"
+              autoComplete="off"
+              placeholder="As it appears on her ID"
+              value={legalName}
+              onChange={(event) => setLegalName(event.target.value)}
+            />
+          </div>
+
+          <div className="form-row">
+            <label className="axis-name" htmlFor="invite-stage-name">
+              Stage name, if applicable
+            </label>
+            <input
+              id="invite-stage-name"
+              className="field"
+              autoComplete="off"
+              placeholder="Optional"
+              value={stageName}
+              onChange={(event) => setStageName(event.target.value)}
+            />
+          </div>
+
+          <div className="form-row">
+            <label className="axis-name" htmlFor="invite-service-start">
+              Later service start date, if agreed
+            </label>
+            <input
+              id="invite-service-start"
+              className="field"
+              autoComplete="off"
+              placeholder="Optional · e.g. 1 November 2026"
+              value={laterServiceStartDate}
+              onChange={(event) => setLaterServiceStartDate(event.target.value)}
+            />
+          </div>
+
+          <p className="hint">
+            These fill the Independent Contractor Agreement before she sees it. The
+            Effective Date is the date this invite is sent.
+          </p>
 
           <p className="hint">She sets her own password from the email.</p>
 

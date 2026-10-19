@@ -254,6 +254,7 @@ async function detailForModel(modelId: string): Promise<AppAccountDetail | null>
       setupSendCount: 0,
       lastLoginAt: null,
       activatedAt: null,
+      createdAt: null,
     },
     model: model
       ? {

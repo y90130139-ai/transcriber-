@@ -23,6 +23,13 @@ type Account = {
   activatedAt: string | null
 }
 
+type Agreement = {
+  clientLegalName: string | null
+  clientStageName: string | null
+  laterServiceStartDate: string | null
+  sentAt: string | null
+}
+
 const COPY_RESET_MS = 1600
 
 function when(value: string | null): string {
@@ -37,6 +44,9 @@ export default function AppAccountPanel({ modelId, defaultEmail }: { modelId: st
   const [emailConfigured, setEmailConfigured] = useState(false)
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState(defaultEmail ?? '')
+  const [legalName, setLegalName] = useState('')
+  const [stageName, setStageName] = useState('')
+  const [laterServiceStartDate, setLaterServiceStartDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null)
   const [link, setLink] = useState<string | null>(null)
@@ -50,6 +60,10 @@ export default function AppAccountPanel({ modelId, defaultEmail }: { modelId: st
       setAccount(data.account ?? null)
       setEmailConfigured(Boolean(data.emailConfigured))
       if (data.account?.email) setEmail((current) => current || data.account.email)
+      const agreement: Agreement | null = data.agreement ?? null
+      if (agreement?.clientLegalName) setLegalName((current) => current || agreement.clientLegalName || '')
+      if (agreement?.clientStageName) setStageName((current) => current || agreement.clientStageName || '')
+      if (agreement?.laterServiceStartDate) setLaterServiceStartDate((current) => current || agreement.laterServiceStartDate || '')
     } catch (error) {
       setNote({ text: (error as Error).message, bad: true })
     } finally {
@@ -70,7 +84,11 @@ export default function AppAccountPanel({ modelId, defaultEmail }: { modelId: st
       const response = await fetch(`/api/models/${modelId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, email }),
+        body: JSON.stringify(
+          action === 'reset'
+            ? { action, email }
+            : { action, email, clientLegalName: legalName, clientStageName: stageName, laterServiceStartDate },
+        ),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -134,6 +152,54 @@ export default function AppAccountPanel({ modelId, defaultEmail }: { modelId: st
           onChange={(event) => setEmail(event.target.value)}
         />
       </div>
+
+      {status !== 'active' ? (
+        <>
+          <div className="form-row">
+            <label className="axis-name" htmlFor="model-app-legal-name">
+              Client legal name
+            </label>
+            <input
+              id="model-app-legal-name"
+              className="field"
+              autoComplete="off"
+              placeholder="As it appears on her ID"
+              value={legalName}
+              onChange={(event) => setLegalName(event.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label className="axis-name" htmlFor="model-app-stage-name">
+              Stage name, if applicable
+            </label>
+            <input
+              id="model-app-stage-name"
+              className="field"
+              autoComplete="off"
+              placeholder="Optional"
+              value={stageName}
+              onChange={(event) => setStageName(event.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label className="axis-name" htmlFor="model-app-service-start">
+              Later service start date, if agreed
+            </label>
+            <input
+              id="model-app-service-start"
+              className="field"
+              autoComplete="off"
+              placeholder="Optional · e.g. 1 November 2026"
+              value={laterServiceStartDate}
+              onChange={(event) => setLaterServiceStartDate(event.target.value)}
+            />
+          </div>
+          <p className="hint">
+            These fill the Independent Contractor Agreement before she sees it. The Effective
+            Date is the date the invite is sent.
+          </p>
+        </>
+      ) : null}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button

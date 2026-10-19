@@ -92,3 +92,37 @@ export async function readPlan(id: string) {
   ])
   return plan ? { plan, items } : null
 }
+
+/**
+ * Every card a model has ever been sent, flat and searchable (Geno,
+ * 2026-10-11): she answers by label — "V-87" — and the card she means can sit
+ * on any week she has ever had. One read of her history, held on the client and
+ * filtered there by `card-find`, is what turns that label back into a video.
+ *
+ * Thin on purpose. This is the row a search result draws, not the card editor's
+ * row: enough to recognise it, plus the week and item id needed to jump to it.
+ */
+export function findableCards(modelId: string) {
+  return sql.query(
+    `select i.id as item_id, i.plan_id, to_char(p.week_of, 'YYYY-MM-DD') as week_of,
+            i.card_no, i.title as item_title, i.hook, i.caption, i.notes,
+            i.location, i.wardrobe, i.job_id,
+            i.model_note, i.model_note_at, i.decline_reason,
+            i.filmed_at is not null as filmed,
+            case when i.declined_at is not null then 'declined'
+                 when i.accepted_at is not null then 'accepted'
+                 else 'open' end as verdict,
+            -- Unread is hers unanswered: she said something and nobody has
+            -- opened it. It is both a sort key and the badge on the button.
+            (i.model_note is not null and i.seen_at is null) as unread,
+            t.author, t.title as reel_title, t.webpage_url,
+            (t.thumbnail is not null) as has_thumb,
+            ${preview('t.plain', 120, 't.on_screen_text')} as preview
+       from transcriber.plan_items i
+       join transcriber.plans p on p.id = i.plan_id
+       left join transcriber.transcripts t on t.job_id = i.job_id
+      where p.model_id = $1
+      order by p.week_of desc, i.position, i.created_at`,
+    [modelId],
+  )
+}

@@ -1,4 +1,4 @@
-# 2026-10-18: Roster Health — the Red October board, wired end to end
+# 2026-10-18 (latest): Roster Health — the Red October board, wired end to end
 
 The spec Geno pasted ("Red October — Roster Health prompt for the transcriber")
 is built, on both sides, and **nothing is deployed or switched on**. The bot
@@ -94,6 +94,350 @@ called to write one.
 
 911 tests green in the bot (34 new), 255 here (12 new), `npx next build` clean,
 `tsc --noEmit` clean. Everything on both sides is uncommitted.
+
+---
+
+# 2026-10-11: seven new models on the roster
+
+Geno: *"Add the new models and their cards to the transcriber, and upload their
+profiles afterwards, but you can connect their OAuth accounts as we wait."*
+
+**Done: the rows and the account links.** Seven model rows created and seven
+Infloww accounts linked to them — Kiera, Lilith, Tammylee, Sarah Irene, Jordan
+Jay, Babygotcakes, Violette. The full reasoning, the money behind each, why
+`Ruby Chat` and the other eighteen `CHAT` pages were left alone, and why
+`handle`/`photo_url` were left null is in **docs/INFLOWW-REID.md**. This is
+prod data, already live. The roster is 39 active models; `reportables()` is 38.
+
+**"OAuth accounts" read as their OnlyFans accounts.** There is no OAuth
+anywhere near the models — the only OAuth in this repo is Reddit's, in
+`src/lib/reddit/`, and models reach the portal through a minted
+`access_token`, not a sign-in. The account connection that exists, and that
+genuinely could be done while profiles wait, is `earnings_accounts.model_id`,
+so that is what was done. Worth a one-line confirmation from Geno.
+
+## Six of the seven are linked, and every questionnaire has gone out
+
+Geno: *"violettes telegram group is in telegram."* It was — and so were four
+others. The bot had already synced all of them to `telegram_groups` at 22:41,
+so no bot deploy was needed; the ids come from `railway ssh npm run seen`
+(the local `npm run seen` is empty, the live state is on Railway, and
+`find-chats` must not be run against the live bot because it steals Telegram's
+single getUpdates slot).
+
+**Violette → VIOLETTE (`-1004295016785`)**, linked through
+`PUT /api/models/:id/telegram` rather than by hand so `autoSurveyOnLink` ran
+with it. It returned `questionnaire_queued: true` and the live bot posted her
+link **8 seconds later** (`surveys.sent_at` 2026-10-12T02:45:02, no error).
+That send is the standing behaviour Geno chose on 2026-10-02 ("yes
+automatically"), not a decision taken here.
+
+**Then three more on Geno's word** ("tammy lee, sarah irene, lilith all have
+telegrams connected to the bot — they need to be connected to the transcriber
+models page"), which also settled the SARAH question — the group's
+`creator_name` is just "Sarah" and it is the only Sarah on the bot, so it took
+his confirmation rather than a guess to link it:
+
+| Model | Group | Chat id |
+|---|---|---|
+| Lilith | LILITH | `-1004493220150` |
+| Tammylee | TAMMY | `-1003986489234` |
+| Sarah Irene | SARAH | `-1004356040199` |
+
+All three groups have `skip_campaigns = false`, so unlike the eight below their
+questionnaires could actually leave the bot.
+
+**Then the last two on Geno's word** (*"connect kiera and babygotcakes too"*).
+Both groups were already ready and both also carry `skip_campaigns = false`:
+
+| Model | Group | Chat id | Sent |
+|---|---|---|---|
+| Kiera | KIERA | `-1003813232245` | 2026-10-12T08:02:39 |
+| Babygotcakes | BABYCAKES | `-1003923748278` | 2026-10-12T08:02:40 |
+
+That is six of the seven fully wired — row, Infloww account, Telegram group,
+questionnaire sent, no errors on any of them. All six still need their
+Instagram handle before a card can be drafted.
+
+**The seventh was deleted on purpose — settled.** Jordan Jay's row was created
+and verified at 02:19 and was gone by 02:52, with `Jordan Jay FS` unlinked
+again. Geno confirmed it on 2026-10-12: *"yeah i deleted jordan jay on
+purpose."* That is the caveat raised when the row was made — she was the one
+page unowned since *before* the re-ID, not a new model. `Jordan Jay FS`
+(`2600588252545056`) stays unowned by design; **do not re-create the row.**
+Her 21 days and $867.95 are intact regardless, because `earnings_days` is keyed
+by `infloww_id`.
+
+Linking is `PUT /api/models/:id/telegram` with `{"chat_id":"..."}`, or the
+picker on her profile. Do not write `telegram_chat_id` by hand: the route is
+what runs `autoSurveyOnLink`, and the SQL alone would link her silently and
+leave her without a questionnaire forever (the insert is guarded by
+`not exists (select 1 from surveys where model_id = m.id)`, so it is one shot).
+
+## Found while doing it: eight questionnaires never went out
+
+Eight models have a `surveys` row from the 04:14 batch on 2026-10-11 that is
+still unsent, all with the same `send_error`: **"marketing is switched off for
+their group"** — ELLIE, CHRISTY, DEMI, IVY, PRISCILLA, Maeva, Tiffany and
+MIA (TRINITY). Their groups carry `skip: ["campaigns"]` in the bot's
+groups.json, which is the FansLink merger set, so the bot refuses to post
+marketing there. Working as written, not a fault: `recordSend` never retries a
+failure, so they are parked rather than looping, and `dueSurveys()` returns 0.
+
+But eight creators are missing their questionnaire, and it needs a decision:
+drop `campaigns` from the skip list for those groups, hand the links over in
+OPS instead (`transcriber.js:159` already words it for that case), or accept
+that the merger set does not get one.
+
+## Not done: their cards — and this is the one thing to flip
+
+The ask puts cards before profiles. It has to be the other way round, because
+the matcher is driven entirely by the profile. Measured, not assumed —
+`suggestionsFor()` for brand-new Lilith against the same library as a
+filled-in model:
+
+```
+Lilith  (no formats, no persona):  every candidate fit 4.5, matched=["relatable"]
+Helwife (28 formats, 3 persona):   fit 14.5–15.8, matched=["pov-skit","text-overlay","thirst-trap",…]
+```
+
+With an empty profile the matcher cannot rank anything. Every candidate ties on
+the generic `relatable` weight, so a drafted week would be eight arbitrary
+reels with no reason attached to any of them — the exact "generic tests" failure
+the topic axis was added to `match.ts` to kill. Cards were therefore not
+drafted. Nothing is blocked in the code; it is waiting on one field.
+
+**The one field is each model's Instagram handle.** With it, the library finds
+her own reels and `suggestionsFor()` derives her niches and formats from them
+("never make her type it"). Without it there is nothing to derive from: the
+library holds **zero** posts for all seven. Handles cannot be guessed either —
+probing `transcripts.author` for lilith/violette/kiera/tammy/irene/jordanjay/
+babygotcakes returned nothing but `@the.kalirene`, who is a different person.
+
+So the order is: Geno uploads the seven profiles (IG handle at minimum, photo
+and axes ideally) → their reels come into the library → cards draft themselves.
+
+Also worth his call, cheap to change: all seven were created at the default
+**tier B**. Kiera on $32.6k over 118 days is not a B.
+
+---
+
+# 2026-10-11 (later): Find a card, and four more Infloww accounts
+
+Two asks, both done. **Nothing is deployed** — the earnings work is prod data,
+the Find a card work is code sitting on the working tree.
+
+## Find a card — the way back from what she said to the video she meant
+
+Geno: *"we can see the video they're talking about because it's labeled, but we
+can't find it… we have to scroll through hundreds of videos to see exactly what
+they're talking about."* He is right and it was worse than it sounds: cards are
+labelled `V-87` on her phone, the numbers run past 130 per model, and they are
+spread over a dozen weeks. There are **1,157 cards across 78 weeks** in the
+table. The label was a dead end.
+
+There is now a **Find a card** button in the plan dialog's header, wearing her
+unread count, and it opens a search over *every card she has ever been sent*:
+
+- **Type the number** — `V-87`, `v87`, `#87` or just `87` — and only that card
+  comes back. A number she quoted always outranks a caption that happens to
+  contain the same digits.
+- **Type words** and it matches the card's name, the reference reel's creator
+  and title, the hook, the caption, the direction, the location, the wardrobe,
+  the transcript — **and her own words**, her note and her decline reason,
+  which rank with the card's own name because searching for what she said is
+  the whole point. Every word has to land, so a second word narrows.
+- **Empty, it is her history**, newest week first, with anything she has said
+  that nobody has read pinned to the top. That is the "section of past videos".
+- Clicking a result **switches the editor to that card's week, opens it,
+  scrolls to it and flashes it**, the same flash a freshly pasted card gets.
+  ↑ ↓ and Enter work; Escape closes.
+- **Link** on each row copies `/models?plan=<model>&card=<item>` — a link
+  straight to that one card, pasteable anywhere. `?card=V-87` works too, and a
+  card that no longer exists opens the panel instead of failing silently.
+
+Where it lives:
+
+- `src/lib/card-find.ts` — pure: the query parser, the field weights, the
+  ranking, the snippet, and `cardForKey` for links. **16 tests**, 243 green.
+- `src/lib/plan-read.ts` → `findableCards(modelId)`, and
+  `GET /api/models/[id]/cards`. Deliberately unpaged: a model's whole history
+  is ~100 thin rows, so one read answers every keystroke and the panel never
+  waits on the network while you type.
+- `src/components/roster/FindCard.tsx`, wired into `PlanEditor` with
+  `openCardKey`, threaded from `/models?card=` through `RosterTab`.
+- `plandialog.css` — the sheet, in bone/ink/ember like everything else.
+
+**Two real bugs were found and fixed while verifying this in the browser, and
+both pre-date the feature:**
+
+1. The jump effect cleared its own `pendingJump` in the effect body. That
+   re-ran the effect, whose cleanup cancelled both of its own scrolls — so
+   nothing ever moved. Clearing now happens inside the settling timer.
+2. **Every `scrollIntoView` in the plan dialog was unreliable**, including the
+   one that has always run when you open a card. A smooth scroll is abandoned
+   by Chrome the moment the scroller's contents change under it, and opening a
+   card multiplies its own height — so the animation started, the card
+   expanded, and the scroll died a few hundred pixels in. Measured: the pane
+   moved 326px of the 3,027 it needed. There is now one `bringIntoView` helper:
+   the optimistic first pass animates, every settling pass is instant, and a
+   reader who asked for reduced motion gets no animation at all.
+
+Verified in Chrome against prod data on Jane Goth (28 cards, 3 unread): her
+three unread notes sit at the top with her own words quoted; `transition`
+narrows 28 → 1 and finds V-77 by her sentence *"i just don't like this i don't
+know how to do that transition"*; clicking it lands V-77 at the top of the
+pane; `?card=V-77`, `?card=18` and a dead `?card=V-999` all behave. 243 tests
+green, `npx next build` clean, no console errors.
+
+## Infloww: 58 → 62 accounts, Helwife back
+
+Geno: *"helwife got readded back and theres more models that have also been
+added so make sure to double check until 4-5 more models have been added."*
+
+Four new accounts were on the key: **Helena FS (@helwife)**, Ruby Chat, Lilith
+and Violette FS. All seeded, backfilled 120 days, pulled through 2026-10-11 —
+62 accounts, zero errors, zero drafts, zero alerts.
+
+- **Helwife is linked and whole again**: 106 days, $9,704.47 net over the
+  window. She is no longer one of the two active models showing nothing.
+- **A parked decision is now closed: the pre-10-11 history does not need
+  remapping, and must not be remapped.** The new ids carry the old ledger
+  themselves — Helwife's new id reaches back to 13 June, and 104 of its days
+  overlap her retired id with 102 identical `net` figures. The retired rows are
+  a duplicate of history we already hold, which is the second reason they stay
+  unlinked: attaching them would double every model's month. Written up in
+  `docs/INFLOWW-REID.md`.
+- **Ruby, Lilith and Violette have no model row** and were left unmatched
+  rather than guessed at. Ruby reads as another agency CHAT account; Lilith and
+  Violette are own-name FS pages with real money (Lilith $6,314.51 over the
+  window), which is what a new model looks like. Creating a model row puts
+  someone on the roster, the sweep and the Monday read — Geno's call.
+- **Rey Rey Marie is now the only active model with nothing on the new
+  workspace** (146 days behind two retired ids), so she is the likely fifth.
+  `npm run infloww:new` is the hand check for all of this — what the key has
+  that we have never seen, and what nobody on the roster owns — and
+  `npm run infloww:new -- --watch` polls every three minutes and prints only
+  what changes. Read-only; `npm run earnings -- --no-draft` is what seeds and
+  backfills whatever it turns up.
+
+**One account left the key while the watcher was running**: `Gigi RHYS`
+(@gigi.linkss, `2390661324537873`) — 62 → 61. Confirmed absent on three calls
+15 seconds apart, so not a rate-limit blip or a short page. **Nothing was
+written.** She has no `model_id`, so `reportables()` filters her out and no
+model can be paused by her, and her 72 `earnings_days` rows are safe where
+they are. The next `runEarnings` will mark her `missing_since` through
+`syncAccounts` and raise the OPS "no longer on Infloww" alert by itself, which
+is the right way for it to happen — doing it by hand now would only swallow
+that notice. Unmatched is back to 26.
+
+**Unchanged and still the thing that matters most: Vercel holds the
+pre-rotation `INFLOWW_API_KEY`/`INFLOWW_OID`.** Every figure above came from a
+pull run on the Mac. Until those two are updated on Vercel the nightly cron
+keeps pulling nothing and will not pick up a fifth account on its own.
+
+Also still open: the D-priority `CHECK` fix in `cloud/scripts/migrate.mjs` is
+applied to prod (both constraints take `'S','A','B','C','D'`, 9 models are on
+D) but was never committed — a fresh database would not get it. Plus
+ANTHROPIC_API_KEY on Vercel (blocks /q), RESEND keys, REDDIT_* keys, Railway
+gated-intake.
+
+---
+
+# 2026-10-11: the new models are wired in, and Infloww re-issued every id — read this first
+
+Geno's ask: link the unlinked models, fix them on transcriber, get their
+Infloww stats aligned with their profiles, and have the dashboard working. All
+of it is **database work against prod Neon — no code changed**, so there is
+nothing to deploy for any of it. One migration was run (`npm run migrate`,
+idempotent) because `earnings_alerts.audience` from `9045453` had never been
+applied and every `alert()` would have failed against prod.
+
+**The buried lede: Infloww moved the agency onto new creator ids.** All 31 ids
+we held were retired and 58 new ones took their place — same people, new
+numbers, **zero overlap**. That is why the last successful pull was
+2026-10-09 13:57 and why all 31 accounts sat flagged `missing_since`. Vercel
+still holds the pre-rotation `INFLOWW_API_KEY`/`INFLOWW_OID` (created 11 days
+ago); `~/.infloww.env` was updated by hand on 10-10 14:32 and works — 58
+creators came back on the first call. **Until those two are updated on Vercel
+the nightly cron keeps pulling nothing.** See `docs/INFLOWW-REID.md` for the
+full retired→live mapping and the history question it leaves open.
+
+What was done:
+
+- **Two handles were pointed at the wrong Instagram account.** `PRISCILLA` was
+  `priscilla` — a private, verified stranger with 0 posts and 184k followers —
+  now `sexyandautistic_` (her own `socials` entry, already being swept).
+  `xxbunniiixx` (Blair, Telegram-linked since 9/06) was a handle with **zero
+  snapshots ever**; now `blairbankstv`, which has 32. Before the fix Monday's
+  story read would have named Priscilla as "nothing at all" in front of Geno
+  and Iona while she was actually posting; she now reads 67%, and Blair 100%.
+- **8 models linked to the Telegram group already sitting on the bot**: ELLIE,
+  CHRISTY, DEMI, IVY, PRISCILLA, Maeva, Tiffany, and MIA (TRINITY) → the
+  TRINITY group. Each got her questionnaire queued, exactly as the portal's
+  link button does (`autoSurveyOnLink`, first link only) — **the bot sends
+  those 8 the moment it next drains the queue.** Telegram links went 19/32 →
+  27/32 active.
+- **5 active models still have no group on the bot at all**: RAE, BERKELEY,
+  LIVI BLOSSOM, LEAH (CASSIE), SOPHIA (BRI). Nothing can be sent to them until
+  a group exists. SOPHIA (BRI) only fuzzy-matches SOPHIA SAVAGE, who is a
+  different, already-linked model — do not join those two.
+- **Infloww aligned**: all 58 live accounts seeded into `earnings_accounts`
+  exactly as `syncAccounts` would, then 34 of them attached to 30 models. The
+  13 new models are all on Infloww and all now matched. `Ivy Baby FS` is IVY;
+  `Ivy Fox` is a different creator with no model row — keep them apart.
+- **The 24 retired links were cleared** (`model_id = null`). This was not
+  optional: `reportables()` includes a missing account and `runEarnings`
+  *pauses* any model who has one, so leaving them attached would have paused
+  the entire roster permanently. The rows and their 2,304 `earnings_days` stay.
+- **The 120-day backfill was run from the Mac** (`npm run earnings --
+  --no-draft`, the script built for exactly this) with `--no-draft` so nothing
+  was drafted to a creator: all 58 accounts pulled through 2026-10-11, zero
+  errors, `complete: true`, 0 drafts, 0 alerts.
+
+**Verified afterwards** through the Dashboard's own loaders, not the raw
+tables. `loadEarningsBoard(30)` returns all 32 active models and an agency
+30-day net of **$367,033.27** (gross $458,804.85, +8% on the prior 30 days),
+`pulledAt` 2026-10-11 04:34. `loadModelEarnings` gives every one of the 13 new
+models real money, a last-week number and reel attribution:
+
+| Model | 30-day net | Last week | Reels |
+|---|---|---|---|
+| CHRISTY | $23,840.42 | $6,160.11 | 14 |
+| PRISCILLA | $15,689.18 | $2,227.58 | 9 |
+| RAE | $12,618.28 | $2,729.54 | 6 |
+| SOPHIA (BRI) | $12,149.86 | $2,439.96 | 12 |
+| BERKELEY | $5,999.48 | $1,091.39 | 8 |
+| ELLIE | $5,163.88 | $1,236.14 | 0 |
+| LIVI BLOSSOM | $4,602.54 | $614.95 | 20 |
+| DEMI | $4,283.79 | $617.41 | 6 |
+| Maeva | $2,470.59 | $716.36 | 12 |
+| MIA (TRINITY) | $1,967.45 | $104.54 | 8 |
+| Tiffany | $1,159.24 | $163.52 | 8 |
+| LEAH (CASSIE) | $502.60 | $61.34 | 8 |
+| IVY | $92.24 | $31.92 | 19 |
+
+The only two active models whose profile shows nothing are **Helwife** and
+**Rey Rey Marie**, both because they have no account on the new workspace.
+Note `loadModelEarnings` returns no `total` field — the money is in `daily`
+and `week`, which is easy to misread as zeros.
+
+Still open, and deliberately not done:
+
+- **Her pre-10-11 history sits behind retired ids nothing points at.**
+  Remapping those day rows onto the new ids would restore continuity but
+  `historyStart` is `max(first_day)`, so backdating can fire milestone and
+  best-month notes retroactively. Geno's call — the table is in
+  `docs/INFLOWW-REID.md`.
+- **Helwife and Rey Rey Marie (both active) have no account on the new
+  workspace**, with 109 and 146 days of history behind them. Either they were
+  dropped in the move or they are under a name the list does not show.
+- **24 live Infloww accounts have no model row** — mostly CHAT accounts for
+  agency creators transcriber does not track (Arabella, Alice, Vienna, Paige,
+  Johann…). The Monday OPS nudge will list all 24 until someone decides they
+  are intentional.
+- Unchanged from before: ANTHROPIC_API_KEY on Vercel (blocks /q), RESEND keys,
+  REDDIT_* keys, D-tier sprint spec, Railway gated-intake.
 
 ---
 

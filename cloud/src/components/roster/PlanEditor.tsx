@@ -14,6 +14,7 @@ import { labelOf, taxonomy } from '@/lib/taxonomy'
 import { STYLE_LABEL, conceptStem, isContentStyle, versionOf } from '@/lib/styles'
 import type { AddedCard } from './CardComposer'
 import ContentStyles from './ContentStyles'
+import FindCard, { cardForKey, dropCards, fetchCards } from './FindCard'
 import AutoField from './AutoField'
 import CardVersions from './CardVersions'
 import CoverThumb from './CoverThumb'
@@ -104,6 +105,22 @@ export function prefetchPlan(modelId: string, weekOf = currentWeekOf()): void {
     .catch(() => null)
 }
 
+/** Bring a row into view.
+ *
+ *  `instant` exists because a smooth scroll is a promise, not a guarantee:
+ *  Chrome abandons one the moment the scroller's contents change under it,
+ *  and opening a card multiplies its own height — so the animation starts,
+ *  the card expands, and the scroll dies a few hundred pixels in, leaving the
+ *  card thousands of pixels below the fold (measured 2026-10-11, which is how
+ *  the Find a card jump was caught before it shipped). Every settling pass
+ *  therefore lands instantly; only the first, optimistic one animates. A
+ *  reader who asked for less motion gets no animation at all. */
+function bringIntoView(node: Element, block: ScrollLogicalPosition = 'start', instant = false): void {
+  const still = instant || (typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  node.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block })
+}
+
 /** Thin row from a fast custom add — enough to paint until loadPlan lands. */
 function stubCard(card: AddedCard): PlanItemRow {
   return {
@@ -167,11 +184,16 @@ export default function PlanEditor({
   modelName,
   initialWeekOf,
   onClose,
+  openCardKey,
 }: {
   modelId: string
   modelName: string
   initialWeekOf: string
   onClose: () => void
+  /** A card to land on: an item id, or the label she quoted (`V-87`). From
+   *  `/models?plan=<model>&card=<key>` — the link that turns "she asked about
+   *  V-87" back into the video, without opening a week at a time. */
+  openCardKey?: string | null
 }) {
   const [weeks, setWeeks] = useState<PlanSummary[]>([])
   const [planId, setPlanId] = useState<string | null>(null)
@@ -303,6 +325,11 @@ export default function PlanEditor({
   const [openCard, setOpenCard] = useState<string | null>(null)
   /** The Add content panel — "+ Add card" on the step's heading opens it. */
   const [addOpen, setAddOpen] = useState(false)
+  const [findOpen, setFindOpen] = useState(false)
+  /** A card asked for before its week's cards had loaded. The jump finishes
+   *  in an effect, once the item is actually on screen to scroll to. */
+  const [pendingJump, setPendingJump] = useState<string | null>(null)
+  const [herUnread, setHerUnread] = useState(0)
   /** Copying the week onto another creator's week — the dialog's own state. */
   const [copyOpen, setCopyOpen] = useState(false)
   const [copyModels, setCopyModels] = useState<{ id: string; name: string }[]>([])
@@ -465,21 +492,83 @@ export default function PlanEditor({
     if (openCard && !items.some((item) => item.id === openCard)) setOpenCard(null)
   }, [items, openCard])
 
+  /** Go to a card wherever it lives: switch weeks if it is not on this one,
+   *  open it, and flash it the way a freshly landed card is flashed. The
+   *  scroll waits for `pendingJump` below, because the cards of another week
+   *  are not on screen yet when this runs. */
+  const jumpToCard = useCallback((card: { plan_id: string; item_id: string }) => {
+    setPlanId(card.plan_id)
+    setOpenCard(card.item_id)
+    setPendingJump(card.item_id)
+    setJustLanded(new Set([card.item_id]))
+    window.setTimeout(() => setJustLanded(new Set()), 8000)
+  }, [])
+
+  // The second half of a jump. Fires when the wanted card has arrived with its
+  // week; `openCard`'s own effect cannot do it, because it ran while the list
+  // still held the previous week.
+  useEffect(() => {
+    if (!pendingJump) return
+    if (!items.some((item) => item.id === pendingJump)) return
+    const node = document.getElementById(`planrow-${pendingJump}`)
+    if (!node) return
+    const frame = requestAnimationFrame(() => bringIntoView(node))
+    // A second beat once the card has expanded, and this one is instant: the
+    // first pass scrolled against the closed layout, and its animation did not
+    // survive the expansion. The pending mark is cleared *here* rather than in
+    // the effect body — clearing it there re-ran the effect, whose cleanup
+    // then cancelled both of its own scrolls, and nothing ever moved.
+    const timer = window.setTimeout(() => {
+      bringIntoView(node, 'start', true)
+      setPendingJump(null)
+    }, 180)
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer) }
+  }, [items, pendingJump])
+
+  // Her unread count for the Find a card badge: the number of cards she has
+  // said something about that nobody has opened, across every week she has had.
+  // The panel reads the same list, so this costs one request, cached.
+  useEffect(() => {
+    let live = true
+    fetchCards(modelId)
+      .then((cards) => { if (live) setHerUnread(cards.filter((card) => card.unread).length) })
+      .catch(() => null)
+    return () => { live = false }
+  }, [modelId, revision])
+
+  // A `?card=` link: resolve it against her history and land on it. Runs once
+  // per key, and only after the weeks are in, so the editor does not fight it.
+  const landed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!openCardKey || landed.current === openCardKey || weeks.length === 0) return
+    landed.current = openCardKey
+    fetchCards(modelId)
+      .then((cards) => {
+        const card = cardForKey(cards, openCardKey)
+        if (card) jumpToCard(card)
+        else setFindOpen(true)
+      })
+      .catch(() => setFindOpen(true))
+  }, [openCardKey, modelId, weeks.length, jumpToCard])
+
   // Opening a card (or stepping ‹ ›) pins its top into view so you are not
   // stuck mid-list staring at the foot of the previous row.
   useEffect(() => {
     if (!openCard) return
+    // A jump owns the scroll until it lands; two animations racing for the
+    // same row is how neither of them arrives.
+    if (pendingJump) return
     const node = document.getElementById(`planrow-${openCard}`)
     if (!node) return
-    const run = () => node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const run = () => bringIntoView(node)
     const frame = requestAnimationFrame(run)
     // One more beat after the open layout expands (cover + folds).
-    const timer = window.setTimeout(run, 80)
+    const timer = window.setTimeout(() => bringIntoView(node, 'start', true), 80)
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(timer)
     }
-  }, [openCard])
+  }, [openCard, pendingJump])
 
   // While the bot has the week, look again every so often: it polls once a
   // minute, and "waiting for the bot" should turn into posted without a reload.
@@ -651,6 +740,9 @@ export default function PlanEditor({
       body: JSON.stringify({ id: itemId, reply }),
     })
     if (!response.ok) return
+    // Answering her marks her note read, so the held card history — which the
+    // Find a card badge counts unread from — is out of date as of now.
+    dropCards(modelId)
     await loadPlan()
     void loadWeeks()
   }
@@ -1183,6 +1275,19 @@ export default function PlanEditor({
             </p>
           </div>
           <span className="planmodal-head-actions">
+            {/* The way back from "she asked about V-87" to the video itself
+                (Geno, 2026-10-11). Her cards run past a hundred over a dozen
+                weeks, so the label was a dead end without a search over all
+                of them. */}
+            <button
+              type="button"
+              className="planmodal-find"
+              aria-expanded={findOpen}
+              onClick={() => setFindOpen(true)}
+            >
+              Find a card
+              {herUnread > 0 && <span className="planmodal-find-new">{herUnread}</span>}
+            </button>
             <button
               type="button"
               className="planmodal-preview"
@@ -1201,6 +1306,13 @@ export default function PlanEditor({
             <button className="planmodal-close" onClick={onClose} aria-label="Close">Close</button>
           </span>
         </header>
+
+        <FindCard
+          modelId={modelId}
+          open={findOpen}
+          onClose={() => setFindOpen(false)}
+          onPick={jumpToCard}
+        />
 
         <div className="planmodal-body">
           {/* The selector, always on the left (Geno, 2026-10-09): the videos

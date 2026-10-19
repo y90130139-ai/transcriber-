@@ -2634,6 +2634,21 @@
 }
 .planmodal .plancopy-sub {
   margin: var(--sc-space-1) 0 0;
+/* ------------------------------------------------------------ Find a card
+   The way back from a label she quoted to the video she meant (Geno,
+   2026-10-11). A sheet over the dialog rather than a column inside it: the
+   editor is already two panes wide, and this is a thing you open, use once
+   and dismiss. */
+.planmodal .planmodal-find {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid #33302C;
+  border-radius: var(--r-pill);
+  padding: 8px 16px;
+  color: #A8A29A;
   font-family: var(--sc-font-mono);
   font-size: var(--sc-text-xs);
   letter-spacing: var(--sc-track-label);
@@ -2750,3 +2765,216 @@
 }
 .planmodal .plancopy-go:disabled { opacity: 0.45; }
 
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 120ms var(--sc-ease), border-color 120ms var(--sc-ease);
+}
+.planmodal .planmodal-find:hover,
+.planmodal .planmodal-find[aria-expanded='true'] {
+  color: var(--sc-ember);
+  border-color: var(--sc-ember);
+}
+/* Her unread count rides the button, because an unread note is the usual
+   reason anyone opens this. */
+.planmodal .planmodal-find-new {
+  min-width: 1.25rem;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.planmodal .findcard-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, #000 52%, transparent);
+  cursor: pointer;
+}
+
+.planmodal .findcard {
+  position: absolute;
+  z-index: 41;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  width: min(44rem, calc(100% - 2 * var(--sc-space-4)));
+  max-height: min(34rem, calc(100% - var(--sc-space-4)));
+  margin-top: var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r);
+  background: var(--sc-bone);
+  box-shadow: 0 24px 60px color-mix(in srgb, #000 38%, transparent);
+  overflow: hidden;
+  animation: findcard-in 180ms var(--sc-ease) both;
+}
+@keyframes findcard-in {
+  from { opacity: 0; translate: -50% -8px; }
+  to   { opacity: 1; translate: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planmodal .findcard { animation: none; }
+}
+
+.planmodal .findcard-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+  flex: none;
+}
+.planmodal .findcard-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--sc-ink-900);
+  font: inherit;
+  font-size: var(--sc-text-sm);
+}
+.planmodal .findcard-input:focus-visible {
+  outline: none;
+  border-color: var(--sc-ember);
+}
+.planmodal .findcard-input::placeholder { color: var(--sc-ink-150); }
+
+.planmodal .findcard-count {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-bottom: var(--sc-rule-hair);
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  flex: none;
+}
+
+.planmodal .findcard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.planmodal .findcard-list > li {
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--sc-rule-hair);
+}
+.planmodal .findcard-list > li:last-child { border-bottom: 0; }
+
+.planmodal .findcard-row {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--sc-space-3);
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.planmodal .findcard-row[data-on] { background: var(--sc-ember-tint); }
+/* A card she is waiting on gets the accent edge, not a different fill: the
+   row under the cursor still has to read as the one under the cursor. */
+.planmodal .findcard-row[data-unread] { box-shadow: inset 3px 0 0 var(--sc-ember); }
+
+.planmodal .findcard-thumb {
+  flex: none;
+  width: 48px;
+  height: 60px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--sc-ink-150);
+}
+.planmodal .findcard-thumb-blank { display: block; opacity: 0.35; }
+
+.planmodal .findcard-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.planmodal .findcard-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex-wrap: wrap;
+}
+.planmodal .findcard-no {
+  color: var(--sc-ink-900);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-xs);
+  letter-spacing: var(--sc-track-label);
+}
+.planmodal .findcard-week,
+.planmodal .findcard-verdict,
+.planmodal .findcard-author {
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-xs);
+}
+.planmodal .findcard-verdict[data-verdict='accepted'] { color: var(--sc-positive); }
+.planmodal .findcard-verdict[data-verdict='declined'] { color: var(--sc-ember); }
+.planmodal .findcard-unread {
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--sc-ember);
+  color: #0A0A0A;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.planmodal .findcard-name {
+  color: var(--sc-ink-900);
+  font-size: var(--sc-text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planmodal .findcard-said {
+  color: var(--sc-ink-500);
+  font-size: var(--sc-text-xs);
+  font-style: italic;
+}
+
+.planmodal .findcard-copy {
+  flex: none;
+  align-self: center;
+  margin-right: var(--sc-space-2);
+  padding: 4px 10px;
+  border: var(--sc-rule-hair);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--sc-ink-300);
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--sc-track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.planmodal .findcard-copy:hover { color: var(--sc-ember); border-color: var(--sc-ember); }
+
+.planmodal .findcard-empty {
+  margin: 0;
+  padding: var(--sc-space-4) var(--sc-space-3);
+  color: var(--sc-ink-300);
+  font-size: var(--sc-text-sm);
+}

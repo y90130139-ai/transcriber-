@@ -10,6 +10,7 @@ function ModelsPageInner() {
   return (
     <RosterTab
       openPlanFor={params.get('plan')}
+      openCardFor={params.get('card')}
       openProfileFor={params.get('profile')}
       onOpened={() => router.replace('/models')}
     />

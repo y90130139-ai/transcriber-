@@ -57,12 +57,17 @@ const WARM_AFTER_MS = 120
 
 export default function RosterTab({
   openPlanFor,
+  openCardFor,
   openProfileFor,
   onOpened,
 }: {
   /** A model the sweep asked for. Opening her plan straight away is the point
    *  of tapping a row over there. */
   openPlanFor?: string | null
+  /** The card that link meant: an item id or the label she quoted (`V-87`).
+   *  Held in state the moment the dialog opens, because `onOpened` clears the
+   *  query string it came from. */
+  openCardFor?: string | null
   /** A model the dashboard asked for: her profile, on its Analytics tab. */
   openProfileFor?: string | null
   onOpened?: () => void
@@ -75,6 +80,7 @@ export default function RosterTab({
   const [editing, setEditing] = useState<RosterModel | 'new' | null>(null)
   const [editingTab, setEditingTab] = useState<ProfileTab>('profile')
   const [planning, setPlanning] = useState<RosterModel | null>(null)
+  const [planningCard, setPlanningCard] = useState<string | null>(null)
   const [batchOpen, setBatchOpen] = useState(false)
   const { standing, reload: loadStanding } = useStanding()
   const groupOf = (model: RosterModel): Group =>
@@ -152,8 +158,9 @@ export default function RosterTab({
     if (!wanted) return
     prefetchPlan(wanted.id, weekOf)
     setPlanning(wanted)
+    setPlanningCard(openCardFor ?? null)
     onOpened?.()
-  }, [openPlanFor, models, onOpened, weekOf])
+  }, [openPlanFor, openCardFor, models, onOpened, weekOf])
 
   useEffect(() => {
     if (!openProfileFor) return
@@ -294,7 +301,7 @@ export default function RosterTab({
                 <button className="btn btn-small"
                   title={`Open plan for week of ${formatDate(weekOf)}`}
                   aria-label={`Open ${model.name}'s plan for week of ${formatDate(weekOf)}`}
-                  onClick={(event) => { event.stopPropagation(); prefetchPlan(model.id, weekOf); setPlanning(model) }}>
+                  onClick={(event) => { event.stopPropagation(); prefetchPlan(model.id, weekOf); setPlanningCard(null); setPlanning(model) }}>
                   {model.plan_status === 'sent' ? 'Plan · sent' : 'Plan'}
                 </button>
                 <button className="btn btn-quiet btn-small"
@@ -326,7 +333,8 @@ export default function RosterTab({
           modelId={planning.id}
           modelName={planning.name}
           initialWeekOf={weekOf}
-          onClose={() => { setPlanning(null); void load(); void loadStanding() }}
+          openCardKey={planningCard}
+          onClose={() => { setPlanning(null); setPlanningCard(null); void load(); void loadStanding() }}
         />
       )}
     </>

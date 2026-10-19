@@ -7,6 +7,7 @@ import type { AppAccountRow } from '@/lib/app-accounts'
 import { ago } from '@/lib/format'
 import Avatar from '../dashboard/Avatar'
 import { Icon } from '../console/ConsoleIcons'
+import DeleteAccountDialog from './DeleteAccountDialog'
 import InviteDialog from './InviteDialog'
 
 /**
@@ -17,11 +18,13 @@ import InviteDialog from './InviteDialog'
  * whole row opens her account page: the full activity timeline, the
  * questionnaire she filled, and the push composer that reaches her phones.
  *
- * The list keeps one action per row — Open, the same door the row itself is.
- * Resending an invite stays here for a row that is still waiting (it is the
- * one thing you would do from the list); everything else — the reset link,
- * the push composer — lives on her account page, so the table stays a table
- * (Geno, 2026-10-14).
+ * The list keeps its own actions — Open, the same door the row itself is,
+ * and Delete, a housekeeping act kept to its own confirm dialog (Geno,
+ * 2026-10-19): the sign-in goes, here and in any link still out, while her
+ * model page and everything she has done in the app stay. Resending an
+ * invite stays here for a row that is still waiting; everything else — the
+ * reset link, the push composer — lives on her account page, so the table
+ * stays a table (Geno, 2026-10-14).
  *
  * The old Invites screen lives here too now (Geno, 2026-10-14): an Invite
  * button opens the popup, and the Pending invites tab filters the same table
@@ -56,6 +59,8 @@ export default function AppAccountsTab({ initial, initialUnreachable = false, in
   const [tab, setTab] = useState<'accounts' | 'invites'>('accounts')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [emailConfigured, setEmailConfigured] = useState(initialEmailConfigured)
+  /** The row the delete dialog is asking about — null is closed. */
+  const [deleting, setDeleting] = useState<AppAccountRow | null>(null)
 
   /** Refresh after an action — the first paint never needs it. */
   const load = useCallback(async () => {
@@ -296,6 +301,13 @@ export default function AppAccountsTab({ initial, initialUnreachable = false, in
                         >
                           Open
                         </Link>
+                        <button
+                          className="btn btn-quiet btn-small"
+                          onClick={(event) => { event.stopPropagation(); setDeleting(row) }}
+                          aria-label={`Delete ${row.modelName ?? row.email}'s account`}
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   )
@@ -312,6 +324,15 @@ export default function AppAccountsTab({ initial, initialUnreachable = false, in
         onClose={() => setInviteOpen(false)}
         onInvited={() => {
           setTab('invites')
+          void load()
+        }}
+      />
+
+      <DeleteAccountDialog
+        row={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={(row) => {
+          setNote({ text: `Deleted ${row.email} — she can no longer sign in.` })
           void load()
         }}
       />

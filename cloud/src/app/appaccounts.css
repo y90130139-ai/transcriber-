@@ -815,6 +815,25 @@ button.aa-mile:hover .aa-mile-go { opacity: 1; color: var(--sc-ember-light); }
   opacity: 1;
 }
 
+/* The delete dialog's own button (Geno, 2026-10-19): the same pill as Save,
+   in the alarm colour — the confirm was read, this is the one that drops. */
+.aa-dialog .adddialog-danger {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--sc-critical);
+  border-radius: 999px;
+  background: var(--sc-critical);
+  color: #ffffff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.aa-dialog .adddialog-danger:hover:not(:disabled) { filter: brightness(1.08); }
+.aa-dialog .adddialog-danger:disabled { opacity: 0.45; cursor: default; }
+
 /* The tab strip's little count (Geno, 2026-10-14). */
 .aa-tab-count {
   display: inline-flex;

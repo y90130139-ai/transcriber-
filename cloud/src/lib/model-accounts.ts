@@ -243,6 +243,23 @@ export async function updateAccountModel(id: string, modelId: string): Promise<M
   return rows[0] ? mapAccount(rows[0]) : null
 }
 
+/** Delete an account outright (Geno, 2026-10-19) — the console's own
+ *  housekeeping for a duplicate, a test row, or a creator who is gone. The
+ *  row and any reset link still out are deleted together; the model and
+ *  everything she has done in the app live in other tables and are not
+ *  touched. False when no row matched — the caller says "no such account". */
+export async function deleteAccount(id: string): Promise<boolean> {
+  if (!id) return false
+  await rest(`${RESET_TABLE}?account_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
+  const response = await rest(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation' },
+  })
+  if (!response.ok) throw new Error(`model_accounts delete failed (${response.status})`)
+  const rows = (await response.json()) as Row[]
+  return rows.length > 0
+}
+
 export type InviteResult = {
   account: ModelAccount
   /** True when a token was minted and should be emailed. False for an account

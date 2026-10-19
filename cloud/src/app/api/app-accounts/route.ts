@@ -2,7 +2,7 @@ import { guardAccess } from '@/lib/access'
 import { NextResponse } from 'next/server'
 import { loadAppAccounts } from '@/lib/app-accounts'
 import { sql } from '@/lib/db'
-import { findAccountForModel, updateAccountModel } from '@/lib/model-accounts'
+import { deleteAccount, findAccountForModel, updateAccountModel } from '@/lib/model-accounts'
 
 /**
  * The app-accounts list (Geno, 2026-10-12): every app account, where it
@@ -53,5 +53,29 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, account })
   } catch {
     return NextResponse.json({ error: 'Could not save the link — try again.' }, { status: 502 })
+  }
+}
+
+/**
+ * Delete an account (Geno, 2026-10-19) — the row itself, not merely a
+ * disable: her sign-in and any invite or reset link still out are gone for
+ * good. Her model page, plans and history are untouched — removing the
+ * model is the model sheet's own job. The list's confirm dialog is the
+ * seatbelt; this route just does it.
+ */
+export async function DELETE(request: Request) {
+  const denied = await guardAccess(request)
+  if (denied) return denied
+
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+  const accountId = typeof body.accountId === 'string' ? body.accountId.trim() : ''
+  if (!accountId) return NextResponse.json({ error: 'Which account?' }, { status: 400 })
+
+  try {
+    const gone = await deleteAccount(accountId)
+    if (!gone) return NextResponse.json({ error: 'No such account.' }, { status: 404 })
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ error: 'Could not delete the account — try again.' }, { status: 502 })
   }
 }

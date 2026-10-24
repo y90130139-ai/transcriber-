@@ -40,6 +40,19 @@ test('with no owner chat configured nobody gets it - it fails closed', () => {
   assert.ok('refusal' in still)
 })
 
+test('the owner id the drafts lock already uses opens the board, under either name', () => {
+  // OWNER_TELEGRAM_ID is deployed and holds the same number: a DM's chat id is
+  // the account's id. Without this the board stayed dark for want of a synonym.
+  assert.deepEqual(audienceFor(OWNER, { OWNER_TELEGRAM_ID: OWNER }), { fans: true })
+  const ops = audienceFor(OPS, { OWNER_TELEGRAM_ID: OWNER })
+  assert.ok('refusal' in ops, 'and it opens nothing else - the group is still refused')
+  // The explicit name wins, so the board can be pointed elsewhere without
+  // moving the lock that guards sending a draft.
+  assert.deepEqual(audienceFor('999', { GOSIAN_OWNER_CHAT_ID: '999', OWNER_TELEGRAM_ID: OWNER }), { fans: true })
+  const old = audienceFor(OWNER, { GOSIAN_OWNER_CHAT_ID: '999', OWNER_TELEGRAM_ID: OWNER })
+  assert.ok('refusal' in old)
+})
+
 test('the staff group can be opened, and then it reads the board without a single fan id', () => {
   const who = audienceFor(OPS, { GOSIAN_OWNER_CHAT_ID: OWNER, ROSTER_HEALTH_OPS: '1' })
   assert.deepEqual(who, { fans: false })

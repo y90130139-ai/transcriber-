@@ -19,6 +19,11 @@
  *    that group when Geno wants it. With no owner chat id configured nobody
  *    gets it, because failing closed is the only safe default for a payload
  *    that names what individual fans spend.
+ *
+ *    The owner is read from GOSIAN_OWNER_CHAT_ID, or from OWNER_TELEGRAM_ID,
+ *    which has been deployed here since the drafts lock needed it and holds
+ *    the same number - a Telegram DM's chat id is the account's own id. The
+ *    board was dormant for want of a second name for an id we already had.
  */
 
 export const GUIDANCE = `You are the Roster Health desk for Gosian Media's OnlyFans chatting roster. You read one payload, roster_health, computed by the Gosian bot from the Infloww transaction mirror, and you tell the team what is happening across the roster and exactly what to do about it before the month closes.
@@ -170,10 +175,13 @@ export type Audience = { fans: boolean } | { refusal: string }
  * Who may read the board from the chat the question was asked in. Geno's DM
  * sees everything; the staff group sees it without fan ids, and only when
  * Geno has opened it. Anything unconfigured is a refusal, never a leak.
+ *
+ * GOSIAN_OWNER_CHAT_ID wins where both are set, so the board can be pointed
+ * somewhere else without moving the lock that guards sending a draft.
  */
 export function audienceFor(chatId: string, env: Record<string, string | undefined> = process.env): Audience {
-  const owner = (env.GOSIAN_OWNER_CHAT_ID ?? '').trim()
-  if (!owner) return { refusal: 'Roster Health is not available here: it prints agency-wide money and fan ids, so it answers in Geno\'s DM only, and GOSIAN_OWNER_CHAT_ID is not set on the transcriber.' }
+  const owner = (env.GOSIAN_OWNER_CHAT_ID ?? env.OWNER_TELEGRAM_ID ?? '').trim()
+  if (!owner) return { refusal: 'Roster Health is not available here: it prints agency-wide money and fan ids, so it answers in Geno\'s DM only, and neither GOSIAN_OWNER_CHAT_ID nor OWNER_TELEGRAM_ID is set on the transcriber.' }
   if (String(chatId) === owner) return { fans: true }
   if ((env.ROSTER_HEALTH_OPS ?? '') === '1') return { fans: false }
   return { refusal: 'Roster Health answers in Geno\'s DM only - it is agency-wide money and fan spend. Ask him, or he can open it to this group by setting ROSTER_HEALTH_OPS=1.' }

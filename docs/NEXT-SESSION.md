@@ -1,3 +1,91 @@
+# 2026-10-24 (latest): the dormants switched on, and what that found
+
+Geno: *"commit the fixes and fix dormants and get them assessed"*. Both
+switches are on in the calendar, nothing is pushed, and the assessment found
+one leak and six defects. `/q` is still blocked on him.
+
+## What is committed
+
+**Here** (5 commits, unpushed, `main` is 5 ahead of origin — note `5ee1c70`,
+the ad-reels reader fix, has been sitting undeployed since 19 Oct):
+the `socials` jsonb hardening, the shout-outs route, the two purge scripts,
+and the two security commits below. 365 tests, `tsc` clean, `next build` clean.
+
+**The bot** (branch `roster-health-live`, 4 commits on top of `main`, unpushed):
+the merge, the test-isolation fix, the staleness gate, and the review fixes.
+994 tests, green twice.
+
+## Three things found by switching them on
+
+**1. The board was dark for want of a synonym.** `audienceFor` read
+`GOSIAN_OWNER_CHAT_ID`, never set on Vercel, so it failed closed on everyone
+including Geno. `OWNER_TELEGRAM_ID` holds the same number (a DM's chat id is
+the account id) and has been deployed for three weeks as the drafts lock. It
+takes either now, explicit name first, and requires digits — a group id is
+negative, so a variable pointed at a group opens nothing.
+
+**2. The feature branch was 40 commits behind deployed main.** That is the
+real reason it was dormant. Five conflicts, all additive; the calendar merged
+as an exact key union (31 + 32 → 33, nothing altered either side).
+
+**3. The board would have lied for its first week.** Nothing checked the
+mirror's age. On the live mirror it reported 39/57 red, 46 projected, agency
+down 25%, last-four-days pace $1,679 against a $7,477 average — and the mirror
+was last filled on **20 October**. Three of those days are missing data, not a
+collapse, and the same gap picks each creator's tier.
+
+`staleGate` holds the pass past `stale_hours` (6): no alerts, no ledger, no
+daily read against a window the mirror never filled. It judges the worse of
+two signals, because `lastRunAt` says a pass *finished*, not that it reached
+anybody — `syncAll` stamps it even when stopped on budget, and it works
+oldest-first, so the tail it abandons is exactly who reads as dark.
+`coverage_at` is the time by which 80% of the live roster was synced (a
+percentile, so one revoked creator cannot wedge the board).
+
+## The assessment
+
+**One CRITICAL, confirmed and fixed.** `bot_reports` hands back the bot's
+shared reports by name, and the bot puts the whole board in that same bag — so
+anyone who can `/q`, which since the merger means a staff group with the
+FansLink side in it, could ask for the `roster_health` report and get agency
+money, every creator's net, and what individual fans spend by fan id.
+`audienceFor` was never consulted and `scrub()` could not help: the payload is
+a JSON string and scrub filters keys. It is now an **allow-list** of the eight
+safe reports in `lib/assistant/bot-reports.ts` — not a deny-list, so the next
+sensitive report is safe before anyone remembers it exists.
+
+Also fixed: the drafts owner lock failed open when `OWNER_TELEGRAM_ID` was
+unset (no value meant anyone's tap could send a creator a marketing message);
+the gate's two fail-open paths above; the hold notice waking him at 3am and
+stranding lines queued overnight; a recovery line promising a burst that
+cannot arrive; `lines.slice(0, max_lines)` dropping alerts silently after the
+ledger had recorded them; `set-commands` advertising DM commands on a
+default-true read the runtime defaults false. `tickRosterHealth` had no test
+and now has one (hold → silence → catch-up, injected client, seeded mirror).
+
+Checked and closed on measurement: the payload is **51KB compact against the
+snapshot's 200,000-char cap**, so it does not evict the other reports.
+
+## What is left, and it is his
+
+1. **`ANTHROPIC_API_KEY` on Vercel** — still the one blocker for `/q`, and
+   `assistant.enabled` also gates the snapshot route, so the board cannot
+   reach the assistant without it. `npx vercel env add ANTHROPIC_API_KEY
+   production`, then `assistant.enabled: true` is a one-line flip.
+2. **Who may read the board.** His DM works now. `ROSTER_HEALTH_OPS=1` opens a
+   fan-id-free version to the staff group — but note the review's point: that
+   view still carries agency-wide money and per-creator net, which is by
+   design and worth deciding on purpose given who is in that group.
+3. **Both pushes.** The bot deploys on push to main; `roster-health-live` has
+   to land there. Confirm in Vercel that `OWNER_TELEGRAM_ID` is the plain
+   digits of his Telegram id with no quotes or whitespace — the digit check
+   fails closed and will say so if not.
+4. **`coverage-check`**, 3 unpushed commits of his own from 23 Oct, also
+   undeployed. It conflicts with `roster-health-live` on the calendar and
+   package.json, so landing both needs one more small merge.
+
+---
+
 # 2026-10-18 (latest): Roster Health — the Red October board, wired end to end
 
 The spec Geno pasted ("Red October — Roster Health prompt for the transcriber")

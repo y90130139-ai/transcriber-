@@ -98,7 +98,8 @@ export async function loadModels(onlyId?: string): Promise<ModelRow[]> {
               select distinct h from unnest(
                 array_append(
                   coalesce((select array_agg(lower(ltrim(s->>'handle', '@')))
-                              from json_array_elements(coalesce(m.socials, '[]')::json) s
+                              from jsonb_array_elements(
+                                     case when jsonb_typeof(m.socials) = 'array' then m.socials else '[]'::jsonb end) s
                              where s->>'platform' ilike 'instagram%'), '{}'),
                   nullif(lower(ltrim(m.handle, '@')), ''))) h), null) as handles
        from transcriber.models m

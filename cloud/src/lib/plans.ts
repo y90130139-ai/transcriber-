@@ -365,7 +365,7 @@ export async function planItemsFor(planId: string): Promise<PlanItem[]> {
                 and lower(cp.handle) in (
                   select lower(hm.handle)
                   union all
-                  select lower(x->>'handle') from jsonb_array_elements(coalesce(hm.socials, '[]'::jsonb)) x
+                  select lower(x->>'handle') from jsonb_array_elements(case when jsonb_typeof(hm.socials) = 'array' then hm.socials else '[]'::jsonb end) x
                    where x->>'platform' = 'instagram')
               order by cp.posted_at desc limit 1) as sound_used_on,
             t.on_screen_captions, t.author, t.caption as raw_caption, t.speaker_count,

@@ -34,7 +34,7 @@ const MODEL_HANDLES = `(
   select lower(ltrim(m.handle, '@')) from transcriber.models m where coalesce(m.handle, '') <> ''
   union
   select lower(ltrim(s->>'handle', '@'))
-    from transcriber.models m, json_array_elements(coalesce(m.socials, '[]')::json) s
+    from transcriber.models m, jsonb_array_elements(case when jsonb_typeof(m.socials) = 'array' then m.socials else '[]'::jsonb end) s
    where s->>'platform' ilike 'instagram%')`
 
 /** One of our models' own reels — never expires. */

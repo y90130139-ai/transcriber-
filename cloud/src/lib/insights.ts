@@ -202,7 +202,7 @@ export async function similarFor(
        select lower(m.handle) as handle from transcriber.models m where m.handle is not null
        union
        select lower(s->>'handle') from transcriber.models m,
-              jsonb_array_elements(coalesce(m.socials, '[]'::jsonb)) s
+              jsonb_array_elements(case when jsonb_typeof(m.socials) = 'array' then m.socials else '[]'::jsonb end) s
         where s->>'platform' = 'instagram'
      ),
      generic as (

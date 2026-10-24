@@ -51,6 +51,22 @@ test('the owner id the drafts lock already uses opens the board, under either na
   assert.deepEqual(audienceFor('999', { GOSIAN_OWNER_CHAT_ID: '999', OWNER_TELEGRAM_ID: OWNER }), { fans: true })
   const old = audienceFor(OWNER, { GOSIAN_OWNER_CHAT_ID: '999', OWNER_TELEGRAM_ID: OWNER })
   assert.ok('refusal' in old)
+  // A placeholder set to empty must not shadow the name that works - that is
+  // the same dark board this fallback exists to fix.
+  assert.deepEqual(audienceFor(OWNER, { GOSIAN_OWNER_CHAT_ID: '  ', OWNER_TELEGRAM_ID: OWNER }), { fans: true })
+})
+
+test('the owner must be an account id, so a variable pointed at a group opens nothing', () => {
+  // Both vars are hand-set, and one of them is also the drafts lock. A group
+  // id here would hand every member of that group what individual fans spend.
+  const group = audienceFor('-1004466803631', { GOSIAN_OWNER_CHAT_ID: '-1004466803631' })
+  assert.ok('refusal' in group && group.refusal.includes('account id'))
+  // Not even with the group switch on, and not for anyone else either.
+  const ops = audienceFor(OPS, { GOSIAN_OWNER_CHAT_ID: '-1004466803631', ROSTER_HEALTH_OPS: '1' })
+  assert.ok('refusal' in ops)
+  for (const bad of ['abc', '12.5', '+123', '1 2', '-1']) {
+    assert.ok('refusal' in audienceFor(bad, { GOSIAN_OWNER_CHAT_ID: bad }), `${bad} must not be an owner`)
+  }
 })
 
 test('the staff group can be opened, and then it reads the board without a single fan id', () => {

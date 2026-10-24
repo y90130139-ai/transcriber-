@@ -58,10 +58,14 @@ export async function decideDraft(id: string, chatId: string, action: 'approve' 
     await sql.query(`update transcriber.assistant_drafts set status = 'cancelled', decided_at = now() where id = $1 and status = 'proposed'`, [id])
     return { ok: true, status: 'cancelled', model_name: String(d.model_name) }
   }
-  // Second lock behind the bot's own check: when OWNER_TELEGRAM_ID is set
-  // here, only that account's tap is honoured.
-  const owner = process.env.OWNER_TELEGRAM_ID
-  if (owner && String(fromId ?? '') !== owner) return { ok: false, status: 'refused', reason: 'only Geno can send it', model_name: String(d.model_name) }
+  // Second lock behind the bot's own check: only the owner's tap is honoured.
+  // It fails closed. Unset used to mean "anyone", which is the wrong way round
+  // for a tap that sends a marketing message to a creator - and the same
+  // variable now also decides who may read the Roster Health board, so one
+  // missing value should never quietly open two doors at once.
+  const owner = (process.env.OWNER_TELEGRAM_ID ?? '').trim()
+  if (!/^[0-9]+$/.test(owner)) return { ok: false, status: 'refused', reason: 'the owner lock is not configured here (OWNER_TELEGRAM_ID), so nothing can be sent', model_name: String(d.model_name) }
+  if (String(fromId ?? '') !== owner) return { ok: false, status: 'refused', reason: 'only Geno can send it', model_name: String(d.model_name) }
   if (d.stale === true) return { ok: false, status: 'refused', reason: `the draft is over ${DRAFT_TTL_HOURS} hours old - ask for a fresh one`, model_name: String(d.model_name) }
   if (d.skip_campaigns === true) return { ok: false, status: 'refused', reason: `${d.model_name} gets no marketing messages`, model_name: String(d.model_name) }
   const problems = await problemsFor(String(d.text), String(d.model_id), String(d.model_name))

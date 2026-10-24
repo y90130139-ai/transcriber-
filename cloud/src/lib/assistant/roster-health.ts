@@ -180,8 +180,14 @@ export type Audience = { fans: boolean } | { refusal: string }
  * somewhere else without moving the lock that guards sending a draft.
  */
 export function audienceFor(chatId: string, env: Record<string, string | undefined> = process.env): Audience {
-  const owner = (env.GOSIAN_OWNER_CHAT_ID ?? env.OWNER_TELEGRAM_ID ?? '').trim()
+  // The first name that holds anything, not the first that is defined: a
+  // placeholder set to '' would otherwise shadow the one that works.
+  const owner = [env.GOSIAN_OWNER_CHAT_ID, env.OWNER_TELEGRAM_ID].map((v) => (v ?? '').trim()).find((v) => v !== '') ?? ''
   if (!owner) return { refusal: 'Roster Health is not available here: it prints agency-wide money and fan ids, so it answers in Geno\'s DM only, and neither GOSIAN_OWNER_CHAT_ID nor OWNER_TELEGRAM_ID is set on the transcriber.' }
+  // An account id and nothing else. A Telegram group id is negative, so this
+  // is what stops a variable pointed at a group - by a typo or by someone
+  // reusing it for the ops chat - from handing that whole group fan ids.
+  if (!/^[0-9]+$/.test(owner)) return { refusal: 'Roster Health is not available here: the owner chat id configured on the transcriber is not an account id. It must be the digits of Geno\'s own Telegram id - a group id (negative) can never be the owner, because the board would then print fan spend to everyone in it.' }
   if (String(chatId) === owner) return { fans: true }
   if ((env.ROSTER_HEALTH_OPS ?? '') === '1') return { fans: false }
   return { refusal: 'Roster Health answers in Geno\'s DM only - it is agency-wide money and fan spend. Ask him, or he can open it to this group by setting ROSTER_HEALTH_OPS=1.' }

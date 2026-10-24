@@ -10,6 +10,7 @@ import { statuses } from '../survey/store'
 import { loadEarningsBoard, loadModelEarnings, EARNINGS_WINDOWS, type EarningsWindow } from '../earnings/board'
 import { loadBoard, WINDOWS, type WindowDays } from '../performance/load'
 import type { ToolSpec } from './core'
+import { reportFor } from './bot-reports'
 
 const usd = (cents: number | null | undefined) => (cents === null || cents === undefined ? null : Math.round(Number(cents)) / 100)
 
@@ -174,10 +175,7 @@ async function shoutouts(input: Record<string, unknown>) {
 async function botReports(input: Record<string, unknown>) {
   const [row] = await sql.query(`select generated_at, topics from transcriber.bot_snapshot where id = 'latest'`)
   if (!row) return { note: 'The bot has not shared its reports yet (it does so hourly).' }
-  const topics = row.topics as Record<string, string>
-  const wanted = String(input.topic ?? '')
-  if (!wanted || !Object.hasOwn(topics, wanted)) return { generated_at: row.generated_at, available_topics: Object.keys(topics) }
-  return { generated_at: row.generated_at, topic: wanted, report: topics[wanted] }
+  return { generated_at: row.generated_at, ...reportFor(row.topics as Record<string, string>, String(input.topic ?? '')) }
 }
 
 const NAME = { type: 'string', description: 'The model, as the team calls her (name or handle).' } as const

@@ -122,7 +122,6 @@ export function recapText(r: Recap): string {
   lines.push('', r.change !== null && r.change < 0
     ? 'On to the next one. A new month is a fresh start. 🌱'
     : 'Thank you for a great month. Let’s make the next one even better. ✨')
-  lines.push('', `Net = after OnlyFans' 20% fee.${r.provisional ? ' The last few days are still settling with OnlyFans.' : ''}`)
   return lines.join('\n')
 }
 

@@ -225,7 +225,6 @@ export function weeklyText(n: WeeklyNumbers, seed: string): string {
     lines.push(`📈 ${word[0].toUpperCase()}${word.slice(1)} your 4-week average`)
   }
   lines.push('', pick(LINES[toneOf(n)], seed))
-  lines.push('', `Net = after OnlyFans' 20% fee.${n.provisional ? ' Some of this week is still settling with OnlyFans.' : ''}`)
   return lines.join('\n')
 }
 

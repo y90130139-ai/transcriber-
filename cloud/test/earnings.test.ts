@@ -68,7 +68,7 @@ test('weekly compares the same seven days both sides, with the best day and spli
   const text = weeklyText(n, 'seed')
   assert.match(text, /up 57% on last week/)
   assert.match(text, /Best day: Thu, Sep 24, \$500/)
-  assert.match(text, /Net = after OnlyFans' 20% fee/)
+  assert.doesNotMatch(text, /20% fee/)
 })
 
 test('a down week is plain, flags OPS, and never says so to her in alarming words', () => {

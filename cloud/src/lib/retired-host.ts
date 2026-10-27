@@ -14,16 +14,32 @@
 export const LIVE_ORIGIN = 'https://plan.gosianmedia.com'
 
 /**
- * True only for the retired deployment's own hostnames.
+ * The retired production aliases, named rather than matched by suffix.
  *
- * Matched on the suffix with its dot, so `vercel.app.example.com` — a host
- * that merely contains the words — is not one of ours. The port is dropped
- * because a `Host` header may carry one and the name is what identifies the
- * deployment.
+ * Both point at the same production deployment of the `transcriber` project
+ * (`vercel alias ls`, 2026-10-27); the first is the one the bot's
+ * `TRANSCRIBER_URL` and every link in the wild carry, the second is the
+ * project-scoped alias Vercel assigns.
+ *
+ * A suffix test on `.vercel.app` would read every *preview* deployment as
+ * retired too and send its pages to the live domain, which ends preview review
+ * on this project. If another alias is retired later, it belongs on this list.
+ */
+export const RETIRED_HOSTS = [
+  'transcriber-ten-zeta.vercel.app',
+  'transcriber-sinauraco-s-projects.vercel.app',
+] as const
+
+/**
+ * True only for one of the hosts named above.
+ *
+ * The port is dropped because a `Host` header may carry one and the name is
+ * what identifies the deployment.
  */
 export function isRetiredHost(host: string | null | undefined): boolean {
   if (!host) return false
-  return host.trim().toLowerCase().split(':')[0].endsWith('.vercel.app')
+  const name = host.trim().toLowerCase().split(':')[0]
+  return RETIRED_HOSTS.some((retired) => retired === name)
 }
 
 /** The API answers on the retired host unchanged; everything else moves. */

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { canonicalFor } from './lib/retired-host'
 
 /**
  * CORS for the app-facing API only (Geno, 2026-10-12).
@@ -18,7 +19,26 @@ const cors = (origin: string) => ({
   'Access-Control-Max-Age': '86400',
 })
 
+/** The two API scopes the headers above are for, and only those. */
+const CORS_SCOPES = ['/api/app', '/api/photo']
+const wantsCors = (pathname: string) =>
+  CORS_SCOPES.some((scope) => pathname === scope || pathname.startsWith(`${scope}/`))
+
 export function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl
+
+  // The retired Vercel host hands every page over to plan.gosianmedia.com
+  // (see lib/retired-host). `x-forwarded-host` is what the proxy in front of
+  // the function saw; `host` is the fallback for a direct call. 308 rather
+  // than 302 so the browser remembers it and keeps the method.
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
+  const canonical = canonicalFor(host, pathname, search)
+  if (canonical) return NextResponse.redirect(canonical, 308)
+
+  // A page on the live domain reaches here only because the matcher below has
+  // to be wide enough to catch navigations. Nothing to add to it.
+  if (!wantsCors(pathname)) return NextResponse.next()
+
   const origin = request.headers.get('origin') ?? '*'
 
   if (request.method === 'OPTIONS') {
@@ -31,5 +51,14 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/app/:path*', '/api/photo/:path*'],
+  matcher: [
+    '/api/app/:path*',
+    '/api/photo/:path*',
+    // Every page navigation, so the retired host can hand it over. `api` is
+    // excluded here as well as in `canonicalFor`, so the bot's endpoints do
+    // not even enter this function. `_next` is left out because those are a
+    // rendered page's own asset requests, and the page that asked for them is
+    // already on the new domain.
+    '/((?!api|_next/static|_next/image|_next/data).*)',
+  ],
 }

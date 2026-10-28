@@ -115,6 +115,52 @@ OCR on a photograph is noisy, so `links_in` believes a token **only** when its
 host is one we already know sells, or when `confirmed.json` vouches for it.
 Believing OCR is how a dark account gets marked green.
 
+## The page
+
+`/funnel` in the console. The digest tells you *that* something changed; the
+page is where you go to do something about it, and it opens on **at most five
+things worth doing** rather than on sixty rows — the board it replaces carried
+the same facts and stopped being opened, because a page that opens on
+everything gets read once.
+
+The list is grouped by creator (three dark handles belonging to one model is
+one conversation) and ranked by **money, not audience**: a 500k account that
+earns nothing is not the first call of the morning. A link that vanished
+overnight goes first whatever it is worth — she can still remember doing it,
+and tomorrow it is just another dark account. Each row says whose job it is:
+`places = us` is an Iona task that needs nobody's reply, a chat client is a
+question through Patricia, everyone else is an ask.
+
+The judgement lives in `cloud/src/lib/funnel-rank.ts` with no database
+attached, so it can be tested and argued with. `funnel.ts` only fetches.
+
+### How the reading gets there
+
+The scan has to run on the Mac — Instagram refuses a logged-in session from a
+datacenter IP, and the burner has been trusted from one residential address
+for weeks. **Nothing else does.** The Mac is a sensor, not a platform: twenty
+minutes a day it reads sixty profiles and posts about 18KB up.
+
+    bin/funnel-push          # after a scan; bin/funnel-daily already calls it
+
+It carries the reading and a per-creator money summary — no fan ids, no names.
+`transcriber.funnel_readings` keeps one row per account per **day**, so a
+second scan corrects the first and "how many days was this link up" stays a
+count of rows. Until 2026-10-28 that history existed only in a folder on one
+laptop.
+
+Two things to know about the hosting, because they cost an hour to work out:
+
+- **`plan.gosianmedia.com` is the Railway deployment**, behind Cloudflare, and
+  it is canonical — Vercel redirects every *page* to it. API routes are not
+  redirected, so a push to either host lands in the same Neon database.
+- **The two hosts have different `WORKER_SECRET`s.** `FUNNEL_CLOUD_URL` and
+  `FUNNEL_WORKER_SECRET` override the pair for the days one is mid-deploy.
+
+Cloudflare refuses a request carrying urllib's default signature with error
+1010, which surfaces as a bare 403. That is what stopped the scout pass dead
+from 2026-10-27 19:00 until the clients were made to say what they are.
+
 ## Scheduling
 
 | plist | when | what |

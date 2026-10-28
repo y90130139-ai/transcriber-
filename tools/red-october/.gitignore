@@ -1,2 +1,7 @@
-# build output; board-source.html is the input that is kept
+# build outputs; board-source.html is the input that is kept
 red-october.html
+D-new.json
+igr-new.json
+asks-new.json
+ig-tally.json
+weeks.json

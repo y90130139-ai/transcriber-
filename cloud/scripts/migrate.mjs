@@ -2102,6 +2102,10 @@ const statements = [
      read_at    timestamptz not null,
      primary key (handle, read_on)
    )`,
+  // Who places her link: `us` is an Iona job that needs nobody's reply,
+  // anything else is a question for the creator. The difference decides
+  // whether a row on the page is an ask or a task.
+  `alter table transcriber.funnel_readings add column if not exists places text`,
   `create index if not exists funnel_readings_day
      on transcriber.funnel_readings (read_on desc)`,
   `create index if not exists funnel_readings_handle

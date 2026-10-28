@@ -42,7 +42,7 @@ export async function loadFunnel(): Promise<FunnelView> {
 
   const rows = await q<Reading>(
     `select r.handle, r.state, r.bio_url, r.has_story, r.highlights,
-            r.followers, r.creator, r.read_at::text as read_at,
+            r.followers, r.creator, r.places, r.read_at::text as read_at,
             p.state as was
        from transcriber.funnel_readings r
        left join transcriber.funnel_readings p

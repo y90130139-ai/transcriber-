@@ -17,6 +17,8 @@ export type Reading = {
   highlights: number | null
   followers: number | null
   creator: string | null
+  /** `us` when we place her link, anything else when she does. */
+  places: string | null
   read_at: string
   /** The state at the previous reading, when there was one. */
   was: State | null
@@ -56,10 +58,16 @@ export type Tally = {
   litFollowers: number
 }
 
-/** Who to take it to. A chat client runs her own marketing, so the only
- *  honest move is a question through Patricia — never an instruction, and
- *  never a message straight at her. */
-function ownerFor(chat: boolean | null): Action['owner'] {
+/** Who to take it to.
+ *
+ *  An account we place the link on is an Iona task that needs nobody's reply
+ *  and can be done this morning — getting this wrong turns a five-minute fix
+ *  into a message and a wait. A chat client runs her own marketing, so the
+ *  only honest move there is a question through Patricia: never an
+ *  instruction, and never a message straight at her.
+ */
+function ownerFor(places: string | null, chat: boolean | null): Action['owner'] {
+  if (places === 'us') return 'Iona'
   return chat ? 'Patricia' : 'her'
 }
 
@@ -71,7 +79,7 @@ function ownerFor(chat: boolean | null): Action['owner'] {
  *  account that earns nothing is not the first call of the morning.
  */
 export function actions(readings: Reading[], money: Record<string, Money>): Action[] {
-  const byCreator = new Map<string, { dark: string[]; vague: string[]; lost: string[]; followers: number }>()
+  const byCreator = new Map<string, { dark: string[]; vague: string[]; lost: string[]; followers: number; places: string | null }>()
 
   for (const r of readings) {
     if (!r.creator) continue
@@ -80,7 +88,9 @@ export function actions(readings: Reading[], money: Record<string, Money>): Acti
     // answers, and acting on the first asks a model about nothing.
     if (r.state === 'green' || r.state === 'unknown') continue
 
-    const e = byCreator.get(r.creator) ?? { dark: [], vague: [], lost: [], followers: 0 }
+    const e = byCreator.get(r.creator) ?? { dark: [], vague: [], lost: [], followers: 0, places: null }
+    // If any of her accounts is ours to place, the fix starts with us.
+    if (r.places === 'us') e.places = 'us'
     if (r.was === 'green') e.lost.push(r.handle)
     else if (r.state === 'red') e.dark.push(r.handle)
     else e.vague.push(r.handle)
@@ -102,17 +112,26 @@ export function actions(readings: Reading[], money: Record<string, Money>): Acti
           : 'Something is there but nothing we recognise as a selling link'
     out.push({
       creator, handles, kind, lostPerWeek, followers: e.followers,
-      owner: ownerFor(m?.chat ?? null), tier: m?.tier ?? null, why,
+      owner: ownerFor(e.places, m?.chat ?? null), tier: m?.tier ?? null, why,
     })
   }
 
-  // A link that vanished overnight outranks one dark for a month: it is still
-  // fresh enough for her to remember doing it, which is what makes the ask
-  // land. After that, money.
-  const rank = { lost: 0, dark: 1, unverified: 2 }
-  return out.sort(
-    (a, b) => rank[a.kind] - rank[b.kind] || b.lostPerWeek - a.lostPerWeek || b.followers - a.followers,
-  )
+  // A link that vanished overnight goes first whatever it is worth: it is
+  // still fresh enough for her to remember doing it, which is what makes the
+  // ask land, and tomorrow it is just another dark account.
+  //
+  // Everything after that is ranked by money, NOT by how dark it is. Sorting
+  // by kind first put a $92 dead account above one losing $3,766 a week whose
+  // only sin was an unrecognised link — the opposite of what the list is for.
+  // Kind is the tiebreak, not the key.
+  const kindRank = { lost: 0, dark: 1, unverified: 2 }
+  return out.sort((a, b) => {
+    const fresh = Number(b.kind === 'lost') - Number(a.kind === 'lost')
+    return fresh
+      || b.lostPerWeek - a.lostPerWeek
+      || kindRank[a.kind] - kindRank[b.kind]
+      || b.followers - a.followers
+  })
 }
 
 /** The headline counts.

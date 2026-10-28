@@ -6,7 +6,7 @@ import { actions, type Money, type Reading } from '../src/lib/funnel-rank'
 const reading = (over: Partial<Reading>): Reading => ({
   handle: 'someone', state: 'red', bio_url: null, has_story: false,
   highlights: 0, followers: 1000, creator: 'Someone FS',
-  read_at: '2026-10-28T06:00:00Z', was: null, ...over,
+  places: 'model', read_at: '2026-10-28T06:00:00Z', was: null, ...over,
 })
 
 const money = (over: Partial<Money> & { creator: string }): Money => ({
@@ -48,6 +48,24 @@ test('a link that vanished overnight outranks one dark for a month', () => {
   assert.equal(out[1].creator, 'Big FS')
 })
 
+test('money outranks how dark it is, once the fresh ones are past', () => {
+  // A dead account losing $92 a week must not sit above one losing $3,766
+  // whose only fault is a link we do not recognise. Kind is the tiebreak.
+  const rows = [
+    reading({ handle: 'tiny', creator: 'Tiny FS', state: 'red', followers: 2_000 }),
+    reading({ handle: 'big', creator: 'Big FS', state: 'amber', followers: 22_000 }),
+  ]
+  const m = {
+    'Tiny FS': money({ creator: 'Tiny FS', week_peak: 10_000, week_now: 800 }),
+    'Big FS': money({ creator: 'Big FS', week_peak: 600_000, week_now: 223_400 }),
+  }
+
+  const out = actions(rows, m)
+
+  assert.equal(out[0].creator, 'Big FS')
+  assert.equal(out[0].kind, 'unverified')
+})
+
 test('within a kind the ranking is money, not audience', () => {
   const rows = [
     reading({ handle: 'huge', creator: 'Quiet FS', followers: 2_000_000 }),
@@ -74,6 +92,24 @@ test('an unread account is not treated as a dark one', () => {
   // and acting on the first is how a model gets asked about nothing.
   const rows = [reading({ handle: 'unread', creator: 'Unread FS', state: 'unknown' })]
   assert.deepEqual(actions(rows, {}), [])
+})
+
+test('an account we place the link on is Iona\'s task, not a message to her', () => {
+  // Getting this wrong turns a five-minute fix into an ask and a wait.
+  const rows = [reading({ handle: 'ours', creator: 'Priscilla FS', places: 'us' })]
+
+  const out = actions(rows, { 'Priscilla FS': money({ creator: 'Priscilla FS' }) })
+
+  assert.equal(out[0].owner, 'Iona')
+})
+
+test('one account of hers being ours is enough to make it our move', () => {
+  const rows = [
+    reading({ handle: 'hers', creator: 'Both FS', places: 'model' }),
+    reading({ handle: 'ours', creator: 'Both FS', places: 'us' }),
+  ]
+
+  assert.equal(actions(rows, {})[0].owner, 'Iona')
 })
 
 test('a chat client is routed to Patricia, never messaged as a creator', () => {

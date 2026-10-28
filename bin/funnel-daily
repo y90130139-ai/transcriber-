@@ -16,3 +16,8 @@ cd "$ROOT"
 echo "=== $(date '+%Y-%m-%d %H:%M') funnel daily ==="
 "$ROOT/.venv/bin/python" -m src.funnel scan
 "$ROOT/.venv/bin/python" -m src.funnel_alerts --send
+# The page is the other half of the digest, and it is worth less than nothing
+# if it shows yesterday. `|| true` because a push that cannot reach the cloud
+# must not make the morning look like a failed scan — the reading is already
+# taken, stored and sent by this point.
+"$ROOT/.venv/bin/python" -m src.funnel_push || true

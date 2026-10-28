@@ -93,6 +93,13 @@ def push(day: str = "", log=print) -> int:
         (r.get("read_at") or "")[:10] for r in records
     ) or time.strftime("%Y-%m-%d")
 
+    # Join on the Infloww account name, not the IG board's label for her. The
+    # reading calls her "Milkysins" and the money calls her "Milky Sins FS";
+    # sending the first leaves every row on the page without a dollar figure,
+    # which is the one thing the list is ranked by. The roster carries both.
+    entries = {e["handle"]: e for e in funnel.roster(root)}
+    accounts = {h: e.get("account") for h, e in entries.items()}
+
     payload = {
         "day": day,
         "records": [
@@ -102,14 +109,27 @@ def push(day: str = "", log=print) -> int:
                 "has_story": bool(r.get("has_story")),
                 "highlights": r.get("highlights"), "followers": r.get("followers"),
                 "is_private": bool(r.get("is_private")),
-                "creator": r.get("creator"), "read_at": r.get("read_at"),
+                "creator": accounts.get(r["handle"]) or r.get("creator"),
+                # `us` or `model`: whether the page reads as an Iona task or a
+                # question for her.
+                "places": (entries.get(r["handle"]) or {}).get("places"),
+                "read_at": r.get("read_at"),
             }
             for r in records
         ],
         "money": _money_rows(day),
     }
 
+    # The app runs in two places behind two secrets — Railway on
+    # plan.gosianmedia.com, Vercel on transcriber-ten-zeta — and they share one
+    # Neon database, so a reading posted to either is visible from both. The
+    # override exists for the days one of them is mid-deploy.
     cloud, _ = scout._settings()
+    base = os.environ.get("FUNNEL_CLOUD_URL")
+    secret = os.environ.get("FUNNEL_WORKER_SECRET")
+    if base and secret:
+        cloud = scout.Cloud(base, secret)
+        log("posting to {} (override)".format(base))
     try:
         out = cloud.post("/api/funnel", payload)
     except Exception as error:

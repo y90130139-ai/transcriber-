@@ -29,6 +29,7 @@ type Incoming = {
   followers?: unknown
   is_private?: unknown
   creator?: unknown
+  places?: unknown
   read_at?: unknown
 }
 
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
       handle, day, state,
       str(r.bio_funnel) ?? str(r.bio_maybe),
       bool(r.has_story), num(r.highlights), num(r.followers), bool(r.is_private),
-      str(r.creator), str(r.read_at) ?? new Date().toISOString(),
+      str(r.creator), str(r.places), str(r.read_at) ?? new Date().toISOString(),
     ])
   }
   if (!rows.length) return NextResponse.json({ error: 'nothing readable', refused }, { status: 400 })
@@ -117,20 +118,21 @@ export async function POST(request: Request) {
   // One statement, so a half-written day cannot happen.
   const values = rows
     .map((_, i) => {
-      const b = i * 10
-      return `($${b + 1},$${b + 2}::date,$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10}::timestamptz)`
+      const b = i * 11
+      return `($${b + 1},$${b + 2}::date,$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11}::timestamptz)`
     })
     .join(',')
   await sql.query(
     `insert into transcriber.funnel_readings
        (handle, read_on, state, bio_url, has_story, highlights, followers,
-        is_private, creator, read_at)
+        is_private, creator, places, read_at)
      values ${values}
      on conflict (handle, read_on) do update set
        state = excluded.state, bio_url = excluded.bio_url,
        has_story = excluded.has_story, highlights = excluded.highlights,
        followers = excluded.followers, is_private = excluded.is_private,
-       creator = excluded.creator, read_at = excluded.read_at`,
+       creator = excluded.creator, places = excluded.places,
+       read_at = excluded.read_at`,
     rows.flat() as never[],
   )
 

@@ -32,6 +32,9 @@ create table if not exists transcriber.funnel_readings (
   followers     bigint,
   is_private    boolean,
   creator       text,
+  -- `us` is an Iona job that needs nobody's reply; anything else is a
+  -- question for the creator.
+  places        text,
   read_at       timestamptz not null,
   primary key (handle, read_on)
 );

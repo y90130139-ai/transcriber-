@@ -149,18 +149,44 @@ second scan corrects the first and "how many days was this link up" stays a
 count of rows. Until 2026-10-28 that history existed only in a folder on one
 laptop.
 
-Two things to know about the hosting, because they cost an hour to work out:
+Five things to know about the hosting, because they cost an hour to work out:
 
-- **`plan.gosianmedia.com` is canonical and its origin is not recorded
-  anywhere.** `src/middleware.ts` hands every *page* on the retired Vercel
-  host over to it; `/api/*` is exempt, which is why a reading can be pushed to
-  the Vercel host and still land in the same Neon database. As of 2026-10-28
-  the origin is **not** the `sinauraco-s-projects` Vercel team (which holds
-  only `sinauraco.com`) and **not** the Railway `transcriber` project (whose
-  services are `film-instructions`, `bin-worker`, `studio-worker`, `worker` —
-  the Python side). Cloudflare fronts it with no `cf-cache-status`, so the
-  origin is masked. **Whoever next deploys the console needs to know where it
-  goes; write it here when you find out.**
+- **`plan.gosianmedia.com` is a Cloudflare Worker: `transcriber-cloud`, the
+  Next.js app bundled by OpenNext.** `src/middleware.ts` hands every *page* on
+  the retired Vercel host over to it; `/api/*` is exempt, which is why a
+  reading can be pushed to the Vercel host and still land in the same Neon
+  database. The response header `x-opennext: 1` beside `server: cloudflare` is
+  the tell. The custom domain is claimed in `cloud/wrangler.jsonc`, so a
+  `wrangler deploy` of that Worker replaces what the browser sees.
+- **That wrangler config is not on `main`.** It lives only on
+  `feat/video-batcher-rust-cloud`, pushed but never merged, which is why the
+  repo looks like it has no Cloudflare deployment at all and why finding this
+  cost an hour on 2026-10-28. The live Worker is built from that branch: it
+  serves the cloud video-batcher and 404s `/funnel`. **Deploying `main` on its
+  own would take the video-batcher runner off production, and deploying that
+  branch on its own leaves the funnel page missing.** Until the two are joined
+  on `main`, a deploy is a merge of both:
+
+      git worktree add -b deploy/<date> <tmp> main
+      cd <tmp> && git merge origin/feat/video-batcher-rust-cloud
+      git checkout main -- cloud/vercel.json cloud/railway.json   # the branch drops them
+      cd cloud && cp ~/projects/social-transcriber/cloud/.env.local .
+      npm ci && npm test && npm run cf:build && npx wrangler deploy
+
+  A worktree, not the checkout, because the bundle is built from the working
+  directory and a second session's half-finished file would ship with it.
+  The merge is clean and `npm test` is 387 green, verified 2026-10-28.
+- **Deploying needs Cloudflare credentials that expire.** `wrangler` keeps an
+  OAuth token in `~/Library/Preferences/.wrangler/config/default.toml` and
+  refreshes it on any command; once the refresh itself lapses only an
+  interactive `npx wrangler login` (or a `CLOUDFLARE_API_TOKEN` in the
+  environment) will do, because Claude Code's shell has no terminal to answer
+  the browser prompt. `wrangler deploy --dry-run` needs no credentials and
+  still proves the bundle and the bindings, so run that before asking.
+- **Worker secrets survive a deploy; plaintext `vars` do not.** Everything in
+  `wrangler.jsonc`'s `vars` block replaces what is on the Worker, and anything
+  set as a secret (`DATABASE_URL`, `WORKER_SECRET`, `SESSION_SECRET`, …) is
+  left alone. Do not move a secret into that file to "keep it with the code".
 - **The two hosts have different `WORKER_SECRET`s.** `FUNNEL_CLOUD_URL` and
   `FUNNEL_WORKER_SECRET` override the pair for the days one is mid-deploy.
 

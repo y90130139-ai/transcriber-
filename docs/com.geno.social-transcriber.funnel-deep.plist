@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.geno.social-transcriber.funnel-deep</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/geno/projects/social-transcriber/bin/funnel-deep</string>
+		<string>--apply</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-funnel-deep.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/geno/Library/Logs/social-transcriber-funnel-deep.log</string>
+	<!-- Wednesday 14:00, once a week, and never more often. Every highlight it
+	     opens is a view the creator can see from the burner; a dozen a week is
+	     ordinary, sixty a day is not. Midweek and midday so it is nowhere near
+	     the 08:00 digest or the 19:00 scout pass. -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key>
+		<integer>3</integer>
+		<key>Hour</key>
+		<integer>14</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>/Users/geno/projects/social-transcriber</string>
+</dict>
+</plist>

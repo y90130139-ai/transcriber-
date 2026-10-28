@@ -1,0 +1,26 @@
+from playwright.sync_api import sync_playwright
+import pathlib
+f = pathlib.Path('red-october.html').resolve().as_uri()
+errs, logs = [], []
+with sync_playwright() as p:
+    b = p.chromium.launch()
+    pg = b.new_page()
+    pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.on('console', lambda m: logs.append(m.type + ': ' + m.text[:200]))
+    pg.goto(f, wait_until='domcontentloaded')
+    pg.wait_for_timeout(2500)
+    rows = pg.eval_on_selector_all('#igtable tbody tr', 'els => els.length')
+    band = pg.eval_on_selector('#band', 'e => e.innerHTML.length')
+    q = pg.eval_on_selector_all('#queue li', 'els => els.length')
+    gp = pg.eval_on_selector_all('#gpbody tr', 'els => els.length')
+    ct = pg.eval_on_selector_all('#cttable tbody tr', 'els => els.length')
+    print('igtable rows :', rows)
+    print('band html len:', band)
+    print('queue items  :', q)
+    print('gameplan rows:', gp)
+    print('contact rows :', ct)
+    b.close()
+print('--- page errors ---')
+for e in errs: print(' ', e[:400])
+print('--- console ---')
+for l in logs[:10]: print(' ', l)

@@ -31,7 +31,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import alerts, config, scout_accounts, scout_browser, scout_ig
+from . import alerts, config, funnel, scout_accounts, scout_browser, scout_ig
 
 BACKFILL_REELS = 30
 REFRESH_REELS = 30
@@ -336,6 +336,24 @@ def daily() -> int:
     if stopped:
         log(f"  stopped early: {stopped}")
         _handle_stop(stopped)
+
+    # The funnel reading travels on the same header the story check just
+    # fetched, so it costs no extra request. Strip it before the snapshots go
+    # anywhere — see src/funnel.py for what it is and why it runs daily.
+    readings = []
+    known_hosts = funnel.confirmed_hosts(config.DEFAULT_OUT_DIR)
+    for snap in snapshots:
+        carried = snap.pop("_funnel", None)
+        if carried is not None:
+            merged = dict(snap)
+            merged.update(carried)
+            readings.append(funnel.assess(merged, known_hosts))
+    if readings:
+        before = funnel.previous(config.DEFAULT_OUT_DIR)
+        funnel.store(readings, config.DEFAULT_OUT_DIR)
+        events = funnel.transitions(before, readings)
+        for line in funnel.digest(readings, events).splitlines():
+            log("  " + line)
 
     written = 0
     for index in range(0, len(snapshots), CHUNK) or [0]:

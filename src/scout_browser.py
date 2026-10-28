@@ -122,6 +122,14 @@ def to_snapshot(profile: dict, handle: str) -> dict:
         "highlights": len(((profile.get("highlights") or {}).get("edges")) or []),
         "is_private": profile.get("is_private"),
         "is_verified": profile.get("is_verified"),
+        # Rides along for the funnel reading and is stripped before the snapshot
+        # is posted — the ingest contract knows nothing about it. See
+        # src/funnel.py. The keys are always present because a bio that was
+        # never read and a bio with no link in it are different answers.
+        "_funnel": {
+            "external_url": profile.get("external_url"),
+            "bio_links": profile.get("bio_links") or [],
+        },
     }
 
 
@@ -177,6 +185,12 @@ class Reader:
         # the saved state means a hand-refreshed session always wins.
         self._ctx.add_cookies(_cookies(path))
         self._want = ""
+
+    def new_page(self):
+        """A blank page on this session, for callers that need more than a
+        header read — the funnel deep pass opens highlights here rather than
+        standing up a second browser on the same burner."""
+        return self._ctx.new_page()
 
     def _save(self) -> None:
         """Keep whatever Instagram handed back, so the next run starts fresher

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# The whole morning job: read every roster funnel, then send Geno the digest.
+#
+# Kept as one script so the scheduler has one thing to call and so the alert
+# can never run against a stale reading — if the scan fails, nothing is sent,
+# because a cheerful "0 dark" built from yesterday's file is worse than silence.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+echo "=== $(date '+%Y-%m-%d %H:%M') funnel daily ==="
+"$ROOT/.venv/bin/python" -m src.funnel scan
+"$ROOT/.venv/bin/python" -m src.funnel_alerts --send

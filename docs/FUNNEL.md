@@ -151,9 +151,16 @@ laptop.
 
 Two things to know about the hosting, because they cost an hour to work out:
 
-- **`plan.gosianmedia.com` is the Railway deployment**, behind Cloudflare, and
-  it is canonical — Vercel redirects every *page* to it. API routes are not
-  redirected, so a push to either host lands in the same Neon database.
+- **`plan.gosianmedia.com` is canonical and its origin is not recorded
+  anywhere.** `src/middleware.ts` hands every *page* on the retired Vercel
+  host over to it; `/api/*` is exempt, which is why a reading can be pushed to
+  the Vercel host and still land in the same Neon database. As of 2026-10-28
+  the origin is **not** the `sinauraco-s-projects` Vercel team (which holds
+  only `sinauraco.com`) and **not** the Railway `transcriber` project (whose
+  services are `film-instructions`, `bin-worker`, `studio-worker`, `worker` —
+  the Python side). Cloudflare fronts it with no `cf-cache-status`, so the
+  origin is masked. **Whoever next deploys the console needs to know where it
+  goes; write it here when you find out.**
 - **The two hosts have different `WORKER_SECRET`s.** `FUNNEL_CLOUD_URL` and
   `FUNNEL_WORKER_SECRET` override the pair for the days one is mid-deploy.
 

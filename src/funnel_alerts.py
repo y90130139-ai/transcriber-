@@ -166,9 +166,12 @@ def keyboard(records, events, state=None, today: str = ""):
     rows = [[
         {"text": "👍 Got it", "callback_data": "{}:ack:{}".format(CB_PREFIX, today or time.strftime("%Y%m%d"))},
     ]]
-    for event in (events or [])[:5]:
-        if event.get("event") != "went_dark":
-            continue
+    # Pick the lost links out first, then cap. Capping the event list before
+    # filtering is how the first real scan produced no ask button at all: it
+    # reported all sixty accounts as changed from unknown, and the one link
+    # that had actually gone was fifteenth in the list.
+    lost = [e for e in (events or []) if e.get("event") == "went_dark"]
+    for event in lost[:5]:
         handle = event["handle"][:40]
         rows.append([
             {"text": "📨 Ask @{}".format(handle), "callback_data": "{}:ask:{}".format(CB_PREFIX, handle)},

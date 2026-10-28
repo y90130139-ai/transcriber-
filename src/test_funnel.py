@@ -262,6 +262,36 @@ class AlertTests(unittest.TestCase):
         self.assertIn("📨 Ask @jane", labels)
         self.assertNotIn("📨 Ask @olddark", labels)
 
+    def test_a_lost_link_still_gets_its_button_behind_a_crowd_of_other_events(self):
+        """The first real scan reports every account as changed from unknown.
+
+        On 2026-10-28 that was 51 events, and the one that mattered - Rae's
+        link.me gone from her bio - sat fifteenth. The cap on ask buttons was
+        being applied to the whole event list before the lost links were
+        picked out of it, so the only account worth asking got no button.
+        """
+        from . import funnel_alerts
+        noise = [{"handle": "acct%02d" % i, "event": "changed",
+                  "from": funnel.UNKNOWN, "to": funnel.AMBER} for i in range(20)]
+        events = noise[:14] + [{"handle": "rae", "event": "went_dark",
+                                "lost": "link.me/cutesugarraex"}] + noise[14:]
+
+        markup = funnel_alerts.keyboard([], events, {}, "20261028")
+        labels = [b["text"] for row in markup["inline_keyboard"] for b in row]
+
+        self.assertIn("📨 Ask @rae", labels)
+
+    def test_the_ask_buttons_are_still_capped(self):
+        from . import funnel_alerts
+        events = [{"handle": "h%d" % i, "event": "went_dark", "lost": "x"}
+                  for i in range(12)]
+
+        markup = funnel_alerts.keyboard([], events, {}, "20261028")
+        asks = [b for row in markup["inline_keyboard"] for b in row
+                if b["text"].startswith("📨")]
+
+        self.assertEqual(len(asks), 5)
+
     def test_callback_data_fits_telegram_s_limit(self):
         from . import funnel_alerts
         events = [{"handle": "a" * 40, "event": "went_dark", "lost": "x"}]

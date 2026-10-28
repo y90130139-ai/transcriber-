@@ -144,7 +144,9 @@ def _cloud(method: str, path: str, payload: dict | None = None) -> dict:
     request = urllib.request.Request(
         f"{base}{path}", method=method,
         data=json.dumps(payload).encode() if payload is not None else None,
-        headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json",
+                 # Cloudflare refuses urllib's default signature with a 1010.
+                 "User-Agent": "social-transcriber-viewer/1.0 (+plan.gosianmedia.com)"},
     )
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.loads(response.read())

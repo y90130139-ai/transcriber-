@@ -60,6 +60,7 @@ export const PAGES: PageDef[] = [
   { key: 'reddit_trends', label: 'Reddit Trends', href: '/reddit-trends', group: 'Research' },
   { key: 'sounds', label: 'Trending Sounds', href: '/sounds', group: 'Research' },
 
+  { key: 'funnel', label: 'Funnel', href: '/funnel', group: 'Creators' },
   { key: 'models', label: 'Models', href: '/models', group: 'Creators' },
   { key: 'creators', label: 'Creators', href: '/creators', group: 'Creators' },
   { key: 'watchlists', label: 'Watchlists', href: '/watchlist', group: 'Creators' },

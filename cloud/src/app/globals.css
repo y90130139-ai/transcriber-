@@ -4,6 +4,7 @@
 @import './dashboard.css';
 @import './trends.css';
 @import './earnings.css';
+@import './funnel.css';
 /* Reddit Trends — the section's own surfaces, scoped to `.rt`. */
 @import './reddit.css';
 /* The console's app frame — sidebar rail, top bar, the framed page. Scoped to

@@ -48,6 +48,11 @@ FLUSH_AT = 200
 DEFAULT_MAX_USD = 5.0
 REQUEST_TIMEOUT_SEC = 120.0
 POST_ATTEMPTS = 4
+# Cloudflare sits in front of plan.gosianmedia.com and refuses a request that
+# arrives with urllib's default signature — error 1010, which reads as a 403
+# from the app and stopped the daily pass dead from 2026-10-27. Saying plainly
+# what this is fixes it; the worker has always done so (worker.py WORKER_UA).
+CLOUD_UA = "social-transcriber-scout/1.0 (+plan.gosianmedia.com)"
 
 
 def log(message: str) -> None:
@@ -76,7 +81,9 @@ class Cloud:
             f"{self.base}{path}",
             data=json.dumps(payload).encode(),
             method="POST",
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.secret}"},
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {self.secret}",
+                     "User-Agent": CLOUD_UA},
         )
         try:
             with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SEC) as response:

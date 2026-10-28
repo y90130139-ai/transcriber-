@@ -2079,6 +2079,59 @@ const statements = [
      add column if not exists client_stage_name        text,
      add column if not exists later_service_start_date text,
      add column if not exists agreement_sent_at        timestamptz`,
+
+  // Whether each model's traffic has somewhere to land (2026-10-28). The scan
+  // runs on Geno's Mac — Instagram refuses a logged-in session from a
+  // datacenter IP — and posts the day up here. One row per account per DAY,
+  // so a second scan corrects the first and "how many days was this link up"
+  // stays a count of rows. See schema/funnel.sql for the full commentary.
+  //
+  // `state` is green (a known selling link, proven) | amber (something might
+  // carry one) | red (nothing on any surface) | unknown (the bio was not in
+  // the payload — NOT the same as empty, and the distinction is the point).
+  `create table if not exists transcriber.funnel_readings (
+     handle     text        not null,
+     read_on    date        not null,
+     state      text        not null,
+     bio_url    text,
+     has_story  boolean,
+     highlights int,
+     followers  bigint,
+     is_private boolean,
+     creator    text,
+     read_at    timestamptz not null,
+     primary key (handle, read_on)
+   )`,
+  `create index if not exists funnel_readings_day
+     on transcriber.funnel_readings (read_on desc)`,
+  `create index if not exists funnel_readings_handle
+     on transcriber.funnel_readings (handle, read_on desc)`,
+
+  // A host a human has confirmed sells. An unrecognised domain reads amber
+  // because one 348K bio held a press article about a jeweller.
+  `create table if not exists transcriber.funnel_confirmed_hosts (
+     host         text primary key,
+     confirmed_at timestamptz not null default now(),
+     note         text
+   )`,
+
+  // The money beside the link, so the funnel page ranks what to do by what it
+  // is worth rather than by follower count. The Infloww mirror stays on the
+  // Mac; only this summary travels, and it carries no fan ids or names.
+  `create table if not exists transcriber.roster_money (
+     creator   text not null,
+     read_on   date not null,
+     chat      boolean,
+     tier      text,
+     sep_full  bigint,
+     oct_net   bigint,
+     gap       bigint,
+     week_now  bigint,
+     week_peak bigint,
+     primary key (creator, read_on)
+   )`,
+  `create index if not exists roster_money_day
+     on transcriber.roster_money (read_on desc)`,
 ]
 
 for (const statement of statements) {

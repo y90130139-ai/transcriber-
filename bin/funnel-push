@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Send the day's funnel reading and money summary to the cloud.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$ROOT"
+exec "$ROOT/.venv/bin/python" -m src.funnel_push "$@"

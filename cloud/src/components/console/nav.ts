@@ -66,6 +66,9 @@ export const TABS: NavTab[] = [
       {
         id: 'creators', label: 'Creator Management',
         items: [
+          // First in the section on purpose: it is the page that says what to
+          // do today, and the others are reference beside it.
+          { href: '/funnel', label: 'Funnel', icon: 'trending' },
           { href: '/models', label: 'Models', icon: 'userCheck' },
           { href: '/creators', label: 'Creators', icon: 'users' },
           { href: '/watchlist', label: 'Watchlists', icon: 'eye' },

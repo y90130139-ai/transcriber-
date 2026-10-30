@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { addDays, dayOf, daysBetween, emptyDay, foldDays, startOfDay, type Day, type RawTxn } from '../src/lib/earnings/days'
 import { nextWindow, windowEnd } from '../src/lib/earnings/window'
 import { dayDrop, dense, median, money, weeklyNumbers, weeklyText, winFor, winText } from '../src/lib/earnings/report'
+import { milestoneText, recapText, type Milestone, type Recap } from '../src/lib/earnings/monthly'
 
 const at = (iso: string) => String(Date.parse(iso))
 const txn = (over: Partial<RawTxn>): RawTxn => ({
@@ -161,4 +162,41 @@ test('only a clean pull made today, reaching yesterday, counts as current', asyn
   assert.equal(isCurrent({ ...ok, pull_error: 'Infloww 500' }, '2026-09-30'), false)
   assert.equal(isCurrent({ ...ok, pulled_at: '2026-09-29T13:05:00Z', pulled_through: '2026-09-29' }, '2026-09-30'), false, 'yesterday partial from the run before')
   assert.equal(isCurrent({ ...ok, missing_since: '2026-09-30T00:00:00Z' }, '2026-09-30'), false)
+})
+
+test('nothing a creator reads ever says "net" or explains the 20% fee', () => {
+  // Geno, 2026-10-29: "it shows milestones for certain models and then it shows
+  // 20% net and that makes no sense... we do not want net anything to be
+  // displayed because it confused models and i took this out originally and
+  // its still there which is so damn annoying."
+  //
+  // The figures stay exactly as they are - they are what she is actually paid.
+  // What goes is the label and the footnote: calling the number "net" and then
+  // explaining OnlyFans' cut invites a question about a number she cannot
+  // change, in a message whose whole job is to say well done.
+  const history = [...daysBetween('2026-09-01', '2026-09-28').map((day) => ({ ...emptyDay(day), net: 10_000, txns: 1 }))]
+  const week = weeklyNumbers(history, '2026-09-21', '2026-09-01')
+  const win = winFor(history, '2026-09-28', 15_000, '2026-09-01')
+  const recap: Recap = {
+    month: '2026-09-01', net: 280_000, change: 12, subs: 40, renewals: 12, streak: 3, record: true,
+    bestWeek: { from: '2026-09-07', to: '2026-09-13', net: 90_000 }, split: [], provisional: false,
+  }
+  const milestones: Milestone[] = [{ code: 'record', line: '🏆 You just beat your best month on record: $2,800 so far in September!' }]
+
+  const texts = [
+    weeklyText(week, 'seed'),
+    recapText(recap),
+    milestoneText(milestones),
+    ...(win ? [winText(win, 'seed')] : []),
+  ]
+  assert.ok(texts.length >= 3, 'every creator-facing builder is covered')
+  for (const text of texts) {
+    assert.ok(!/\bnet\b/i.test(text), `a creator would read "net" in: ${text}`)
+    assert.ok(!/20\s*%/.test(text), `a creator would read the 20% fee in: ${text}`)
+    assert.ok(!/fee/i.test(text), `a creator would read about a fee in: ${text}`)
+  }
+  // The numbers themselves are untouched - this is a wording change, not a
+  // maths change.
+  assert.match(weeklyText(week, 'seed'), /💰 Earnings: \$700/)
+  assert.match(recapText(recap), /💰 \$2,800, up 12% on August/)
 })

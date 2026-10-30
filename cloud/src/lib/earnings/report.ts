@@ -13,7 +13,12 @@
  *            At most two a week, so they stay special.
  *   drops    a week or a day down more than 25% goes to OPS only, never to her.
  *
- * All amounts are net: after OnlyFans' 20% fee, and labelled so.
+ * All amounts are the creator's own net - after OnlyFans' 20% fee - and are
+ * NEVER labelled as net to her. Geno, 2026-10-29: the word and the fee
+ * footnote confused models, he had taken them out once before and they had
+ * come back. The figure is what she is paid; calling it "net" and explaining
+ * the cut invites a question about a number she cannot change. A test asserts
+ * no creator-facing builder says it.
  */
 import { addDays, daysBetween, emptyDay, type Day, type TxnType } from './days'
 
@@ -216,7 +221,7 @@ function toneOf(n: WeeklyNumbers): keyof typeof LINES {
 export function weeklyText(n: WeeklyNumbers, seed: string): string {
   const lines: string[] = [`📊 Your week, {name} (${shortDay(n.from)} – ${shortDay(n.to)})`, '']
   const vs = n.change === null ? '' : n.change === 0 ? ', same as last week' : n.change > 0 ? `, up ${n.change}% on last week` : `, down ${Math.abs(n.change)}% on last week`
-  lines.push(`💰 Net earnings: ${money(n.net)}${vs}`)
+  lines.push(`💰 Earnings: ${money(n.net)}${vs}`)
   if (n.best) lines.push(`⭐ Best day: ${niceDay(n.best.day)}, ${money(n.best.net)}`)
   if (n.split.length) lines.push(`🧾 Where it came from: ${n.split.map((s) => `${TYPE_WORD[s.type]} ${s.share}%`).join(' · ')}`)
   lines.push(`👥 New subs ${n.subs} · Renewals ${n.renewals}`)
@@ -237,7 +242,7 @@ export function winText(w: Win, seed: string): string {
   const vs = w.multiple !== null && w.multiple >= 1.2
     ? ` That is ${w.multiple}× your usual day (${money(w.usual)}).`
     : ''
-  const lines = [head, '', `💰 ${money(w.net)} net.${vs}`]
+  const lines = [head, '', `💰 ${money(w.net)}.${vs}`]
   if (w.provisional) lines.push('', 'Some of it is still settling with OnlyFans, so the final figure may move a little.')
   return lines.join('\n')
 }

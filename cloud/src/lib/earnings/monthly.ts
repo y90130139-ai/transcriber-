@@ -113,7 +113,7 @@ const TYPE_WORD: Record<TxnType, string> = {
 export function recapText(r: Recap): string {
   const lines = [`🗓 Your ${monthName(r.month)}, {name}`, '']
   const vs = r.change === null ? '' : r.change === 0 ? `, level with ${monthName(prevMonth(r.month))}` : r.change > 0 ? `, up ${r.change}% on ${monthName(prevMonth(r.month))}` : `, down ${Math.abs(r.change)}% on ${monthName(prevMonth(r.month))}`
-  lines.push(`💰 ${money(r.net)} net${vs}`)
+  lines.push(`💰 ${money(r.net)}${vs}`)
   if (r.bestWeek) lines.push(`⭐ Best week: ${shortDay(r.bestWeek.from)} – ${shortDay(r.bestWeek.to)}, ${money(r.bestWeek.net)}`)
   if (r.split.length) lines.push(`🧾 ${r.split.map((s) => `${TYPE_WORD[s.type]} ${s.share}%`).join(' · ')}`)
   lines.push(`👥 ${r.subs} new subs · ${r.renewals} renewals`)
@@ -168,5 +168,5 @@ export function milestonesFor(history: Day[], day: string, historyStart: string,
 }
 
 export function milestoneText(ms: Milestone[]): string {
-  return [`🎉 Milestone, {name}!`, '', ...ms.map((m) => m.line), '', `Net = after OnlyFans' 20% fee.`].join('\n')
+  return [`🎉 Milestone, {name}!`, '', ...ms.map((m) => m.line)].join('\n')
 }

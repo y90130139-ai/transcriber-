@@ -14,10 +14,10 @@ One pass:
      signed CDN link with days left on it;
   5. close the run with the numbers, sleep, repeat.
 
-Environment (Railway service variables):
+Environment (Railway service variables, or Vercel daemon bindings):
 
-  CLOUD_URL            https://plan.gosianmedia.com  (the default; override
-                       only for staging)
+  CLOUD_URL            base URL of the cloud app. The Vercel `worker` daemon
+                       binding injects this; on Railway set it explicitly.
   WORKER_SECRET        the same bearer the Mac worker uses (required)
   AGENTMAIL_API_KEY    am_…   (reads the OFM Pro one-time code/link)
   AGENTMAIL_INBOX      submitbear-nora@agentmail.to
@@ -63,7 +63,7 @@ from alert import alert, report as discord_report
 from ofmpro import WorkerStopped, ensure_session, fetch_medias, open_browser
 from schedule import finish_sweep, select_sweep
 
-CLOUD = os.environ.get("CLOUD_URL", "https://plan.gosianmedia.com").rstrip("/")
+CLOUD = os.environ.get("CLOUD_URL", "").rstrip("/")
 SECRET = os.environ.get("WORKER_SECRET", "")
 PLATFORMS = ("instagram", "tiktok", "twitter")
 LOOP_SEC = int(os.environ.get("LOOP_SEC", str(6 * 3600)))

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "cloud": {
+      "root": "cloud/",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "cloud"
+      }
+    }
+  ],
+  "daemons": {
+    "worker": {
+      "root": "worker/",
+      "entrypoint": "Dockerfile",
+      "instances": {
+        "iad1": 1
+      },
+      "bindings": [
+        {
+          "type": "service",
+          "service": "cloud",
+          "format": "url",
+          "env": "CLOUD_URL"
+        }
+      ]
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/earnings/pull",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}

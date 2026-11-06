@@ -176,9 +176,9 @@ test('nothing a creator reads ever says "net" or explains the 20% fee', () => {
   // change, in a message whose whole job is to say well done.
   const history = [...daysBetween('2026-09-01', '2026-09-28').map((day) => ({ ...emptyDay(day), net: 10_000, txns: 1 }))]
   const week = weeklyNumbers(history, '2026-09-21', '2026-09-01')
-  const win = winFor(history, '2026-09-28', 15_000, '2026-09-01')
+  const win = winFor(history, '2026-09-28', '2026-09-01', 15_000)
   const recap: Recap = {
-    month: '2026-09-01', net: 280_000, change: 12, subs: 40, renewals: 12, streak: 3, record: true,
+    month: '2026-09-01', net: 280_000, prevNet: 250_000, change: 12, subs: 40, renewals: 12, streak: 3, record: true,
     bestWeek: { from: '2026-09-07', to: '2026-09-13', net: 90_000 }, split: [], provisional: false,
   }
   const milestones: Milestone[] = [{ code: 'record', line: '🏆 You just beat your best month on record: $2,800 so far in September!' }]

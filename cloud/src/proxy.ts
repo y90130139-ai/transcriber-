@@ -24,7 +24,7 @@ const CORS_SCOPES = ['/api/app', '/api/photo']
 const wantsCors = (pathname: string) =>
   CORS_SCOPES.some((scope) => pathname === scope || pathname.startsWith(`${scope}/`))
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
   // The retired Vercel host hands every page over to plan.gosianmedia.com
